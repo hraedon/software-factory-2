@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "software-factory-2"
+version = "0.1.0"
+description = "Autonomous pipeline for producing functional software from a specification"
+requires-python = ">=3.11"
+dependencies = [
+    "substrate>=0.1.0",
+    "structlog>=24.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+factory-run = "factory.runner:main"
+factory-gate = "factory.gate_process:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/factory"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "slow: scale and integration tests, skipped by default",
+    "integration: requires running Postgres + substrate",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
