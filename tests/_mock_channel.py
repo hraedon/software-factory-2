@@ -35,6 +35,15 @@ class MockChannel:
     ) -> InvocationResult:
         self._call_log.append((role, prompt, inputs_dir, outputs_dir))
 
+        if role in self._fail_at_attempt:
+            call_index = sum(1 for c in self._call_log if c[0] == role)
+            if call_index == self._fail_at_attempt[role]:
+                return InvocationResult(
+                    success=False,
+                    error_message=f"scripted_failure on attempt {call_index}",
+                    exit_code=1,
+                )
+
         fixture_dir = self._fixtures_dir / role
         cannot_proceed = fixture_dir / "cannot_proceed.json"
         if cannot_proceed.exists():

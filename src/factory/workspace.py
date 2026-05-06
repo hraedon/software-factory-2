@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -45,12 +46,12 @@ def write_artifact(
     dest = attempt_path / artifact_name
     tmp = attempt_path / f".{artifact_name}.tmp"
     tmp.write_bytes(data)
-    tmp.rename(dest)
+    os.replace(tmp, dest)
     manifest_data = json.dumps(manifest.__dict__, indent=2, sort_keys=True)
     manifest_tmp = attempt_path / f".{MANIFEST_FILENAME}.tmp"
     manifest_tmp.write_text(manifest_data)
     manifest_dest = attempt_path / MANIFEST_FILENAME
-    manifest_tmp.rename(manifest_dest)
+    os.replace(manifest_tmp, manifest_dest)
     return dest
 
 
@@ -119,7 +120,7 @@ def quarantine_attempt(attempt_path: Path) -> Path:
     timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     attempt_name = attempt_path.name
     dest = corrupt_dir / f"{attempt_name}-{timestamp}"
-    attempt_path.rename(dest)
+    os.replace(attempt_path, dest)
     return dest
 
 

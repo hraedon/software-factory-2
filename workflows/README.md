@@ -10,9 +10,13 @@ Both Phase 1 and the full pipeline use the same 4-state lifecycle:
 new ──claim──▶ in_progress ──submit──▶ gating ──gate_pass──▶ locked
   ▲                                        │                 (terminal)
   └──────────────gate_fail─────────────────┘
+  
+in_progress ──cannot_proceed──▶ cannot_proceed (terminal)
 ```
 
 Every work-item progresses linearly: `new → in_progress → gating → locked`. On gate failure, the item returns to `new` for re-claim. The `attempt_threshold` (3) triggers substrate's escalation mechanism — after 3 claim attempts, `needs_review=true` and an `escalated` event fires. The runner monitors this flag and surfaces to the principal.
+
+The `cannot_proceed` state is terminal. When a channel returns structured failure (spec §6 — ambiguous spec), the runner transitions directly from `in_progress` to `cannot_proceed`, bypassing the gate entirely. This prevents infinite retry loops on genuinely unworkable specs.
 
 ### Why this shape
 

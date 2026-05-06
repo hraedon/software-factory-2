@@ -7,3 +7,5 @@ dist/
 build/
 .venv/
 *.egg
+.factory/work/
+.ruff_cache/

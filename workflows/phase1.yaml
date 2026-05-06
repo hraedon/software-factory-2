@@ -9,6 +9,8 @@ states:
   - name: gating
   - name: locked
     terminal: true
+  - name: cannot_proceed
+    terminal: true
 
 transitions:
   - name: claim
@@ -19,6 +21,11 @@ transitions:
   - name: submit
     from: in_progress
     to: gating
+    allowed_roles: [interface_architect]
+
+  - name: cannot_proceed
+    from: in_progress
+    to: cannot_proceed
     allowed_roles: [interface_architect]
 
   - name: gate_pass

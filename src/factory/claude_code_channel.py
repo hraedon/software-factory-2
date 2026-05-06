@@ -113,6 +113,4 @@ class ClaudeCodeChannel:
             )
 
     def _detect_artifact_type(self, content: str) -> str:
-        if content.strip().startswith("from ") or content.strip().startswith("import "):
-            return "artifact.pyi"
         return "artifact.pyi"

@@ -9,6 +9,8 @@ states:
   - name: gating
   - name: locked
     terminal: true
+  - name: cannot_proceed
+    terminal: true
 
 transitions:
   - name: claim
@@ -29,6 +31,21 @@ transitions:
   - name: submit
     from: in_progress
     to: gating
+    allowed_roles:
+      - decomposer
+      - interface_architect
+      - test_author
+      - implementer
+      - cross_family_reviewer
+      - frontier_judge
+      - integrator
+      - outcome_verifier
+      - coherence_reviewer
+      - spec_ambiguity_resolver
+
+  - name: cannot_proceed
+    from: in_progress
+    to: cannot_proceed
     allowed_roles:
       - decomposer
       - interface_architect

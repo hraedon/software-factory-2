@@ -11,64 +11,100 @@ from substrate._types import ActorMetadata
 
 from factory.channel import Channel
 from factory.config import FactoryConfig
-from factory.context import derive_context
+from factory.context import derive_context, render_prompt
 from factory.workspace import (
     ArtifactManifest,
     attempt_dir,
     compute_sha256,
     find_resumable_artifact,
-    work_root,
     write_artifact,
 )
 
 log = structlog.get_logger()
 
 
+def _role_for_type(work_item_type: str, config: FactoryConfig) -> str | None:
+    for type_name, role_name in config.type_to_role:
+        if type_name == work_item_type:
+            return role_name
+    return None
+
+
 def run_worker(config: FactoryConfig, channel: Channel) -> None:
     sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
+    spec_content = _load_spec(config)
     try:
-        worker_loop(sub, config, channel)
+        worker_loop(sub, config, channel, spec_content)
     finally:
         sub.close()
 
 
-def worker_loop(sub: Substrate, config: FactoryConfig, channel: Channel) -> None:
+def _load_spec(config: FactoryConfig) -> str | None:
+    if config.spec_file is not None and config.spec_file.exists():
+        return config.spec_file.read_text()
+    return None
+
+
+def worker_loop(
+    sub: Substrate,
+    config: FactoryConfig,
+    channel: Channel,
+    spec_content: str | None = None,
+) -> None:
     actor_id = f"factory-worker-{channel.name}"
     for role_name in config.worker_roles:
         sub.register_actor_role(actor_id, role_name)
     poll_interval = config.poll_interval_seconds
-    while True:
+    shutting_down = False
+
+    def _handle_signal(signum, frame):
+        nonlocal shutting_down
+        shutting_down = True
+        log.info("shutdown_requested", signal=signum)
+
+    import signal as signal_mod
+
+    signal_mod.signal(signal_mod.SIGTERM, _handle_signal)
+    signal_mod.signal(signal_mod.SIGINT, _handle_signal)
+
+    while not shutting_down:
         claimed = False
-        for role_name in config.worker_roles:
-            page = sub.query_work_items(
-                workflow_name=config.workflow_name,
-                workflow_version=config.workflow_version,
-                current_states=["new"],
-                claimable_now=True,
-                page_size=10,
-            )
-            for wi in page.items:
-                if wi.work_item_type != "interface_spec":
-                    continue
-                claim = sub.acquire_claim(
-                    wi.work_item_id, actor_id, config.claim_ttl_seconds
-                )
-                log.info(
-                    "claim_acquired",
+        page = sub.query_work_items(
+            workflow_name=config.workflow_name,
+            workflow_version=config.workflow_version,
+            current_states=["new"],
+            claimable_now=True,
+            page_size=10,
+        )
+        for wi in page.items:
+            role_name = _role_for_type(wi.work_item_type, config)
+            if role_name is None:
+                continue
+            claim = sub.acquire_claim(wi.work_item_id, actor_id, config.claim_ttl_seconds)
+            if claim.attempt_number >= config.attempt_threshold:
+                log.warning(
+                    "claim_near_budget",
                     work_item_id=str(wi.work_item_id),
                     attempt=claim.attempt_number,
+                    threshold=config.attempt_threshold,
                 )
-                try:
-                    process_work_item(sub, config, channel, wi, actor_id, claim)
-                    claimed = True
-                except Exception:
-                    log.exception("process_error", work_item_id=str(wi.work_item_id))
-                    sub.release_claim(wi.work_item_id, actor_id)
-                break
-            if claimed:
-                break
-        if not claimed:
+            log.info(
+                "claim_acquired",
+                work_item_id=str(wi.work_item_id),
+                attempt=claim.attempt_number,
+            )
+            try:
+                process_work_item(
+                    sub, config, channel, wi, actor_id, claim, role_name, spec_content
+                )
+                claimed = True
+            except Exception:
+                log.exception("process_error", work_item_id=str(wi.work_item_id))
+                sub.release_claim(wi.work_item_id, actor_id)
+            break
+        if not claimed and not shutting_down:
             time.sleep(poll_interval)
+    log.info("worker_loop_exiting")
 
 
 def process_work_item(
@@ -78,11 +114,12 @@ def process_work_item(
     wi,
     actor_id: str,
     claim,
+    role_name: str,
+    spec_content: str | None = None,
 ) -> None:
     work_item_id = str(wi.work_item_id)
     attempt_number = claim.attempt_number
-    role_name = "interface_architect"
-    wr = work_root(Path(config.workspace_root))
+    wr = Path(config.workspace_root)
     resumable = find_resumable_artifact(wr, work_item_id)
     if resumable is not None:
         log.info(
@@ -90,22 +127,28 @@ def process_work_item(
             work_item_id=work_item_id,
             attempt=resumable[0],
         )
-        _resume_and_submit(
-            sub, wi, resumable[0], resumable[1], actor_id, channel
-        )
+        _resume_and_submit(sub, wi, resumable[0], resumable[1], actor_id, channel)
         return
 
-    ctx = derive_context(sub, wi.work_item_id, role_name)
+    ctx = derive_context(sub, wi.work_item_id, role_name, spec_content=spec_content)
     role_config = config.get_role_config(role_name)
     timeout = role_config.timeout_seconds if role_config else config.claim_ttl_seconds
     ad = attempt_dir(wr, work_item_id, attempt_number)
     inputs_dir = wr / work_item_id / "inputs"
-    invoke_result = channel.invoke(role_name, ctx.context_hash, inputs_dir, ad, timeout)
+    prompt = render_prompt(ctx)
+    invoke_result = channel.invoke(role_name, prompt, inputs_dir, ad, timeout)
 
     if not invoke_result.success:
         _handle_invoke_failure(
-            sub, wi, ad, invoke_result, actor_id, channel,
-            role_name, attempt_number, ctx,
+            sub,
+            wi,
+            ad,
+            invoke_result,
+            actor_id,
+            channel,
+            role_name,
+            attempt_number,
+            ctx,
         )
         return
 
@@ -162,7 +205,7 @@ def _handle_invoke_failure(
             cp_data = cp_path.read_bytes()
             sub.transition(
                 work_item_id,
-                "submit",
+                "cannot_proceed",
                 actor_id,
                 actor_metadata=ActorMetadata(
                     role=role_name,
@@ -194,13 +237,13 @@ def _resume_and_submit(
     actor_id: str,
     channel: Channel,
 ) -> None:
-    actor_metadata = {
-        "role": "interface_architect",
-        "channel": manifest.channel or channel.name,
-        "family": manifest.family or channel.family,
-        "attempt_n": resumable_attempt,
-        "context_hash": manifest.context_hash,
-    }
+    actor_metadata = ActorMetadata(
+        role="interface_architect",
+        channel=manifest.channel or channel.name,
+        family=manifest.family or channel.family,
+        attempt_n=resumable_attempt,
+        context_hash=manifest.context_hash,
+    ).to_dict()
     sub.transition(
         wi.work_item_id,
         "submit",
@@ -214,11 +257,11 @@ def _resume_and_submit(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Software Factory v2 - Worker process"
-    )
+    parser = argparse.ArgumentParser(description="Software Factory v2 - Worker process")
     parser.add_argument(
-        "--config", type=str, default=None,
+        "--config",
+        type=str,
+        default=None,
         help="Path to config YAML (not yet implemented)",
     )
     parser.parse_args()

@@ -25,5 +25,15 @@ def substrate():
 
 
 @pytest.fixture()
+def mock_substrate():
+    from tests._mock_substrate import MockSubstrate
+
+    workflow_content = Path(WORKFLOW_PATH).read_text()
+    sub = MockSubstrate(workflow_yaml=workflow_content)
+    yield sub
+    sub.close()
+
+
+@pytest.fixture()
 def workspace_root(tmp_path):
     return tmp_path / "factory" / "work"

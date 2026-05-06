@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import signal
 import time
 from pathlib import Path
 
@@ -27,7 +28,17 @@ def gate_loop(sub: Substrate, config: FactoryConfig) -> None:
     for role_name in config.gate_roles:
         sub.register_actor_role(actor_id, role_name)
     poll_interval = config.poll_interval_seconds
-    while True:
+    shutting_down = False
+
+    def _handle_signal(signum, frame):
+        nonlocal shutting_down
+        shutting_down = True
+        log.info("gate_shutdown_requested", signal=signum)
+
+    signal.signal(signal.SIGTERM, _handle_signal)
+    signal.signal(signal.SIGINT, _handle_signal)
+
+    while not shutting_down:
         claimed = False
         page = sub.query_work_items(
             workflow_name=config.workflow_name,
@@ -37,9 +48,7 @@ def gate_loop(sub: Substrate, config: FactoryConfig) -> None:
             page_size=10,
         )
         for wi in page.items:
-            claim = sub.acquire_claim(
-                wi.work_item_id, actor_id, config.claim_ttl_seconds
-            )
+            claim = sub.acquire_claim(wi.work_item_id, actor_id, config.claim_ttl_seconds)
             log.info(
                 "gate_claimed",
                 work_item_id=str(wi.work_item_id),
@@ -50,12 +59,11 @@ def gate_loop(sub: Substrate, config: FactoryConfig) -> None:
                 claimed = True
                 break
             except Exception:
-                log.exception(
-                    "gate_process_error", work_item_id=str(wi.work_item_id)
-                )
+                log.exception("gate_process_error", work_item_id=str(wi.work_item_id))
                 sub.release_claim(wi.work_item_id, actor_id)
-        if not claimed:
+        if not claimed and not shutting_down:
             time.sleep(poll_interval)
+    log.info("gate_loop_exiting")
 
 
 def process_gate_item(
@@ -76,9 +84,7 @@ def process_gate_item(
         gate_result = GateResult(
             passed=False,
             gate_name="interface_spec_file_exists",
-            diagnostics=[
-                f"Artifact path missing or not found: {artifact_path_str}"
-            ],
+            diagnostics=[f"Artifact path missing or not found: {artifact_path_str}"],
             artifact_valid=False,
         )
     elif wi.work_item_type == "interface_spec":
@@ -127,11 +133,11 @@ def process_gate_item(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Software Factory v2 - Gate process"
-    )
+    parser = argparse.ArgumentParser(description="Software Factory v2 - Gate process")
     parser.add_argument(
-        "--config", type=str, default=None,
+        "--config",
+        type=str,
+        default=None,
         help="Path to config YAML",
     )
     parser.parse_args()

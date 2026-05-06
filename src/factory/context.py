@@ -81,3 +81,36 @@ def _serialize_bundle(
         "prompt_template_hash": hashlib.sha256(prompt_template.encode()).hexdigest(),
     }
     return json.dumps(data, sort_keys=True)
+
+
+def render_prompt(ctx: PromptContext) -> str:
+    """Render a channel-ready prompt string from a PromptContext."""
+    parts = [ctx.prompt_template, "", "---", ""]
+    parts.append(f"work_item_id: {ctx.work_item_id}")
+    parts.append(f"role: {ctx.role}")
+    parts.append("")
+    parts.append("## spec_section")
+    parts.append("")
+    parts.append(ctx.spec_section)
+    parts.append("")
+    parts.append("## ac_ids")
+    parts.append("")
+    for ac_id in ctx.ac_ids:
+        parts.append(f"- {ac_id}")
+    parts.append("")
+    if ctx.glossary:
+        parts.append("## glossary")
+        parts.append("")
+        for term, definition in sorted(ctx.glossary.items()):
+            parts.append(f"- **{term}**: {definition}")
+        parts.append("")
+    if ctx.prior_failures:
+        parts.append("## prior_failures")
+        parts.append("")
+        for f in ctx.prior_failures:
+            parts.append(
+                f"- attempt {f.attempt_number} ({f.role}/{f.channel}): "
+                f"{f.gate_name} — {f.diagnostic}"
+            )
+        parts.append("")
+    return "\n".join(parts)

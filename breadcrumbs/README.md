@@ -46,6 +46,10 @@ Reusable tags:
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 007 | Integration tests are stubs | medium | Replaced gate_process stub with real process_gate_item tests; Kimi fixed smoke test; added MockSubstrate pipeline tests |
+| 006 | MockSubstrate needed for CI-portable tests | medium | Built MockSubstrate test double + 5 CI-portable pipeline tests |
+| 005 | Spec content resolution for context derivation | high | Added spec_file config + loader; Phase 1 uses inline, Phase 2 needs section extraction |
+| 004 | cannot_proceed routing has no workflow path | high | Added cannot_proceed terminal state + transition to both YAMLs; runner bypasses gate |
 | 002 | Runner skeleton complexity risk | medium | Implemented: 7-module decomposition built per BC-002 spec |
 | 003 | Runner idempotency on restart | high | Implemented: §9.12 spec amendment applied, workspace + tests done |
 | 001 | Dead error codes: defined but never raised | low | Moved to substrate/breadcrumbs/026 — not a factory issue |

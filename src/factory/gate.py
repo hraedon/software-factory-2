@@ -98,8 +98,6 @@ def _check_ac_references(content: str, ac_ids: list[str]) -> GateResult:
         return GateResult(
             passed=False,
             gate_name="interface_spec_ac_references",
-            diagnostics=[
-                f"AC reference missing: {ac_id}" for ac_id in missing
-            ],
+            diagnostics=[f"AC reference missing: {ac_id}" for ac_id in missing],
         )
     return GateResult(passed=True, gate_name="interface_spec_ac_references")
