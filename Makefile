@@ -1,4 +1,6 @@
-.PHONY: lint format test check
+.PHONY: lint format test cov check
+
+PYTEST := .venv/bin/python -m pytest
 
 lint:
 	ruff check src/ tests/
@@ -9,6 +11,9 @@ format:
 	ruff format src/ tests/
 
 test:
-	pytest tests/ -q
+	$(PYTEST) tests/ -q
+
+cov:
+	$(PYTEST) tests/ -q --cov=factory --cov-report=term-missing
 
 check: lint test
