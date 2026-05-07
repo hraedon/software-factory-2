@@ -13,6 +13,7 @@ TESTS_DIR = Path(__file__).parent
 DSN = "postgresql://substrate_test:substrate_test@localhost:5432/substrate_test"
 KEY_PATH = str(TESTS_DIR / "test_keys.json")
 WORKFLOW_PATH = str(Path(__file__).parent.parent / "workflows" / "phase1.yaml")
+WORKFLOW_V2_PATH = str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
 
 
 @pytest.fixture(scope="module")
@@ -41,6 +42,15 @@ def factory_config(substrate, workspace_root):
 @pytest.fixture()
 def mock_substrate():
     workflow_content = Path(WORKFLOW_PATH).read_text()
+    sub = InMemorySubstrate()
+    sub.register_workflow(workflow_content)
+    yield sub
+    sub.close()
+
+
+@pytest.fixture()
+def mock_substrate_v2():
+    workflow_content = Path(WORKFLOW_V2_PATH).read_text()
     sub = InMemorySubstrate()
     sub.register_workflow(workflow_content)
     yield sub

@@ -259,7 +259,23 @@ def _handle_invoke_failure(
                 },
             )
         else:
-            sub.release_claim(work_item_id, actor_id)
+            sub.transition(
+                work_item_id,
+                "channel_fail",
+                actor_id,
+                actor_metadata=ActorMetadata(
+                    role=role_name,
+                    channel=channel.name,
+                    family=channel.family,
+                    attempt_n=attempt_number,
+                    context_hash=ctx.context_hash,
+                ).to_dict(),
+                payload={
+                    "diagnostics": {
+                        "error_message": "cannot_proceed without diagnostics file",
+                    }
+                },
+            )
         return
     log.error(
         "channel_invoke_failed",
