@@ -38,7 +38,7 @@ class TestGoldenRunStructure:
     def test_fixture_dir_exists(self):
         assert FIXTURES_DIR.exists()
 
-    def test_golden_run_001_placeholder_exists(self):
+    def test_golden_run_001_dir_exists(self):
         run_dir = FIXTURES_DIR / "golden-run-001"
         assert run_dir.exists()
 
@@ -65,16 +65,6 @@ class TestGoldenRunStructure:
         assert loaded["channel"] == "claude-code"
         assert loaded["family"] == "anthropic"
         assert loaded["context_hash"] == "golden-ctx-hash-001"
-
-
-class TestGoldenRunPending:
-    def test_golden_run_001_not_yet_populated(self):
-        result = _load_golden_run("golden-run-001")
-        assert result is None or "work_items" not in result
-
-    def test_golden_run_001_no_work_items_yet(self):
-        items = _golden_run_work_items("golden-run-001")
-        assert items == []
 
 
 class TestAdversarialItemContract:

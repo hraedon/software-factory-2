@@ -1,32 +1,16 @@
 from __future__ import annotations
 
 from factory.workspace import (
-    ArtifactManifest,
     attempt_dir,
     compute_sha256,
     find_resumable_artifact,
     quarantine_attempt,
     write_artifact,
 )
+from tests._helpers import make_manifest as _make_manifest
 
 
-def _make_manifest(
-    attempt_number: int = 1,
-    work_item_id: str = "wi-idem",
-    **overrides,
-) -> ArtifactManifest:
-    defaults = {
-        "attempt_number": attempt_number,
-        "work_item_id": work_item_id,
-        "artifact_name": "artifact.pyi",
-        "artifact_sha256": "placeholder",
-        "artifact_size": 0,
-    }
-    defaults.update(overrides)
-    return ArtifactManifest(**defaults)
-
-
-class TestCrashBeforeSubmit:
+class TestRunnerIdempotency:
     def test_resume_from_prior_attempt(self, workspace_root):
         data = b"def foo() -> int: ..."
         sha = compute_sha256(data)

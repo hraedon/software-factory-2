@@ -44,6 +44,7 @@ Reusable tags:
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 029 | Test suite coverage gap closure — runner unit, IO failure, config malformed, prompt rendering, substrate coupling | medium | Added 22 tests across 4 new files + 5 modified; extracted shared helper; added pytest-cov dep |
 | 028 | Dead MockSubstrate file — tests/_mock_substrate.py | low | Deleted after InMemorySubstrate migration confirmed stable |
 | 027 | Wave 5 — cross-stage escalation routing | high | Escalation in router with attempt_threshold; CANNOT_PROCEED_SEAM kind |
 | 026 | Scheduler idempotency — global has_link_type query skips unrelated sources | medium | Per-source custom_fields ref check in _ensure_downstream_item |

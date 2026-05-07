@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from factory.config import FactoryConfig, RoleConfig
@@ -105,3 +106,40 @@ class TestFromYaml:
         assert rc.channel == "kimi"
         assert rc.timeout_seconds == 900
         assert config.get_role_config("nonexistent") is None
+
+
+class TestConfigMalformed:
+    def test_invalid_yaml_raises(self, tmp_path):
+        yaml_path = tmp_path / "bad.yaml"
+        yaml_path.write_text(
+            "workflow_name: broken\n  invalid_indent: true\n"
+        )
+        with pytest.raises(yaml.error.YAMLError):
+            FactoryConfig.from_yaml(yaml_path)
+
+    def test_roles_dict_instead_of_list_raises(self, tmp_path):
+        yaml_path = tmp_path / "roles_dict.yaml"
+        yaml_path.write_text(yaml.dump({"roles": {"role": "impl", "channel": "kimi"}}))
+        with pytest.raises(TypeError):
+            FactoryConfig.from_yaml(yaml_path)
+
+    def test_worker_roles_string_coerced_to_tuple(self, tmp_path):
+        yaml_path = tmp_path / "roles_str.yaml"
+        yaml_path.write_text(yaml.dump({"worker_roles": "interface_architect"}))
+        config = FactoryConfig.from_yaml(yaml_path)
+        assert isinstance(config.worker_roles, tuple)
+        assert config.worker_roles == ("interface_architect",)
+
+    def test_gate_roles_string_coerced_to_tuple(self, tmp_path):
+        yaml_path = tmp_path / "gate_roles_str.yaml"
+        yaml_path.write_text(yaml.dump({"gate_roles": "mechanical_gate"}))
+        config = FactoryConfig.from_yaml(yaml_path)
+        assert isinstance(config.gate_roles, tuple)
+        assert config.gate_roles == ("mechanical_gate",)
+
+    def test_missing_required_no_exception(self, tmp_path):
+        # At the moment all fields have defaults, so missing fields are fine.
+        yaml_path = tmp_path / "empty.yaml"
+        yaml_path.write_text("{}")
+        config = FactoryConfig.from_yaml(yaml_path)
+        assert config.workflow_name == "software_factory"

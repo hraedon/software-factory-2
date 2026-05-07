@@ -67,13 +67,21 @@ class FactoryConfig:
             kwargs["workspace_root"] = Path(kwargs["workspace_root"])
         if "spec_file" in kwargs and isinstance(kwargs["spec_file"], str):
             kwargs["spec_file"] = Path(kwargs["spec_file"])
-        if "roles" in kwargs and isinstance(kwargs["roles"], list):
+        if "roles" in kwargs:
+            if isinstance(kwargs["roles"], dict):
+                raise TypeError("'roles' must be a list, got dict")
             kwargs["roles"] = tuple(RoleConfig(**r) for r in kwargs["roles"])
-        if "worker_roles" in kwargs and isinstance(kwargs["worker_roles"], list):
-            kwargs["worker_roles"] = tuple(kwargs["worker_roles"])
-        if "gate_roles" in kwargs and isinstance(kwargs["gate_roles"], list):
-            kwargs["gate_roles"] = tuple(kwargs["gate_roles"])
-        if "type_to_role" in kwargs and isinstance(kwargs["type_to_role"], list):
+        if "worker_roles" in kwargs:
+            if isinstance(kwargs["worker_roles"], str):
+                kwargs["worker_roles"] = (kwargs["worker_roles"],)
+            else:
+                kwargs["worker_roles"] = tuple(kwargs["worker_roles"])
+        if "gate_roles" in kwargs:
+            if isinstance(kwargs["gate_roles"], str):
+                kwargs["gate_roles"] = (kwargs["gate_roles"],)
+            else:
+                kwargs["gate_roles"] = tuple(kwargs["gate_roles"])
+        if "type_to_role" in kwargs:
             kwargs["type_to_role"] = tuple(tuple(pair) for pair in kwargs["type_to_role"])
         return cls(**kwargs)
 

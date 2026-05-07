@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 from factory.workspace import (
-    ArtifactManifest,
     attempt_dir,
     compute_sha256,
     find_resumable_artifact,
@@ -12,22 +11,9 @@ from factory.workspace import (
     quarantine_attempt,
     write_artifact,
 )
+from tests._helpers import make_manifest as _make_manifest
 
-
-def _make_manifest(
-    attempt_number: int = 1,
-    artifact_name: str = "artifact.pyi",
-    **overrides,
-) -> ArtifactManifest:
-    defaults = {
-        "attempt_number": attempt_number,
-        "work_item_id": "wi-test",
-        "artifact_name": artifact_name,
-        "artifact_sha256": "sha256placeholder",
-        "artifact_size": 0,
-    }
-    defaults.update(overrides)
-    return ArtifactManifest(**defaults)
+CORRUPT_DIR_NAME = ".corrupt"
 
 
 class TestAttemptDir:

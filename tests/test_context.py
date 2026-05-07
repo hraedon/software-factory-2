@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import json
+import uuid
 from pathlib import Path
 
 import pytest
 
-from factory.context import PromptContext, _serialize_bundle
+from factory.context import (
+    PromptContext,
+    _serialize_bundle,
+    derive_context,
+    render_prompt,
+)
 from factory.failure_summary import FailureEntry
 
 
@@ -222,6 +228,116 @@ class TestDeriveContextSpecContent:
         ctx_1 = derive_context(mock_substrate, wi_1.work_item_id, "interface_architect")
         ctx_2 = derive_context(mock_substrate, wi_2.work_item_id, "interface_architect")
         assert ctx_1.context_hash != ctx_2.context_hash
+
+
+class TestRenderPrompt:
+    def test_render_prompt_with_empty_fields(self):
+        ctx = PromptContext(
+            work_item_id="wi-1",
+            role="interface_architect",
+            spec_section="",
+            ac_ids=[],
+            glossary={},
+            prior_failures=[],
+            prompt_template="",
+            context_hash="abc",
+            extra_artifacts={},
+        )
+        rendered = render_prompt(ctx)
+        assert "work_item_id: wi-1" in rendered
+        assert "## spec_section" in rendered
+        assert "## glossary" not in rendered
+        assert "## prior_failures" not in rendered
+        assert "## extra_artifacts" not in rendered
+
+    def test_render_prompt_with_glossary(self):
+        ctx = PromptContext(
+            work_item_id="wi-1",
+            role="interface_architect",
+            spec_section="section",
+            ac_ids=["AC-01"],
+            glossary={"term": "definition"},
+            prior_failures=[],
+            prompt_template="template",
+            context_hash="abc",
+            extra_artifacts={},
+        )
+        rendered = render_prompt(ctx)
+        assert "## glossary" in rendered
+        assert "**term**: definition" in rendered
+
+    def test_render_prompt_with_failures(self):
+        ctx = PromptContext(
+            work_item_id="wi-1",
+            role="interface_architect",
+            spec_section="section",
+            ac_ids=["AC-01"],
+            glossary={},
+            prior_failures=[
+                FailureEntry(attempt_number=1, role="gate", channel="code",
+                             gate_name="syntax", diagnostic="bad syntax")
+            ],
+            prompt_template="template",
+            context_hash="abc",
+            extra_artifacts={},
+        )
+        rendered = render_prompt(ctx)
+        assert "## prior_failures" in rendered
+        assert "syntax — bad syntax" in rendered
+
+    def test_render_prompt_with_extra_artifacts(self):
+        ctx = PromptContext(
+            work_item_id="wi-1",
+            role="implementer",
+            spec_section="section",
+            ac_ids=["AC-01"],
+            glossary={},
+            prior_failures=[],
+            prompt_template="template",
+            context_hash="abc",
+            extra_artifacts={"locked_interface": "def foo(): ..."},
+        )
+        rendered = render_prompt(ctx)
+        assert "## locked_interface" in rendered
+        assert "def foo(): ..." in rendered
+
+    def test_render_prompt_includes_prompt_template(self):
+        ctx = PromptContext(
+            work_item_id="wi-1",
+            role="interface_architect",
+            spec_section="section",
+            ac_ids=["AC-01"],
+            glossary={},
+            prior_failures=[],
+            prompt_template="System prompt goes here.",
+            context_hash="abc",
+            extra_artifacts={},
+        )
+        rendered = render_prompt(ctx)
+        lines = rendered.splitlines()
+        assert lines[0] == "System prompt goes here."
+
+    def test_render_prompt_preserves_spec_section_order(self):
+        spec = "This is the spec section content.\nLine two."
+        ctx = PromptContext(
+            work_item_id="wi-1",
+            role="interface_architect",
+            spec_section=spec,
+            ac_ids=["AC-01"],
+            glossary={},
+            prior_failures=[],
+            prompt_template="",
+            context_hash="abc",
+            extra_artifacts={},
+        )
+        rendered = render_prompt(ctx)
+        assert spec in rendered
+
+
+class TestDeriveContextMissingWorkItem:
+    def test_missing_work_item_raises(self, mock_substrate):
+        with pytest.raises(ValueError, match="Work item .* not found"):
+            derive_context(mock_substrate, str(uuid.uuid4()), "interface_architect")
 
 
 class TestDeriveTestAuthorContext:
