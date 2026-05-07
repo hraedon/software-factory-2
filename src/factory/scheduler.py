@@ -76,14 +76,18 @@ def _ensure_downstream_item(
     next_role = handoff["next_role"]
     additional_links = handoff.get("additional_links", [])
 
-    existing = sub.query_work_items(
-        workflow_name=config.workflow_name,
-        workflow_version=config.workflow_version,
-        has_link_type=link_type,
-        page_size=1,
-    )
-    for item in existing.items:
-        return
+    ref_field = _ref_field_for(next_type)
+    if ref_field:
+        existing = sub.query_work_items(
+            workflow_name=config.workflow_name,
+            workflow_version=config.workflow_version,
+            work_item_types=[next_type],
+            page_size=100,
+        )
+        for item in existing.items:
+            item_ref = (item.custom_fields or {}).get(ref_field)
+            if item_ref and str(item_ref) == str(source_wi.work_item_id):
+                return
 
     custom = source_wi.custom_fields or {}
     ref_field = _ref_field_for(next_type)

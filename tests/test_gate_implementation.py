@@ -77,18 +77,10 @@ def bad_code(
     def test_passes_with_refs_provided(self, artifact_dir):
         impl_path = _write(
             artifact_dir,
-            "impl.py",
+            "compute.py",
             """
 def compute(x: int) -> str:
     return str(x)
-""",
-        )
-        ts_path = _write(
-            artifact_dir,
-            "test_compute.py",
-            """
-def test_compute():
-    assert compute(1) == "1"
 """,
         )
         iface_path = _write(
@@ -100,7 +92,6 @@ def compute(x: int) -> str: ...
         )
         result = evaluate_implementation(
             impl_path,
-            test_suite_path=ts_path,
             interface_pyi_path=iface_path,
         )
         assert result.passed

@@ -144,7 +144,9 @@ def process_gate_item(
 
     transition_name = "gate_pass" if gate_result.passed else "gate_fail"
     routing = route(
-        wi.current_state, transition_name, gate_result
+        wi.current_state, transition_name, gate_result,
+        attempt_number=claim.attempt_number,
+        attempt_threshold=config.attempt_threshold,
     )
     if gate_result.passed:
         sub.transition(

@@ -44,6 +44,10 @@ Reusable tags:
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 028 | Dead MockSubstrate file — tests/_mock_substrate.py | low | Deleted after InMemorySubstrate migration confirmed stable |
+| 027 | Wave 5 — cross-stage escalation routing | high | Escalation in router with attempt_threshold; CANNOT_PROCEED_SEAM kind |
+| 026 | Scheduler idempotency — global has_link_type query skips unrelated sources | medium | Per-source custom_fields ref check in _ensure_downstream_item |
+| 025 | evaluate_implementation missing subprocess gates | high | Added import/mypy/pytest/ruff gates with correct DiagnosticKind |
 | 021 | Non-cannot_proceed channel failures produce no substrate event for telemetry | high | Added sub.append_event(transition="channel_fail") in _handle_invoke_failure; updated MockSubstrate + tests |
 | 024 | _resume_and_submit hardcodes role to interface_architect | high | Parameterized role_name in runner.py; added test |
 | 023 | Structural semantics gate rejected module-level AC docstrings | high | Extended _check_structural_semantics to honor module docstrings |

@@ -23,6 +23,7 @@ class DiagnosticKind(StrEnum):
     IMPL_PYTEST = "impl_pytest"
     IMPL_LINT = "impl_lint"
     IMPL_IMPORT = "impl_import"
+    CANNOT_PROCEED_SEAM = "cannot_proceed_seam"
 
 
 KIND_TO_ROLE: dict[DiagnosticKind, str] = {
@@ -137,6 +138,21 @@ _PHASE2_DISPATCH = {
         target_state="new",
         target_role="implementer",
     ),
+    DiagnosticKind.CANNOT_PROCEED_SEAM: Route(
+        target_state="new",
+        target_role="interface_architect",
+    ),
+}
+
+
+_ESCALATABLE_KINDS = {
+    DiagnosticKind.IMPL_MYPY,
+    DiagnosticKind.IMPL_PYTEST,
+    DiagnosticKind.IMPL_LINT,
+    DiagnosticKind.IMPL_IMPORT,
+    DiagnosticKind.TEST_AC_BINDING,
+    DiagnosticKind.TEST_COLLECT,
+    DiagnosticKind.TEST_IMPORT_FORBIDDEN,
 }
 
 
@@ -144,6 +160,8 @@ def route(
     current_state: str,
     transition: str,
     gate_result: GateResult | None = None,
+    attempt_number: int = 0,
+    attempt_threshold: int = 3,
 ) -> Route:
     if current_state == "gating" and transition == "gate_pass":
         return Route(target_state="locked")
@@ -152,6 +170,31 @@ def route(
         if gate_result is not None:
             kind = _classify_diagnostic(gate_result)
             base = _PHASE2_DISPATCH.get(kind, Route(target_state="new"))
+
+            if (
+                kind in _ESCALATABLE_KINDS
+                and attempt_number >= attempt_threshold
+            ):
+                escalation = _PHASE2_DISPATCH[DiagnosticKind.CANNOT_PROCEED_SEAM]
+                return Route(
+                    target_state=escalation.target_state,
+                    target_role=escalation.target_role,
+                    diagnostics=gate_result.diagnostics,
+                    diagnostic_kind=DiagnosticKind.CANNOT_PROCEED_SEAM,
+                    custom_fields_update={
+                        "diagnostics": {
+                            "gate_name": gate_result.gate_name,
+                            "passed": gate_result.passed,
+                            "messages": gate_result.diagnostics,
+                            "message": "; ".join(gate_result.diagnostics),
+                            "diagnostic_kind": DiagnosticKind.CANNOT_PROCEED_SEAM.value,
+                            "target_role": escalation.target_role,
+                            "escalated_from_kind": kind.value,
+                            "escalated_after_attempts": attempt_number,
+                        }
+                    },
+                )
+
             return Route(
                 target_state=base.target_state,
                 target_role=base.target_role,

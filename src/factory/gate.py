@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ast
+import shutil
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -274,12 +276,181 @@ def evaluate_implementation(
             diagnostic_kind="syntax",
         )
 
+    if interface_pyi_path is not None:
+        import_result = _check_impl_imports(content)
+        if not import_result.passed:
+            return import_result
+
+    if interface_pyi_path is not None:
+        mypy_result = _run_mypy(artifact_path, interface_pyi_path)
+        if not mypy_result.passed:
+            return mypy_result
+
+    if test_suite_path is not None:
+        pytest_result = _run_pytest(artifact_path, test_suite_path)
+        if not pytest_result.passed:
+            return pytest_result
+
+    ruff_result = _run_ruff(artifact_path)
+    if not ruff_result.passed:
+        return ruff_result
+
     return GateResult(
         passed=True,
         gate_name="implementation",
         diagnostics=[],
         artifact_valid=True,
     )
+
+
+def _check_impl_imports(content: str) -> GateResult:
+    try:
+        tree = ast.parse(content)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                mod = _import_module_name(node)
+                if _is_forbidden_impl_import(mod):
+                    return GateResult(
+                        passed=False,
+                        gate_name="implementation_import_forbidden",
+                        diagnostics=[
+                            f"Implementation imports forbidden module '{mod}'"
+                        ],
+                        artifact_valid=False,
+                        diagnostic_kind="impl_import",
+                    )
+    except SyntaxError:
+        pass
+    return GateResult(passed=True, gate_name="implementation_imports")
+
+
+def _is_forbidden_impl_import(module: str) -> bool:
+    return module in ("conftest", "pytest")
+
+
+def _run_mypy(artifact_path: Path, interface_pyi_path: Path) -> GateResult:
+    mypy = shutil.which("mypy")
+    if mypy is None:
+        return GateResult(passed=True, gate_name="implementation_mypy")
+    try:
+        result = subprocess.run(
+            [mypy, "--strict", "--no-error-summary", str(artifact_path)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=artifact_path.parent,
+            env={**__import__("os").environ, "MYPYPATH": str(interface_pyi_path.parent)},
+        )
+        if result.returncode != 0:
+            lines = result.stdout.strip().splitlines()
+            diagnostics = lines[:10] if lines else ["mypy reported errors"]
+            return GateResult(
+                passed=False,
+                gate_name="implementation_mypy",
+                diagnostics=diagnostics,
+                diagnostic_kind="impl_mypy",
+            )
+    except subprocess.TimeoutExpired:
+        return GateResult(
+            passed=False,
+            gate_name="implementation_mypy",
+            diagnostics=["mypy timed out after 60s"],
+            diagnostic_kind="impl_mypy",
+        )
+    except Exception as e:
+        return GateResult(
+            passed=False,
+            gate_name="implementation_mypy",
+            diagnostics=[f"mypy invocation failed: {e}"],
+            diagnostic_kind="impl_mypy",
+        )
+    return GateResult(passed=True, gate_name="implementation_mypy")
+
+
+def _run_pytest(artifact_path: Path, test_suite_path: Path) -> GateResult:
+    pytest_bin = shutil.which("pytest")
+    if pytest_bin is None:
+        return GateResult(passed=True, gate_name="implementation_pytest")
+    try:
+        result = subprocess.run(
+            [
+                pytest_bin,
+                str(test_suite_path),
+                "-x",
+                "--tb=short",
+                "-q",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=artifact_path.parent,
+            env={
+                **__import__("os").environ,
+                "PYTHONPATH": str(artifact_path.parent),
+            },
+        )
+        if result.returncode != 0:
+            lines = result.stdout.strip().splitlines()
+            err_lines = result.stderr.strip().splitlines()
+            diagnostics = (lines + err_lines)[:10] or ["pytest reported failures"]
+            return GateResult(
+                passed=False,
+                gate_name="implementation_pytest",
+                diagnostics=diagnostics,
+                diagnostic_kind="impl_pytest",
+            )
+    except subprocess.TimeoutExpired:
+        return GateResult(
+            passed=False,
+            gate_name="implementation_pytest",
+            diagnostics=["pytest timed out after 120s"],
+            diagnostic_kind="impl_pytest",
+        )
+    except Exception as e:
+        return GateResult(
+            passed=False,
+            gate_name="implementation_pytest",
+            diagnostics=[f"pytest invocation failed: {e}"],
+            diagnostic_kind="impl_pytest",
+        )
+    return GateResult(passed=True, gate_name="implementation_pytest")
+
+
+def _run_ruff(artifact_path: Path) -> GateResult:
+    ruff = shutil.which("ruff")
+    if ruff is None:
+        return GateResult(passed=True, gate_name="implementation_lint")
+    try:
+        result = subprocess.run(
+            [ruff, "check", str(artifact_path)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            lines = result.stdout.strip().splitlines()
+            diagnostics = lines[:10] if lines else ["ruff reported lint issues"]
+            return GateResult(
+                passed=False,
+                gate_name="implementation_lint",
+                diagnostics=diagnostics,
+                diagnostic_kind="impl_lint",
+            )
+    except subprocess.TimeoutExpired:
+        return GateResult(
+            passed=False,
+            gate_name="implementation_lint",
+            diagnostics=["ruff timed out after 30s"],
+            diagnostic_kind="impl_lint",
+        )
+    except Exception as e:
+        return GateResult(
+            passed=False,
+            gate_name="implementation_lint",
+            diagnostics=[f"ruff invocation failed: {e}"],
+            diagnostic_kind="impl_lint",
+        )
+    return GateResult(passed=True, gate_name="implementation_lint")
 
 
 def evaluate_deterministic_gates(
