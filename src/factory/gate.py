@@ -11,6 +11,7 @@ class GateResult:
     gate_name: str
     diagnostics: list[str] = field(default_factory=list)
     artifact_valid: bool = True
+    diagnostic_kind: str = ""
 
 
 def evaluate_interface_spec(artifact_path: Path, ac_ids: list[str] | None = None) -> GateResult:
@@ -20,6 +21,7 @@ def evaluate_interface_spec(artifact_path: Path, ac_ids: list[str] | None = None
             gate_name="interface_spec_file_exists",
             diagnostics=[f"Artifact not found: {artifact_path}"],
             artifact_valid=False,
+            diagnostic_kind="file_exists",
         )
     content = artifact_path.read_text()
     if not content.strip():
@@ -28,6 +30,7 @@ def evaluate_interface_spec(artifact_path: Path, ac_ids: list[str] | None = None
             gate_name="interface_spec_not_empty",
             diagnostics=["Artifact is empty"],
             artifact_valid=False,
+            diagnostic_kind="not_empty",
         )
     syntax_result = _check_syntax(content)
     if not syntax_result.passed:
@@ -55,6 +58,7 @@ def _check_syntax(content: str) -> GateResult:
             gate_name="interface_spec_syntax",
             diagnostics=[f"SyntaxError at line {e.lineno}: {e.msg}"],
             artifact_valid=False,
+            diagnostic_kind="syntax",
         )
     return GateResult(passed=True, gate_name="interface_spec_syntax")
 
@@ -79,6 +83,7 @@ def _check_pyi_stub(content: str, artifact_path: Path) -> GateResult:
                             f"Function '{node.name}' has implementation body. "
                             f"Interface specs must use '...' as body."
                         ],
+                        diagnostic_kind="stub",
                     )
     except SyntaxError:
         pass
@@ -98,6 +103,7 @@ def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateR
             passed=False,
             gate_name="interface_spec_structural_semantics",
             diagnostics=["No top-level functions or classes defined — interface is vacuous"],
+            diagnostic_kind="structural_semantics",
         )
     for node in top_level_defs:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -108,6 +114,7 @@ def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateR
                     diagnostics=[
                         f"Function '{node.name}' has no return type annotation — ambiguous contract"
                     ],
+                    diagnostic_kind="structural_semantics",
                 )
             non_self_params = [
                 a
@@ -124,6 +131,7 @@ def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateR
                             f"Function '{node.name}' has no parameters and no AC reference in "
                             f"docstring — likely vacuous"
                         ],
+                        diagnostic_kind="structural_semantics",
                     )
     if ac_ids:
         ac_to_node = {}
@@ -148,6 +156,7 @@ def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateR
                     f"AC '{ac}' not in any function/class docstring — detached from contract"
                     for ac in unbound
                 ],
+                diagnostic_kind="structural_semantics",
             )
     return GateResult(passed=True, gate_name="interface_spec_structural_semantics")
 

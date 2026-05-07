@@ -11,6 +11,7 @@ from substrate._types import ActorMetadata
 
 from factory.config import FactoryConfig, load_config
 from factory.gate import GateResult, evaluate_interface_spec
+from factory.router import route
 
 log = structlog.get_logger()
 
@@ -69,8 +70,6 @@ def gate_loop(sub: Substrate, config: FactoryConfig) -> None:
     log.info("gate_loop_exiting")
 
 
-from factory.router import route
-
 def process_gate_item(
     sub: Substrate,
     config: FactoryConfig,
@@ -91,6 +90,7 @@ def process_gate_item(
             gate_name="interface_spec_file_exists",
             diagnostics=[f"Artifact path missing or not found: {artifact_path_str}"],
             artifact_valid=False,
+            diagnostic_kind="file_exists",
         )
     elif wi.work_item_type == "interface_spec":
         gate_result = evaluate_interface_spec(artifact_path, ac_ids=ac_ids)
@@ -108,8 +108,10 @@ def process_gate_item(
         attempt_n=claim.attempt_number,
     ).to_dict()
 
-    routing = route(wi.current_state, "gate_pass" if gate_result.passed else "gate_fail", gate_result)
     transition_name = "gate_pass" if gate_result.passed else "gate_fail"
+    routing = route(
+        wi.current_state, transition_name, gate_result
+    )
     if gate_result.passed:
         sub.transition(
             work_item_id,

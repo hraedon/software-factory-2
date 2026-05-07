@@ -75,8 +75,11 @@ def _serialize_bundle(
                 "attempt_number": f.attempt_number,
                 "role": f.role,
                 "channel": f.channel,
+                "failure_type": f.failure_type,
                 "gate_name": f.gate_name,
                 "diagnostic": f.diagnostic,
+                "error_message": f.error_message,
+                "timed_out": f.timed_out,
             }
             for f in failures
         ],
