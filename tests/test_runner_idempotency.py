@@ -59,7 +59,7 @@ class TestCrashDuringWrite:
         write_artifact(ad2, "artifact.pyi", data, manifest)
         result = find_resumable_artifact(workspace_root, "wi-crash2b")
         assert result is not None
-        num, found = result
+        num, _found = result
         assert num == 2
 
 
@@ -113,7 +113,7 @@ class TestMultiCrash:
         (ad2 / "artifact.pyi").write_bytes(b"partial, no manifest")
         result = find_resumable_artifact(workspace_root, "wi-multi1")
         assert result is not None
-        num, found = result
+        num, _found = result
         assert num == 1
 
     def test_both_valid_picks_highest(self, workspace_root):
@@ -159,5 +159,5 @@ class TestMultiCrash:
         write_artifact(ad2, "artifact.pyi", data2, m2)
         result = find_resumable_artifact(workspace_root, "wi-multi3")
         assert result is not None
-        num, found = result
+        num, _found = result
         assert num == 2

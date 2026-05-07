@@ -341,7 +341,7 @@ class TestRenderPrompt:
 
 class TestDeriveContextMissingWorkItem:
     def test_missing_work_item_raises(self, mock_substrate):
-        with pytest.raises(ValueError, match="Work item .* not found"):
+        with pytest.raises(ValueError, match=r"Work item .* not found"):
             derive_context(mock_substrate, str(uuid.uuid4()), "interface_architect")
 
 
