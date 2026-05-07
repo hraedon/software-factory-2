@@ -38,7 +38,9 @@ Reusable tags:
 
 ## Open
 
-(No open breadcrumbs.)
+| # | Title | Severity | Status |
+|---|---|---|---|
+| 030 | Real Substrate read_events should support composite filters (work_item_id + transition) | medium | proposed |
 
 ## Resolved
 
