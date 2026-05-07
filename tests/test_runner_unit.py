@@ -11,6 +11,7 @@ from factory.workspace import (
     compute_sha256,
     write_artifact,
 )
+from tests._helpers import events_by_transition
 
 
 class _FailingChannel:
@@ -76,7 +77,8 @@ class TestRunnerInvokeFailure:
         assert updated.current_state == "new"
         assert updated.claimed_by is None
 
-        events = mock_substrate.read_events(work_item_id=wi.work_item_id, transition="channel_fail")
+        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        events = events_by_transition(all_events, "channel_fail")
         assert len(events) == 1
         payload = events[0].payload or {}
         diagnostics = payload.get("diagnostics", {})
@@ -121,7 +123,8 @@ class TestRunnerInvokeFailure:
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
         assert updated.current_state == "new"
-        events = mock_substrate.read_events(work_item_id=wi.work_item_id, transition="channel_fail")
+        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        events = events_by_transition(all_events, "channel_fail")
         assert len(events) == 1
         payload = events[0].payload or {}
         diagnostics = payload.get("diagnostics", {})

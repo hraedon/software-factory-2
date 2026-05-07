@@ -10,6 +10,7 @@ from factory.workspace import (
     compute_sha256,
     write_artifact,
 )
+from tests._helpers import events_by_transition
 
 
 class _FakeChannel:
@@ -207,7 +208,8 @@ class TestResumeAndSubmit:
             spec_content="Metadata test",
         )
 
-        events = mock_substrate.read_events(work_item_id=wi.work_item_id, transition="submit")
+        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        events = events_by_transition(all_events, "submit")
         assert len(events) == 1
         meta = events[0].actor_metadata or {}
         assert meta.get("channel") == "glm-5.1"

@@ -8,6 +8,7 @@ from factory.channel import InvocationResult
 from factory.config import FactoryConfig
 from factory.gate_process import process_gate_item
 from factory.runner import process_work_item
+from tests._helpers import events_by_transition
 from factory.workspace import (
     ArtifactManifest,
     attempt_dir,
@@ -220,7 +221,8 @@ class TestWorkerLoopClaimTransition:
 
         _run_loop_once()
 
-        events = mock_substrate.read_events(work_item_id=wi.work_item_id, transition="claim")
+        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        events = events_by_transition(all_events, "claim")
         assert len(events) == 1
         assert events[0].transition == "claim"
 
@@ -301,6 +303,7 @@ class TestWorkerLoopClaimTransitionLive:
         updated = substrate.get_work_item(wi.work_item_id)
         assert updated.current_state == "in_progress"
 
-        events = substrate.read_events(work_item_id=wi.work_item_id, transition="claim")
+        all_events = substrate.read_events(work_item_id=wi.work_item_id)
+        events = events_by_transition(all_events, "claim")
         assert len(events) >= 1
         assert events[-1].transition == "claim"

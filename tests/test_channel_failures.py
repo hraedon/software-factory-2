@@ -3,6 +3,7 @@ from __future__ import annotations
 from factory.channel import InvocationResult
 from factory.config import FactoryConfig
 from factory.runner import process_work_item
+from tests._helpers import events_by_transition
 
 
 class _FailingChannel:
@@ -74,7 +75,8 @@ class TestChannelFailureModes:
         assert updated.claimed_by is None
         assert channel.was_invoked
 
-        events = mock_substrate.read_events(work_item_id=wi.work_item_id, transition="channel_fail")
+        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        events = events_by_transition(all_events, "channel_fail")
         assert len(events) == 1
         payload = events[0].payload or {}
         diagnostics = payload.get("diagnostics", {})
@@ -124,7 +126,8 @@ class TestChannelFailureModes:
         assert updated.current_state == "new"
         assert updated.claimed_by is None
 
-        events = mock_substrate.read_events(work_item_id=wi.work_item_id, transition="channel_fail")
+        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        events = events_by_transition(all_events, "channel_fail")
         assert len(events) == 1
         payload = events[0].payload or {}
         diagnostics = payload.get("diagnostics", {})
@@ -172,7 +175,8 @@ class TestChannelFailureModes:
         assert updated.current_state == "new"
         assert updated.claimed_by is None
 
-        events = mock_substrate.read_events(work_item_id=wi.work_item_id, transition="channel_fail")
+        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        events = events_by_transition(all_events, "channel_fail")
         assert len(events) == 1
 
     def test_extraction_failure_releases_claim_and_records_event(
@@ -219,7 +223,8 @@ class TestChannelFailureModes:
         assert updated.current_state == "new"
         assert updated.claimed_by is None
 
-        events = mock_substrate.read_events(work_item_id=wi.work_item_id, transition="channel_fail")
+        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        events = events_by_transition(all_events, "channel_fail")
         assert len(events) == 1
 
     def test_cannot_proceed_does_not_return_to_new(self, mock_substrate, workspace_root):

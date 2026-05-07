@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from substrate._types import Event
+
 from factory.workspace import ArtifactManifest
 
 
@@ -18,3 +20,7 @@ def make_manifest(
     }
     defaults.update(overrides)
     return ArtifactManifest(**defaults)
+
+
+def events_by_transition(events: list[Event], transition: str) -> list[Event]:
+    return [e for e in events if e.transition == transition]
