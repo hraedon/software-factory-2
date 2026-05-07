@@ -92,7 +92,6 @@ def _check_pyi_stub(content: str, artifact_path: Path) -> GateResult:
     return GateResult(passed=True, gate_name="interface_spec_stub")
 
 
-
 def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateResult:
     tree = ast.parse(content)
     top_level_defs = [
@@ -118,11 +117,7 @@ def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateR
                     ],
                     diagnostic_kind="structural_semantics",
                 )
-            non_self_params = [
-                a
-                for a in node.args.args + node.args.posonlyargs
-                if a.arg != "self"
-            ]
+            non_self_params = [a for a in node.args.args + node.args.posonlyargs if a.arg != "self"]
             if not non_self_params and not node.args.vararg and not node.args.kwarg:
                 doc = ast.get_docstring(node, clean=False) or ""
                 if not _has_ac_ref(doc):
@@ -313,9 +308,7 @@ def _check_impl_imports(content: str) -> GateResult:
                     return GateResult(
                         passed=False,
                         gate_name="implementation_import_forbidden",
-                        diagnostics=[
-                            f"Implementation imports forbidden module '{mod}'"
-                        ],
+                        diagnostics=[f"Implementation imports forbidden module '{mod}'"],
                         artifact_valid=False,
                         diagnostic_kind="impl_import",
                     )

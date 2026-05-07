@@ -52,4 +52,3 @@ class TestQuarantineAttemptIOFailure:
         with patch("os.replace", side_effect=OSError("cross-device link")):
             with pytest.raises(OSError, match="cross-device link"):
                 quarantine_attempt(ad)
-

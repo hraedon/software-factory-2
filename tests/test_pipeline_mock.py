@@ -111,7 +111,9 @@ class TestMockSubstrateFullPipeline:
 
         mock_substrate.register_actor_role("test-worker", "interface_architect")
         mock_substrate.transition(
-            wi.work_item_id, "claim", "test-worker",
+            wi.work_item_id,
+            "claim",
+            "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(

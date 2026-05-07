@@ -50,7 +50,9 @@ class TestPhase2WorkflowRoundtrip:
         assert wi.workflow_version == 2
 
         substrate.transition(
-            wi.work_item_id, "claim", "arch",
+            wi.work_item_id,
+            "claim",
+            "arch",
             actor_kind="agent",
             actor_metadata={"role": "interface_architect"},
         )
@@ -67,7 +69,9 @@ class TestPhase2WorkflowRoundtrip:
         assert substrate.get_work_item(wi.work_item_id).current_state == "gating"
 
         substrate.transition(
-            wi.work_item_id, "gate_pass", "gate",
+            wi.work_item_id,
+            "gate_pass",
+            "gate",
             actor_kind="agent",
             actor_metadata={"role": "mechanical_gate"},
         )
@@ -85,7 +89,9 @@ class TestPhase2WorkflowRoundtrip:
             custom_fields={"spec_section": "3.1", "ac_ids": ["AC-01"]},
         )
         substrate.transition(
-            wi.work_item_id, "claim", "arch",
+            wi.work_item_id,
+            "claim",
+            "arch",
             actor_kind="agent",
             actor_metadata={"role": "interface_architect"},
         )
@@ -173,7 +179,9 @@ class TestPhase2WorkflowRoundtrip:
             custom_fields={"spec_section": "4.1 Range parser", "ac_ids": ["AC-01"]},
         )
         substrate.transition(
-            iface.work_item_id, "claim", "arch",
+            iface.work_item_id,
+            "claim",
+            "arch",
             actor_kind="agent",
             actor_metadata={"role": "interface_architect"},
         )
@@ -186,7 +194,9 @@ class TestPhase2WorkflowRoundtrip:
             custom_fields={"artifact_hash": "sha256:abc"},
         )
         substrate.transition(
-            iface.work_item_id, "gate_pass", "gate",
+            iface.work_item_id,
+            "gate_pass",
+            "gate",
             actor_kind="agent",
             actor_metadata={"role": "mechanical_gate"},
         )
@@ -258,7 +268,9 @@ class TestPhase2WorkflowRoundtrip:
 
         with pytest.raises(Exception, match="ROLE_NOT_PERMITTED"):
             substrate.transition(
-                iface.work_item_id, "claim", "gate",
+                iface.work_item_id,
+                "claim",
+                "gate",
                 actor_kind="agent",
                 actor_metadata={"role": "mechanical_gate"},
             )
@@ -278,6 +290,7 @@ class TestPhase2WorkflowRoundtrip:
         )
         substrate.acquire_claim(wi.work_item_id, "a1", ttl_seconds=1)
         import time
+
         time.sleep(1.1)
 
         substrate.acquire_claim(wi.work_item_id, "a2", ttl_seconds=1)

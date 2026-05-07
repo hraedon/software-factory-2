@@ -5,13 +5,13 @@ from factory.claude_code_channel import _extract_artifact_from_output, _extract_
 
 class TestExtractArtifact:
     def test_python_fenced_block(self):
-        content = 'Here is the code:\n```python\ndef foo(x: int) -> str: ...\n```\nDone.'
+        content = "Here is the code:\n```python\ndef foo(x: int) -> str: ...\n```\nDone."
         result = _extract_artifact_from_output(content)
         assert result is not None
         assert "def foo" in result
 
     def test_plain_fenced_block(self):
-        content = '```\ndef foo(x: int) -> str: ...\n```\n'
+        content = "```\ndef foo(x: int) -> str: ...\n```\n"
         result = _extract_artifact_from_output(content)
         assert result is not None
         assert "def foo" in result
@@ -41,7 +41,7 @@ class TestExtractArtifact:
 
     def test_multiple_fenced_blocks_picks_python(self):
         content = (
-            "First block:\n```json\n{\"status\": \"ok\"}\n```\n"
+            'First block:\n```json\n{"status": "ok"}\n```\n'
             "Second:\n```python\ndef foo() -> int: ...\n```\n"
         )
         result = _extract_artifact_from_output(content)
@@ -73,7 +73,7 @@ class TestExtractJson:
         assert result is None
 
     def test_invalid_json_in_fenced_returns_none(self):
-        content = '```json\n{invalid json}\n```'
+        content = "```json\n{invalid json}\n```"
         result = _extract_json_from_output(content)
         assert result is None
 

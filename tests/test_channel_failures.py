@@ -1,12 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
-
 from factory.channel import InvocationResult
 from factory.config import FactoryConfig
-from factory.gate_process import process_gate_item
 from factory.runner import process_work_item
 
 
@@ -79,9 +74,7 @@ class TestChannelFailureModes:
         assert updated.claimed_by is None
         assert channel.was_invoked
 
-        events = mock_substrate.read_events(
-            work_item_id=wi.work_item_id, transition="channel_fail"
-        )
+        events = mock_substrate.read_events(work_item_id=wi.work_item_id, transition="channel_fail")
         assert len(events) == 1
         payload = events[0].payload or {}
         diagnostics = payload.get("diagnostics", {})
@@ -131,9 +124,7 @@ class TestChannelFailureModes:
         assert updated.current_state == "new"
         assert updated.claimed_by is None
 
-        events = mock_substrate.read_events(
-            work_item_id=wi.work_item_id, transition="channel_fail"
-        )
+        events = mock_substrate.read_events(work_item_id=wi.work_item_id, transition="channel_fail")
         assert len(events) == 1
         payload = events[0].payload or {}
         diagnostics = payload.get("diagnostics", {})
@@ -181,13 +172,14 @@ class TestChannelFailureModes:
         assert updated.current_state == "new"
         assert updated.claimed_by is None
 
-        events = mock_substrate.read_events(
-            work_item_id=wi.work_item_id, transition="channel_fail"
-        )
+        events = mock_substrate.read_events(work_item_id=wi.work_item_id, transition="channel_fail")
         assert len(events) == 1
 
-    def test_extraction_failure_releases_claim_and_records_event(self, mock_substrate, workspace_root):
-        """BC-019/BC-021: Artifact extraction failure must release claim and write a channel_fail event."""
+    def test_extraction_failure_releases_claim_and_records_event(
+        self, mock_substrate, workspace_root
+    ):
+        """BC-019/BC-021: Artifact extraction failure must release claim and write
+        a channel_fail event."""
         wi, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
@@ -227,9 +219,7 @@ class TestChannelFailureModes:
         assert updated.current_state == "new"
         assert updated.claimed_by is None
 
-        events = mock_substrate.read_events(
-            work_item_id=wi.work_item_id, transition="channel_fail"
-        )
+        events = mock_substrate.read_events(work_item_id=wi.work_item_id, transition="channel_fail")
         assert len(events) == 1
 
     def test_cannot_proceed_does_not_return_to_new(self, mock_substrate, workspace_root):

@@ -160,7 +160,13 @@ def process_work_item(
             attempt_dir(wr, work_item_id, resumable[0]) / resumable[1].artifact_name
         )
         _resume_and_submit(
-            sub, wi, resumable[0], resumable[1], actor_id, channel, resumable_artifact_path,
+            sub,
+            wi,
+            resumable[0],
+            resumable[1],
+            actor_id,
+            channel,
+            resumable_artifact_path,
             role_name=role_name,
         )
         return

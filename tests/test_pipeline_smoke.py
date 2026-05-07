@@ -33,18 +33,18 @@ class _MultiStageChannel:
         outputs_dir.mkdir(parents=True, exist_ok=True)
         if role == "interface_architect":
             content = (
-                'from dataclasses import dataclass\n'
-                'def compute(x: int) -> str:\n'
+                "from dataclasses import dataclass\n"
+                "def compute(x: int) -> str:\n"
                 '    """Satisfies AC-01."""\n'
-                '    ...\n'
+                "    ...\n"
             )
             name = "artifact.pyi"
             (outputs_dir / name).write_text(content)
             return InvocationResult(success=True, artifact_name=name)
         elif role == "test_author":
             content = (
-                'from interface import compute\n\n'
-                'def test_compute():\n'
+                "from interface import compute\n\n"
+                "def test_compute():\n"
                 '    """AC-01"""\n'
                 '    assert compute(1) == "1"\n'
             )
@@ -93,12 +93,19 @@ class TestPipelineSmoke:
         # Stage 1: interface_architect
         claim = mock_substrate.acquire_claim(iface.work_item_id, "factory-arch")
         mock_substrate.transition(
-            iface.work_item_id, "claim", "factory-arch",
+            iface.work_item_id,
+            "claim",
+            "factory-arch",
             actor_metadata={"role": "interface_architect"},
         )
         process_work_item(
-            mock_substrate, config, channel, iface,
-            "factory-arch", claim, "interface_architect",
+            mock_substrate,
+            config,
+            channel,
+            iface,
+            "factory-arch",
+            claim,
+            "interface_architect",
             spec_content="Compute function",
         )
         iface = mock_substrate.get_work_item(iface.work_item_id)
@@ -123,12 +130,19 @@ class TestPipelineSmoke:
         # Stage 2: test_author
         claim_ts = mock_substrate.acquire_claim(ts_wi.work_item_id, "factory-tester")
         mock_substrate.transition(
-            ts_wi.work_item_id, "claim", "factory-tester",
+            ts_wi.work_item_id,
+            "claim",
+            "factory-tester",
             actor_metadata={"role": "test_author"},
         )
         process_work_item(
-            mock_substrate, config, channel, ts_wi,
-            "factory-tester", claim_ts, "test_author",
+            mock_substrate,
+            config,
+            channel,
+            ts_wi,
+            "factory-tester",
+            claim_ts,
+            "test_author",
             spec_content="Compute function",
         )
         ts_wi = mock_substrate.get_work_item(ts_wi.work_item_id)
@@ -158,12 +172,19 @@ class TestPipelineSmoke:
         # Stage 3: implementer
         claim_impl = mock_substrate.acquire_claim(impl_wi.work_item_id, "factory-impl")
         mock_substrate.transition(
-            impl_wi.work_item_id, "claim", "factory-impl",
+            impl_wi.work_item_id,
+            "claim",
+            "factory-impl",
             actor_metadata={"role": "implementer"},
         )
         process_work_item(
-            mock_substrate, config, channel, impl_wi,
-            "factory-impl", claim_impl, "implementer",
+            mock_substrate,
+            config,
+            channel,
+            impl_wi,
+            "factory-impl",
+            claim_impl,
+            "implementer",
             spec_content="Compute function",
         )
         impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
@@ -214,12 +235,23 @@ class TestPipelineSmoke:
         from factory.workspace import compute_sha256
 
         sha = compute_sha256(b"")
-        mock_substrate.transition(iface.work_item_id, "claim", "factory-arch",
-            actor_metadata={"role": "interface_architect"})
-        mock_substrate.transition(iface.work_item_id, "submit", "factory-arch",
+        mock_substrate.transition(
+            iface.work_item_id,
+            "claim",
+            "factory-arch",
             actor_metadata={"role": "interface_architect"},
-            custom_fields={"artifact_path": str(empty_file), "artifact_hash": sha,
-                           "ac_ids": ["AC-01"]})
+        )
+        mock_substrate.transition(
+            iface.work_item_id,
+            "submit",
+            "factory-arch",
+            actor_metadata={"role": "interface_architect"},
+            custom_fields={
+                "artifact_path": str(empty_file),
+                "artifact_hash": sha,
+                "ac_ids": ["AC-01"],
+            },
+        )
 
         # Gate should fail (empty file)
         iface = mock_substrate.get_work_item(iface.work_item_id)

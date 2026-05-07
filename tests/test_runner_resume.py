@@ -91,7 +91,9 @@ class TestResumeAndSubmit:
         )
 
         # Channel must not have been invoked
-        assert not channel.was_invoked, "Channel was invoked even though a resumable artifact existed"
+        assert not channel.was_invoked, (
+            "Channel was invoked even though a resumable artifact existed"
+        )
 
         # Work-item must be in gating
         updated = mock_substrate.get_work_item(wi.work_item_id)
@@ -102,7 +104,9 @@ class TestResumeAndSubmit:
         assert artifact_path.startswith("/")
         assert artifact_path.endswith("artifact.pyi")
 
-    def test_gate_finds_resumed_artifact_and_transitions_to_locked(self, mock_substrate, workspace_root):
+    def test_gate_finds_resumed_artifact_and_transitions_to_locked(
+        self, mock_substrate, workspace_root
+    ):
         """BC-014: Gate must find the artifact at the resumed path and lock the item."""
         wi, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
@@ -175,7 +179,7 @@ class TestResumeAndSubmit:
             actor_metadata={"role": "interface_architect"},
         )
 
-        data = b'def meta_test() -> None: ...\n'
+        data = b"def meta_test() -> None: ...\n"
         sha = compute_sha256(data)
         manifest = ArtifactManifest(
             attempt_number=1,

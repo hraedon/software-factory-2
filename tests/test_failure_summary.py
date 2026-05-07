@@ -117,11 +117,15 @@ class TestDeriveFailures:
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
         mock_substrate.transition(
-            wi.work_item_id, "claim", "test-worker",
+            wi.work_item_id,
+            "claim",
+            "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(
-            wi.work_item_id, "submit", "test-worker",
+            wi.work_item_id,
+            "submit",
+            "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(
@@ -159,7 +163,9 @@ class TestDeriveFailures:
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
         mock_substrate.transition(
-            wi.work_item_id, "claim", "test-worker",
+            wi.work_item_id,
+            "claim",
+            "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(
@@ -197,7 +203,9 @@ class TestDeriveFailures:
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
         mock_substrate.transition(
-            wi.work_item_id, "claim", "test-worker",
+            wi.work_item_id,
+            "claim",
+            "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(
@@ -218,11 +226,15 @@ class TestDeriveFailures:
             },
         )
         mock_substrate.transition(
-            wi.work_item_id, "claim", "test-worker2",
+            wi.work_item_id,
+            "claim",
+            "test-worker2",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(
-            wi.work_item_id, "submit", "test-worker2",
+            wi.work_item_id,
+            "submit",
+            "test-worker2",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(
@@ -258,11 +270,15 @@ class TestDeriveFailures:
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
         mock_substrate.transition(
-            wi.work_item_id, "claim", "test-worker",
+            wi.work_item_id,
+            "claim",
+            "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(
-            wi.work_item_id, "submit", "test-worker",
+            wi.work_item_id,
+            "submit",
+            "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(
@@ -284,11 +300,15 @@ class TestDeriveFailures:
             },
         )
         mock_substrate.transition(
-            wi.work_item_id, "claim", "test-worker",
+            wi.work_item_id,
+            "claim",
+            "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(
-            wi.work_item_id, "submit", "test-worker",
+            wi.work_item_id,
+            "submit",
+            "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(
@@ -324,11 +344,15 @@ class TestDeriveFailures:
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
         mock_substrate.transition(
-            wi.work_item_id, "claim", "test-worker",
+            wi.work_item_id,
+            "claim",
+            "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(
-            wi.work_item_id, "submit", "test-worker",
+            wi.work_item_id,
+            "submit",
+            "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(
@@ -356,11 +380,15 @@ class TestDeriveFailures:
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
         mock_substrate.transition(
-            wi.work_item_id, "claim", "test-worker",
+            wi.work_item_id,
+            "claim",
+            "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(
-            wi.work_item_id, "submit", "test-worker",
+            wi.work_item_id,
+            "submit",
+            "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
         mock_substrate.transition(

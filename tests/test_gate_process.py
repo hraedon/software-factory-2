@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 
-from factory.config import FactoryConfig
 from factory.gate_process import process_gate_item
 
 

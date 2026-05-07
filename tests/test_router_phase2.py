@@ -92,8 +92,11 @@ class TestCrossStageEscalation:
             diagnostic_kind="impl_pytest",
         )
         result = route(
-            "gating", "gate_fail", gate_result=gate,
-            attempt_number=1, attempt_threshold=3,
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=1,
+            attempt_threshold=3,
         )
         assert result.target_role == "implementer"
         assert result.diagnostic_kind == DiagnosticKind.IMPL_PYTEST
@@ -106,8 +109,11 @@ class TestCrossStageEscalation:
             diagnostic_kind="impl_pytest",
         )
         result = route(
-            "gating", "gate_fail", gate_result=gate,
-            attempt_number=3, attempt_threshold=3,
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=3,
+            attempt_threshold=3,
         )
         assert result.target_role == "interface_architect"
         assert result.diagnostic_kind == DiagnosticKind.CANNOT_PROCEED_SEAM
@@ -123,8 +129,11 @@ class TestCrossStageEscalation:
             diagnostic_kind="test_collect",
         )
         result = route(
-            "gating", "gate_fail", gate_result=gate,
-            attempt_number=3, attempt_threshold=3,
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=3,
+            attempt_threshold=3,
         )
         assert result.target_role == "interface_architect"
         assert result.diagnostic_kind == DiagnosticKind.CANNOT_PROCEED_SEAM
@@ -139,8 +148,11 @@ class TestCrossStageEscalation:
             diagnostic_kind="syntax",
         )
         result = route(
-            "gating", "gate_fail", gate_result=gate,
-            attempt_number=5, attempt_threshold=3,
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=5,
+            attempt_threshold=3,
         )
         assert result.target_role == "interface_architect"
         assert result.diagnostic_kind == DiagnosticKind.SYNTAX
@@ -153,8 +165,11 @@ class TestCrossStageEscalation:
             diagnostic_kind="impl_mypy",
         )
         result = route(
-            "gating", "gate_fail", gate_result=gate,
-            attempt_number=3, attempt_threshold=3,
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=3,
+            attempt_threshold=3,
         )
         assert result.diagnostics == ["error: Incompatible return type"]
         diag = result.custom_fields_update["diagnostics"]
@@ -168,8 +183,11 @@ class TestCrossStageEscalation:
             diagnostic_kind="impl_lint",
         )
         result = route(
-            "gating", "gate_fail", gate_result=gate,
-            attempt_number=5, attempt_threshold=3,
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=5,
+            attempt_threshold=3,
         )
         assert result.target_role == "interface_architect"
         assert result.diagnostic_kind == DiagnosticKind.CANNOT_PROCEED_SEAM

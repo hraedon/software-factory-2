@@ -77,7 +77,9 @@ class TestFromYaml:
     def test_from_yaml_or_default_with_nonexistent_path(self, tmp_path):
         config = FactoryConfig.from_yaml_or_default(tmp_path / "does_not_exist.yaml")
         assert config.workflow_name == "software_factory"
-        assert config.dsn == "postgresql://substrate_test:substrate_test@localhost:5432/substrate_test"
+        assert (
+            config.dsn == "postgresql://substrate_test:substrate_test@localhost:5432/substrate_test"
+        )
         assert config.workspace_root == Path(".factory/work")
 
     def test_from_yaml_or_default_with_existing_path(self, tmp_path):
@@ -111,9 +113,7 @@ class TestFromYaml:
 class TestConfigMalformed:
     def test_invalid_yaml_raises(self, tmp_path):
         yaml_path = tmp_path / "bad.yaml"
-        yaml_path.write_text(
-            "workflow_name: broken\n  invalid_indent: true\n"
-        )
+        yaml_path.write_text("workflow_name: broken\n  invalid_indent: true\n")
         with pytest.raises(yaml.error.YAMLError):
             FactoryConfig.from_yaml(yaml_path)
 

@@ -274,8 +274,13 @@ class TestRenderPrompt:
             ac_ids=["AC-01"],
             glossary={},
             prior_failures=[
-                FailureEntry(attempt_number=1, role="gate", channel="code",
-                             gate_name="syntax", diagnostic="bad syntax")
+                FailureEntry(
+                    attempt_number=1,
+                    role="gate",
+                    channel="code",
+                    gate_name="syntax",
+                    diagnostic="bad syntax",
+                )
             ],
             prompt_template="template",
             context_hash="abc",

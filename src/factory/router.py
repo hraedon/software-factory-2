@@ -171,10 +171,7 @@ def route(
             kind = _classify_diagnostic(gate_result)
             base = _PHASE2_DISPATCH.get(kind, Route(target_state="new"))
 
-            if (
-                kind in _ESCALATABLE_KINDS
-                and attempt_number >= attempt_threshold
-            ):
+            if kind in _ESCALATABLE_KINDS and attempt_number >= attempt_threshold:
                 escalation = _PHASE2_DISPATCH[DiagnosticKind.CANNOT_PROCEED_SEAM]
                 return Route(
                     target_state=escalation.target_state,

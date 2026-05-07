@@ -67,10 +67,7 @@ def compute(x: int) -> str:
 
     def test_normal_imports_pass(self, tmp_path):
         impl_path = tmp_path / "impl.py"
-        impl_path.write_text(
-            "def compute(x: int) -> str:\n"
-            "    return str(x)\n"
-        )
+        impl_path.write_text("def compute(x: int) -> str:\n    return str(x)\n")
         iface_path = tmp_path / "iface.pyi"
         iface_path.write_text("def compute(x: int) -> str: ...\n")
         result = evaluate_implementation(
