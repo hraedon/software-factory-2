@@ -168,6 +168,169 @@ def _has_ac_ref(text: str) -> bool:
     return False
 
 
+def evaluate_test_suite(
+    artifact_path: Path,
+    interface_ref_pyi_path: Path | None = None,
+) -> GateResult:
+    if not artifact_path.exists():
+        return GateResult(
+            passed=False,
+            gate_name="test_suite_file_exists",
+            diagnostics=[f"Artifact not found: {artifact_path}"],
+            artifact_valid=False,
+            diagnostic_kind="file_exists",
+        )
+
+    content = artifact_path.read_text()
+    if not content.strip():
+        return GateResult(
+            passed=False,
+            gate_name="test_suite_not_empty",
+            diagnostics=["Artifact is empty"],
+            artifact_valid=False,
+            diagnostic_kind="not_empty",
+        )
+
+    syntax_result = _check_syntax(content)
+    if not syntax_result.passed:
+        return GateResult(
+            passed=syntax_result.passed,
+            gate_name="test_suite_syntax",
+            diagnostics=syntax_result.diagnostics,
+            artifact_valid=False,
+            diagnostic_kind="syntax",
+        )
+
+    if interface_ref_pyi_path is not None:
+        try:
+            tree = ast.parse(content)
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                    mod = _import_module_name(node)
+                    if _is_non_interface_module(mod):
+                        return GateResult(
+                            passed=False,
+                            gate_name="test_suite_import_forbidden",
+                            diagnostics=[
+                                f"Test imports forbidden module '{mod}' — must only reference "
+                                f"the locked interface"
+                            ],
+                            artifact_valid=False,
+                            diagnostic_kind="test_import_forbidden",
+                        )
+        except SyntaxError:
+            pass
+
+    return GateResult(
+        passed=True,
+        gate_name="test_suite",
+        diagnostics=[],
+        artifact_valid=True,
+    )
+
+
+def _import_module_name(node: ast.Import | ast.ImportFrom) -> str:
+    if isinstance(node, ast.Import):
+        return node.names[0].name.split(".")[0]
+    module = node.module or ""
+    return module.split(".")[0]
+
+
+def _is_non_interface_module(module: str) -> bool:
+    return module in ("_impl", "implementation", "src")
+
+
+def evaluate_implementation(
+    artifact_path: Path,
+    test_suite_path: Path | None = None,
+    interface_pyi_path: Path | None = None,
+) -> GateResult:
+    if not artifact_path.exists():
+        return GateResult(
+            passed=False,
+            gate_name="implementation_file_exists",
+            diagnostics=[f"Artifact not found: {artifact_path}"],
+            artifact_valid=False,
+            diagnostic_kind="file_exists",
+        )
+
+    content = artifact_path.read_text()
+    if not content.strip():
+        return GateResult(
+            passed=False,
+            gate_name="implementation_not_empty",
+            diagnostics=["Artifact is empty"],
+            artifact_valid=False,
+            diagnostic_kind="not_empty",
+        )
+
+    syntax_result = _check_syntax(content)
+    if not syntax_result.passed:
+        return GateResult(
+            passed=syntax_result.passed,
+            gate_name="implementation_syntax",
+            diagnostics=syntax_result.diagnostics,
+            artifact_valid=False,
+            diagnostic_kind="syntax",
+        )
+
+    return GateResult(
+        passed=True,
+        gate_name="implementation",
+        diagnostics=[],
+        artifact_valid=True,
+    )
+
+
+def evaluate_deterministic_gates(
+    artifact_files: dict[str, Path],
+    config: dict,
+) -> list[GateResult]:
+    results: list[GateResult] = []
+
+    for artifact_key, artifact_path in artifact_files.items():
+        if not artifact_path.exists():
+            results.append(
+                GateResult(
+                    passed=False,
+                    gate_name=f"{artifact_key}_file_exists",
+                    diagnostics=[f"Artifact not found: {artifact_path}"],
+                    artifact_valid=False,
+                    diagnostic_kind="file_exists",
+                )
+            )
+            continue
+
+        content = artifact_path.read_text()
+        if not content.strip():
+            results.append(
+                GateResult(
+                    passed=False,
+                    gate_name=f"{artifact_key}_not_empty",
+                    diagnostics=[f"Artifact is empty: {artifact_path}"],
+                    artifact_valid=False,
+                    diagnostic_kind="not_empty",
+                )
+            )
+            continue
+
+        try:
+            ast.parse(content)
+        except SyntaxError as e:
+            results.append(
+                GateResult(
+                    passed=False,
+                    gate_name=f"{artifact_key}_syntax",
+                    diagnostics=[f"SyntaxError at line {e.lineno}: {e.msg}"],
+                    artifact_valid=False,
+                    diagnostic_kind="syntax",
+                )
+            )
+            continue
+
+    return results
+
+
 def structural_signature(pyi_content: str) -> list[str]:
     """Extract normalized structural elements from .pyi content for comparison.
 

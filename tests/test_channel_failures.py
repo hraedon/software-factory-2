@@ -75,11 +75,10 @@ class TestChannelFailureModes:
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
-        assert updated.current_state == "in_progress"
+        assert updated.current_state == "new"
         assert updated.claimed_by is None
         assert channel.was_invoked
 
-        # BC-021: channel_fail event recorded
         events = mock_substrate.read_events(
             work_item_id=wi.work_item_id, transition="channel_fail"
         )
@@ -129,7 +128,7 @@ class TestChannelFailureModes:
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
-        assert updated.current_state == "in_progress"
+        assert updated.current_state == "new"
         assert updated.claimed_by is None
 
         events = mock_substrate.read_events(
@@ -179,7 +178,7 @@ class TestChannelFailureModes:
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
-        assert updated.current_state == "in_progress"
+        assert updated.current_state == "new"
         assert updated.claimed_by is None
 
         events = mock_substrate.read_events(
@@ -225,7 +224,7 @@ class TestChannelFailureModes:
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
-        assert updated.current_state == "in_progress"
+        assert updated.current_state == "new"
         assert updated.claimed_by is None
 
         events = mock_substrate.read_events(

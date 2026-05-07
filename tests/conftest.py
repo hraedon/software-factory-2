@@ -4,8 +4,10 @@ import uuid
 from pathlib import Path
 
 import pytest
-from factory.config import FactoryConfig
 from substrate._testing import drop_project_schema
+from substrate.testing import InMemorySubstrate
+
+from factory.config import FactoryConfig
 
 TESTS_DIR = Path(__file__).parent
 DSN = "postgresql://substrate_test:substrate_test@localhost:5432/substrate_test"
@@ -38,10 +40,9 @@ def factory_config(substrate, workspace_root):
 
 @pytest.fixture()
 def mock_substrate():
-    from tests._mock_substrate import MockSubstrate
-
     workflow_content = Path(WORKFLOW_PATH).read_text()
-    sub = MockSubstrate(workflow_yaml=workflow_content)
+    sub = InMemorySubstrate()
+    sub.register_workflow(workflow_content)
     yield sub
     sub.close()
 

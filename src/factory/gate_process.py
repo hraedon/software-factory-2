@@ -10,7 +10,12 @@ from substrate import Substrate
 from substrate._types import ActorMetadata
 
 from factory.config import FactoryConfig, load_config
-from factory.gate import GateResult, evaluate_interface_spec
+from factory.gate import (
+    GateResult,
+    evaluate_implementation,
+    evaluate_interface_spec,
+    evaluate_test_suite,
+)
 from factory.router import route
 
 log = structlog.get_logger()
@@ -27,10 +32,7 @@ def run_gate(config: FactoryConfig) -> None:
 def gate_loop(sub: Substrate, config: FactoryConfig) -> None:
     actor_id = "factory-gate-code"
     for role_name in config.gate_roles:
-        try:
-            sub.register_actor_role(actor_id, role_name)
-        except Exception:
-            pass
+        sub.register_actor_role(actor_id, role_name)
     poll_interval = config.poll_interval_seconds
     shutting_down = False
 
@@ -94,6 +96,38 @@ def process_gate_item(
         )
     elif wi.work_item_type == "interface_spec":
         gate_result = evaluate_interface_spec(artifact_path, ac_ids=ac_ids)
+    elif wi.work_item_type == "test_suite":
+        interface_ref = custom.get("interface_ref")
+        interface_pyi_path = None
+        if interface_ref:
+            ref_wi = sub.get_work_item(interface_ref)
+            if ref_wi and ref_wi.custom_fields:
+                ref_path = ref_wi.custom_fields.get("artifact_path")
+                if ref_path:
+                    interface_pyi_path = Path(ref_path)
+        gate_result = evaluate_test_suite(artifact_path, interface_ref_pyi_path=interface_pyi_path)
+    elif wi.work_item_type == "implementation":
+        interface_ref = custom.get("interface_ref")
+        test_suite_ref = custom.get("test_suite_ref")
+        interface_pyi_path = None
+        test_suite_path = None
+        if interface_ref:
+            ref_wi = sub.get_work_item(interface_ref)
+            if ref_wi and ref_wi.custom_fields:
+                ref_path = ref_wi.custom_fields.get("artifact_path")
+                if ref_path:
+                    interface_pyi_path = Path(ref_path)
+        if test_suite_ref:
+            ref_wi = sub.get_work_item(test_suite_ref)
+            if ref_wi and ref_wi.custom_fields:
+                ref_path = ref_wi.custom_fields.get("artifact_path")
+                if ref_path:
+                    test_suite_path = Path(ref_path)
+        gate_result = evaluate_implementation(
+            artifact_path,
+            test_suite_path=test_suite_path,
+            interface_pyi_path=interface_pyi_path,
+        )
     else:
         gate_result = GateResult(
             passed=False,

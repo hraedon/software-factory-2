@@ -4,6 +4,134 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-07 — Session 7: register_actor_role idempotency + InMemorySubstrate migration
+
+**Invocation:** OpenCode (deepseek-v4-pro)
+
+**Focus:** Resolve pending `register_actor_role` idempotency breadcrumb and migrate SF2 from hand-rolled `MockSubstrate` to substrate's `InMemorySubstrate` (resolving BC-038).
+
+**Result: 165/166 tests pass, lint clean on all changed files. SF2 no longer carries a divergent test double — substrate's InMemorySubstrate is the mock fixture.**
+
+**Substrate changes:**
+
+1. `register_actor_role` idempotency fix (resolves pending draft):
+   - `_actor_roles.py:register_actor_role()` — duplicate registration is now a silent no-op instead of raising `ACTOR_ROLE_ALREADY_REGISTERED`.
+   - `_in_memory.py:InMemorySubstrate.register_actor_role()` — same behavior change.
+   - `test_phase3.py:test_register_duplicate_role_raises` → renamed to `test_register_duplicate_role_is_idempotent`, asserts duplicate is a no-op.
+
+2. `_in_memory.py:read_events()` — reimplemented filter composition:
+   - Was: mutually exclusive `if/elif` branches (work_item_id, actor_id, timerange, transition).
+   - Now: composable pipeline — work_item_id restricts the pool, then actor_id/transition/start-end apply as layered filters.
+   - Tests that pass `work_item_id + transition` simultaneously now work correctly.
+
+**SF2 changes:**
+
+1. Removed `try/except` wrappers from `runner.py:worker_loop()` and `gate_process.py:gate_loop()` — no longer needed since `register_actor_role` is idempotent.
+
+2. Removed `release_claim` after `channel_fail` transition in `runner.py:_handle_invoke_failure()` — substrate's `transition()` already releases claims.
+
+3. Replaced `tests/_mock_substrate.py` usage with `substrate.testing.InMemorySubstrate`:
+   - `conftest.py:mock_substrate` fixture now creates `InMemorySubstrate()` + `register_workflow()`.
+   - `tests/_mock_substrate.py` is dead code (all references removed).
+   - `MockSubstrate` class remains on disk (not imported by any test); safe to delete.
+
+4. `scheduler.py:_ref_field_for("implementation")` now returns `"test_suite_ref"`. Added `interface_ref` propagation logic — implementation handoff pulls `interface_ref` from source test_suite's custom_fields.
+
+5. Fixed all tests that relied on MockSubstrate's lax validation:
+   - `test_failure_summary.py` — added `actor_metadata={"role": "..."}` to all `transition(claim/submit/channel_fail)` calls.
+   - `test_pipeline_mock.py` — same.
+   - `test_context.py` — registered `phase2.yaml` before creating `test_suite`/`implementation` items. Added `Path` import. Added required parent work items (with `interface_ref`/`test_suite_ref`) to satisfy InMemorySubstrate's `work_item_ref` validation.
+
+**Test count:** 165 pass, 1 skip (unchanged).
+
+**Lint:** Clean on all changed production and test files.
+
+---
+
+## 2026-05-07 — Session 6: Phase 2 Waves 0-4, 165 pass, lint clean
+
+## 2026-05-07 — Session 6: Phase 2 Waves 0-4, 165 pass, lint clean
+
+**Invocation:** OpenCode (deepseek-v4-pro)
+
+**Focus:** Execute Phase 2 build waves per `plans/phase2-implementation.md`, working from Wave 0 through Wave 4 (scheduler + pipeline smoke). Waves 6-8 (integration hardening, golden-run-002, telemetry reporter) deferred per plan.
+
+**Result: Phase 2 core infrastructure built — runner + gate + scheduler handle all 3 worker roles (interface_architect, test_author, implementer) end-to-end through a single-channel pipeline. 165/166 tests pass, lint clean on all new files.**
+
+**Actions taken:**
+
+**Wave 0 — channel_fail reconciliation + phase2 roundtrip:**
+- Switched `channel_fail` from `append_event` → real `transition` in `runner.py:_handle_invoke_failure`. Updated `phase1.yaml` to include `channel_fail` transition. MockSubstrate `release_claim` already clears `claimed_by`.
+- Updated `test_channel_failures.py` assertions: post-channel_fail state is `new`, not `in_progress`.
+- Updated `test_failure_summary.py` to use `transition(channel_fail)` instead of `append_event`.
+- Created `tests/test_phase2_workflow_roundtrip.py` (8 tests) against real substrate: yaml registration, interface_spec lifecycle, channel_fail transition, test_suite ref validation (BC-037), wrong-role rejection, attempt threshold, full chain with links.
+
+**Wave 1 — Gate expansion:**
+- Added `evaluate_test_suite()` and `evaluate_implementation()` to `gate.py`. Test suite gate covers file exist/empty/syntax/forbidden-import checks. Implementation gate covers file exist/empty/syntax checks.
+- Extended `DiagnosticKind` in `router.py` with 7 new values: `TEST_AC_BINDING`, `TEST_COLLECT`, `TEST_IMPORT_FORBIDDEN`, `IMPL_MYPY`, `IMPL_PYTEST`, `IMPL_LINT`, `IMPL_IMPORT`.
+- Extended `_PHASE2_DISPATCH` with routes for all new diagnostic kinds (test_* → test_author, impl_* → implementer).
+- Updated `gate_process.py` to resolve `interface_ref` and `test_suite_ref` when gating test_suite and implementation work-items from substrate.
+- Created `tests/test_gate_test_suite.py` (7 tests) and `tests/test_gate_implementation.py` (6 tests).
+
+**Wave 2 — test_author role:**
+- Created `src/factory/prompts/test_author.md` — role prompt covering locked_interface consumption, pytest conventions, forbidden-import rules, error-path coverage.
+- Added `derive_test_author_context()` to `context.py` — resolves `interface_ref` work-item, loads its `.pyi` artifact into `extra_artifacts["locked_interface"]`.
+- Added `PromptContext.extra_artifacts` field for passing resolved artifact content to `render_prompt`.
+- Added `_to_uuid()` helper for UUID coercion.
+- Updated `render_prompt` to append extra artifacts sections.
+- Added context tests for test_author derivation (2 tests).
+
+**Wave 3 — implementer role:**
+- Created `src/factory/prompts/implementer.md` — role prompt emphasizing signature conformance, test-driven fill-in, no comments, no new public symbols.
+- Added `derive_implementer_context()` to `context.py` — resolves both `interface_ref` and `test_suite_ref`, loads artifacts into `extra_artifacts`.
+- Added context tests for implementer derivation (2 tests).
+
+**Wave 4 — Multi-stage runner + scheduler:**
+- Added Phase 2 config constants to `FactoryConfig`: `PHASE2_WORKER_ROLES`, `PHASE2_TYPE_TO_ROLE`, `PHASE2_ROLES`.
+- Added `_derive_role_context()` dispatch in `runner.py` — routes to `derive_test_author_context` / `derive_implementer_context` per role.
+- Created `src/factory/scheduler.py` — polling-based inter-stage handoff:
+  - Scans for locked `interface_spec` → creates `test_suite` with `derived_from` link.
+  - Scans for locked `test_suite` → creates `implementation` with `tested_by` + `implements` links.
+  - Idempotent via `has_link_type` check.
+  - Added `factory-schedule` entry point.
+- Added `create_link` and `has_link_type` support to `MockSubstrate`. Added `Link` import.
+- Fixed `MockSubstrate` workflow version tracking from YAML.
+- Created `tests/test_pipeline_smoke.py` (2 tests):
+  - Full 3-stage pipeline (iface → ts → impl) with gate at each stage.
+  - Gate-fail routing returns diagnostics with correct `diagnostic_kind`.
+
+**Files changed:**
+- `src/factory/gate.py` — added `evaluate_test_suite`, `evaluate_implementation`
+- `src/factory/router.py` — 7 new `DiagnosticKind` values, 7 new dispatch entries
+- `src/factory/gate_process.py` — test_suite + implementation type handling with ref resolution
+- `src/factory/context.py` — `extra_artifacts` field, `derive_test_author_context`, `derive_implementer_context`, `_to_uuid`
+- `src/factory/runner.py` — `_derive_role_context` dispatch, updated `process_work_item`
+- `src/factory/config.py` — Phase 2 role/type constants
+- `src/factory/scheduler.py` — new file, inter-stage handoff
+- `src/factory/prompts/test_author.md` — new role prompt
+- `src/factory/prompts/implementer.md` — new role prompt
+- `workflows/phase1.yaml` — added channel_fail transition
+- `pyproject.toml` — added factory-schedule entry point
+- `tests/_mock_substrate.py` — create_link, has_link_type, workflow version tracking
+- `tests/test_phase2_workflow_roundtrip.py` — 8 tests
+- `tests/test_gate_test_suite.py` — 7 tests
+- `tests/test_gate_implementation.py` — 6 tests
+- `tests/test_context.py` — 4 new tests for role context derivations
+- `tests/test_pipeline_smoke.py` — 2 tests
+- `tests/test_channel_failures.py` — state assertions updated
+- `tests/test_failure_summary.py` — append_event → transition
+
+**Test count:** 165 pass, 1 skip. Up from 138.
+
+**Lint:** Clean on all new production and test code.
+
+**What remains (Phase 2 plan):**
+- Wave 6: Pipeline integration + idempotency hardening (requires real substrate)
+- Wave 7: Golden-run-002 (requires Claude CC)
+- Wave 8: Telemetry reporter skeleton
+
+---
+
 ## 2026-05-07 — Session 5: Breadcrumb sweep, 7 resolved + 4 raised + BC-021 closed
 
 **Invocation:** OpenCode (deepseek-v4-pro)

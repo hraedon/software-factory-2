@@ -11,7 +11,12 @@ from substrate._types import ActorMetadata
 
 from factory.channel import Channel
 from factory.config import FactoryConfig, load_config
-from factory.context import derive_context, render_prompt
+from factory.context import (
+    derive_context,
+    derive_implementer_context,
+    derive_test_author_context,
+    render_prompt,
+)
 from factory.workspace import (
     ArtifactManifest,
     attempt_dir,
@@ -28,6 +33,19 @@ def _role_for_type(work_item_type: str, config: FactoryConfig) -> str | None:
         if type_name == work_item_type:
             return role_name
     return None
+
+
+def _derive_role_context(
+    sub: Substrate,
+    work_item_id: str,
+    role_name: str,
+    spec_content: str | None,
+):
+    if role_name == "test_author":
+        return derive_test_author_context(sub, work_item_id, spec_content=spec_content)
+    if role_name == "implementer":
+        return derive_implementer_context(sub, work_item_id, spec_content=spec_content)
+    return derive_context(sub, work_item_id, role_name, spec_content=spec_content)
 
 
 def run_worker(config: FactoryConfig, channel: Channel) -> None:
@@ -53,10 +71,7 @@ def worker_loop(
 ) -> None:
     actor_id = f"factory-worker-{channel.name}"
     for role_name in config.worker_roles:
-        try:
-            sub.register_actor_role(actor_id, role_name)
-        except Exception:
-            pass
+        sub.register_actor_role(actor_id, role_name)
     poll_interval = config.poll_interval_seconds
     shutting_down = False
 
@@ -150,7 +165,7 @@ def process_work_item(
         )
         return
 
-    ctx = derive_context(sub, wi.work_item_id, role_name, spec_content=spec_content)
+    ctx = _derive_role_context(sub, wi.work_item_id, role_name, spec_content)
     role_config = config.get_role_config(role_name)
     timeout = role_config.timeout_seconds if role_config else config.claim_ttl_seconds
     ad = attempt_dir(wr, work_item_id, attempt_number)
@@ -246,8 +261,9 @@ def _handle_invoke_failure(
         work_item_id=str(work_item_id),
         error=invoke_result.error_message,
     )
-    sub.append_event(
+    sub.transition(
         work_item_id,
+        "channel_fail",
         actor_id,
         actor_metadata=ActorMetadata(
             role=role_name,
@@ -256,7 +272,6 @@ def _handle_invoke_failure(
             attempt_n=attempt_number,
             context_hash=ctx.context_hash,
         ).to_dict(),
-        transition="channel_fail",
         payload={
             "diagnostics": {
                 "error_message": invoke_result.error_message,
@@ -265,7 +280,6 @@ def _handle_invoke_failure(
             }
         },
     )
-    sub.release_claim(work_item_id, actor_id)
 
 
 def _resume_and_submit(

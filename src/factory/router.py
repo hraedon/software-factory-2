@@ -16,6 +16,13 @@ class DiagnosticKind(StrEnum):
     CANNOT_PROCEED = "cannot_proceed"
     UNKNOWN_TYPE = "unknown_type"
     GENERIC = "generic"
+    TEST_AC_BINDING = "test_ac_binding"
+    TEST_COLLECT = "test_collect"
+    TEST_IMPORT_FORBIDDEN = "test_import_forbidden"
+    IMPL_MYPY = "impl_mypy"
+    IMPL_PYTEST = "impl_pytest"
+    IMPL_LINT = "impl_lint"
+    IMPL_IMPORT = "impl_import"
 
 
 KIND_TO_ROLE: dict[DiagnosticKind, str] = {
@@ -101,6 +108,34 @@ _PHASE2_DISPATCH = {
     DiagnosticKind.GENERIC: Route(
         target_state="new",
         target_role="interface_architect",
+    ),
+    DiagnosticKind.TEST_AC_BINDING: Route(
+        target_state="new",
+        target_role="test_author",
+    ),
+    DiagnosticKind.TEST_COLLECT: Route(
+        target_state="new",
+        target_role="test_author",
+    ),
+    DiagnosticKind.TEST_IMPORT_FORBIDDEN: Route(
+        target_state="new",
+        target_role="test_author",
+    ),
+    DiagnosticKind.IMPL_MYPY: Route(
+        target_state="new",
+        target_role="implementer",
+    ),
+    DiagnosticKind.IMPL_PYTEST: Route(
+        target_state="new",
+        target_role="implementer",
+    ),
+    DiagnosticKind.IMPL_LINT: Route(
+        target_state="new",
+        target_role="implementer",
+    ),
+    DiagnosticKind.IMPL_IMPORT: Route(
+        target_state="new",
+        target_role="implementer",
     ),
 }
 

@@ -5,7 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from substrate._types import Claim, Event, QueryPage, WorkItem
+from substrate._types import Claim, Event, Link, QueryPage, WorkItem
 
 
 @dataclass
@@ -31,7 +31,9 @@ class MockSubstrate:
         self._claims: dict[uuid.UUID, Claim] = {}
         self._attempt_counts: dict[uuid.UUID, int] = defaultdict(int)
         self._workflow = self._parse_workflow(workflow_yaml) if workflow_yaml else None
+        self._workflow_version = 1
         self._closed = False
+        self._links: list = []
 
     @staticmethod
     def _parse_workflow(yaml_content: str) -> _WorkflowState:
@@ -61,9 +63,13 @@ class MockSubstrate:
         from pathlib import Path
 
         self._workflow = self._parse_workflow(Path(path).read_text())
+        import yaml
+        self._workflow_version = yaml.safe_load(Path(path).read_text()).get("version", 1)
 
     def register_workflow(self, yaml_content: str) -> None:
         self._workflow = self._parse_workflow(yaml_content)
+        import yaml
+        self._workflow_version = yaml.safe_load(yaml_content).get("version", 1)
 
     def register_actor_role(self, actor_id: str, role: str) -> None:
         self._actor_roles[actor_id].add(role)
@@ -85,7 +91,7 @@ class MockSubstrate:
         wi = WorkItem(
             work_item_id=wi_id,
             workflow_name=workflow_name,
-            workflow_version=1,
+            workflow_version=self._workflow_version,
             work_item_type=work_item_type,
             current_state=initial_state,
             custom_fields=custom_fields or {},
@@ -106,7 +112,7 @@ class MockSubstrate:
             actor_metadata=actor_metadata or {},
             key_id="mock",
             workflow_name=workflow_name,
-            workflow_version=1,
+            workflow_version=self._workflow_version,
             timestamp=now,
             transition="created",
             payload=None,
@@ -303,6 +309,7 @@ class MockSubstrate:
 
     def query_work_items(self, *, current_states=None, page_size=100, **kwargs) -> QueryPage:
         items = []
+        has_link_type = kwargs.get("has_link_type")
         for state in self._work_items.values():
             wi = state.work_item
             if current_states and wi.current_state not in current_states:
@@ -313,5 +320,33 @@ class MockSubstrate:
                 continue
             if kwargs.get("workflow_version") is not None and wi.workflow_version != kwargs["workflow_version"]:
                 continue
+            if has_link_type is not None:
+                found = False
+                for link in self._links:
+                    if link.link_type == has_link_type and link.from_work_item_id == wi.work_item_id:
+                        found = True
+                        break
+                if not found:
+                    continue
             items.append(wi)
         return QueryPage(items=items[:page_size], cursor=None, has_more=False)
+
+    def create_link(
+        self,
+        from_work_item_id: uuid.UUID,
+        to_work_item_id: uuid.UUID,
+        link_type: str,
+        actor_id: str,
+        actor_kind: str = "agent",
+        payload: dict | None = None,
+        **kwargs,
+    ) -> Link:
+        link = Link(
+            link_id=uuid.uuid4(),
+            from_work_item_id=from_work_item_id,
+            to_work_item_id=to_work_item_id,
+            link_type=link_type,
+            payload=payload,
+        )
+        self._links.append(link)
+        return link

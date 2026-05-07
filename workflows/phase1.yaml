@@ -33,6 +33,11 @@ transitions:
     to: new
     allowed_roles: [interface_architect]
 
+  - name: channel_fail
+    from: in_progress
+    to: new
+    allowed_roles: [interface_architect]
+
   - name: gate_pass
     from: gating
     to: locked

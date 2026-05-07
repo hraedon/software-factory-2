@@ -25,6 +25,7 @@ dev = [
 [project.scripts]
 factory-run = "factory.runner:main"
 factory-gate = "factory.gate_process:main"
+factory-schedule = "factory.scheduler:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/factory"]

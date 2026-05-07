@@ -116,8 +116,14 @@ class TestDeriveFailures:
             actor_id="test",
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(wi.work_item_id, "claim", "test-worker")
-        mock_substrate.transition(wi.work_item_id, "submit", "test-worker")
+        mock_substrate.transition(
+            wi.work_item_id, "claim", "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.transition(
+            wi.work_item_id, "submit", "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
         mock_substrate.transition(
             wi.work_item_id,
             "gate_fail",
@@ -152,16 +158,19 @@ class TestDeriveFailures:
             actor_id="test",
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(wi.work_item_id, "claim", "test-worker")
-        mock_substrate.append_event(
+        mock_substrate.transition(
+            wi.work_item_id, "claim", "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.transition(
             wi.work_item_id,
+            "channel_fail",
             "test-worker",
             actor_metadata={
                 "role": "interface_architect",
                 "channel": "claude-code",
                 "attempt_n": 1,
             },
-            transition="channel_fail",
             payload={
                 "diagnostics": {
                     "error_message": "timeout",
@@ -187,15 +196,19 @@ class TestDeriveFailures:
             actor_id="test",
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.append_event(
+        mock_substrate.transition(
+            wi.work_item_id, "claim", "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.transition(
             wi.work_item_id,
+            "channel_fail",
             "test-worker",
             actor_metadata={
                 "role": "interface_architect",
                 "channel": "claude-code",
                 "attempt_n": 1,
             },
-            transition="channel_fail",
             payload={
                 "diagnostics": {
                     "error_message": "timeout",
@@ -204,8 +217,14 @@ class TestDeriveFailures:
                 }
             },
         )
-        mock_substrate.transition(wi.work_item_id, "claim", "test-worker2")
-        mock_substrate.transition(wi.work_item_id, "submit", "test-worker2")
+        mock_substrate.transition(
+            wi.work_item_id, "claim", "test-worker2",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.transition(
+            wi.work_item_id, "submit", "test-worker2",
+            actor_metadata={"role": "interface_architect"},
+        )
         mock_substrate.transition(
             wi.work_item_id,
             "gate_fail",
@@ -238,8 +257,14 @@ class TestDeriveFailures:
             actor_id="test",
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(wi.work_item_id, "claim", "test-worker")
-        mock_substrate.transition(wi.work_item_id, "submit", "test-worker")
+        mock_substrate.transition(
+            wi.work_item_id, "claim", "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.transition(
+            wi.work_item_id, "submit", "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
         mock_substrate.transition(
             wi.work_item_id,
             "gate_fail",
@@ -258,8 +283,14 @@ class TestDeriveFailures:
                 }
             },
         )
-        mock_substrate.transition(wi.work_item_id, "claim", "test-worker")
-        mock_substrate.transition(wi.work_item_id, "submit", "test-worker")
+        mock_substrate.transition(
+            wi.work_item_id, "claim", "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.transition(
+            wi.work_item_id, "submit", "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
         mock_substrate.transition(
             wi.work_item_id,
             "gate_fail",
@@ -292,8 +323,14 @@ class TestDeriveFailures:
             actor_id="test",
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(wi.work_item_id, "claim", "test-worker")
-        mock_substrate.transition(wi.work_item_id, "submit", "test-worker")
+        mock_substrate.transition(
+            wi.work_item_id, "claim", "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.transition(
+            wi.work_item_id, "submit", "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
         mock_substrate.transition(
             wi.work_item_id,
             "gate_fail",
@@ -318,8 +355,14 @@ class TestDeriveFailures:
             actor_id="test",
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(wi.work_item_id, "claim", "test-worker")
-        mock_substrate.transition(wi.work_item_id, "submit", "test-worker")
+        mock_substrate.transition(
+            wi.work_item_id, "claim", "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.transition(
+            wi.work_item_id, "submit", "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
         mock_substrate.transition(
             wi.work_item_id,
             "gate_fail",

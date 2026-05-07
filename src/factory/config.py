@@ -36,6 +36,23 @@ class FactoryConfig:
         RoleConfig(role="mechanical_gate", channel="code"),
     )
 
+    PHASE2_WORKER_ROLES: tuple[str, ...] = (
+        "interface_architect",
+        "test_author",
+        "implementer",
+    )
+    PHASE2_TYPE_TO_ROLE: tuple[tuple[str, str], ...] = (
+        ("interface_spec", "interface_architect"),
+        ("test_suite", "test_author"),
+        ("implementation", "implementer"),
+    )
+    PHASE2_ROLES: tuple[RoleConfig, ...] = (
+        RoleConfig(role="interface_architect", channel="claude-code"),
+        RoleConfig(role="test_author", channel="claude-code"),
+        RoleConfig(role="implementer", channel="claude-code"),
+        RoleConfig(role="mechanical_gate", channel="code"),
+    )
+
     def get_role_config(self, role: str) -> RoleConfig | None:
         for rc in self.roles:
             if rc.role == role:

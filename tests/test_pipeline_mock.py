@@ -110,11 +110,15 @@ class TestMockSubstrateFullPipeline:
         artifact_path.write_text('"""Satisfies AC-01."""\ndef foo() -> int: ...\n')
 
         mock_substrate.register_actor_role("test-worker", "interface_architect")
-        mock_substrate.transition(wi.work_item_id, "claim", "test-worker")
+        mock_substrate.transition(
+            wi.work_item_id, "claim", "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
         mock_substrate.transition(
             wi.work_item_id,
             "submit",
             "test-worker",
+            actor_metadata={"role": "interface_architect"},
             custom_fields={"artifact_path": str(artifact_path), "artifact_hash": "abc"},
         )
 

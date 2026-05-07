@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -110,6 +111,7 @@ class TestPromptContext:
             prior_failures=[],
             prompt_template="",
             context_hash="abc123",
+            extra_artifacts={},
         )
         with pytest.raises(AttributeError):
             ctx.role = "test_author"
@@ -220,3 +222,168 @@ class TestDeriveContextSpecContent:
         ctx_1 = derive_context(mock_substrate, wi_1.work_item_id, "interface_architect")
         ctx_2 = derive_context(mock_substrate, wi_2.work_item_id, "interface_architect")
         assert ctx_1.context_hash != ctx_2.context_hash
+
+
+class TestDeriveTestAuthorContext:
+    def test_includes_locked_interface(self, mock_substrate, tmp_path):
+        from factory.context import derive_test_author_context
+
+        mock_substrate.register_workflow_file(
+            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
+        )
+
+        iface_pyi = tmp_path / "iface.pyi"
+        iface_pyi.write_text("def compute(x: int) -> str: ...\n")
+
+        iface, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="arch",
+            custom_fields={
+                "spec_section": "Section A",
+                "ac_ids": ["AC-01"],
+                "artifact_path": str(iface_pyi),
+                "artifact_hash": "sha256:abc",
+            },
+        )
+
+        ts, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="test_suite",
+            actor_id="tester",
+            custom_fields={
+                "spec_section": "Section A",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+            },
+        )
+
+        ctx = derive_test_author_context(mock_substrate, ts.work_item_id)
+        assert ctx.extra_artifacts.get("locked_interface") == "def compute(x: int) -> str: ...\n"
+        assert ctx.role == "test_author"
+
+    def test_missing_interface_ref_handled_gracefully(self, mock_substrate):
+        from factory.context import derive_test_author_context
+
+        mock_substrate.register_workflow_file(
+            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
+        )
+
+        iface, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="arch",
+            custom_fields={
+                "spec_section": "Section A",
+                "ac_ids": ["AC-01"],
+            },
+        )
+
+        ts, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="test_suite",
+            actor_id="tester",
+            custom_fields={
+                "spec_section": "Section A",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+            },
+        )
+
+        ctx = derive_test_author_context(mock_substrate, ts.work_item_id)
+        assert ctx.extra_artifacts.get("locked_interface", "") == ""
+
+
+class TestDeriveImplementerContext:
+    def test_includes_locked_interface_and_test_suite(self, mock_substrate, tmp_path):
+        from factory.context import derive_implementer_context
+
+        mock_substrate.register_workflow_file(
+            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
+        )
+
+        iface_pyi = tmp_path / "iface2.pyi"
+        iface_pyi.write_text("def compute(x: int) -> str: ...\n")
+        ts_file = tmp_path / "test_compute.py"
+        ts_file.write_text("def test_compute(): assert True\n")
+
+        iface, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="arch",
+            custom_fields={
+                "spec_section": "Section B",
+                "ac_ids": ["AC-01"],
+                "artifact_path": str(iface_pyi),
+            },
+        )
+        ts, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="test_suite",
+            actor_id="tester",
+            custom_fields={
+                "spec_section": "Section B",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+                "artifact_path": str(ts_file),
+            },
+        )
+
+        impl, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="implementation",
+            actor_id="impl",
+            custom_fields={
+                "spec_section": "Section B",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+                "test_suite_ref": str(ts.work_item_id),
+            },
+        )
+
+        ctx = derive_implementer_context(mock_substrate, impl.work_item_id)
+        assert ctx.extra_artifacts.get("locked_interface") == "def compute(x: int) -> str: ...\n"
+        assert ctx.extra_artifacts.get("test_suite") == "def test_compute(): assert True\n"
+        assert ctx.role == "implementer"
+
+    def test_missing_refs_handled_gracefully(self, mock_substrate):
+        from factory.context import derive_implementer_context
+
+        mock_substrate.register_workflow_file(
+            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
+        )
+
+        iface, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="arch",
+            custom_fields={
+                "spec_section": "Section C",
+                "ac_ids": ["AC-01"],
+            },
+        )
+        suite, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="test_suite",
+            actor_id="tester",
+            custom_fields={
+                "spec_section": "Section C",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+            },
+        )
+
+        impl, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="implementation",
+            actor_id="impl",
+            custom_fields={
+                "spec_section": "Section C",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+                "test_suite_ref": str(suite.work_item_id),
+            },
+        )
+
+        ctx = derive_implementer_context(mock_substrate, impl.work_item_id)
+        assert ctx.extra_artifacts == {}
