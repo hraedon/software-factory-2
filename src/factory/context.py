@@ -42,7 +42,9 @@ def derive_context(
     prompt_path = PROMPTS_DIR / f"{role}.md"
     prompt_template = prompt_path.read_text() if prompt_path.exists() else ""
     glossary = spec_glossary if spec_glossary is not None else {}
-    section_content = spec_content if spec_content is not None else spec_section
+    section_content = spec_section
+    if not section_content and spec_content is not None:
+        section_content = spec_content
     bundle = _serialize_bundle(section_content, ac_ids, glossary, failures, prompt_template)
     context_hash = hashlib.sha256(bundle.encode()).hexdigest()
     return PromptContext(

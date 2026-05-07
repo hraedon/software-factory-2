@@ -9,7 +9,7 @@ import structlog
 from substrate import Substrate
 from substrate._types import ActorMetadata
 
-from factory.config import FactoryConfig
+from factory.config import FactoryConfig, load_config
 from factory.gate import GateResult, evaluate_interface_spec
 
 log = structlog.get_logger()
@@ -26,7 +26,10 @@ def run_gate(config: FactoryConfig) -> None:
 def gate_loop(sub: Substrate, config: FactoryConfig) -> None:
     actor_id = "factory-gate-code"
     for role_name in config.gate_roles:
-        sub.register_actor_role(actor_id, role_name)
+        try:
+            sub.register_actor_role(actor_id, role_name)
+        except Exception:
+            pass
     poll_interval = config.poll_interval_seconds
     shutting_down = False
 
@@ -140,8 +143,8 @@ def main() -> None:
         default=None,
         help="Path to config YAML",
     )
-    parser.parse_args()
-    config = FactoryConfig()
+    args = parser.parse_args()
+    config = load_config(args.config)
     run_gate(config)
 
 

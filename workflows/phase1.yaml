@@ -28,6 +28,11 @@ transitions:
     to: cannot_proceed
     allowed_roles: [interface_architect]
 
+  - name: release
+    from: in_progress
+    to: new
+    allowed_roles: [interface_architect]
+
   - name: gate_pass
     from: gating
     to: locked
@@ -52,6 +57,10 @@ work_item_types:
       - name: ac_ids
         type: json
         required: true
+        ui_visible: true
+      - name: shape
+        type: string
+        required: false
         ui_visible: true
       - name: artifact_path
         type: string

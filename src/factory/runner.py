@@ -10,7 +10,7 @@ from substrate import Substrate
 from substrate._types import ActorMetadata
 
 from factory.channel import Channel
-from factory.config import FactoryConfig
+from factory.config import FactoryConfig, load_config
 from factory.context import derive_context, render_prompt
 from factory.workspace import (
     ArtifactManifest,
@@ -53,7 +53,10 @@ def worker_loop(
 ) -> None:
     actor_id = f"factory-worker-{channel.name}"
     for role_name in config.worker_roles:
-        sub.register_actor_role(actor_id, role_name)
+        try:
+            sub.register_actor_role(actor_id, role_name)
+        except Exception:
+            pass
     poll_interval = config.poll_interval_seconds
     shutting_down = False
 
@@ -88,6 +91,17 @@ def worker_loop(
                     attempt=claim.attempt_number,
                     threshold=config.attempt_threshold,
                 )
+            sub.transition(
+                wi.work_item_id,
+                "claim",
+                actor_id,
+                actor_metadata=ActorMetadata(
+                    role=role_name,
+                    channel=channel.name,
+                    family=channel.family,
+                    attempt_n=claim.attempt_number,
+                ).to_dict(),
+            )
             log.info(
                 "claim_acquired",
                 work_item_id=str(wi.work_item_id),
@@ -262,10 +276,10 @@ def main() -> None:
         "--config",
         type=str,
         default=None,
-        help="Path to config YAML (not yet implemented)",
+        help="Path to factory config YAML",
     )
-    parser.parse_args()
-    config = FactoryConfig()
+    args = parser.parse_args()
+    config = load_config(args.config)
     from factory.claude_code_channel import ClaudeCodeChannel
 
     channel = ClaudeCodeChannel(config)

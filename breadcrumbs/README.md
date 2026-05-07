@@ -40,12 +40,17 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| (none) | | | |
+| 011 | Test gap — claim transition not asserted in worker loop tests | high | proposed |
+| 012 | Context derivation tests should exercise both spec_file paths | high | proposed |
+| 013 | Gate is syntactic-only — semantic gating is the central Phase 2 design question | high | proposed |
 
 ## Resolved
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 008 | Fixture AC-15 mislabel in 04-verify_event_errors.md | high | Fixed AC-15 text to describe verify_event rejection behavior |
+| 009 | context_hash → artifact non-determinism; replay tests must assert structure | high | Added `structural_signature()` + `structurally_equivalent_pyi()` in gate.py with 10 tests |
+| 010 | populate_work_items.py --reset does not clean workspace | high | Added `--workspace-root` argument; `shutil.rmtree` on `--reset` |
 | 007 | Integration tests are stubs | medium | Replaced gate_process stub with real process_gate_item tests; Kimi fixed smoke test; added MockSubstrate pipeline tests |
 | 006 | MockSubstrate needed for CI-portable tests | medium | Built MockSubstrate test double + 5 CI-portable pipeline tests |
 | 005 | Spec content resolution for context derivation | high | Added spec_file config + loader; Phase 1 uses inline, Phase 2 needs section extraction |

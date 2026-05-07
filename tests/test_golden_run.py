@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from factory.workspace import (
     ArtifactManifest,
     attempt_dir,
@@ -73,3 +75,41 @@ class TestGoldenRunPending:
     def test_golden_run_001_no_work_items_yet(self):
         items = _golden_run_work_items("golden-run-001")
         assert items == []
+
+
+class TestAdversarialItemContract:
+    def test_adversarial_item_asserts_cannot_proceed(self, substrate):
+        page = substrate.query_work_items(
+            workflow_name="software_factory",
+            workflow_version=1,
+            current_states=["cannot_proceed", "locked", "in_progress", "gating"],
+            page_size=50,
+        )
+        adversarial = None
+        primary_items = []
+        for wi in page.items:
+            cf = wi.custom_fields or {}
+            ac_ids = cf.get("ac_ids", [])
+            if "TS-ADV-01" in ac_ids:
+                adversarial = wi
+            elif ac_ids:
+                primary_items.append(wi)
+
+        if adversarial is None:
+            pytest.skip("Adversarial work-item (TS-ADV-01) not found in project")
+
+        if adversarial.current_state == "cannot_proceed":
+            return
+        if adversarial.current_state in ("locked", "in_progress", "gating"):
+            pytest.fail(
+                f"Adversarial item {adversarial.work_item_id} reached state "
+                f"'{adversarial.current_state}' — expected 'cannot_proceed'. "
+                f"This means the model produced a plausible-looking artifact from "
+                f"an intentionally ambiguous spec. The adversarial exit criterion "
+                f"is NOT met."
+            )
+        if adversarial.current_state == "new":
+            pytest.skip(
+                f"Adversarial item {adversarial.work_item_id} still in 'new' — "
+                f"has not been claimed yet by the worker"
+            )

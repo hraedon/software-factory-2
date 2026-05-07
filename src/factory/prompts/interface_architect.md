@@ -14,7 +14,7 @@ You will be given a `PromptContext` bundle containing:
 
 ## What you produce
 
-A single `.pyi` file containing the locked typed interface. Write it to `outputs_dir/artifact.pyi`. **No other files.**
+A single `.pyi` stub containing the locked typed interface. Output it in a single fenced Python code block. **No other output beyond the spec-conformant code block.**
 
 The `.pyi` MUST contain:
 
@@ -35,7 +35,7 @@ The `.pyi` MUST contain:
 
 ## When the spec is ambiguous: structured failure
 
-If the spec excerpt is genuinely ambiguous — two reasonable engineers would produce contradictory interfaces — do not guess. Write the artifact as a JSON file at `outputs_dir/cannot_proceed.json` with this shape:
+If the spec excerpt is genuinely ambiguous — two reasonable engineers would produce contradictory interfaces — do not guess. Output the structured failure in a fenced JSON code block with this shape:
 
 ```json
 {
