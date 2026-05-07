@@ -68,6 +68,7 @@ class TestGoldenRunStructure:
 
 
 class TestAdversarialItemContract:
+    @pytest.mark.integration
     def test_adversarial_item_asserts_cannot_proceed(self, substrate):
         page = substrate.query_work_items(
             workflow_name="software_factory",
