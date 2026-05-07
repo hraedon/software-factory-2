@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from substrate._types import Event
+from substrate import Event
 
 from factory.workspace import ArtifactManifest
 
