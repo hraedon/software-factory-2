@@ -9,3 +9,4 @@ build/
 *.egg
 .factory/work/
 .ruff_cache/
+.coverage
