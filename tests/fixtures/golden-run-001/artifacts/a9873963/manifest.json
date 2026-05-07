@@ -1,0 +1,13 @@
+{
+  "actor_id": "factory-worker-claude-code",
+  "artifact_name": "artifact.pyi",
+  "artifact_sha256": "a5279acc84a19e219fa7828bb4ffe93a9f6394bf9d45e5733e76600bbf8458fa",
+  "artifact_size": 1810,
+  "attempt_number": 1,
+  "channel": "claude-code",
+  "context_hash": "1fa496774f336a348bf7eec7286f40a1d2c622f3dd0f709eea303e3c2b8e3fa2",
+  "created_at": "2026-05-07T01:48:56.831462+00:00",
+  "family": "anthropic",
+  "model": null,
+  "work_item_id": "a9873963-dd6f-4690-b544-605cb1aa4a28"
+}

@@ -1,0 +1,8 @@
+{
+  "run_date": "2026-05-07T01:47Z",
+  "project": "sf2_golden_001",
+  "primary_locked": 10,
+  "primary_total": 10,
+  "adversarial_state": "cannot_proceed",
+  "exit_criteria": "PASS"
+}

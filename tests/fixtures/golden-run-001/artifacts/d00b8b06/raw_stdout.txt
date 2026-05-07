@@ -1,0 +1,65 @@
+```python
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from typing import Mapping, Sequence, Union
+
+
+class CustomFieldType(Enum):
+    """Closed type vocabulary for custom fields. Satisfies AC-02."""
+    STRING = "string"
+    INTEGER = "integer"
+    BOOLEAN = "boolean"
+    TIMESTAMP = "timestamp"
+    JSON = "json"
+    ENUM = "enum"
+    WORK_ITEM_REF = "work_item_ref"
+
+
+@dataclass(frozen=True)
+class FieldSchema:
+    """Declared schema for a single custom field. Satisfies AC-02."""
+    name: str
+    type: CustomFieldType
+    enum_values: Sequence[str] = ()
+
+
+CustomFieldValue = Union[str, int, bool, datetime, dict, list, None]
+
+
+class ErrorCode(Enum):
+    """Structured rejection codes for create_work_item. Satisfies AC-02."""
+    WORKFLOW_NOT_REGISTERED = "workflow_not_registered"
+    TYPE_NOT_DECLARED_IN_WORKFLOW = "type_not_declared_in_workflow"
+    CUSTOM_FIELD_TYPE_VIOLATION = "custom_field_type_violation"
+
+
+@dataclass(frozen=True)
+class CreateWorkItemError:
+    """Rejection result; no partial write occurred. Satisfies AC-02."""
+    code: ErrorCode
+    message: str
+    field_name: Union[str, None]
+    original_value: Union[CustomFieldValue, None]
+
+
+@dataclass(frozen=True)
+class WorkItemCreated:
+    """Successful creation result. Satisfies AC-02."""
+    work_item_id: str
+
+
+CreateWorkItemResult = Union[WorkItemCreated, CreateWorkItemError]
+
+
+def create_work_item(
+    project_id: str,
+    workflow_name: str,
+    workflow_version: str,
+    work_item_type: str,
+    custom_fields: Mapping[str, CustomFieldValue],
+    field_schemas: Mapping[str, FieldSchema],
+) -> CreateWorkItemResult:
+    """Satisfies AC-02."""
+    ...
+```

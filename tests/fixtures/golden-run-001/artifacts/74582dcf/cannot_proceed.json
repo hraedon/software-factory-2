@@ -1,0 +1,12 @@
+{
+  "status": "cannot_proceed",
+  "reason": "Spec is ambiguous regarding sort order, record schema, and edge-case handling",
+  "gaps": [
+    "TS-ADV-01 says 'sort' but does not specify the sort key (date, amount, category, or composite) or direction (ascending/descending). Two reasonable engineers would produce contradictory contracts.",
+    "Record shape is described informally ('date, amount, category') without specifying types \u2014 is `date` a `datetime.date`, ISO string, or epoch? Is `amount` `int`, `float`, or `Decimal` (critical for financial data)? Is `category` a free-form string or an enum?",
+    "TS-ADV-02 says 'handles edge cases reasonably' without enumerating which edge cases (empty list, None values, duplicate keys, malformed records, mixed types) or what 'reasonably' means (raise, skip, sentinel, structured error).",
+    "Return shape is unspecified: a new sorted list, in-place mutation, or a Result/Error union? No error codes are named, so an ErrorCode enum cannot be derived from the spec.",
+    "Stability of the sort and tie-breaking behavior are unspecified \u2014 material for downstream tests but absent from the AC."
+  ],
+  "would_need": "Concrete clarification of: (1) the exact record schema with types, (2) the sort key(s) and direction, (3) the return type (new list vs. Result union), and (4) an enumerated list of edge cases with the required behavior for each (including whether errors are raised or returned structurally, and if structural, the exhaustive ErrorCode set)."
+}

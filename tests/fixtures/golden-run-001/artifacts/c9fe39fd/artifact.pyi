@@ -1,0 +1,79 @@
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from typing import Optional, Sequence, Tuple, Union
+
+
+class WorkItemType(Enum):
+    """Sentinel enum for work_item_type values; concrete values are workflow-defined. Satisfies AC-05b."""
+    ...
+
+
+class WorkItemState(Enum):
+    """Sentinel enum for current_state values; concrete values are workflow-defined. Satisfies AC-05b."""
+    ...
+
+
+@dataclass(frozen=True)
+class QueryFilter:
+    """Combinable AND-semantics filter over work_items_current. Satisfies AC-05b."""
+    workflow_name: Optional[str] = None
+    workflow_version: Optional[str] = None
+    work_item_type: Optional[Tuple[str, ...]] = None
+    current_state: Optional[Tuple[str, ...]] = None
+    claimed_by: Optional[str] = None
+    claimable_now: Optional[bool] = None
+    needs_review: Optional[bool] = None
+    has_link_type: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class QueryParams:
+    """Query input: filter, ascending work_item_id cursor, and page size. Satisfies AC-05b."""
+    filter: QueryFilter
+    cursor: Optional[str] = None
+    page_size: int = 100
+
+
+@dataclass(frozen=True)
+class WorkItemRow:
+    """Single row from work_items_current returned by a query. Satisfies AC-05b."""
+    work_item_id: str
+    workflow_name: str
+    workflow_version: str
+    work_item_type: str
+    current_state: str
+    claimed_by: Optional[str]
+    claim_expires_at: Optional[datetime]
+    not_before: Optional[datetime]
+    needs_review: bool
+
+
+@dataclass(frozen=True)
+class QueryPage:
+    """One page of results plus the cursor for the next page (None when exhausted). Satisfies AC-05b."""
+    items: Tuple[WorkItemRow, ...]
+    next_cursor: Optional[str]
+
+
+class QueryErrorCode(Enum):
+    """Satisfies AC-05b."""
+    PAGE_SIZE_OUT_OF_RANGE = "page_size_out_of_range"
+    INVALID_CURSOR = "invalid_cursor"
+    INVALID_FILTER = "invalid_filter"
+
+
+@dataclass(frozen=True)
+class QueryError:
+    """Structured query error. Satisfies AC-05b."""
+    code: QueryErrorCode
+    message: str
+    original_input: QueryParams
+
+
+QueryResult = Union[QueryPage, QueryError]
+
+
+def query_work_items(params: QueryParams, now: datetime) -> QueryResult:
+    """Satisfies AC-05b."""
+    ...

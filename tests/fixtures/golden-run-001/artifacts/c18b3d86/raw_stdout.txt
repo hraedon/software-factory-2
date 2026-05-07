@@ -1,0 +1,55 @@
+```python
+from dataclasses import dataclass
+from enum import Enum
+from typing import Optional, Tuple
+
+
+class ReplayCategory(Enum):
+    """Per-work-item replay outcome category. Satisfies AC-16."""
+    REPLAYED_OK = "replayed_ok"
+    REPLAYED_DRIFT = "replayed_drift"
+    HALTED = "halted"
+
+
+class HaltReason(Enum):
+    """Reason a work-item's replay could not complete. Satisfies AC-16."""
+    REVOKED_KEY = "revoked_key"
+    MISSING_WORKFLOW_VERSION = "missing_workflow_version"
+    UNRECOGNIZED_TRANSITION = "unrecognized_transition"
+    SIGNATURE_VERIFICATION_FAILED = "signature_verification_failed"
+
+
+@dataclass(frozen=True)
+class ReplayReportRow:
+    """One row of replay_report_<ts>, one per work-item processed. Satisfies AC-16."""
+    work_item_id: str
+    category: ReplayCategory
+    halt_reason: Optional[HaltReason]
+    warnings: int
+
+
+@dataclass(frozen=True)
+class DriftReport:
+    """Aggregate replay_report_<ts> contents. Satisfies AC-16."""
+    timestamp: str
+    rows: Tuple[ReplayReportRow, ...]
+
+
+def categorize_replay_row(
+    work_item_id: str,
+    replayed_final_state: Optional[object],
+    live_final_state: Optional[object],
+    halt_reason: Optional[HaltReason],
+    warnings: int,
+) -> ReplayReportRow:
+    """Satisfies AC-16."""
+    ...
+
+
+def build_drift_report(
+    timestamp: str,
+    rows: Tuple[ReplayReportRow, ...],
+) -> DriftReport:
+    """Satisfies AC-16."""
+    ...
+```

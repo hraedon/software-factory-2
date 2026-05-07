@@ -1,0 +1,40 @@
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Union
+from uuid import UUID
+
+
+@dataclass(frozen=True)
+class ClaimAcquired:
+    """Successful claim, including auto-stolen expired prior claims. Satisfies AC-06."""
+    work_item_id: UUID
+    claim_id: UUID
+    worker_id: str
+    attempt_number: int
+    claimed_at: datetime
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
+class ClaimContested:
+    """Another worker holds an unexpired claim on this work-item. Satisfies AC-06."""
+    work_item_id: UUID
+
+
+@dataclass(frozen=True)
+class NotYetAvailable:
+    """Work-item's not_before is still in the future relative to now. Satisfies AC-06."""
+    work_item_id: UUID
+    not_before: datetime
+
+
+AcquireResult = Union[ClaimAcquired, ClaimContested, NotYetAvailable]
+
+
+def acquire_claim(
+    work_item_id: UUID,
+    worker_id: str,
+    now: datetime,
+) -> AcquireResult:
+    """Satisfies AC-06."""
+    ...

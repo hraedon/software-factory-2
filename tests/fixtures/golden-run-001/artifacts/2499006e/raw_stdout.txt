@@ -1,0 +1,79 @@
+```python
+from dataclasses import dataclass
+from enum import Enum
+from typing import Optional, Union
+
+
+class ErrorCode(Enum):
+    """Enumerated rejection causes for verify_event. Satisfies AC-15."""
+    UNKNOWN_KEY_ID = "unknown_key_id"
+    REVOKED_KEY_ID = "revoked_key_id"
+    SIGNATURE_MISMATCH = "signature_mismatch"
+
+
+@dataclass(frozen=True)
+class VerificationError:
+    """Structured rejection. Never carries raw signature bytes. Satisfies AC-15."""
+    code: ErrorCode
+    actor_id_claim: str
+    key_id_claim: str
+    event_id: str
+    message: str
+
+
+@dataclass(frozen=True)
+class VerificationOk:
+    """Successful verification result. `deprecated_key_warning` is True when the
+    key_id used is in `deprecated` status. Satisfies AC-15."""
+    actor_id: str
+    key_id: str
+    event_id: str
+    deprecated_key_warning: bool
+
+
+VerificationResult = Union[VerificationOk, VerificationError]
+
+
+@dataclass(frozen=True)
+class StoredEvent:
+    """Event as persisted, used for re-verification.
+
+    `canonical_envelope` is the exact RFC 8785 (JCS) canonical JSON bytes that
+    were signed at write time; re-verification MUST use these bytes rather than
+    re-serializing from jsonb. Satisfies AC-26."""
+    event_id: str
+    actor_id_claim: str
+    key_id_claim: str
+    canonical_envelope: bytes
+    payload_canonical_hash: bytes
+    signature: bytes
+
+
+class KeyStatus(Enum):
+    """Satisfies AC-15."""
+    ACTIVE = "active"
+    DEPRECATED = "deprecated"
+    REVOKED = "revoked"
+
+
+@dataclass(frozen=True)
+class ActorKey:
+    """A single key entry in the per-actor key set. Satisfies AC-15."""
+    actor_id: str
+    key_id: str
+    secret: bytes
+    status: KeyStatus
+
+
+class KeySet:
+    """Per-actor key set with status lookups. Satisfies AC-15."""
+
+    def lookup(self, actor_id: str, key_id: str) -> Optional[ActorKey]:
+        """Return the key entry or None if no such (actor_id, key_id) pair exists."""
+        ...
+
+
+def verify_event(event: StoredEvent, key_set: KeySet) -> VerificationResult:
+    """Satisfies AC-15, AC-26."""
+    ...
+```

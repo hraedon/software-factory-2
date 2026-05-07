@@ -1,0 +1,27 @@
+```python
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+
+
+class HookStatus(Enum):
+    """Lifecycle state of an async hook in the durable queue. Satisfies AC-14."""
+    PENDING = "pending"
+    RETRYING = "retrying"
+    DEAD_LETTERED = "dead_lettered"
+
+
+@dataclass(frozen=True)
+class DeadLetterEntry:
+    """Terminally-failed async hook quarantined in `hook_dead_letter`. Satisfies AC-14."""
+    id: str
+    event_id: str
+    retry_count: int
+    last_error_message: str
+    dead_lettered_at: datetime
+
+
+def requeue_dead_lettered_hook(id: str) -> None:
+    """Satisfies AC-14."""
+    ...
+```
