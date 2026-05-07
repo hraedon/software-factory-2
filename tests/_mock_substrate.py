@@ -137,22 +137,13 @@ class MockSubstrate:
     ) -> Event:
         state = self._work_items[work_item_id]
         wi = state.work_item
-        if self._workflow:
-            target_state = self._workflow.transitions.get((wi.current_state, transition_name))
-            if target_state is None:
-                raise ValueError(
-                    f"No transition '{transition_name}' from state '{wi.current_state}'"
-                )
-        else:
-            state_map = {
-                "created": "new",
-                "claim": "in_progress",
-                "submit": "gating",
-                "gate_pass": "locked",
-                "gate_fail": "new",
-                "cannot_proceed": "cannot_proceed",
-            }
-            target_state = state_map.get(transition_name, wi.current_state)
+        if self._workflow is None:
+            raise RuntimeError("No workflow loaded — transition requires a registered workflow")
+        target_state = self._workflow.transitions.get((wi.current_state, transition_name))
+        if target_state is None:
+            raise ValueError(
+                f"No transition '{transition_name}' from state '{wi.current_state}'"
+            )
 
         state.event_seq += 1
         now = datetime.now(UTC)
@@ -195,6 +186,41 @@ class MockSubstrate:
             claim_expires_at=None,
         )
         state.work_item = updated
+        return event
+
+    def append_event(
+        self,
+        work_item_id: uuid.UUID,
+        actor_id: str,
+        actor_kind: str = "agent",
+        actor_metadata: dict | None = None,
+        *,
+        transition: str | None = None,
+        payload: dict | None = None,
+        event_id: uuid.UUID | None = None,
+        expected_event_seq: int | None = None,
+    ) -> Event:
+        state = self._work_items[work_item_id]
+        state.event_seq += 1
+        now = datetime.now(UTC)
+        event = Event(
+            event_id=event_id or uuid.uuid4(),
+            work_item_id=work_item_id,
+            event_seq=state.event_seq,
+            actor_id=actor_id,
+            actor_kind=actor_kind,
+            actor_metadata=actor_metadata or {},
+            key_id="mock",
+            workflow_name=state.work_item.workflow_name,
+            workflow_version=state.work_item.workflow_version,
+            timestamp=now,
+            transition=transition or "",
+            payload=payload,
+            payload_canonical_hash=None,
+            signature="mock",
+            canonical_envelope=None,
+        )
+        state.events.append(event)
         return event
 
     def acquire_claim(
@@ -284,6 +310,8 @@ class MockSubstrate:
             if kwargs.get("claimable_now") and wi.claimed_by is not None:
                 continue
             if kwargs.get("workflow_name") and wi.workflow_name != kwargs["workflow_name"]:
+                continue
+            if kwargs.get("workflow_version") is not None and wi.workflow_version != kwargs["workflow_version"]:
                 continue
             items.append(wi)
         return QueryPage(items=items[:page_size], cursor=None, has_more=False)

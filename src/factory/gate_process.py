@@ -69,6 +69,8 @@ def gate_loop(sub: Substrate, config: FactoryConfig) -> None:
     log.info("gate_loop_exiting")
 
 
+from factory.router import route
+
 def process_gate_item(
     sub: Substrate,
     config: FactoryConfig,
@@ -106,24 +108,28 @@ def process_gate_item(
         attempt_n=claim.attempt_number,
     ).to_dict()
 
+    routing = route(wi.current_state, "gate_pass" if gate_result.passed else "gate_fail", gate_result)
+    transition_name = "gate_pass" if gate_result.passed else "gate_fail"
     if gate_result.passed:
         sub.transition(
             work_item_id,
-            "gate_pass",
+            transition_name,
             actor_id,
             actor_metadata=actor_metadata,
         )
         log.info("gate_passed", work_item_id=str(work_item_id))
     else:
-        diagnostics = {
-            "gate_name": gate_result.gate_name,
-            "passed": gate_result.passed,
-            "messages": gate_result.diagnostics,
-            "message": "; ".join(gate_result.diagnostics),
-        }
+        diagnostics = routing.custom_fields_update.get("diagnostics", {})
+        if not diagnostics:
+            diagnostics = {
+                "gate_name": gate_result.gate_name,
+                "passed": gate_result.passed,
+                "messages": gate_result.diagnostics,
+                "message": "; ".join(gate_result.diagnostics),
+            }
         sub.transition(
             work_item_id,
-            "gate_fail",
+            transition_name,
             actor_id,
             actor_metadata=actor_metadata,
             payload={"diagnostics": diagnostics},

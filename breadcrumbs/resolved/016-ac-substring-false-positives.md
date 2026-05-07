@@ -2,11 +2,12 @@
 number: "016"
 title: "AC reference check uses substring search — false positives likely"
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: test-audit
 date: "2026-05-07"
 tags: [gate, stage-5]
+resolution: removed-redundant-check
 ---
 
 ## Background
@@ -19,13 +20,11 @@ tags: [gate, stage-5]
 
 The structural-semantic check (`_check_structural_semantics`) mitigates this slightly by requiring AC references in function/class docstrings, but the raw substring check in `_check_ac_references` remains the gate that runs when `ac_ids` are provided without `TS-` prefixes.
 
-## Options
+## Resolution (2026-05-07)
 
-1. **Remove `_check_ac_references` entirely** — rely on `_check_structural_semantics` which already checks that each AC is bound to a docstring. The substring check is then redundant.
-2. **Tighten `_check_ac_references`** to only match AC patterns in docstrings or comments with specific syntax (e.g., `re.search(r'"""[^"]*AC-01', content)`).
-3. **Leave as-is** — the current double-check (substring + structural) provides defense in depth, and false positives from comments are unlikely with Claude's output patterns.
+Removed `_check_ac_references` entirely. The structural-semantic check already enforces that every declared AC is bound to a function or class docstring (or module docstring). This is strictly stronger than a substring search:
+- Comments and string literals no longer count.
+- Partial prefix matches are impossible because we match whole words in docstrings.
+- ACs are structurally attached to the contract, not merely present in the file.
 
-## Acceptance criteria
-
-- Decision recorded on which option to pursue.
-- If option 1: remove `_check_ac_references`, update `evaluate_interface_spec`, update tests.
+Also extended `_check_structural_semantics` to honor module-level docstrings so that top-level prose (e.g. `"""Satisfies AC-01."""`) is valid.

@@ -38,23 +38,26 @@ Reusable tags:
 
 ## Open
 
-| # | Title | Severity | Status |
-|---|---|---|---|
-| 014 | Resume path (_resume_and_submit) untested at integration level | high | proposed |
-| 015 | Integration test private substrate API coupling | medium | proposed |
-| 016 | AC reference check uses substring search — false positives likely | medium | proposed |
-| 017 | Router is dead code — route() never called by gate_process | medium | proposed |
-| 018 | MockSubstrate diverges from real substrate | medium | proposed |
-| 019 | Channel failure modes untested — timeout, non-zero exit, extraction failure | high | proposed |
-| 020 | Config YAML loading untested | low | proposed |
+(No open breadcrumbs.)
 
 ## Resolved
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 021 | Non-cannot_proceed channel failures produce no substrate event for telemetry | high | Added sub.append_event(transition="channel_fail") in _handle_invoke_failure; updated MockSubstrate + tests |
+| 024 | _resume_and_submit hardcodes role to interface_architect | high | Parameterized role_name in runner.py; added test |
+| 023 | Structural semantics gate rejected module-level AC docstrings | high | Extended _check_structural_semantics to honor module docstrings |
+| 022 | Integration tests access substrate private API — _mgr._dsn and _project | medium | Introduced factory_config fixture using public substrate.project |
+| 020 | Config YAML loading untested — from_yaml, from_yaml_or_default | low | Added 6 tests in test_config.py |
+| 019 | Channel failure modes untested — timeout, non-zero exit, extraction failure | high | Added 5 tests in test_channel_failures.py |
+| 018 | MockSubstrate diverges from real substrate — workflow_version filtering, event payload | medium | Fixed query_work_items filtering; removed state_map fallback; verified read_events signature |
+| 017 | Router is dead code — route() never called by gate_process | medium | Wired route() into process_gate_item; diagnostics via routing table |
+| 016 | AC reference check uses substring search — false positives likely | medium | Removed _check_ac_references; module docstring support added |
+| 015 | Integration test private substrate API coupling | medium | Public API workaround via factory_config fixture; substrate-level request for Substrate.dsn remains open |
+| 014 | Resume path (_resume_and_submit) untested at integration level | high | Added 3 tests in test_runner_resume.py; fixed hardcoded role |
 | 008 | Fixture AC-15 mislabel in 04-verify_event_errors.md | high | Fixed AC-15 text to describe verify_event rejection behavior |
-| 009 | context_hash → artifact non-determinism; replay tests must assert structure | high | Added `structural_signature()` + `structurally_equivalent_pyi()` in gate.py with 10 tests |
-| 010 | populate_work_items.py --reset does not clean workspace | high | Added `--workspace-root` argument; `shutil.rmtree` on `--reset` |
+| 009 | context_hash → artifact non-determinism; replay tests must assert structure | high | Added structural_signature() + structurally_equivalent_pyi() in gate.py with 10 tests |
+| 010 | populate_work_items.py --reset does not clean workspace | high | Added --workspace-root argument; shutil.rmtree on --reset |
 | 011 | Test gap — claim transition not asserted in worker loop tests | high | Added 3 tests (MockSubstrate + live) asserting claim transition event and in_progress state |
 | 012 | Context derivation tests should exercise both spec_file paths | high | Added 5 tests covering work-item priority, factory fallback, empty, preservation, hash differentiation |
 | 013 | Gate is syntactic-only — semantic gating strategy (option c: hybrid stopgaps) | high | Added structural-semantic checks: function count, return types, parameter presence, AC-to-function binding |

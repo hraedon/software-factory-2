@@ -145,7 +145,8 @@ def process_work_item(
             attempt_dir(wr, work_item_id, resumable[0]) / resumable[1].artifact_name
         )
         _resume_and_submit(
-            sub, wi, resumable[0], resumable[1], actor_id, channel, resumable_artifact_path
+            sub, wi, resumable[0], resumable[1], actor_id, channel, resumable_artifact_path,
+            role_name=role_name,
         )
         return
 
@@ -245,6 +246,25 @@ def _handle_invoke_failure(
         work_item_id=str(work_item_id),
         error=invoke_result.error_message,
     )
+    sub.append_event(
+        work_item_id,
+        actor_id,
+        actor_metadata=ActorMetadata(
+            role=role_name,
+            channel=channel.name,
+            family=channel.family,
+            attempt_n=attempt_number,
+            context_hash=ctx.context_hash,
+        ).to_dict(),
+        transition="channel_fail",
+        payload={
+            "diagnostics": {
+                "error_message": invoke_result.error_message,
+                "timed_out": invoke_result.timed_out,
+                "exit_code": invoke_result.exit_code,
+            }
+        },
+    )
     sub.release_claim(work_item_id, actor_id)
 
 
@@ -256,9 +276,10 @@ def _resume_and_submit(
     actor_id: str,
     channel: Channel,
     artifact_path: Path,
+    role_name: str = "interface_architect",
 ) -> None:
     actor_metadata = ActorMetadata(
-        role="interface_architect",
+        role=role_name,
         channel=manifest.channel or channel.name,
         family=manifest.family or channel.family,
         attempt_n=resumable_attempt,

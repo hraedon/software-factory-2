@@ -8,7 +8,7 @@ from factory.gate_process import process_gate_item
 
 @pytest.mark.integration
 class TestGateProcessIntegration:
-    def test_gate_passes_valid_artifact(self, substrate, workspace_root, tmp_path):
+    def test_gate_passes_valid_artifact(self, substrate, workspace_root, tmp_path, factory_config):
         wi, _ = substrate.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
@@ -40,18 +40,12 @@ class TestGateProcessIntegration:
         gate_claim = substrate.acquire_claim(wi.work_item_id, "test-gate", ttl_seconds=300)
         fresh = substrate.get_work_item(wi.work_item_id)
 
-        config = FactoryConfig(
-            dsn=substrate._mgr._dsn,
-            project_name=substrate._project,
-            hmac_key_path="tests/test_keys.json",
-            workspace_root=workspace_root,
-        )
-        process_gate_item(substrate, config, fresh, "test-gate", gate_claim)
+        process_gate_item(substrate, factory_config, fresh, "test-gate", gate_claim)
 
         final = substrate.get_work_item(wi.work_item_id)
         assert final.current_state == "locked"
 
-    def test_gate_fails_invalid_artifact(self, substrate, workspace_root, tmp_path):
+    def test_gate_fails_invalid_artifact(self, substrate, workspace_root, tmp_path, factory_config):
         wi, _ = substrate.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
@@ -83,18 +77,12 @@ class TestGateProcessIntegration:
         gate_claim = substrate.acquire_claim(wi.work_item_id, "test-gate-fail", ttl_seconds=300)
         fresh = substrate.get_work_item(wi.work_item_id)
 
-        config = FactoryConfig(
-            dsn=substrate._mgr._dsn,
-            project_name=substrate._project,
-            hmac_key_path="tests/test_keys.json",
-            workspace_root=workspace_root,
-        )
-        process_gate_item(substrate, config, fresh, "test-gate-fail", gate_claim)
+        process_gate_item(substrate, factory_config, fresh, "test-gate-fail", gate_claim)
 
         final = substrate.get_work_item(wi.work_item_id)
         assert final.current_state == "new"
 
-    def test_gate_fails_missing_artifact(self, substrate, workspace_root, tmp_path):
+    def test_gate_fails_missing_artifact(self, substrate, workspace_root, tmp_path, factory_config):
         wi, _ = substrate.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
@@ -125,13 +113,7 @@ class TestGateProcessIntegration:
         gate_claim = substrate.acquire_claim(wi.work_item_id, "test-gate-missing", ttl_seconds=300)
         fresh = substrate.get_work_item(wi.work_item_id)
 
-        config = FactoryConfig(
-            dsn=substrate._mgr._dsn,
-            project_name=substrate._project,
-            hmac_key_path="tests/test_keys.json",
-            workspace_root=workspace_root,
-        )
-        process_gate_item(substrate, config, fresh, "test-gate-missing", gate_claim)
+        process_gate_item(substrate, factory_config, fresh, "test-gate-missing", gate_claim)
 
         final = substrate.get_work_item(wi.work_item_id)
         assert final.current_state == "new"

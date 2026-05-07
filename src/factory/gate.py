@@ -38,10 +38,6 @@ def evaluate_interface_spec(artifact_path: Path, ac_ids: list[str] | None = None
     structural_result = _check_structural_semantics(content, ac_ids)
     if not structural_result.passed:
         return structural_result
-    if ac_ids is not None:
-        ac_result = _check_ac_references(content, ac_ids)
-        if not ac_result.passed:
-            return ac_result
     return GateResult(
         passed=True,
         gate_name="interface_spec",
@@ -89,19 +85,6 @@ def _check_pyi_stub(content: str, artifact_path: Path) -> GateResult:
     return GateResult(passed=True, gate_name="interface_spec_stub")
 
 
-def _check_ac_references(content: str, ac_ids: list[str]) -> GateResult:
-    missing = []
-    for ac_id in ac_ids:
-        if ac_id not in content:
-            missing.append(ac_id)
-    if missing:
-        return GateResult(
-            passed=False,
-            gate_name="interface_spec_ac_references",
-            diagnostics=[f"AC reference missing: {ac_id}" for ac_id in missing],
-        )
-    return GateResult(passed=True, gate_name="interface_spec_ac_references")
-
 
 def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateResult:
     tree = ast.parse(content)
@@ -144,6 +127,11 @@ def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateR
                     )
     if ac_ids:
         ac_to_node = {}
+        mod_doc = ast.get_docstring(tree, clean=False) or ""
+        for word in mod_doc.replace(",", " ").split():
+            ref = word.rstrip(".")
+            if ref.startswith("AC-") or ref.startswith("TS-"):
+                ac_to_node.setdefault(ref, []).append("<module>")
         for node in top_level_defs:
             doc = ast.get_docstring(node, clean=False) or ""
             name = node.name

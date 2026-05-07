@@ -4,6 +4,7 @@ import uuid
 from pathlib import Path
 
 import pytest
+from factory.config import FactoryConfig
 from substrate._testing import drop_project_schema
 
 TESTS_DIR = Path(__file__).parent
@@ -22,6 +23,17 @@ def substrate():
     yield sub
     sub.close()
     drop_project_schema(DSN, project)
+
+
+@pytest.fixture()
+def factory_config(substrate, workspace_root):
+    """Build a FactoryConfig using only public Substrate APIs."""
+    return FactoryConfig(
+        dsn=DSN,
+        project_name=substrate.project,
+        hmac_key_path=KEY_PATH,
+        workspace_root=workspace_root,
+    )
 
 
 @pytest.fixture()

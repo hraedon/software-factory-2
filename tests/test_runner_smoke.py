@@ -54,7 +54,7 @@ class FakeChannel:
 
 @pytest.mark.integration
 class TestRunnerSmoke:
-    def test_full_loop_with_mock_channel(self, substrate, workspace_root, tmp_path):
+    def test_full_loop_with_mock_channel(self, substrate, workspace_root, tmp_path, factory_config):
         # 1. Create work-item in 'new' state
         wi, _ = substrate.create_work_item(
             workflow_name="software_factory",
@@ -77,16 +77,10 @@ class TestRunnerSmoke:
         )
 
         # 3. Run worker process step
-        config = FactoryConfig(
-            dsn=substrate._mgr._dsn,
-            project_name=substrate._project,
-            hmac_key_path="tests/test_keys.json",
-            workspace_root=workspace_root,
-        )
         fake_channel = FakeChannel(ac_ids=["AC-01"])
         process_work_item(
             substrate,
-            config,
+            factory_config,
             fake_channel,
             wi,
             "test-worker",
@@ -115,7 +109,7 @@ class TestRunnerSmoke:
         substrate.register_actor_role("test-gate", "mechanical_gate")
         gate_claim = substrate.acquire_claim(wi.work_item_id, "test-gate", ttl_seconds=300)
         fresh = substrate.get_work_item(wi.work_item_id)
-        process_gate_item(substrate, config, fresh, "test-gate", gate_claim)
+        process_gate_item(substrate, factory_config, fresh, "test-gate", gate_claim)
 
         # 7. Verify item is in 'locked'
         final = substrate.get_work_item(wi.work_item_id)
