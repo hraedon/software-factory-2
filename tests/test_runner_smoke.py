@@ -8,7 +8,6 @@ from factory.channel import InvocationResult
 from factory.config import FactoryConfig
 from factory.gate_process import process_gate_item
 from factory.runner import process_work_item
-from tests._helpers import events_by_transition
 from factory.workspace import (
     ArtifactManifest,
     attempt_dir,
@@ -16,6 +15,7 @@ from factory.workspace import (
     find_resumable_artifact,
     write_artifact,
 )
+from tests._helpers import events_by_transition
 
 
 class FakeChannel:
