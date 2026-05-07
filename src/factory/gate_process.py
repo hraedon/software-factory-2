@@ -115,18 +115,19 @@ def process_gate_item(
         )
         log.info("gate_passed", work_item_id=str(work_item_id))
     else:
+        diagnostics = {
+            "gate_name": gate_result.gate_name,
+            "passed": gate_result.passed,
+            "messages": gate_result.diagnostics,
+            "message": "; ".join(gate_result.diagnostics),
+        }
         sub.transition(
             work_item_id,
             "gate_fail",
             actor_id,
             actor_metadata=actor_metadata,
-            custom_fields={
-                "diagnostics": {
-                    "gate_name": gate_result.gate_name,
-                    "passed": gate_result.passed,
-                    "messages": gate_result.diagnostics,
-                },
-            },
+            payload={"diagnostics": diagnostics},
+            custom_fields={"diagnostics": diagnostics},
         )
         log.info(
             "gate_failed",

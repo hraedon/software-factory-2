@@ -35,6 +35,9 @@ def evaluate_interface_spec(artifact_path: Path, ac_ids: list[str] | None = None
     stub_result = _check_pyi_stub(content, artifact_path)
     if not stub_result.passed:
         return stub_result
+    structural_result = _check_structural_semantics(content, ac_ids)
+    if not structural_result.passed:
+        return structural_result
     if ac_ids is not None:
         ac_result = _check_ac_references(content, ac_ids)
         if not ac_result.passed:
@@ -61,31 +64,28 @@ def _check_syntax(content: str) -> GateResult:
 
 
 def _check_pyi_stub(content: str, artifact_path: Path) -> GateResult:
-    if artifact_path.suffix == ".pyi":
-        pass
-    else:
-        try:
-            tree = ast.parse(content)
-            for node in ast.walk(tree):
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    has_body = any(
-                        isinstance(stmt, (ast.Assign, ast.AugAssign, ast.Expr, ast.Return))
-                        for stmt in node.body
+    try:
+        tree = ast.parse(content)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                has_body = any(
+                    isinstance(stmt, (ast.Assign, ast.AugAssign, ast.Expr, ast.Return))
+                    for stmt in node.body
+                )
+                if has_body and not any(
+                    isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant)
+                    for stmt in node.body
+                ):
+                    return GateResult(
+                        passed=False,
+                        gate_name="interface_spec_stub",
+                        diagnostics=[
+                            f"Function '{node.name}' has implementation body. "
+                            f"Interface specs must use '...' as body."
+                        ],
                     )
-                    if has_body and not any(
-                        isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant)
-                        for stmt in node.body
-                    ):
-                        return GateResult(
-                            passed=False,
-                            gate_name="interface_spec_stub",
-                            diagnostics=[
-                                f"Function '{node.name}' has implementation body. "
-                                f"Interface specs must use '...' as body."
-                            ],
-                        )
-        except SyntaxError:
-            pass
+    except SyntaxError:
+        pass
     return GateResult(passed=True, gate_name="interface_spec_stub")
 
 
@@ -101,6 +101,74 @@ def _check_ac_references(content: str, ac_ids: list[str]) -> GateResult:
             diagnostics=[f"AC reference missing: {ac_id}" for ac_id in missing],
         )
     return GateResult(passed=True, gate_name="interface_spec_ac_references")
+
+
+def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateResult:
+    tree = ast.parse(content)
+    top_level_defs = [
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+    ]
+    if not top_level_defs:
+        return GateResult(
+            passed=False,
+            gate_name="interface_spec_structural_semantics",
+            diagnostics=["No top-level functions or classes defined — interface is vacuous"],
+        )
+    for node in top_level_defs:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.returns is None:
+                return GateResult(
+                    passed=False,
+                    gate_name="interface_spec_structural_semantics",
+                    diagnostics=[
+                        f"Function '{node.name}' has no return type annotation — ambiguous contract"
+                    ],
+                )
+            non_self_params = [
+                a
+                for a in node.args.args + node.args.posonlyargs
+                if a.arg != "self"
+            ]
+            if not non_self_params and not node.args.vararg and not node.args.kwarg:
+                doc = ast.get_docstring(node, clean=False) or ""
+                if not _has_ac_ref(doc):
+                    return GateResult(
+                        passed=False,
+                        gate_name="interface_spec_structural_semantics",
+                        diagnostics=[
+                            f"Function '{node.name}' has no parameters and no AC reference in "
+                            f"docstring — likely vacuous"
+                        ],
+                    )
+    if ac_ids:
+        ac_to_node = {}
+        for node in top_level_defs:
+            doc = ast.get_docstring(node, clean=False) or ""
+            name = node.name
+            for word in doc.replace(",", " ").split():
+                ref = word.rstrip(".")
+                if ref.startswith("AC-") or ref.startswith("TS-"):
+                    ac_to_node.setdefault(ref, []).append(name)
+        unbound = [ac for ac in ac_ids if ac not in ac_to_node]
+        if unbound:
+            return GateResult(
+                passed=False,
+                gate_name="interface_spec_structural_semantics",
+                diagnostics=[
+                    f"AC '{ac}' not in any function/class docstring — detached from contract"
+                    for ac in unbound
+                ],
+            )
+    return GateResult(passed=True, gate_name="interface_spec_structural_semantics")
+
+
+def _has_ac_ref(text: str) -> bool:
+    for word in text.replace(",", " ").split():
+        if word.startswith("AC-") or word.startswith("TS-"):
+            return True
+    return False
 
 
 def structural_signature(pyi_content: str) -> list[str]:

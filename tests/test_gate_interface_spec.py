@@ -77,6 +77,19 @@ def foo(x: int) -> str:
         assert not result.passed
         assert "implementation body" in result.diagnostics[0]
 
+    def test_implementation_body_in_pyi(self, artifact_dir):
+        stub = _write_stub(
+            artifact_dir,
+            "impl.pyi",
+            """
+def foo(x: int) -> str:
+    return str(x)
+""",
+        )
+        result = evaluate_interface_spec(stub)
+        assert not result.passed
+        assert "implementation body" in result.diagnostics[0]
+
 
 class TestInterfaceSpecACReference:
     def test_missing_ac_reference(self, artifact_dir):
@@ -91,7 +104,6 @@ def foo(x: int) -> str:
         )
         result = evaluate_interface_spec(stub, ac_ids=["AC-01", "AC-02"])
         assert not result.passed
-        assert result.gate_name == "interface_spec_ac_references"
         assert "AC-02" in result.diagnostics[0]
 
     def test_all_acs_present(self, artifact_dir):
@@ -120,6 +132,105 @@ class TestInterfaceSpecFileNotFound:
         result = evaluate_interface_spec(stub)
         assert not result.passed
         assert result.gate_name == "interface_spec_not_empty"
+
+
+class TestStructuralSemantics:
+    def test_no_top_level_defs_fails(self, artifact_dir):
+        stub = _write_stub(
+            artifact_dir,
+            "vacuous.pyi",
+            """
+from typing import Union
+
+x: int = 1
+""",
+        )
+        result = evaluate_interface_spec(stub, ac_ids=["AC-01"])
+        assert not result.passed
+        assert result.gate_name == "interface_spec_structural_semantics"
+        assert "vacuous" in result.diagnostics[0]
+
+    def test_missing_return_annotation_fails(self, artifact_dir):
+        stub = _write_stub(
+            artifact_dir,
+            "no_ret.pyi",
+            """
+def foo(x: int):
+    ...
+""",
+        )
+        result = evaluate_interface_spec(stub)
+        assert not result.passed
+        assert result.gate_name == "interface_spec_structural_semantics"
+        assert "no return type annotation" in result.diagnostics[0]
+
+    def test_no_params_no_ac_ref_fails(self, artifact_dir):
+        stub = _write_stub(
+            artifact_dir,
+            "no_params.pyi",
+            """
+def foo() -> int: ...
+""",
+        )
+        result = evaluate_interface_spec(stub)
+        assert not result.passed
+        assert result.gate_name == "interface_spec_structural_semantics"
+        assert "no parameters" in result.diagnostics[0]
+
+    def test_no_params_with_ac_ref_passes(self, artifact_dir):
+        stub = _write_stub(
+            artifact_dir,
+            "no_params_ac.pyi",
+            '''
+def foo() -> int:
+    """Satisfies AC-01."""
+    ...
+''',
+        )
+        result = evaluate_interface_spec(stub, ac_ids=["AC-01"])
+        assert result.passed
+
+    def test_detached_ac_fails(self, artifact_dir):
+        stub = _write_stub(
+            artifact_dir,
+            "detached.pyi",
+            '''
+def foo(x: int) -> str:
+    """Satisfies AC-01."""
+    ...
+''',
+        )
+        result = evaluate_interface_spec(stub, ac_ids=["AC-01", "AC-02"])
+        assert not result.passed
+        assert result.gate_name == "interface_spec_structural_semantics"
+        assert "AC-02" in result.diagnostics[0]
+        assert "detached" in result.diagnostics[0]
+
+    def test_class_with_return_type_passes(self, artifact_dir):
+        stub = _write_stub(
+            artifact_dir,
+            "cls.pyi",
+            '''
+class Foo:
+    """Satisfies AC-01."""
+    x: int
+''',
+        )
+        result = evaluate_interface_spec(stub, ac_ids=["AC-01"])
+        assert result.passed
+
+    def test_self_param_not_counted_as_vacuous(self, artifact_dir):
+        stub = _write_stub(
+            artifact_dir,
+            "self_param.pyi",
+            '''
+class Foo:
+    """Satisfies AC-01."""
+    def bar(self) -> int: ...
+''',
+        )
+        result = evaluate_interface_spec(stub, ac_ids=["AC-01"])
+        assert result.passed
 
 
 class TestStructuralEquivalence:

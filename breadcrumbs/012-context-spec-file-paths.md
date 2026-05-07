@@ -2,12 +2,13 @@
 number: "012"
 title: "Context derivation tests should exercise both spec_file=None and spec_file=set paths"
 severity: high
-status: proposed
+status: implemented
 kind: bug
 author: opcode-golden-run-001
 date: "2026-05-07"
-tags: [runner, stage-1, context, tests]
+tags: [stage-1, context, tests]
 related: ["005"]
+resolution: added-tests
 ---
 
 ## Background
@@ -38,3 +39,5 @@ if not section_content and spec_content is not None:
 
 - A test calls `derive_context()` with `spec_content="factory level spec"` and the work-item's `custom_fields.spec_section="work item fixture"` — asserts the work-item content is used.
 - A test calls `derive_context()` with `spec_content="factory level spec"` and the work-item's `custom_fields.spec_section=""` — asserts the factory content is used as fallback.
+
+**Implemented (2026-05-07):** Added `TestDeriveContextSpecContent` with five tests covering work-item priority, factory fallback, empty-no-fallback, priority preservation, and context-hash differentiation.

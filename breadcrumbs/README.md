@@ -40,9 +40,13 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 011 | Test gap — claim transition not asserted in worker loop tests | high | proposed |
-| 012 | Context derivation tests should exercise both spec_file paths | high | proposed |
-| 013 | Gate is syntactic-only — semantic gating is the central Phase 2 design question | high | proposed |
+| 014 | Resume path (_resume_and_submit) untested at integration level | high | proposed |
+| 015 | Integration test private substrate API coupling | medium | proposed |
+| 016 | AC reference check uses substring search — false positives likely | medium | proposed |
+| 017 | Router is dead code — route() never called by gate_process | medium | proposed |
+| 018 | MockSubstrate diverges from real substrate | medium | proposed |
+| 019 | Channel failure modes untested — timeout, non-zero exit, extraction failure | high | proposed |
+| 020 | Config YAML loading untested | low | proposed |
 
 ## Resolved
 
@@ -51,6 +55,9 @@ Reusable tags:
 | 008 | Fixture AC-15 mislabel in 04-verify_event_errors.md | high | Fixed AC-15 text to describe verify_event rejection behavior |
 | 009 | context_hash → artifact non-determinism; replay tests must assert structure | high | Added `structural_signature()` + `structurally_equivalent_pyi()` in gate.py with 10 tests |
 | 010 | populate_work_items.py --reset does not clean workspace | high | Added `--workspace-root` argument; `shutil.rmtree` on `--reset` |
+| 011 | Test gap — claim transition not asserted in worker loop tests | high | Added 3 tests (MockSubstrate + live) asserting claim transition event and in_progress state |
+| 012 | Context derivation tests should exercise both spec_file paths | high | Added 5 tests covering work-item priority, factory fallback, empty, preservation, hash differentiation |
+| 013 | Gate is syntactic-only — semantic gating strategy (option c: hybrid stopgaps) | high | Added structural-semantic checks: function count, return types, parameter presence, AC-to-function binding |
 | 007 | Integration tests are stubs | medium | Replaced gate_process stub with real process_gate_item tests; Kimi fixed smoke test; added MockSubstrate pipeline tests |
 | 006 | MockSubstrate needed for CI-portable tests | medium | Built MockSubstrate test double + 5 CI-portable pipeline tests |
 | 005 | Spec content resolution for context derivation | high | Added spec_file config + loader; Phase 1 uses inline, Phase 2 needs section extraction |

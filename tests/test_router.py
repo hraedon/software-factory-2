@@ -21,10 +21,13 @@ class TestRouterPhase1:
         assert result.target_state == "new"
         assert result.diagnostics == ["SyntaxError at line 5"]
         assert result.custom_fields_update["diagnostics"]["gate_name"] == "interface_spec_syntax"
+        assert result.custom_fields_update["diagnostics"]["messages"] == ["SyntaxError at line 5"]
+        assert result.custom_fields_update["diagnostics"]["message"] == "SyntaxError at line 5"
 
     def test_gate_fail_without_gate_result(self):
         result = route("gating", "gate_fail")
         assert result.target_state == "new"
+        assert isinstance(result.custom_fields_update["diagnostics"], dict)
 
     def test_unknown_transition_raises(self):
         with pytest.raises(ValueError, match="No route"):

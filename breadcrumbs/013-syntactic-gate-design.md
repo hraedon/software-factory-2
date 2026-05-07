@@ -2,8 +2,9 @@
 number: "013"
 title: "Gate is syntactic-only — semantic gating is the central Phase 2 design question"
 severity: high
-status: proposed
+status: implemented
 kind: design
+resolution: option-c-hybrid
 author: opcode-golden-run-001
 date: "2026-05-07"
 tags: [gate, stage-5, stage-6, stage-7, jury, phase-2]
@@ -41,3 +42,20 @@ These are the semantic gates. Phase 2 must make them real.
 - Decision on strategy recorded in this breadcrumb (closure note).
 - No code until Phase 2 begins — this is a design breadcrumb, not a build ticket.
 - When Phase 2 starts, this breadcrumb is the first thing to read.
+
+## Resolution (2026-05-07)
+
+**Decision: Option (c) — hybrid structural-semantic stopgaps in mechanical gates.**
+
+Rationale: Options (a) and (b) both carry risk. Option (a) couples semantic-gate design to each role's roll-out, making Phase 2 scope unpredictable. Option (b) ships a pipeline with known vacuity until a sub-phase completes. Option (c) adds cheap, deterministic checks that catch obvious vacuities before any model-judge runs — and these checks compose naturally with the existing mechanical-gate infrastructure.
+
+**Implemented structural-semantic checks for interface_spec:**
+
+1. **Function count > 0** — a .pyi with no functions/classes/enums is vacuous regardless of AC references.
+2. **Return types present** — every top-level function must have a return annotation; `def foo()` with no `->` is ambiguous.
+3. **Parameter names present** — every function parameter must have a name (not just `self` for methods); bare `def f()` is vacuous if ACs require inputs.
+4. **AC-to-function binding** — each declared AC must be referenced by at least one function/class docstring; an AC that appears only in prose (not attached to a structural element) is likely test theater.
+
+These are all deterministic AST checks — no model invocation required. They catch the class of "syntactically valid but semantically vacuous" artifacts that BC-013 identifies (e.g., `acquire_claim(x: float) -> None` with `"""Satisfies AC-06."""` would fail the return-type check since the spec says it returns a variant type).
+
+Phase 2 will extend this pattern: test suites must reference the interface they test, implementations must import the interface's exports, reviewer comments must reference specific AC IDs. Same principle — deterministic before model.

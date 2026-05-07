@@ -141,7 +141,12 @@ def process_work_item(
             work_item_id=work_item_id,
             attempt=resumable[0],
         )
-        _resume_and_submit(sub, wi, resumable[0], resumable[1], actor_id, channel)
+        resumable_artifact_path = (
+            attempt_dir(wr, work_item_id, resumable[0]) / resumable[1].artifact_name
+        )
+        _resume_and_submit(
+            sub, wi, resumable[0], resumable[1], actor_id, channel, resumable_artifact_path
+        )
         return
 
     ctx = derive_context(sub, wi.work_item_id, role_name, spec_content=spec_content)
@@ -250,6 +255,7 @@ def _resume_and_submit(
     manifest: ArtifactManifest,
     actor_id: str,
     channel: Channel,
+    artifact_path: Path,
 ) -> None:
     actor_metadata = ActorMetadata(
         role="interface_architect",
@@ -264,7 +270,7 @@ def _resume_and_submit(
         actor_id,
         actor_metadata=actor_metadata,
         custom_fields={
-            "artifact_path": manifest.artifact_name,
+            "artifact_path": str(artifact_path),
             "artifact_hash": manifest.artifact_sha256,
         },
     )

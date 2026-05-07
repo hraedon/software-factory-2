@@ -17,7 +17,7 @@ _PHASE1_ROUTING = {
     ("gating", "gate_pass"): Route(target_state="locked"),
     ("gating", "gate_fail"): Route(
         target_state="new",
-        custom_fields_update={"diagnostics": []},
+        custom_fields_update={"diagnostics": {}},
     ),
 }
 
@@ -26,7 +26,6 @@ def route(
     current_state: str,
     transition: str,
     gate_result: GateResult | None = None,
-    work_item_type: str = "interface_spec",
 ) -> Route:
     if current_state == "gating" and transition == "gate_fail" and gate_result is not None:
         return Route(
@@ -36,6 +35,7 @@ def route(
                 "diagnostics": {
                     "gate_name": gate_result.gate_name,
                     "passed": gate_result.passed,
+                    "messages": gate_result.diagnostics,
                     "message": "; ".join(gate_result.diagnostics),
                 }
             },

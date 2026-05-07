@@ -2,12 +2,13 @@
 number: "011"
 title: "Test gap — claim transition not asserted in worker loop tests"
 severity: high
-status: proposed
+status: implemented
 kind: bug
 author: opcode-golden-run-001
 date: "2026-05-07"
-tags: [runner, stage-1, tests]
+tags: [stage-1, tests]
 related: ["BC-003 reflection"]
+resolution: added-tests
 ---
 
 ## Background
@@ -26,5 +27,10 @@ Added explicit `sub.transition(wi.work_item_id, "claim", actor_id, actor_metadat
 
 ## Acceptance criteria
 
-- A test exercises `worker_loop` against live substrate and asserts that after `acquire_claim`, the work-item's `current_state` is `in_progress` (not `new`).
 - A test exercises `worker_loop` against `MockSubstrate` and asserts the `claim` transition event is recorded in the mock event log.
+- A test exercises `worker_loop` against live substrate and asserts that after `acquire_claim`, the work-item's `current_state` is `in_progress` (not `new`).
+
+**Implemented (2026-05-07):** Added three tests:
+- `TestWorkerLoopClaimTransition::test_claim_event_recorded_in_mock_substrate` — exercises full claim→transition→process path on MockSubstrate, asserts `claim` event recorded and state reaches `gating`.
+- `TestWorkerLoopClaimTransition::test_worker_loop_sets_in_progress_state` — asserts work-item is in `in_progress` after claim transition on MockSubstrate.
+- `TestWorkerLoopClaimTransitionLive::test_claim_transition_on_live_substrate` — integration test against live substrate asserting claim event and `in_progress` state.

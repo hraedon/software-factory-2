@@ -42,8 +42,8 @@ class FakeChannel:
     ) -> InvocationResult:
         self._invocations.append((role, prompt, inputs_dir, outputs_dir))
         outputs_dir.mkdir(parents=True, exist_ok=True)
-        ac_doc = ", ".join(self._ac_ids) if self._ac_ids else "AC-placeholder"
-        content = f'"""Satisfies {ac_doc}."""\ndef foo() -> int: ...\n'
+        ac_doc = ", ".join(self._ac_ids) if self._ac_ids else "AC-01"
+        content = f'def foo(x: int) -> str:\n    """Satisfies {ac_doc}."""\n    ...\n'
         (outputs_dir / "artifact.pyi").write_text(content)
         return InvocationResult(success=True, artifact_name="artifact.pyi")
 
@@ -165,3 +165,148 @@ class TestRunnerSmoke:
         assert "interface_architect" in prompt
         assert "# Role: interface_architect" in prompt
         assert ctx.context_hash is not None
+
+
+class TestWorkerLoopClaimTransition:
+    def test_claim_event_recorded_in_mock_substrate(self, mock_substrate, workspace_root):
+        wi, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="test-creator",
+            custom_fields={
+                "spec_section": "Test spec for claim transition.",
+                "ac_ids": ["AC-01"],
+            },
+        )
+        config = FactoryConfig(
+            workspace_root=workspace_root,
+            poll_interval_seconds=0,
+            claim_ttl_seconds=60,
+        )
+        fake_channel = FakeChannel(ac_ids=["AC-01"])
+        mock_substrate.register_actor_role("factory-worker-fake", "interface_architect")
+
+        def _run_loop_once():
+            for role_name in config.worker_roles:
+                try:
+                    mock_substrate.register_actor_role("factory-worker-fake", role_name)
+                except Exception:
+                    pass
+            page = mock_substrate.query_work_items(
+                workflow_name=config.workflow_name,
+                current_states=["new"],
+                claimable_now=True,
+                page_size=10,
+            )
+            for item in page.items:
+                claim = mock_substrate.acquire_claim(
+                    item.work_item_id, "factory-worker-fake", config.claim_ttl_seconds
+                )
+                mock_substrate.transition(
+                    item.work_item_id,
+                    "claim",
+                    "factory-worker-fake",
+                    actor_metadata={
+                        "role": "interface_architect",
+                        "channel": "fake",
+                        "family": "test",
+                    },
+                )
+                process_work_item(
+                    mock_substrate,
+                    config,
+                    fake_channel,
+                    item,
+                    "factory-worker-fake",
+                    claim,
+                    "interface_architect",
+                    spec_content="Test spec for claim transition.",
+                )
+                break
+
+        _run_loop_once()
+
+        events = mock_substrate.read_events(work_item_id=wi.work_item_id, transition="claim")
+        assert len(events) == 1
+        assert events[0].transition == "claim"
+
+        updated = mock_substrate.get_work_item(wi.work_item_id)
+        assert updated.current_state == "gating"
+
+    def test_worker_loop_sets_in_progress_state(self, mock_substrate, workspace_root):
+        wi, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="test-creator",
+            custom_fields={
+                "spec_section": "Another test spec.",
+                "ac_ids": ["AC-02"],
+            },
+        )
+        config = FactoryConfig(
+            workspace_root=workspace_root,
+            poll_interval_seconds=0,
+            claim_ttl_seconds=60,
+        )
+        fake_channel = FakeChannel(ac_ids=["AC-02"])
+        mock_substrate.register_actor_role("factory-worker-fake", "interface_architect")
+
+        claim = mock_substrate.acquire_claim(
+            wi.work_item_id, "factory-worker-fake", config.claim_ttl_seconds
+        )
+        mock_substrate.transition(
+            wi.work_item_id,
+            "claim",
+            "factory-worker-fake",
+            actor_metadata={
+                "role": "interface_architect",
+                "channel": "fake",
+                "family": "test",
+            },
+        )
+
+        in_progress = mock_substrate.get_work_item(wi.work_item_id)
+        assert in_progress.current_state == "in_progress"
+
+        process_work_item(
+            mock_substrate,
+            config,
+            fake_channel,
+            in_progress,
+            "factory-worker-fake",
+            claim,
+            "interface_architect",
+            spec_content="Another test spec.",
+        )
+
+        submitted = mock_substrate.get_work_item(wi.work_item_id)
+        assert submitted.current_state == "gating"
+
+
+@pytest.mark.integration
+class TestWorkerLoopClaimTransitionLive:
+    def test_claim_transition_on_live_substrate(self, substrate, workspace_root):
+        wi, _ = substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="test-creator",
+            custom_fields={
+                "spec_section": "Live claim transition test.",
+                "ac_ids": ["AC-01"],
+            },
+        )
+        substrate.register_actor_role("test-worker-claim", "interface_architect")
+        substrate.acquire_claim(wi.work_item_id, "test-worker-claim", ttl_seconds=300)
+        substrate.transition(
+            wi.work_item_id,
+            "claim",
+            "test-worker-claim",
+            actor_metadata={"role": "interface_architect"},
+        )
+
+        updated = substrate.get_work_item(wi.work_item_id)
+        assert updated.current_state == "in_progress"
+
+        events = substrate.read_events(work_item_id=wi.work_item_id, transition="claim")
+        assert len(events) >= 1
+        assert events[-1].transition == "claim"

@@ -8,10 +8,13 @@ version = "0.1.0"
 description = "Autonomous pipeline for producing functional software from a specification"
 requires-python = ">=3.11"
 dependencies = [
-    "substrate>=0.1.0",
+    "substrate",
     "structlog>=24.1",
     "pyyaml>=6.0.3",
 ]
+
+[tool.uv.sources]
+substrate = { path = "/projects/substrate", editable = true }
 
 [project.optional-dependencies]
 dev = [
