@@ -4,6 +4,65 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-06 — Session 4: Phase 1 exit, 10/10 + cannot_proceed
+
+**Invocation:** OpenCode (opencode)
+**Model:** deepseek-v4-pro
+
+**Focus:** Execute Opus's 4-phase golden-run test plan. Phase A pre-flight fixes, Phase B dry run, Phase C full measurement, Phase D post-mortem.
+
+**Result: Phase 1 exit criteria PASS — 10/10 primary locked, adversarial in cannot_proceed, 100% first-attempt pass rate. Semantic spot-checks on items 01/04/07 confirm correctness, not just syntactic validity.**
+
+**Actions taken:**
+
+1. **Phase A — Pre-flight fixes:**
+   - Fixed `report.py` adversarial check: now filters `by_shape["adversarial"]` and asserts adversarial items are in `cannot_proceed`, not "any item is."
+   - Added `raw_stdout.txt` capture to `claude_code_channel.py` — writes `result.stdout` before extraction.
+   - Smoke-tested Claude: single fenced `python` block, no preamble, extraction clean.
+   - Set `workspace_root: /tmp/sf2-golden-001` in `golden-run-001-config.yaml`.
+   - Created `golden-run-001-log.md`.
+
+2. **Phase B — Dry run on item 01:**
+   - Added `--only` flag to `populate_work_items.py`.
+   - **B4 discoveries (fixes applied):**
+     - Runner missing `claim` transition — `acquire_claim` only creates DB row; added `sub.transition(wi, "claim", ...)` in `worker_loop`.
+     - `derive_context()` replaced work-item `spec_section` with factory `spec.md` when `spec_file` was set; fixed to prefer work-item content.
+     - `register_actor_role` fails idempotently on restart; wrapped in `try/except`.
+     - `populate_work_items.py` stale API (`create_work_item` no longer takes `workflow_version`; returns tuple).
+     - PyPI vs local substrate collision; resolved via `uv pip install -e /projects/substrate`.
+   - Dry run success: item 01 went new→locked in ~19s wall-clock. Claude produced correct variant-type `.pyi`.
+
+3. **Phase C — Full measurement run:**
+   - Populated all 11 items (01-10 + AA).
+   - Started factory-run + factory-gate.
+   - Run completed in ~3.5 minutes: 10/10 locked, 1/1 adversarial in cannot_proceed.
+   - Re-ran a second time after BC-012 workspace cleanup test nuked the first workspace; second run also 10/10.
+
+4. **Phase D — Post-mortem:**
+   - Semantic spot-check on 01 (pure-interface), 04 (error-taxonomy), 07 (ADT-validation): all PASS.
+   - Adversarial item: Claude emitted single fenced JSON block, no stub alongside — prompt working as designed.
+   - 71 tests pass (61 original + 10 structural-equivalence), lint clean.
+
+5. **Breadcrumbs filed (BC-008 through BC-013):**
+   - BC-008: Fixture AC-15 mislabel — fixed.
+   - BC-009: context_hash→artifact non-determinism — `structural_signature()` + `structurally_equivalent_pyi()` added with 10 tests.
+   - BC-010: `--reset` doesn't clean workspace — `--workspace-root` flag added.
+   - BC-011: Test gap — claim transition not asserted (open).
+   - BC-012: Test gap — spec_file paths not exercised (open).
+   - BC-013: Gate is syntactic-only — central Phase 2 design question (open).
+
+6. **Commits:**
+   - `276ab5c` — Code remediation (claim transition, context fix, structural equivalence, idempotency).
+   - `80447e2` — Fixtures, scripts, run-log, golden-run-001 forensic artifacts.
+   - Tagged `phase1-exit` at `80447e2`.
+
+**What remains:**
+- BC-011 and BC-012 are open test gaps (non-blocking for Phase 2 start).
+- BC-013 is the central Phase 2 design question — semantic gating strategy.
+- Phase 2 begins with adding remaining roles one at a time (tests → impl → gates).
+
+---
+
 ## 2026-05-06 — Session 3: Phase 1 implementation (Waves 0–6)
 
 **Model:** glm-5.1
