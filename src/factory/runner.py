@@ -135,6 +135,14 @@ def worker_loop(
     log.info("worker_loop_exiting")
 
 
+def _has_prior_gate_fail(sub: Substrate, work_item_id: str) -> bool:
+    events = sub.read_events(work_item_id=work_item_id)
+    return any(
+        e.transition in ("gate_fail", "channel_fail")
+        for e in events
+    )
+
+
 def process_work_item(
     sub: Substrate,
     config: FactoryConfig,
@@ -148,27 +156,33 @@ def process_work_item(
     work_item_id = str(wi.work_item_id)
     attempt_number = claim.attempt_number
     wr = Path(config.workspace_root)
-    resumable = find_resumable_artifact(wr, work_item_id)
-    if resumable is not None:
+    if not _has_prior_gate_fail(sub, work_item_id):
+        resumable = find_resumable_artifact(wr, work_item_id)
+        if resumable is not None:
+            log.info(
+                "resuming_from_artifact",
+                work_item_id=work_item_id,
+                attempt=resumable[0],
+            )
+            resumable_artifact_path = (
+                attempt_dir(wr, work_item_id, resumable[0]) / resumable[1].artifact_name
+            )
+            _resume_and_submit(
+                sub,
+                wi,
+                resumable[0],
+                resumable[1],
+                actor_id,
+                channel,
+                resumable_artifact_path,
+                role_name=role_name,
+            )
+            return
+    else:
         log.info(
-            "resuming_from_artifact",
+            "skipping_resume_due_to_prior_gate_fail",
             work_item_id=work_item_id,
-            attempt=resumable[0],
         )
-        resumable_artifact_path = (
-            attempt_dir(wr, work_item_id, resumable[0]) / resumable[1].artifact_name
-        )
-        _resume_and_submit(
-            sub,
-            wi,
-            resumable[0],
-            resumable[1],
-            actor_id,
-            channel,
-            resumable_artifact_path,
-            role_name=role_name,
-        )
-        return
 
     ctx = _derive_role_context(sub, wi.work_item_id, role_name, spec_content)
     role_config = config.get_role_config(role_name)
@@ -332,6 +346,22 @@ def _resume_and_submit(
     )
 
 
+def _create_channel(config: FactoryConfig) -> Channel:
+    channels = set(rc.channel for rc in config.roles if rc.channel != "code")
+    if len(channels) == 1:
+        ch = channels.pop()
+        if ch == "opencode":
+            from factory.opencode_channel import OpenCodeChannel
+
+            return OpenCodeChannel(config)
+        if ch == "claude-code":
+            from factory.claude_code_channel import ClaudeCodeChannel
+
+            return ClaudeCodeChannel(config)
+    # multi-channel: return a dispatching channel
+    raise NotImplementedError("Multi-channel dispatch not yet implemented")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Software Factory v2 - Worker process")
     parser.add_argument(
@@ -342,9 +372,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     config = load_config(args.config)
-    from factory.claude_code_channel import ClaudeCodeChannel
-
-    channel = ClaudeCodeChannel(config)
+    channel = _create_channel(config)
     run_worker(config, channel)
 
 

@@ -501,6 +501,18 @@ def _run_ruff(artifact_path: Path) -> GateResult:
     if ruff is None:
         return GateResult(passed=True, gate_name="implementation_lint")
     try:
+        subprocess.run(
+            [ruff, "check", "--fix", str(artifact_path)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        subprocess.run(
+            [ruff, "format", str(artifact_path)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
         result = subprocess.run(
             [ruff, "check", str(artifact_path)],
             capture_output=True,

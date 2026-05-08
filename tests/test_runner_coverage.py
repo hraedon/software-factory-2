@@ -1,8 +1,49 @@
 from __future__ import annotations
 
+import pytest
+
 from factory.channel import InvocationResult
-from factory.config import FactoryConfig
-from factory.runner import _role_for_type, process_work_item
+from factory.config import FactoryConfig, RoleConfig
+from factory.runner import _create_channel, _role_for_type, process_work_item
+
+
+class TestCreateChannel:
+    def test_default_config_returns_claude_code(self):
+        config = FactoryConfig()
+        channel = _create_channel(config)
+        assert channel.name == "claude-code"
+
+    def test_phase1_config_returns_claude_code(self):
+        config = FactoryConfig(
+            roles=(
+                RoleConfig(role="interface_architect", channel="claude-code"),
+                RoleConfig(role="mechanical_gate", channel="code"),
+            ),
+        )
+        channel = _create_channel(config)
+        assert channel.name == "claude-code"
+
+    def test_phase2_opencode_config_returns_opencode(self):
+        config = FactoryConfig(
+            roles=(
+                RoleConfig(role="interface_architect", channel="opencode"),
+                RoleConfig(role="test_author", channel="opencode"),
+                RoleConfig(role="implementer", channel="opencode"),
+                RoleConfig(role="mechanical_gate", channel="code"),
+            ),
+        )
+        channel = _create_channel(config)
+        assert channel.name == "opencode"
+
+    def test_multi_model_channel_raises(self):
+        config = FactoryConfig(
+            roles=(
+                RoleConfig(role="interface_architect", channel="claude-code"),
+                RoleConfig(role="implementer", channel="opencode"),
+            ),
+        )
+        with pytest.raises(NotImplementedError):
+            _create_channel(config)
 
 
 class TestRoleForType:

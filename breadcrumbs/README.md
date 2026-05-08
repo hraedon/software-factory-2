@@ -43,13 +43,14 @@ Reusable tags:
 | 031 | Gate process/runner coverage stuck at 54% — CLI/poll loops need integration tests | medium | proposed |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
 | 033 | Telemetry reporter skeleton (Wave 8) | medium | proposed |
-| 039 | Implementation lint gate should auto-format before checking and prompt should teach modern typing | medium | proposed |
-| 040 | OpenCodeChannel adapter — invoke opencode CLI for models with generous usage limits | medium | proposed |
 
 ## Resolved
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 041 | _create_channel factory counts deterministic gate-channel as a second channel | high | Filtered `channel="code"` from channel set before adapter selection; added 4 unit tests covering default, Phase1, Phase2 opencode, and multi-channel configs |
+| 040 | OpenCodeChannel adapter — invoke opencode CLI for models with generous usage limits | medium | Extracted output_extraction.py; created opencode_channel.py with per-role model selection; added channel factory in runner.py; family derived from model provider prefix; unit tests added |
+| 039 | Implementation lint gate should auto-format before checking and prompt should teach modern typing | medium | Added ruff check --fix + ruff format before lint gate; updated implementer.md with modern typing conventions; added gate-fail resume guard in runner.py |
 | 038 | test_suite gate doesn't verify pytest collectability — test-theater gap | medium | Added _run_pytest_collect() to evaluate_test_suite(); fails on 0 collected tests |
 | 037 | Escalation routing is a no-op for non-interface_spec work item types | high | Added gate_escalation transition (gating → cannot_proceed); escalation now terminates item instead of cycling |
 | 030 | Real Substrate read_events should support composite filters (work_item_id + transition) | medium | Substrate shipped read_events_composite with AND-composable SQL filters; InMemorySubstrate also supports multi-dimension filters |

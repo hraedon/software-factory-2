@@ -230,14 +230,18 @@ def _drive_full_pipeline(sub, config, channel, spec_section="Compute function", 
 
 class _BadImplIntegrationChannel(_IntegrationChannel):
     """Produces implementation artifacts that trigger impl_lint gate failures
-    (unused import) for escalation testing."""
+    (bare except, which ruff cannot auto-fix) for escalation testing."""
 
     def invoke(self, role, prompt, inputs_dir, outputs_dir, timeout):
         result = super().invoke(role, prompt, inputs_dir, outputs_dir, timeout)
         if role == "implementer" and result.success:
             name = result.artifact_name
             (outputs_dir / name).write_text(
-                "import os\n\ndef compute(x: int) -> str:\n    return str(x)\n"
+                "def compute(x: int) -> str:\n"
+                "    try:\n"
+                "        return str(x)\n"
+                "    except:\n"
+                '        return ""\n'
             )
         return result
 
@@ -599,7 +603,7 @@ class TestPipelineIntegration:
         impl_wi = _create_downstream(mock_substrate, config, wi, "test_suite", "locked")
         assert impl_wi is not None
 
-        # Attempt 1: worker produces bad artifact (unused import), gate fails impl_lint
+        # Attempt 1: worker produces bad artifact (bare except), gate fails impl_lint
         # Worker claim=attempt1, Gate claim=attempt2. attempt2 < 3, normal gate_fail.
         wi = _run_worker_stage(
             mock_substrate,
@@ -615,7 +619,8 @@ class TestPipelineIntegration:
         diags = (wi.custom_fields or {}).get("diagnostics", {})
         assert diags.get("diagnostic_kind") == "impl_lint"
 
-        # Attempt 2: worker resumes bad artifact, gate fails impl_lint again.
+        # Attempt 2: worker sees prior gate_fail so does NOT resume; invokes channel again,
+        # produces another bad artifact, gate fails impl_lint again.
         # Worker claim=attempt3, Gate claim=attempt4. attempt4 >= 3, escalation fires.
         # Item transitions to cannot_proceed (terminal), stopping the retry loop.
         impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)

@@ -27,11 +27,19 @@ A single Python file containing the implementation. Output it in a single fenced
 
 If you write an implementation and some tests fail, the failure is in your implementation. Do not modify the tests. Do not modify the interface. Read the test that fails, understand what it expects, and make your code satisfy that expectation.
 
+## Typing conventions
+
+Use modern Python typing syntax. The ruff linter enforces these rules:
+- Use `X | Y` for unions, `X | None` for optionals. Never use `typing.Union`, `typing.Optional`.
+- Use `dict[K, V]`, `list[T]`, `set[T]`, `tuple[T, ...]` instead of `typing.Dict`, `typing.List`, `typing.Set`, `typing.Tuple`.
+- Import from `collections.abc` (`Sequence`, `Callable`, `Iterator`, `Iterable`) instead of `typing` when possible.
+- Sort imports: `__future__`, then stdlib, then third-party, each group alphabetical.
+
 ## Quality bar
 
 Your implementation will be evaluated by:
 1. `mypy --strict` against the interface.
 2. `pytest` against the test suite.
-3. `ruff check` for lint compliance.
+3. `ruff check` for lint compliance (auto-fixes run, so only unfixable issues fail).
 
 A clean run of all three means gate_pass.

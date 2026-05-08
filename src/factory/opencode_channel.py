@@ -11,19 +11,31 @@ from factory.output_extraction import extract_artifact_from_output, extract_json
 
 log = logging.getLogger(__name__)
 
-# Re-export for backward compatibility with existing tests
-_extract_artifact_from_output = extract_artifact_from_output
-_extract_json_from_output = extract_json_from_output
+# Mapping from model provider prefix to family name for telemetry.
+_FAMILY_BY_PROVIDER: dict[str, str] = {
+    "zai-coding-plan": "zai",
+    "ollama-cloud": "ollama",
+    "fireworks-ai": "fireworks",
+    "opencode": "opencode-free",
+    "mac-studio-lms": "local-lms",
+}
 
 
-class ClaudeCodeChannel:
+def _derive_family(model: str | None) -> str:
+    if not model:
+        return "opencode"
+    prefix = model.split("/")[0]
+    return _FAMILY_BY_PROVIDER.get(prefix, prefix)
+
+
+class OpenCodeChannel:
     def __init__(self, config: FactoryConfig):
         self._config = config
-        self._family = "anthropic"
+        self._family = "opencode"
 
     @property
     def name(self) -> str:
-        return "claude-code"
+        return "opencode"
 
     @property
     def family(self) -> str:
@@ -46,17 +58,17 @@ class ClaudeCodeChannel:
         outputs_dir.mkdir(parents=True, exist_ok=True)
         role_config = self._config.get_role_config(role)
         effective_timeout = role_config.timeout_seconds if role_config else timeout
+        model = role_config.model if role_config else None
 
         cmd = [
-            "claude",
-            "--print",
-            "--output-format",
-            "text",
-            "--max-turns",
-            "1",
+            "opencode",
+            "run",
+            "--dangerously-skip-permissions",
         ]
+        if model:
+            cmd.extend(["--model", model])
         if role_config and role_config.model:
-            cmd.extend(["--model", role_config.model])
+            self._family = _derive_family(role_config.model)
         try:
             result = subprocess.run(
                 cmd,
@@ -76,7 +88,7 @@ class ClaudeCodeChannel:
         except FileNotFoundError:
             return InvocationResult(
                 success=False,
-                error_message="claude not found in PATH",
+                error_message="opencode not found in PATH",
                 exit_code=None,
             )
 
@@ -94,11 +106,11 @@ class ClaudeCodeChannel:
         if not output_text.strip():
             return InvocationResult(
                 success=False,
-                error_message="Empty output from claude",
+                error_message="Empty output from opencode",
                 exit_code=result.returncode,
             )
 
-        json_data = _extract_json_from_output(output_text)
+        json_data = extract_json_from_output(output_text)
         if json_data is not None and json_data.get("status") == "cannot_proceed":
             cp_path = outputs_dir / "cannot_proceed.json"
             cp_path.write_text(json.dumps(json_data, indent=2))
@@ -108,11 +120,11 @@ class ClaudeCodeChannel:
                 error_message="cannot_proceed",
             )
 
-        artifact_content = _extract_artifact_from_output(output_text)
+        artifact_content = extract_artifact_from_output(output_text)
         if artifact_content is None:
             return InvocationResult(
                 success=False,
-                error_message="Could not extract artifact from claude output",
+                error_message="Could not extract artifact from opencode output",
                 exit_code=result.returncode,
             )
 
