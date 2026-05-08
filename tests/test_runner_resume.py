@@ -4,6 +4,7 @@ from factory.channel import InvocationResult
 from factory.config import FactoryConfig
 from factory.gate_process import process_gate_item
 from factory.runner import process_work_item
+from factory.runtime import PipelineRuntime
 from factory.workspace import (
     ArtifactManifest,
     attempt_dir,
@@ -80,15 +81,15 @@ class TestResumeAndSubmit:
 
         config = FactoryConfig(workspace_root=workspace_root)
         channel = _FakeChannel(ac_ids=["AC-01"])
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Resume test", channel=channel
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Resume test",
         )
 
         # Channel must not have been invoked
@@ -141,15 +142,15 @@ class TestResumeAndSubmit:
 
         config = FactoryConfig(workspace_root=workspace_root)
         channel = _FakeChannel(ac_ids=["AC-01"])
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Gate resume test", channel=channel
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Gate resume test",
         )
 
         submitted = mock_substrate.get_work_item(wi.work_item_id)
@@ -158,7 +159,8 @@ class TestResumeAndSubmit:
         mock_substrate.register_actor_role("test-gate", "mechanical_gate")
         gate_claim = mock_substrate.acquire_claim(wi.work_item_id, "test-gate")
         fresh = mock_substrate.get_work_item(wi.work_item_id)
-        process_gate_item(mock_substrate, config, fresh, "test-gate", gate_claim)
+        gate_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        process_gate_item(gate_runtime, fresh, "test-gate", gate_claim)
 
         final = mock_substrate.get_work_item(wi.work_item_id)
         assert final.current_state == "locked"
@@ -197,15 +199,15 @@ class TestResumeAndSubmit:
 
         config = FactoryConfig(workspace_root=workspace_root)
         channel = _FakeChannel()
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Metadata test", channel=channel
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Metadata test",
         )
 
         all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)

@@ -6,6 +6,7 @@ from factory.channel import InvocationResult
 from factory.config import FactoryConfig
 from factory.gate_process import process_gate_item
 from factory.runner import _resume_and_submit, process_work_item
+from factory.runtime import PipelineRuntime
 from factory.scheduler import _ensure_downstream_item
 from factory.workspace import (
     ArtifactManifest,
@@ -106,31 +107,32 @@ def _register_roles(sub):
         sub.register_actor_role(actor_id, role)
 
 
-def _run_worker_stage(sub, config, channel, wi, actor_id, role_name, spec_content="Test spec"):
-    claim = sub.acquire_claim(wi.work_item_id, actor_id)
-    sub.transition(
+def _run_worker_stage(runtime, channel, wi, actor_id, role_name, spec_content="Test spec"):
+    claim = runtime.sub.acquire_claim(wi.work_item_id, actor_id)
+    runtime.sub.transition(
         wi.work_item_id,
         "claim",
         actor_id,
         actor_metadata={"role": role_name},
     )
+    runtime_with_spec = PipelineRuntime(
+        sub=runtime.sub, config=runtime.config, spec_content=spec_content, channel=channel
+    )
     process_work_item(
-        sub,
-        config,
-        channel,
+        runtime_with_spec,
         wi,
         actor_id,
         claim,
         role_name,
-        spec_content=spec_content,
     )
-    return sub.get_work_item(wi.work_item_id)
+    return runtime.sub.get_work_item(wi.work_item_id)
 
 
-def _run_gate(sub, config, wi, actor_id="factory-gate"):
-    claim = sub.acquire_claim(wi.work_item_id, actor_id)
-    process_gate_item(sub, config, wi, actor_id, claim)
-    return sub.get_work_item(wi.work_item_id)
+def _run_gate(runtime, wi, actor_id="factory-gate"):
+    claim = runtime.sub.acquire_claim(wi.work_item_id, actor_id)
+    runtime_gate = PipelineRuntime(sub=runtime.sub, config=runtime.config)
+    process_gate_item(runtime_gate, wi, actor_id, claim)
+    return runtime.sub.get_work_item(wi.work_item_id)
 
 
 def _write_resumable_artifact(workspace_root, work_item_id, attempt, role, artifact_name, content):
@@ -224,7 +226,8 @@ class TestPipelineIdempotencyInterfaceArchitect:
             "artifact.pyi",
         )
         assert wi.current_state == "gating"
-        wi = _run_gate(mock_substrate, config, wi)
+        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
         assert len(channel._invocations) == 0
 
@@ -290,6 +293,8 @@ class TestPipelineIdempotencyTestAuthor:
         channel = _IdempotencyChannel(workspace_root)
         _register_roles(mock_substrate)
 
+        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+
         iface, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
@@ -297,19 +302,18 @@ class TestPipelineIdempotencyTestAuthor:
             custom_fields={"spec_section": "def compute(x: int) -> str", "ac_ids": ["AC-01"]},
         )
         wi = _run_worker_stage(
-            mock_substrate,
-            config,
+            runtime,
             channel,
             iface,
             "factory-arch",
             "interface_architect",
         )
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
+        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
         _ensure_downstream_item(
-            mock_substrate,
-            config,
+            sched_runtime,
             wi,
             {"next_type": "test_suite", "link_type": "derived_from", "next_role": "test_author"},
         )
@@ -343,7 +347,7 @@ class TestPipelineIdempotencyTestAuthor:
             "test_suite.py",
         )
         assert wi.current_state == "gating"
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
 
@@ -356,6 +360,8 @@ class TestPipelineIdempotencyImplementer:
         channel = _IdempotencyChannel(workspace_root)
         _register_roles(mock_substrate)
 
+        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+
         iface, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
@@ -363,19 +369,18 @@ class TestPipelineIdempotencyImplementer:
             custom_fields={"spec_section": "def compute(x: int) -> str", "ac_ids": ["AC-01"]},
         )
         wi = _run_worker_stage(
-            mock_substrate,
-            config,
+            runtime,
             channel,
             iface,
             "factory-arch",
             "interface_architect",
         )
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
+        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
         _ensure_downstream_item(
-            mock_substrate,
-            config,
+            sched_runtime,
             wi,
             {"next_type": "test_suite", "link_type": "derived_from", "next_role": "test_author"},
         )
@@ -390,19 +395,17 @@ class TestPipelineIdempotencyImplementer:
         ts_wi = ts_wis[0]
 
         wi = _run_worker_stage(
-            mock_substrate,
-            config,
+            runtime,
             channel,
             ts_wi,
             "factory-tester",
             "test_author",
         )
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
         _ensure_downstream_item(
-            mock_substrate,
-            config,
+            sched_runtime,
             wi,
             {
                 "next_type": "implementation",
@@ -434,7 +437,7 @@ class TestPipelineIdempotencyImplementer:
             "impl.py",
         )
         assert wi.current_state == "gating"
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
 
@@ -447,6 +450,8 @@ class TestPipelineIdempotencyGateProcess:
         channel = _IdempotencyChannel(workspace_root)
         _register_roles(mock_substrate)
 
+        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+
         iface, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
@@ -455,8 +460,7 @@ class TestPipelineIdempotencyGateProcess:
         )
 
         wi = _run_worker_stage(
-            mock_substrate,
-            config,
+            runtime,
             channel,
             iface,
             "factory-arch",
@@ -464,7 +468,7 @@ class TestPipelineIdempotencyGateProcess:
         )
         assert wi.current_state == "gating"
 
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
         events = mock_substrate.read_events(work_item_id=iface.work_item_id)
@@ -479,6 +483,8 @@ class TestPipelineIdempotencyGateProcess:
         channel = _IdempotencyChannel(workspace_root)
         _register_roles(mock_substrate)
 
+        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+
         iface, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
@@ -487,19 +493,18 @@ class TestPipelineIdempotencyGateProcess:
         )
 
         wi = _run_worker_stage(
-            mock_substrate,
-            config,
+            runtime,
             channel,
             iface,
             "factory-arch",
             "interface_architect",
         )
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
+        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
         _ensure_downstream_item(
-            mock_substrate,
-            config,
+            sched_runtime,
             wi,
             {"next_type": "test_suite", "link_type": "derived_from", "next_role": "test_author"},
         )
@@ -514,8 +519,7 @@ class TestPipelineIdempotencyGateProcess:
         ts_wi = ts_wis[0]
 
         wi = _run_worker_stage(
-            mock_substrate,
-            config,
+            runtime,
             channel,
             ts_wi,
             "factory-tester",
@@ -523,7 +527,7 @@ class TestPipelineIdempotencyGateProcess:
         )
         assert wi.current_state == "gating"
 
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
 
@@ -535,6 +539,9 @@ class TestPipelineIdempotencyMultiRole:
         config = _make_phase2_config(workspace_root)
         channel = _IdempotencyChannel(workspace_root)
         _register_roles(mock_substrate)
+
+        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
 
         iface, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
@@ -557,13 +564,12 @@ class TestPipelineIdempotencyMultiRole:
             "artifact.pyi",
         )
         assert wi.current_state == "gating"
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
         # Stage 2: test_author — resume from crash
         _ensure_downstream_item(
-            mock_substrate,
-            config,
+            sched_runtime,
             wi,
             {"next_type": "test_suite", "link_type": "derived_from", "next_role": "test_author"},
         )
@@ -596,13 +602,12 @@ class TestPipelineIdempotencyMultiRole:
             "test_suite.py",
         )
         assert wi.current_state == "gating"
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
         # Stage 3: implementer — resume from crash
         _ensure_downstream_item(
-            mock_substrate,
-            config,
+            sched_runtime,
             wi,
             {
                 "next_type": "implementation",
@@ -634,7 +639,7 @@ class TestPipelineIdempotencyMultiRole:
             "impl.py",
         )
         assert wi.current_state == "gating"
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
         assert len(channel._invocations) == 0

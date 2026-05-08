@@ -44,7 +44,6 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 054 | No PipelineRuntime namespace — live objects mix with serializable state (v1 BC-361 pattern) | high | proposed |
 | 055 | Stage contracts must be blocking from day one, not warn-and-continue (v1 BC-358 pattern) | high | proposed |
 | 056 | No single-source-of-truth rule for default values — v1 'string constant gravity' pattern risk | high | proposed |
 | 031 | Gate process/runner coverage stuck at 54% — CLI/poll loops need integration tests | medium | proposed |
@@ -69,6 +68,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 054 | No PipelineRuntime namespace — live objects mix with serializable state (v1 BC-361 pattern) | high | Introduced PipelineRuntime frozen dataclass; refactored runner.py, gate_process.py, scheduler.py to use it; 256 tests pass |
 | 051 | spec.md still cites BC-021 as Phase 1 blocker — substrate hooks appear to work | medium | Updated spec.md §8 to reflect that BC-021 is historical; added cross-ref to BC-051 |
 | 050 | interface_architect.md worked example uses deprecated typing — contradicts implementer rules and lint gate | medium | Replaced `Union[Range, Error]` with `Range | Error` and removed `from typing import Union` in worked example |
 | 049 | _resume_and_submit has stale default role_name='interface_architect' | low | Removed default; made role_name a required parameter |

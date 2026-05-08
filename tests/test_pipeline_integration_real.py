@@ -10,6 +10,7 @@ from factory.channel import InvocationResult
 from factory.config import FactoryConfig
 from factory.gate_process import process_gate_item
 from factory.runner import process_work_item
+from factory.runtime import PipelineRuntime
 
 TESTS_DIR = Path(__file__).parent
 DSN = "postgresql://substrate_test:substrate_test@localhost:5432/substrate_test"
@@ -94,21 +95,22 @@ class TestPipelineIntegrationReal:
             "factory-arch",
             actor_metadata={"role": "interface_architect"},
         )
+        runtime = PipelineRuntime(
+            sub=real_substrate, config=config, spec_content="Compute function", channel=channel
+        )
         process_work_item(
-            real_substrate,
-            config,
-            channel,
+            runtime,
             iface,
             "factory-arch",
             claim,
             "interface_architect",
-            spec_content="Compute function",
         )
         iface = real_substrate.get_work_item(iface.work_item_id)
         assert iface.current_state == "gating"
 
         gate_claim = real_substrate.acquire_claim(iface.work_item_id, "factory-gate")
-        process_gate_item(real_substrate, config, iface, "factory-gate", gate_claim)
+        gate_runtime = PipelineRuntime(sub=real_substrate, config=config)
+        process_gate_item(gate_runtime, iface, "factory-gate", gate_claim)
         iface = real_substrate.get_work_item(iface.work_item_id)
         assert iface.current_state == "locked"
 

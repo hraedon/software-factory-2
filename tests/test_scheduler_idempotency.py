@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from factory.config import FactoryConfig
+from factory.runtime import PipelineRuntime
 from factory.scheduler import _ensure_downstream_item
 
 
@@ -41,7 +42,8 @@ class TestSchedulerIdempotency:
             "next_role": "test_author",
         }
 
-        _ensure_downstream_item(mock_substrate, config, source_a, handoff)
+        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        _ensure_downstream_item(sched_runtime, source_a, handoff)
 
         ts_a = mock_substrate.query_work_items(
             work_item_types=["test_suite"],
@@ -50,7 +52,7 @@ class TestSchedulerIdempotency:
         assert len(ts_a.items) == 1
         assert ts_a.items[0].custom_fields["interface_ref"] == str(source_a.work_item_id)
 
-        _ensure_downstream_item(mock_substrate, config, source_b, handoff)
+        _ensure_downstream_item(sched_runtime, source_b, handoff)
 
         ts_all = mock_substrate.query_work_items(
             work_item_types=["test_suite"],
@@ -86,9 +88,10 @@ class TestSchedulerIdempotency:
             "next_role": "test_author",
         }
 
-        _ensure_downstream_item(mock_substrate, config, source, handoff)
-        _ensure_downstream_item(mock_substrate, config, source, handoff)
-        _ensure_downstream_item(mock_substrate, config, source, handoff)
+        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        _ensure_downstream_item(sched_runtime, source, handoff)
+        _ensure_downstream_item(sched_runtime, source, handoff)
+        _ensure_downstream_item(sched_runtime, source, handoff)
 
         ts_all = mock_substrate.query_work_items(
             work_item_types=["test_suite"],
@@ -117,12 +120,13 @@ class TestSchedulerIdempotency:
             },
         )
 
+        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
         iface_handoff = {
             "next_type": "test_suite",
             "link_type": "derived_from",
             "next_role": "test_author",
         }
-        _ensure_downstream_item(mock_substrate, config, iface, iface_handoff)
+        _ensure_downstream_item(sched_runtime, iface, iface_handoff)
 
         ts_page = mock_substrate.query_work_items(
             work_item_types=["test_suite"],
@@ -136,7 +140,7 @@ class TestSchedulerIdempotency:
             "additional_links": ["implements"],
             "next_role": "implementer",
         }
-        _ensure_downstream_item(mock_substrate, config, ts_wi, impl_handoff)
+        _ensure_downstream_item(sched_runtime, ts_wi, impl_handoff)
 
         impl_page = mock_substrate.query_work_items(
             work_item_types=["implementation"],

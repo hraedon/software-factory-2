@@ -2,7 +2,7 @@
 number: "054"
 title: "No PipelineRuntime namespace — live objects mix with serializable state (v1 BC-361 pattern)"
 severity: high
-status: proposed
+status: implemented
 kind: bug
 author: adversarial-review
 date: "2026-05-08"
@@ -20,6 +20,11 @@ v1's lesson: separate serializable state from runtime live-object context *at th
 
 ## Fix
 
-Introduce a `PipelineRuntime` dataclass (or equivalent) to carry live objects: `sub`, `config`, `channel`, `spec_content`, `actor_id`, and any future observers/hooks. Methods take `runtime: PipelineRuntime` plus work-item-specific args. Serializable state stays in substrate's custom_fields.
+Introduced `PipelineRuntime` frozen dataclass in `src/factory/runtime.py` carrying live objects: `sub`, `config`, `spec_content`, `channel`. Methods now take `runtime: PipelineRuntime` plus work-item-specific args.
 
-This is a low-risk refactor affecting only the function signatures in `runner.py`, `gate_process.py`, and `scheduler.py`. Do it now before Phase 3 adds more parameters.
+Affected modules refactored:
+- `runner.py`: `process_work_item`, `worker_loop`, `_derive_role_context` now take `PipelineRuntime`; `run_worker` constructs it.
+- `gate_process.py`: `process_gate_item`, `gate_loop` now take `PipelineRuntime`; `run_gate` constructs it.
+- `scheduler.py`: `_ensure_downstream_item`, `scheduler_loop` now take `PipelineRuntime`; `run_scheduler` constructs it.
+
+All 256 tests updated to construct `PipelineRuntime` at call sites. Zero test regressions.

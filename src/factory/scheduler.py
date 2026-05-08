@@ -4,9 +4,9 @@ import time
 import uuid as _uuid
 
 import structlog
-from substrate import Substrate
 
 from factory.config import FactoryConfig
+from factory.runtime import PipelineRuntime
 
 log = structlog.get_logger()
 
@@ -26,14 +26,19 @@ _STAGE_HANDOFF = {
 
 
 def run_scheduler(config: FactoryConfig) -> None:
+    from substrate import Substrate
+
     sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
+    runtime = PipelineRuntime(sub=sub, config=config)
     try:
-        scheduler_loop(sub, config)
+        scheduler_loop(runtime)
     finally:
         sub.close()
 
 
-def scheduler_loop(sub: Substrate, config: FactoryConfig) -> None:
+def scheduler_loop(runtime: PipelineRuntime) -> None:
+    sub = runtime.sub
+    config = runtime.config
     poll_interval = config.poll_interval_seconds
     shutting_down = False
 
@@ -58,7 +63,7 @@ def scheduler_loop(sub: Substrate, config: FactoryConfig) -> None:
             for wi in page.items:
                 if wi.work_item_type != source_type:
                     continue
-                _ensure_downstream_item(sub, config, wi, handoff)
+                _ensure_downstream_item(runtime, wi, handoff)
 
         if not shutting_down:
             time.sleep(poll_interval)
@@ -66,11 +71,12 @@ def scheduler_loop(sub: Substrate, config: FactoryConfig) -> None:
 
 
 def _ensure_downstream_item(
-    sub: Substrate,
-    config: FactoryConfig,
+    runtime: PipelineRuntime,
     source_wi,
     handoff: dict,
 ) -> None:
+    sub = runtime.sub
+    config = runtime.config
     next_type = handoff["next_type"]
     link_type = handoff["link_type"]
     next_role = handoff["next_role"]

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from factory.gate_process import process_gate_item
+from factory.runtime import PipelineRuntime
 
 
 @pytest.mark.integration
@@ -39,7 +40,8 @@ class TestGateProcessIntegration:
         gate_claim = substrate.acquire_claim(wi.work_item_id, "test-gate", ttl_seconds=300)
         fresh = substrate.get_work_item(wi.work_item_id)
 
-        process_gate_item(substrate, factory_config, fresh, "test-gate", gate_claim)
+        gate_runtime = PipelineRuntime(sub=substrate, config=factory_config)
+        process_gate_item(gate_runtime, fresh, "test-gate", gate_claim)
 
         final = substrate.get_work_item(wi.work_item_id)
         assert final.current_state == "locked"
@@ -76,7 +78,8 @@ class TestGateProcessIntegration:
         gate_claim = substrate.acquire_claim(wi.work_item_id, "test-gate-fail", ttl_seconds=300)
         fresh = substrate.get_work_item(wi.work_item_id)
 
-        process_gate_item(substrate, factory_config, fresh, "test-gate-fail", gate_claim)
+        gate_runtime = PipelineRuntime(sub=substrate, config=factory_config)
+        process_gate_item(gate_runtime, fresh, "test-gate-fail", gate_claim)
 
         final = substrate.get_work_item(wi.work_item_id)
         assert final.current_state == "new"
@@ -112,7 +115,8 @@ class TestGateProcessIntegration:
         gate_claim = substrate.acquire_claim(wi.work_item_id, "test-gate-missing", ttl_seconds=300)
         fresh = substrate.get_work_item(wi.work_item_id)
 
-        process_gate_item(substrate, factory_config, fresh, "test-gate-missing", gate_claim)
+        gate_runtime = PipelineRuntime(sub=substrate, config=factory_config)
+        process_gate_item(gate_runtime, fresh, "test-gate-missing", gate_claim)
 
         final = substrate.get_work_item(wi.work_item_id)
         assert final.current_state == "new"

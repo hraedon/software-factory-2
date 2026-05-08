@@ -5,6 +5,7 @@ from pathlib import Path
 from factory.channel import InvocationResult
 from factory.gate_process import process_gate_item
 from factory.runner import process_work_item
+from factory.runtime import PipelineRuntime
 from factory.scheduler import _ensure_downstream_item
 
 _STAGE_HANDOFF_TEST = {
@@ -99,15 +100,15 @@ class TestPipelineSmoke:
             "factory-arch",
             actor_metadata={"role": "interface_architect"},
         )
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Compute function", channel=channel
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            runtime,
             iface,
             "factory-arch",
             claim,
             "interface_architect",
-            spec_content="Compute function",
         )
         iface = mock_substrate.get_work_item(iface.work_item_id)
         assert iface.current_state == "gating"
@@ -115,12 +116,14 @@ class TestPipelineSmoke:
         # Gate interface_spec
         iface = mock_substrate.get_work_item(iface.work_item_id)
         gate_claim = mock_substrate.acquire_claim(iface.work_item_id, "factory-gate")
-        process_gate_item(mock_substrate, config, iface, "factory-gate", gate_claim)
+        gate_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        process_gate_item(gate_runtime, iface, "factory-gate", gate_claim)
         iface = mock_substrate.get_work_item(iface.work_item_id)
         assert iface.current_state == "locked"
 
         # Scheduler creates test_suite
-        _ensure_downstream_item(mock_substrate, config, iface, _STAGE_HANDOFF_TEST)
+        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        _ensure_downstream_item(sched_runtime, iface, _STAGE_HANDOFF_TEST)
 
         # Find the downstream test_suite
         ts_page = mock_substrate.query_work_items(current_states=["new"], page_size=10)
@@ -137,14 +140,16 @@ class TestPipelineSmoke:
             actor_metadata={"role": "test_author"},
         )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            PipelineRuntime(
+                sub=mock_substrate,
+                config=config,
+                spec_content="Compute function",
+                channel=channel,
+            ),
             ts_wi,
             "factory-tester",
             claim_ts,
             "test_author",
-            spec_content="Compute function",
         )
         ts_wi = mock_substrate.get_work_item(ts_wi.work_item_id)
         assert ts_wi.current_state == "gating"
@@ -152,7 +157,7 @@ class TestPipelineSmoke:
         # Gate test_suite
         ts_wi = mock_substrate.get_work_item(ts_wi.work_item_id)
         gate2_claim = mock_substrate.acquire_claim(ts_wi.work_item_id, "factory-gate")
-        process_gate_item(mock_substrate, config, ts_wi, "factory-gate", gate2_claim)
+        process_gate_item(gate_runtime, ts_wi, "factory-gate", gate2_claim)
         ts_wi = mock_substrate.get_work_item(ts_wi.work_item_id)
         assert ts_wi.current_state == "locked"
 
@@ -163,7 +168,7 @@ class TestPipelineSmoke:
             "additional_links": ["implements"],
             "next_role": "implementer",
         }
-        _ensure_downstream_item(mock_substrate, config, ts_wi, ts_handoff)
+        _ensure_downstream_item(sched_runtime, ts_wi, ts_handoff)
 
         impl_page = mock_substrate.query_work_items(current_states=["new"], page_size=10)
         impl_wis = [w for w in impl_page.items if w.work_item_type == "implementation"]
@@ -179,14 +184,16 @@ class TestPipelineSmoke:
             actor_metadata={"role": "implementer"},
         )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            PipelineRuntime(
+                sub=mock_substrate,
+                config=config,
+                spec_content="Compute function",
+                channel=channel,
+            ),
             impl_wi,
             "factory-impl",
             claim_impl,
             "implementer",
-            spec_content="Compute function",
         )
         impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
         assert impl_wi.current_state == "gating"
@@ -194,7 +201,7 @@ class TestPipelineSmoke:
         # Gate implementation
         impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
         gate3_claim = mock_substrate.acquire_claim(impl_wi.work_item_id, "factory-gate")
-        process_gate_item(mock_substrate, config, impl_wi, "factory-gate", gate3_claim)
+        process_gate_item(gate_runtime, impl_wi, "factory-gate", gate3_claim)
         impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
         assert impl_wi.current_state == "locked"
 
@@ -257,7 +264,8 @@ class TestPipelineSmoke:
         # Gate should fail (empty file)
         iface = mock_substrate.get_work_item(iface.work_item_id)
         gate_claim = mock_substrate.acquire_claim(iface.work_item_id, "factory-gate")
-        process_gate_item(mock_substrate, config, iface, "factory-gate", gate_claim)
+        gate_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        process_gate_item(gate_runtime, iface, "factory-gate", gate_claim)
 
         updated = mock_substrate.get_work_item(iface.work_item_id)
         assert updated.current_state == "new"

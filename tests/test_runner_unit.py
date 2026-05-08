@@ -5,6 +5,7 @@ import json
 from factory.channel import InvocationResult
 from factory.config import FactoryConfig
 from factory.runner import process_work_item
+from factory.runtime import PipelineRuntime
 from factory.workspace import (
     ArtifactManifest,
     attempt_dir,
@@ -62,15 +63,15 @@ class TestRunnerInvokeFailure:
             )
         )
         config = FactoryConfig(workspace_root=workspace_root)
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Timeout test", channel=channel
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Timeout test",
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
@@ -110,15 +111,15 @@ class TestRunnerInvokeFailure:
             )
         )
         config = FactoryConfig(workspace_root=workspace_root)
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Error test", channel=channel
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Error test",
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
@@ -168,15 +169,18 @@ class TestRunnerInvokeFailure:
         )
 
         config = FactoryConfig(workspace_root=workspace_root)
+        runtime = PipelineRuntime(
+            sub=mock_substrate,
+            config=config,
+            spec_content="CP test",
+            channel=_CannotProceedChannel(),
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            _CannotProceedChannel(),
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="CP test",
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
@@ -231,15 +235,15 @@ class TestRunnerResumePath:
                 raise RuntimeError("should not be called when resuming")
 
         config = FactoryConfig(workspace_root=workspace_root)
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Resume test", channel=_NoOpChannel()
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            _NoOpChannel(),
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Resume test",
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
@@ -300,15 +304,15 @@ class TestRunnerResumePath:
                 return InvocationResult(success=True, artifact_name="artifact.pyi")
 
         config = FactoryConfig(workspace_root=workspace_root)
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Tamper test", channel=_FreshChannel()
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            _FreshChannel(),
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Tamper test",
         )
 
         assert invoked

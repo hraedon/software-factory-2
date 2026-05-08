@@ -16,6 +16,7 @@ from factory.context import (
     derive_test_author_context,
     render_prompt,
 )
+from factory.runtime import PipelineRuntime
 from factory.workspace import (
     ArtifactManifest,
     attempt_dir,
@@ -35,23 +36,24 @@ def _role_for_type(work_item_type: str, config: FactoryConfig) -> str | None:
 
 
 def _derive_role_context(
-    sub: Substrate,
+    runtime: PipelineRuntime,
     work_item_id: str,
     role_name: str,
-    spec_content: str | None,
 ):
+    spec = runtime.spec_content
     if role_name == "test_author":
-        return derive_test_author_context(sub, work_item_id, spec_content=spec_content)
+        return derive_test_author_context(runtime.sub, work_item_id, spec_content=spec)
     if role_name == "implementer":
-        return derive_implementer_context(sub, work_item_id, spec_content=spec_content)
-    return derive_context(sub, work_item_id, role_name, spec_content=spec_content)
+        return derive_implementer_context(runtime.sub, work_item_id, spec_content=spec)
+    return derive_context(runtime.sub, work_item_id, role_name, spec_content=spec)
 
 
 def run_worker(config: FactoryConfig, channel: Channel) -> None:
     sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
     spec_content = _load_spec(config)
+    runtime = PipelineRuntime(sub=sub, config=config, spec_content=spec_content, channel=channel)
     try:
-        worker_loop(sub, config, channel, spec_content)
+        worker_loop(runtime)
     finally:
         sub.close()
 
@@ -62,12 +64,10 @@ def _load_spec(config: FactoryConfig) -> str | None:
     return None
 
 
-def worker_loop(
-    sub: Substrate,
-    config: FactoryConfig,
-    channel: Channel,
-    spec_content: str | None = None,
-) -> None:
+def worker_loop(runtime: PipelineRuntime) -> None:
+    sub = runtime.sub
+    config = runtime.config
+    channel = runtime.channel
     actor_id = f"factory-worker-{channel.name}"
     for role_name in config.worker_roles:
         sub.register_actor_role(actor_id, role_name)
@@ -122,9 +122,7 @@ def worker_loop(
                 attempt=claim.attempt_number,
             )
             try:
-                process_work_item(
-                    sub, config, channel, wi, actor_id, claim, role_name, spec_content
-                )
+                process_work_item(runtime, wi, actor_id, claim, role_name)
                 claimed = True
             except Exception:
                 log.exception("process_error", work_item_id=str(wi.work_item_id))
@@ -141,18 +139,18 @@ def _has_prior_gate_fail(sub: Substrate, work_item_id: str) -> bool:
 
 
 def process_work_item(
-    sub: Substrate,
-    config: FactoryConfig,
-    channel: Channel,
+    runtime: PipelineRuntime,
     wi,
     actor_id: str,
     claim,
     role_name: str,
-    spec_content: str | None = None,
 ) -> None:
+    sub = runtime.sub
+    config = runtime.config
+    channel = runtime.channel
     work_item_id = str(wi.work_item_id)
     attempt_number = claim.attempt_number
-    wr = Path(config.workspace_root)
+    wr = runtime.workspace_root
     if not _has_prior_gate_fail(sub, work_item_id):
         resumable = find_resumable_artifact(wr, work_item_id)
         if resumable is not None:
@@ -181,7 +179,7 @@ def process_work_item(
             work_item_id=work_item_id,
         )
 
-    ctx = _derive_role_context(sub, wi.work_item_id, role_name, spec_content)
+    ctx = _derive_role_context(runtime, wi.work_item_id, role_name)
     role_config = config.get_role_config(role_name)
     timeout = role_config.timeout_seconds if role_config else config.claim_ttl_seconds
     ad = attempt_dir(wr, work_item_id, attempt_number)

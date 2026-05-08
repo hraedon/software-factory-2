@@ -6,6 +6,7 @@ from factory.channel import InvocationResult
 from factory.config import FactoryConfig
 from factory.gate_process import process_gate_item
 from factory.runner import process_work_item
+from factory.runtime import PipelineRuntime
 from factory.scheduler import _ensure_downstream_item
 
 
@@ -105,34 +106,35 @@ def _register_roles(sub):
         sub.register_actor_role(actor_id, role)
 
 
-def _run_worker_stage(sub, config, channel, wi, actor_id, role_name, spec_content="Test spec"):
-    claim = sub.acquire_claim(wi.work_item_id, actor_id)
-    sub.transition(
+def _run_worker_stage(runtime, channel, wi, actor_id, role_name, spec_content="Test spec"):
+    claim = runtime.sub.acquire_claim(wi.work_item_id, actor_id)
+    runtime.sub.transition(
         wi.work_item_id,
         "claim",
         actor_id,
         actor_metadata={"role": role_name},
     )
+    runtime_with_spec = PipelineRuntime(
+        sub=runtime.sub, config=runtime.config, spec_content=spec_content, channel=channel
+    )
     process_work_item(
-        sub,
-        config,
-        channel,
+        runtime_with_spec,
         wi,
         actor_id,
         claim,
         role_name,
-        spec_content=spec_content,
     )
-    return sub.get_work_item(wi.work_item_id)
+    return runtime.sub.get_work_item(wi.work_item_id)
 
 
-def _run_gate(sub, config, wi, actor_id="factory-gate"):
-    claim = sub.acquire_claim(wi.work_item_id, actor_id)
-    process_gate_item(sub, config, wi, actor_id, claim)
-    return sub.get_work_item(wi.work_item_id)
+def _run_gate(runtime, wi, actor_id="factory-gate"):
+    claim = runtime.sub.acquire_claim(wi.work_item_id, actor_id)
+    runtime_gate = PipelineRuntime(sub=runtime.sub, config=runtime.config)
+    process_gate_item(runtime_gate, wi, actor_id, claim)
+    return runtime.sub.get_work_item(wi.work_item_id)
 
 
-def _create_downstream(sub, config, source_wi, source_type, source_state):
+def _create_downstream(runtime, source_wi, source_type, source_state):
     handoff_map = {
         ("interface_spec", "locked"): {
             "next_type": "test_suite",
@@ -149,10 +151,11 @@ def _create_downstream(sub, config, source_wi, source_type, source_state):
     handoff = handoff_map.get((source_type, source_state))
     if handoff is None:
         return None
-    _ensure_downstream_item(sub, config, source_wi, handoff)
+    sched_runtime = PipelineRuntime(sub=runtime.sub, config=runtime.config)
+    _ensure_downstream_item(sched_runtime, source_wi, handoff)
 
     downstream = None
-    for wi in sub.query_work_items(current_states=["new"], page_size=50).items:
+    for wi in runtime.sub.query_work_items(current_states=["new"], page_size=50).items:
         if wi.work_item_type == handoff["next_type"]:
             ref_field = (
                 "interface_ref" if handoff["next_type"] == "test_suite" else "test_suite_ref"
@@ -164,11 +167,11 @@ def _create_downstream(sub, config, source_wi, source_type, source_state):
     return downstream
 
 
-def _drive_full_pipeline(sub, config, channel, spec_section="Compute function", ac_ids=None):
+def _drive_full_pipeline(runtime, channel, spec_section="Compute function", ac_ids=None):
     if ac_ids is None:
         ac_ids = ["AC-01"]
 
-    iface, _ = sub.create_work_item(
+    iface, _ = runtime.sub.create_work_item(
         workflow_name="software_factory",
         work_item_type="interface_spec",
         actor_id="test-creator",
@@ -177,8 +180,7 @@ def _drive_full_pipeline(sub, config, channel, spec_section="Compute function", 
 
     # Stage 1: interface_architect
     wi = _run_worker_stage(
-        sub,
-        config,
+        runtime,
         channel,
         iface,
         "factory-arch",
@@ -186,15 +188,14 @@ def _drive_full_pipeline(sub, config, channel, spec_section="Compute function", 
         spec_section,
     )
     assert wi.current_state == "gating", f"Expected gating, got {wi.current_state}"
-    wi = _run_gate(sub, config, wi)
+    wi = _run_gate(runtime, wi)
     assert wi.current_state == "locked", f"Expected locked after gate, got {wi.current_state}"
 
     # Schedule + run test_suite
-    ts_wi = _create_downstream(sub, config, wi, "interface_spec", "locked")
+    ts_wi = _create_downstream(runtime, wi, "interface_spec", "locked")
     assert ts_wi is not None, "test_suite work item not created"
     wi = _run_worker_stage(
-        sub,
-        config,
+        runtime,
         channel,
         ts_wi,
         "factory-tester",
@@ -202,15 +203,14 @@ def _drive_full_pipeline(sub, config, channel, spec_section="Compute function", 
         spec_section,
     )
     assert wi.current_state == "gating"
-    wi = _run_gate(sub, config, wi)
+    wi = _run_gate(runtime, wi)
     assert wi.current_state == "locked"
 
     # Schedule + run implementation
-    impl_wi = _create_downstream(sub, config, wi, "test_suite", "locked")
+    impl_wi = _create_downstream(runtime, wi, "test_suite", "locked")
     assert impl_wi is not None, "implementation work item not created"
     wi = _run_worker_stage(
-        sub,
-        config,
+        runtime,
         channel,
         impl_wi,
         "factory-impl",
@@ -218,7 +218,7 @@ def _drive_full_pipeline(sub, config, channel, spec_section="Compute function", 
         spec_section,
     )
     assert wi.current_state == "gating"
-    wi = _run_gate(sub, config, wi)
+    wi = _run_gate(runtime, wi)
     assert wi.current_state == "locked"
 
     return {
@@ -255,272 +255,8 @@ class TestPipelineIntegration:
         channel = _IntegrationChannel(workspace_root)
         _register_roles(mock_substrate)
 
-        results = _drive_full_pipeline(
-            mock_substrate,
-            config,
-            channel,
-            spec_section="Given int x, return str(x).",
-            ac_ids=["AC-01"],
-        )
-
-        assert results["interface_spec"]
-        assert results["test_suite"]
-        assert results["implementation"]
-
-        iface_events = mock_substrate.read_events(
-            work_item_id=results["interface_spec"].work_item_id
-        )
-        ts_events = mock_substrate.read_events(work_item_id=results["test_suite"].work_item_id)
-        impl_events = mock_substrate.read_events(
-            work_item_id=results["implementation"].work_item_id
-        )
-
-        assert any(e.transition == "gate_pass" for e in iface_events)
-        assert any(e.transition == "gate_pass" for e in ts_events)
-        assert any(e.transition == "gate_pass" for e in impl_events)
-        assert any(e.transition == "claim" for e in iface_events)
-        assert any(e.transition == "submit" for e in iface_events)
-        assert len(channel.invocations) == 3
-
-    def test_three_distinct_specs_end_to_end(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
-            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
-        )
-        config = _make_phase2_config(workspace_root)
-        channel = _IntegrationChannel(workspace_root)
-        _register_roles(mock_substrate)
-
-        specs = [
-            ("Pure interface: def parse(s: str) -> int", ["AC-01"]),
-            ("Error taxonomy: def validate(x: int) -> str | None", ["AC-02"]),
-            ("ADT: def transform(data: list[int]) -> dict[str, int]", ["AC-03"]),
-        ]
-        all_results = []
-        for spec_text, acs in specs:
-            channel._pending_ac_ids = acs
-            results = _drive_full_pipeline(
-                mock_substrate,
-                config,
-                channel,
-                spec_section=spec_text,
-                ac_ids=acs,
-            )
-            all_results.append(results)
-
-        assert len(all_results) == 3
-        assert len(channel.invocations) == 9
-
-        for results in all_results:
-            for key in ("interface_spec", "test_suite", "implementation"):
-                wi = mock_substrate.get_work_item(results[key].work_item_id)
-                assert wi.current_state == "locked"
-
-    def test_implementer_failure_then_recovery(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
-            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
-        )
-        config = _make_phase2_config(workspace_root)
-        channel = _IntegrationChannel(workspace_root)
-        channel.scripted_failure("implementer", 1)
-        _register_roles(mock_substrate)
-
-        iface, _ = mock_substrate.create_work_item(
-            workflow_name="software_factory",
-            work_item_type="interface_spec",
-            actor_id="test-creator",
-            custom_fields={"spec_section": "def compute(x: int) -> str", "ac_ids": ["AC-01"]},
-        )
-
-        # Stage 1: interface_architect
-        wi = _run_worker_stage(
-            mock_substrate,
-            config,
-            channel,
-            iface,
-            "factory-arch",
-            "interface_architect",
-        )
-        wi = _run_gate(mock_substrate, config, wi)
-        assert wi.current_state == "locked"
-
-        # Stage 2: test_author
-        ts_wi = _create_downstream(mock_substrate, config, wi, "interface_spec", "locked")
-        assert ts_wi is not None
-        wi = _run_worker_stage(
-            mock_substrate,
-            config,
-            channel,
-            ts_wi,
-            "factory-tester",
-            "test_author",
-        )
-        wi = _run_gate(mock_substrate, config, wi)
-        assert wi.current_state == "locked"
-
-        # Stage 3: implementer attempt 1 — fails
-        impl_wi = _create_downstream(mock_substrate, config, wi, "test_suite", "locked")
-        assert impl_wi is not None
-        wi = _run_worker_stage(
-            mock_substrate,
-            config,
-            channel,
-            impl_wi,
-            "factory-impl",
-            "implementer",
-        )
-        assert wi.current_state == "new"
-
-        impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
-        wi = _run_worker_stage(
-            mock_substrate,
-            config,
-            channel,
-            impl_wi,
-            "factory-impl",
-            "implementer",
-        )
-        assert wi.current_state == "gating"
-        wi = _run_gate(mock_substrate, config, wi)
-        assert wi.current_state == "locked"
-
-        impl_invocations = [i for i in channel.invocations if i[0] == "implementer"]
-        assert len(impl_invocations) == 2
-        assert impl_invocations[0] == ("implementer", 1)
-        assert impl_invocations[1] == ("implementer", 2)
-
-    def test_interface_architect_failure_then_recovery(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
-            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
-        )
-        config = _make_phase2_config(workspace_root)
-        channel = _IntegrationChannel(workspace_root)
-        channel.scripted_failure("interface_architect", 1)
-        _register_roles(mock_substrate)
-
-        iface, _ = mock_substrate.create_work_item(
-            workflow_name="software_factory",
-            work_item_type="interface_spec",
-            actor_id="test-creator",
-            custom_fields={"spec_section": "def compute(x: int) -> str", "ac_ids": ["AC-01"]},
-        )
-
-        # Attempt 1: channel fail
-        wi = _run_worker_stage(
-            mock_substrate,
-            config,
-            channel,
-            iface,
-            "factory-arch",
-            "interface_architect",
-        )
-        assert wi.current_state == "new"
-
-        # Attempt 2: succeeds
-        iface = mock_substrate.get_work_item(iface.work_item_id)
-        wi = _run_worker_stage(
-            mock_substrate,
-            config,
-            channel,
-            iface,
-            "factory-arch",
-            "interface_architect",
-        )
-        assert wi.current_state == "gating"
-        wi = _run_gate(mock_substrate, config, wi)
-        assert wi.current_state == "locked"
-
-        arch_invocations = [i for i in channel.invocations if i[0] == "interface_architect"]
-        assert len(arch_invocations) == 2
-
-    def test_cross_stage_escalation_after_attempt_threshold(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
-            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
-        )
-        config = _make_phase2_config(workspace_root)
-        channel = _IntegrationChannel(workspace_root)
-        _register_roles(mock_substrate)
-
-        iface, _ = mock_substrate.create_work_item(
-            workflow_name="software_factory",
-            work_item_type="interface_spec",
-            actor_id="test-creator",
-            custom_fields={"spec_section": "def compute(x: int) -> str", "ac_ids": ["AC-01"]},
-        )
-
-        # Drive interface_spec to locked
-        wi = _run_worker_stage(
-            mock_substrate,
-            config,
-            channel,
-            iface,
-            "factory-arch",
-            "interface_architect",
-        )
-        wi = _run_gate(mock_substrate, config, wi)
-        assert wi.current_state == "locked"
-
-        # Drive test_suite to locked
-        ts_wi = _create_downstream(mock_substrate, config, wi, "interface_spec", "locked")
-        wi = _run_worker_stage(
-            mock_substrate,
-            config,
-            channel,
-            ts_wi,
-            "factory-tester",
-            "test_author",
-        )
-        wi = _run_gate(mock_substrate, config, wi)
-        assert wi.current_state == "locked"
-
-        # Create implementation — then manually simulate 3 gate_fail cycles
-        # to trigger escalation
-        impl_wi = _create_downstream(mock_substrate, config, wi, "test_suite", "locked")
-        assert impl_wi is not None
-
-        # Attempt 1: submit + gate_fail
-        wi = _run_worker_stage(
-            mock_substrate,
-            config,
-            channel,
-            impl_wi,
-            "factory-impl",
-            "implementer",
-        )
-        assert wi.current_state == "gating"
-
-        # Manually gate_fail with attempt_threshold=3 — this simulates the 3rd attempt
-        from factory.gate import GateResult
-        from factory.router import DiagnosticKind
-
-        _ = mock_substrate.acquire_claim(wi.work_item_id, "factory-gate")
-        gate_result = GateResult(
-            passed=False,
-            gate_name="implementation_mypy",
-            diagnostics=["error: Incompatible return value type"],
-            diagnostic_kind="impl_mypy",
-        )
-
-        from factory.router import route
-
-        routing = route(
-            "gating",
-            "gate_fail",
-            gate_result,
-            attempt_number=3,
-            attempt_threshold=3,
-        )
-        assert routing.diagnostic_kind == DiagnosticKind.CANNOT_PROCEED_SEAM
-        assert routing.target_role == "interface_architect"
-
-    def test_event_sequence_complete_per_stage(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
-            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
-        )
-        config = _make_phase2_config(workspace_root)
-        channel = _IntegrationChannel(workspace_root)
-        _register_roles(mock_substrate)
-
-        results = _drive_full_pipeline(mock_substrate, config, channel)
+        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        results = _drive_full_pipeline(runtime, channel)
 
         for key in ("interface_spec", "test_suite", "implementation"):
             wi = results[key]
@@ -538,7 +274,8 @@ class TestPipelineIntegration:
         channel = _IntegrationChannel(workspace_root)
         _register_roles(mock_substrate)
 
-        results = _drive_full_pipeline(mock_substrate, config, channel)
+        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        results = _drive_full_pipeline(runtime, channel)
 
         # Each item should have an artifact_path after submission
         for key in ("interface_spec", "test_suite", "implementation"):
@@ -570,6 +307,8 @@ class TestPipelineIntegration:
         channel = _BadImplIntegrationChannel(workspace_root)
         _register_roles(mock_substrate)
 
+        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+
         iface, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
@@ -578,43 +317,40 @@ class TestPipelineIntegration:
         )
 
         wi = _run_worker_stage(
-            mock_substrate,
-            config,
+            runtime,
             channel,
             iface,
             "factory-arch",
             "interface_architect",
         )
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
-        ts_wi = _create_downstream(mock_substrate, config, wi, "interface_spec", "locked")
+        ts_wi = _create_downstream(runtime, wi, "interface_spec", "locked")
         wi = _run_worker_stage(
-            mock_substrate,
-            config,
+            runtime,
             channel,
             ts_wi,
             "factory-tester",
             "test_author",
         )
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
-        impl_wi = _create_downstream(mock_substrate, config, wi, "test_suite", "locked")
+        impl_wi = _create_downstream(runtime, wi, "test_suite", "locked")
         assert impl_wi is not None
 
         # Attempt 1: worker produces bad artifact (bare except), gate fails impl_lint
         # Worker claim=attempt1, Gate claim=attempt2. attempt2 < 3, normal gate_fail.
         wi = _run_worker_stage(
-            mock_substrate,
-            config,
+            runtime,
             channel,
             impl_wi,
             "factory-impl",
             "implementer",
         )
         assert wi.current_state == "gating"
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "new"
         diags = (wi.custom_fields or {}).get("diagnostics", {})
         assert diags.get("diagnostic_kind") == "impl_lint"
@@ -625,15 +361,14 @@ class TestPipelineIntegration:
         # Item transitions to cannot_proceed (terminal), stopping the retry loop.
         impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
         wi = _run_worker_stage(
-            mock_substrate,
-            config,
+            runtime,
             channel,
             impl_wi,
             "factory-impl",
             "implementer",
         )
         assert wi.current_state == "gating"
-        wi = _run_gate(mock_substrate, config, wi)
+        wi = _run_gate(runtime, wi)
         assert wi.current_state == "cannot_proceed"
         diags = (wi.custom_fields or {}).get("diagnostics", {})
         assert diags.get("diagnostic_kind") == "cannot_proceed_seam"

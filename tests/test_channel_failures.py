@@ -3,6 +3,7 @@ from __future__ import annotations
 from factory.channel import InvocationResult
 from factory.config import FactoryConfig
 from factory.runner import process_work_item
+from factory.runtime import PipelineRuntime
 from tests._helpers import events_by_transition
 
 
@@ -59,15 +60,15 @@ class TestChannelFailureModes:
             )
         )
         config = FactoryConfig(workspace_root=workspace_root)
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Timeout test", channel=channel
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Timeout test",
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
@@ -111,15 +112,15 @@ class TestChannelFailureModes:
             )
         )
         config = FactoryConfig(workspace_root=workspace_root)
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Exit code test", channel=channel
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Exit code test",
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
@@ -160,15 +161,15 @@ class TestChannelFailureModes:
             )
         )
         config = FactoryConfig(workspace_root=workspace_root)
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Empty output test", channel=channel
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Empty output test",
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
@@ -208,15 +209,15 @@ class TestChannelFailureModes:
             )
         )
         config = FactoryConfig(workspace_root=workspace_root)
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Extraction test", channel=channel
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Extraction test",
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
@@ -268,15 +269,18 @@ class TestChannelFailureModes:
         )
 
         config = FactoryConfig(workspace_root=workspace_root)
+        runtime = PipelineRuntime(
+            sub=mock_substrate,
+            config=config,
+            spec_content="CP test",
+            channel=_CannotProceedChannel(),
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            _CannotProceedChannel(),
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="CP test",
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)

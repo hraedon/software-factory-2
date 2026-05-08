@@ -8,6 +8,7 @@ from factory.channel import InvocationResult
 from factory.config import FactoryConfig
 from factory.gate_process import process_gate_item
 from factory.runner import process_work_item
+from factory.runtime import PipelineRuntime
 from factory.workspace import (
     ArtifactManifest,
     attempt_dir,
@@ -79,15 +80,15 @@ class TestRunnerSmoke:
 
         # 3. Run worker process step
         fake_channel = FakeChannel(ac_ids=["AC-01"])
+        runtime = PipelineRuntime(
+            sub=substrate, config=factory_config, spec_content="Test section", channel=fake_channel
+        )
         process_work_item(
-            substrate,
-            factory_config,
-            fake_channel,
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Test section",
         )
 
         # 4. Verify item is in 'gating'
@@ -110,7 +111,8 @@ class TestRunnerSmoke:
         substrate.register_actor_role("test-gate", "mechanical_gate")
         gate_claim = substrate.acquire_claim(wi.work_item_id, "test-gate", ttl_seconds=300)
         fresh = substrate.get_work_item(wi.work_item_id)
-        process_gate_item(substrate, factory_config, fresh, "test-gate", gate_claim)
+        gate_runtime = PipelineRuntime(sub=substrate, config=factory_config)
+        process_gate_item(gate_runtime, fresh, "test-gate", gate_claim)
 
         # 7. Verify item is in 'locked'
         final = substrate.get_work_item(wi.work_item_id)
@@ -208,14 +210,16 @@ class TestWorkerLoopClaimTransition:
                     },
                 )
                 process_work_item(
-                    mock_substrate,
-                    config,
-                    fake_channel,
+                    PipelineRuntime(
+                        sub=mock_substrate,
+                        config=config,
+                        spec_content="Test spec for claim transition.",
+                        channel=fake_channel,
+                    ),
                     item,
                     "factory-worker-fake",
                     claim,
                     "interface_architect",
-                    spec_content="Test spec for claim transition.",
                 )
                 break
 
@@ -265,14 +269,16 @@ class TestWorkerLoopClaimTransition:
         assert in_progress.current_state == "in_progress"
 
         process_work_item(
-            mock_substrate,
-            config,
-            fake_channel,
+            PipelineRuntime(
+                sub=mock_substrate,
+                config=config,
+                spec_content="Another test spec.",
+                channel=fake_channel,
+            ),
             in_progress,
             "factory-worker-fake",
             claim,
             "interface_architect",
-            spec_content="Another test spec.",
         )
 
         submitted = mock_substrate.get_work_item(wi.work_item_id)

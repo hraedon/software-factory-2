@@ -7,6 +7,7 @@ from factory.config import FactoryConfig
 from factory.context import derive_context, render_prompt
 from factory.gate_process import process_gate_item
 from factory.runner import process_work_item
+from factory.runtime import PipelineRuntime
 
 
 class FakeChannel:
@@ -77,15 +78,15 @@ class TestMockSubstrateFullPipeline:
 
         config = FactoryConfig(workspace_root=workspace_root)
         channel = FakeChannel(ac_ids=["AC-01"])
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Test spec", channel=channel
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Test spec",
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
@@ -94,7 +95,8 @@ class TestMockSubstrateFullPipeline:
         mock_substrate.register_actor_role("test-gate", "mechanical_gate")
         gate_claim = mock_substrate.acquire_claim(wi.work_item_id, "test-gate")
         fresh = mock_substrate.get_work_item(wi.work_item_id)
-        process_gate_item(mock_substrate, config, fresh, "test-gate", gate_claim)
+        gate_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        process_gate_item(gate_runtime, fresh, "test-gate", gate_claim)
 
         final = mock_substrate.get_work_item(wi.work_item_id)
         assert final.current_state == "locked"
@@ -129,7 +131,8 @@ class TestMockSubstrateFullPipeline:
         fresh = mock_substrate.get_work_item(wi.work_item_id)
 
         config = FactoryConfig(workspace_root=workspace_root)
-        process_gate_item(mock_substrate, config, fresh, "test-gate", gate_claim)
+        gate_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        process_gate_item(gate_runtime, fresh, "test-gate", gate_claim)
 
         final = mock_substrate.get_work_item(wi.work_item_id)
         assert final.current_state == "new"
@@ -152,15 +155,15 @@ class TestMockSubstrateFullPipeline:
 
         config = FactoryConfig(workspace_root=workspace_root)
         channel = CannotProceedChannel()
+        runtime = PipelineRuntime(
+            sub=mock_substrate, config=config, spec_content="Ambiguous", channel=channel
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            channel,
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="Ambiguous",
         )
 
         final = mock_substrate.get_work_item(wi.work_item_id)

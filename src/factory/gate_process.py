@@ -17,19 +17,23 @@ from factory.gate import (
     evaluate_test_suite,
 )
 from factory.router import route
+from factory.runtime import PipelineRuntime
 
 log = structlog.get_logger()
 
 
 def run_gate(config: FactoryConfig) -> None:
     sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
+    runtime = PipelineRuntime(sub=sub, config=config)
     try:
-        gate_loop(sub, config)
+        gate_loop(runtime)
     finally:
         sub.close()
 
 
-def gate_loop(sub: Substrate, config: FactoryConfig) -> None:
+def gate_loop(runtime: PipelineRuntime) -> None:
+    sub = runtime.sub
+    config = runtime.config
     actor_id = "factory-gate-code"
     for role_name in config.gate_roles:
         sub.register_actor_role(actor_id, role_name)
@@ -61,7 +65,7 @@ def gate_loop(sub: Substrate, config: FactoryConfig) -> None:
                 attempt=claim.attempt_number,
             )
             try:
-                process_gate_item(sub, config, wi, actor_id, claim)
+                process_gate_item(runtime, wi, actor_id, claim)
                 claimed = True
                 break
             except Exception:
@@ -73,12 +77,13 @@ def gate_loop(sub: Substrate, config: FactoryConfig) -> None:
 
 
 def process_gate_item(
-    sub: Substrate,
-    config: FactoryConfig,
+    runtime: PipelineRuntime,
     wi,
     actor_id: str,
     claim,
 ) -> None:
+    sub = runtime.sub
+    config = runtime.config
     work_item_id = wi.work_item_id
     custom = wi.custom_fields or {}
     artifact_path_str = custom.get("artifact_path", "")

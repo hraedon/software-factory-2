@@ -5,6 +5,7 @@ import pytest
 from factory.channel import InvocationResult
 from factory.config import FactoryConfig, RoleConfig
 from factory.runner import _create_channel, _role_for_type, process_work_item
+from factory.runtime import PipelineRuntime
 
 
 class TestCreateChannel:
@@ -109,15 +110,18 @@ class TestCannotProceedWithoutJson:
         )
 
         config = FactoryConfig(workspace_root=workspace_root)
+        runtime = PipelineRuntime(
+            sub=mock_substrate,
+            config=config,
+            spec_content="No JSON",
+            channel=_CannotProceedNoJsonChannel(),
+        )
         process_work_item(
-            mock_substrate,
-            config,
-            _CannotProceedNoJsonChannel(),
+            runtime,
             wi,
             "test-worker",
             claim,
             "interface_architect",
-            spec_content="No JSON",
         )
 
         updated = mock_substrate.get_work_item(wi.work_item_id)
