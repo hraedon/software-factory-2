@@ -40,6 +40,8 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 035 | InMemorySubstrate get_work_item rejects string UUIDs — gate import/mypy/pytest checks silently skipped | high | proposed |
+| 036 | InMemorySubstrate claim attempt_number resets to 1 after every transition — escalation path untestable | high | proposed |
 | 031 | Gate process/runner coverage stuck at 54% — CLI/poll loops need integration tests | medium | proposed |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
 | 033 | Telemetry reporter skeleton (Wave 8) | medium | proposed |
