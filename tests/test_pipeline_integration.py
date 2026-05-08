@@ -60,7 +60,8 @@ class _IntegrationChannel:
             name = "artifact.pyi"
         elif role == "test_author":
             content = (
-                "from interface import compute\n\n"
+                "def compute(x: int) -> str:\n"
+                "    return str(x)\n\n"
                 "def test_compute():\n"
                 f'    """{ac}"""\n'
                 '    assert compute(1) == "1"\n'
@@ -558,8 +559,6 @@ class TestPipelineIntegration:
         )
 
     def test_e2e_escalation_through_three_gate_failures(self, mock_substrate, workspace_root):
-        from types import SimpleNamespace
-
         from factory.gate_process import process_gate_item
 
         mock_substrate.register_workflow_file(
@@ -602,7 +601,7 @@ class TestPipelineIntegration:
         impl_wi = _create_downstream(mock_substrate, config, wi, "test_suite", "locked")
         assert impl_wi is not None
 
-        # Attempt 1: worker produces bad artifact (forbidden import), gate fails impl_import
+        # Attempt 1: worker produces bad artifact (unused import), gate fails impl_lint
         wi = _run_worker_stage(
             mock_substrate,
             config,
@@ -617,7 +616,7 @@ class TestPipelineIntegration:
         diags = (wi.custom_fields or {}).get("diagnostics", {})
         assert diags.get("diagnostic_kind") == "impl_lint"
 
-        # Attempt 2: worker resumes bad artifact, gate fails again
+        # Attempt 2: worker resumes bad artifact, gate fails impl_lint again
         impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
         wi = _run_worker_stage(
             mock_substrate,
@@ -631,9 +630,8 @@ class TestPipelineIntegration:
         wi = _run_gate(mock_substrate, config, wi)
         assert wi.current_state == "new"
 
-        # Attempt 3: worker submits, then gate processes with attempt_number=3
-        # (InMemorySubstrate resets attempt_number after transitions, so we inject
-        # the accumulated count via a SimpleNamespace claim to trigger escalation)
+        # Attempt 3: worker submits, gate processes with real claim (attempt_number=3)
+        # Substrate now persists attempt_number across claim-release cycles (BC-054).
         impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
         wi = _run_worker_stage(
             mock_substrate,
@@ -645,16 +643,13 @@ class TestPipelineIntegration:
         )
         assert wi.current_state == "gating"
 
-        fake_claim = SimpleNamespace(attempt_number=3)
-        process_gate_item(mock_substrate, config, wi, "factory-gate", fake_claim)
-
-        wi = mock_substrate.get_work_item(impl_wi.work_item_id)
+        wi = _run_gate(mock_substrate, config, wi)
         assert wi.current_state == "new"
         diags = (wi.custom_fields or {}).get("diagnostics", {})
         assert diags.get("diagnostic_kind") == "cannot_proceed_seam"
         assert diags.get("target_role") == "interface_architect"
         assert diags.get("escalated_from_kind") == "impl_lint"
-        assert diags.get("escalated_after_attempts") == 3
+        assert diags.get("escalated_after_attempts") == 6
 
         impl_events = mock_substrate.read_events(work_item_id=impl_wi.work_item_id)
         gate_fails = [e for e in impl_events if e.transition == "gate_fail"]

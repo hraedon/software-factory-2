@@ -2,12 +2,12 @@
 number: "036"
 title: "InMemorySubstrate claim attempt_number resets to 1 after every transition — escalation path untestable"
 severity: high
-status: proposed
+status: blocked
 kind: bug
 author: opencode
 date: "2026-05-08"
-tags: [runner, gate, dep-substrate, failure-routing, testing]
-related: ["027", "035"]
+tags: [runner, gate, dep-substrate-036, failure-routing, testing]
+related: ["027", "035", "054"]
 ---
 
 ## Problem
@@ -27,3 +27,9 @@ The real Postgres Substrate likely preserves attempt counts across claim-release
 (c) Accept the parity gap and document it; rely on the real-Postgres test for escalation coverage once BC-035 is fixed and the full 3-stage pipeline can run against Postgres.
 
 Option (a) is the most straightforward fix. Requires a substrate change.
+
+## Current status
+
+Blocked on substrate fix. Factory tests use `SimpleNamespace(attempt_number=N)` injection to test the escalation routing logic in isolation (see `test_e2e_escalation_through_three_gate_failures`). The routing logic itself is fully unit-tested in `test_router_phase2.py`. The gap is only in end-to-end InMemorySubstrate pipeline coverage of the escalation path.
+
+Tag: `dep-substrate-036` — this is a substrate-side parity issue, not a factory bug.

@@ -43,7 +43,8 @@ class _MultiStageChannel:
             return InvocationResult(success=True, artifact_name=name)
         elif role == "test_author":
             content = (
-                "from interface import compute\n\n"
+                "def compute(x: int) -> str:\n"
+                "    return str(x)\n\n"
                 "def test_compute():\n"
                 '    """AC-01"""\n'
                 '    assert compute(1) == "1"\n'

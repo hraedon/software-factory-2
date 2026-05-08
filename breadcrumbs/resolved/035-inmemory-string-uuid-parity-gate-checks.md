@@ -2,7 +2,7 @@
 number: "035"
 title: "InMemorySubstrate get_work_item rejects string UUIDs — gate import/mypy/pytest checks silently skipped"
 severity: high
-status: proposed
+status: resolved
 kind: bug
 author: opencode
 date: "2026-05-08"
@@ -31,3 +31,12 @@ Pre-wave-7 escalation test initially asserted `impl_import` but got `impl_lint` 
 (b) gate_process.py: explicitly convert ref strings to UUID before calling `get_work_item`. Factory-side fix, minimal risk.
 
 Option (b) is preferred — it's defensive and doesn't require a substrate release.
+
+## Resolution
+
+Applied option (b). Added `import uuid` and `_to_uuid` import from `factory.context` to `gate_process.py`. Wrapped all three `sub.get_work_item(ref)` calls in `_to_uuid()`:
+- Line 105: `sub.get_work_item(_to_uuid(interface_ref))` (test_suite gate)
+- Line 117: `sub.get_work_item(_to_uuid(interface_ref))` (implementation gate, interface ref)
+- Line 123: `sub.get_work_item(_to_uuid(test_suite_ref))` (implementation gate, test suite ref)
+
+This makes the gate behavior consistent across InMemorySubstrate and real Postgres Substrate, and restores test coverage for the three previously unreachable diagnostic kinds.

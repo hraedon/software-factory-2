@@ -40,8 +40,6 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 035 | InMemorySubstrate get_work_item rejects string UUIDs — gate import/mypy/pytest checks silently skipped | high | proposed |
-| 036 | InMemorySubstrate claim attempt_number resets to 1 after every transition — escalation path untestable | high | proposed |
 | 031 | Gate process/runner coverage stuck at 54% — CLI/poll loops need integration tests | medium | proposed |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
 | 033 | Telemetry reporter skeleton (Wave 8) | medium | proposed |
@@ -52,6 +50,8 @@ Reusable tags:
 |---|---|---|---|
 | 030 | Real Substrate read_events should support composite filters (work_item_id + transition) | medium | Substrate shipped read_events_composite with AND-composable SQL filters; InMemorySubstrate also supports multi-dimension filters |
 | 029 | Test suite coverage gap closure — runner unit, IO failure, config malformed, prompt rendering, substrate coupling | medium | Added 22 tests across 4 new files + 5 modified; extracted shared helper; added pytest-cov dep |
+| 036 | InMemorySubstrate claim attempt_number resets after transition — escalation path untestable | high | Resolved by substrate BC-054: persistent attempt_number on work_items_current in both Postgres and InMemory backends |
+| 035 | InMemorySubstrate get_work_item rejects string UUIDs | high | Added `_to_uuid()` coercion in gate_process.py for all ref string lookups (test_suite + implementation gates) |
 | 034 | Cannot_proceed without diagnostics file causes double-release | high | Changed else branch to channel_fail transition instead of bare release_claim |
 | 028 | Dead MockSubstrate file — tests/_mock_substrate.py | low | Deleted after InMemorySubstrate migration confirmed stable |
 | 027 | Wave 5 — cross-stage escalation routing | high | Escalation in router with attempt_threshold; CANNOT_PROCEED_SEAM kind |

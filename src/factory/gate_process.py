@@ -9,6 +9,7 @@ import structlog
 from substrate import ActorMetadata, Substrate
 
 from factory.config import FactoryConfig, load_config
+from factory.context import _to_uuid
 from factory.gate import (
     GateResult,
     evaluate_implementation,
@@ -99,7 +100,7 @@ def process_gate_item(
         interface_ref = custom.get("interface_ref")
         interface_pyi_path = None
         if interface_ref:
-            ref_wi = sub.get_work_item(interface_ref)
+            ref_wi = sub.get_work_item(_to_uuid(interface_ref))
             if ref_wi and ref_wi.custom_fields:
                 ref_path = ref_wi.custom_fields.get("artifact_path")
                 if ref_path:
@@ -111,13 +112,13 @@ def process_gate_item(
         interface_pyi_path = None
         test_suite_path = None
         if interface_ref:
-            ref_wi = sub.get_work_item(interface_ref)
+            ref_wi = sub.get_work_item(_to_uuid(interface_ref))
             if ref_wi and ref_wi.custom_fields:
                 ref_path = ref_wi.custom_fields.get("artifact_path")
                 if ref_path:
                     interface_pyi_path = Path(ref_path)
         if test_suite_ref:
-            ref_wi = sub.get_work_item(test_suite_ref)
+            ref_wi = sub.get_work_item(_to_uuid(test_suite_ref))
             if ref_wi and ref_wi.custom_fields:
                 ref_path = ref_wi.custom_fields.get("artifact_path")
                 if ref_path:
