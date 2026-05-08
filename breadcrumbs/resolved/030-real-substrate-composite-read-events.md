@@ -2,7 +2,7 @@
 number: "030"
 title: "Real Substrate read_events should support composite filters (work_item_id + transition)"
 severity: medium
-status: proposed
+status: resolved
 kind: design
 author: opencode
 date: "2026-05-07"

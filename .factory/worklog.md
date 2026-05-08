@@ -4,6 +4,29 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-07 — Session 8: Breadcrumb sweep, BC-030 resolved
+
+**Invocation:** OpenCode (glm-5.1)
+
+**Focus:** Scan repo, assess all open breadcrumbs, close out what's resolved.
+
+**Result: BC-030 resolved. BC-031/032/033 remain valid and open. 218/218 tests pass.**
+
+**Breadcrumbs assessed:**
+
+| # | Title | Severity | Action | Rationale |
+|---|---|---|---|---|
+| 030 | Real Substrate read_events composite filters | medium | **Resolved** | Substrate shipped `read_events_composite` with AND-composable SQL filters (`_events.py:408`). `InMemorySubstrate.read_events` also supports multi-dimension filters. |
+| 031 | Gate/runner CLI loop coverage ~54% | medium | Keep open | Coverage confirmed: gate_process 54%, runner 58%. CLI loops/signal handlers remain uncovered. Low blast-radius. |
+| 032 | Scheduler O(n) idempotency | medium | Keep open | `_ensure_downstream_item` still queries all items then filters in Python. Acceptable for Phase 2 single-channel mode. |
+| 033 | Telemetry reporter skeleton | medium | Keep open | No `report.py` or `factory-report` entry point exists. Deferred to post-Wave-7. |
+
+**Test count:** 218 pass, 1 skip.
+
+**Lint:** Not run (no code changes).
+
+---
+
 ## 2026-05-07 — Session 7: register_actor_role idempotency + InMemorySubstrate migration
 
 **Invocation:** OpenCode (deepseek-v4-pro)

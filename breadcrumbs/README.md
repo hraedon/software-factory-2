@@ -40,7 +40,6 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 030 | Real Substrate read_events should support composite filters (work_item_id + transition) | medium | proposed |
 | 031 | Gate process/runner coverage stuck at 54% — CLI/poll loops need integration tests | medium | proposed |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
 | 033 | Telemetry reporter skeleton (Wave 8) | medium | proposed |
@@ -49,6 +48,7 @@ Reusable tags:
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 030 | Real Substrate read_events should support composite filters (work_item_id + transition) | medium | Substrate shipped read_events_composite with AND-composable SQL filters; InMemorySubstrate also supports multi-dimension filters |
 | 029 | Test suite coverage gap closure — runner unit, IO failure, config malformed, prompt rendering, substrate coupling | medium | Added 22 tests across 4 new files + 5 modified; extracted shared helper; added pytest-cov dep |
 | 034 | Cannot_proceed without diagnostics file causes double-release | high | Changed else branch to channel_fail transition instead of bare release_claim |
 | 028 | Dead MockSubstrate file — tests/_mock_substrate.py | low | Deleted after InMemorySubstrate migration confirmed stable |

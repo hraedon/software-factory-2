@@ -49,14 +49,5 @@ def mock_substrate():
 
 
 @pytest.fixture()
-def mock_substrate_v2():
-    workflow_content = Path(WORKFLOW_V2_PATH).read_text()
-    sub = InMemorySubstrate()
-    sub.register_workflow(workflow_content)
-    yield sub
-    sub.close()
-
-
-@pytest.fixture()
 def workspace_root(tmp_path):
     return tmp_path / "factory" / "work"
