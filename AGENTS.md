@@ -4,7 +4,7 @@
 
 Read in this order:
 1. `spec.md` — design spec, authoritative for every architectural decision.
-2. `breadcrumbs/README.md` — open defects/design questions, sorted by severity.
+2. `breadcrumbs/README.md` — open defects/design questions/RFCs, sorted by severity.
 3. `.factory/worklog.md` — most recent session entry, for current state.
 4. `.factory/reflections/` — most recent reflection, for the prior agent's subjective read.
 
@@ -22,9 +22,15 @@ The principal of this project is a **systems architect, not a developer**. Archi
 
 ### Breadcrumbs
 - One file per defect/design-question/improvement under `breadcrumbs/`.
+- Active bugs and improvements use numeric prefixes (`054`, `055`).
+- Design proposals awaiting future phases use `RFC-` prefixes (`RFC-001`, `RFC-002`). RFCs are NOT actionable yet — they are recorded design decisions for later stages.
 - Resolved items move to `breadcrumbs/resolved/` and the README index is updated.
 - Same schema as substrate's `breadcrumbs/`. Reuse that README's frontmatter format.
 - Use the `dep-substrate-*` tag for breadcrumbs that block on substrate work.
+- Use the `dep-v1-NNN` tag for breadcrumbs that block on lessons from v1 factory.
+
+### Default values
+- All defaults live in `FactoryConfig` or are derived from it. No inline defaults, no hardcoded identifiers, no bare strings in function bodies that could appear in another file. Precedent: v1's "string constant gravity" where `"claude"` accreted into 7 copies across 5 files.
 
 ### Worklog and reflections
 - `.factory/worklog.md` — reverse-chronological session log. Prepend new entries.
@@ -33,23 +39,35 @@ The principal of this project is a **systems architect, not a developer**. Archi
 ### Session lifecycle
 - `/reflect` — write a session reflection (system skill).
 - `/end` — wrap up: update breadcrumbs, run reflect, commit (system skill).
-- No factory-specific commands yet. Phase 1 will likely add `/factory-run`, `/factory-status`, `/factory-replay`.
 
 ## Status
 
-**Phase 0 (current).** Design only. No runner code, no substrate workflow YAML, no channel adapters. The spec is the only artifact.
+**Phase 2 (current).** Sequential single-channel pipeline validation. Phase 1 (single-role end-to-end) exit criteria met (>90% pass rate on interface_spec). Phase 2 adds test_author and implementer roles with scheduler-driven handoffs.
 
-**Blocking on:** substrate Phase 2 stabilization. Specifically, BC-021 in substrate (hook consumer no reconnect) is a hard prerequisite for v2's hook-based stage triggering.
+**What exists:**
+- 7-module runner: runner, gate, gate_process, router, scheduler, config, workspace
+- 2 channel adapters: ClaudeCodeChannel (stable), OpenCodeChannel (stub, BC-040)
+- 2 workflow YAMLs: phase1.yaml (single-role), phase2.yaml (3-stage pipeline)
+- 259 passing tests, 0 lint errors
+- 3 golden runs executed against curated spec fixtures
+  - 001: 12/15 interface_specs locked (Phase 1)
+  - 002: 15/15 interface_specs + 15/15 test_suites, 0/15 implementations (module resolution bug, fixed)
+  - 003: 15/15 interface_specs + 12/15 test_suites, 2/12 implementations locked, 10 escalated (lint prompt quality issue, BC-039/040 applied since)
 
-**Next concrete step:** wait for substrate stable, then begin Phase 1 (single-role end-to-end) per `spec.md` §9.
+**Known issues:** 18 open breadcrumbs (1 critical, 7 high, 6 medium, 4 low) + 5 RFCs. See `breadcrumbs/README.md`.
+
+**Blocking on:** nothing. Substrate is stable enough for sequential single-channel mode. The spec's BC-021 reference is historical — hooks work sufficiently for the current pipeline shape.
+
+**Next concrete step:** resolve critical/high breadcrumbs (BC-043 truncated prompt, BC-046 resume-on-gate-fail) then execute Golden Run 004 to validate the auto-format + prompt fixes from BC-039/040.
 
 ## What not to build yet
 
-The phasing in `spec.md` §9 exists to prevent the v1 mistake of building the whole architecture at once. Do not implement:
-- Channel adapters for any channel beyond Claude (CC) until Phase 3.
-- Multi-channel jury gates until Phase 4.
-- Race patterns until Phase 4.
-- Any workflow beyond the single-role end-to-end loop until Phase 1 hits its >90% pass-rate target.
+The phasing in `spec.md` §10 exists to prevent the v1 mistake of building the whole architecture at once. Current constraints:
+- Single channel only (`claude-code` or single `opencode`). Multi-channel dispatch raises `NotImplementedError`.
+- Three-role pipeline only (interface_architect, test_author, implementer). Roles beyond these have no implementation.
+- Mechanical gates only. Cross-family review, frontier jury, and coherence review are Phase 3-4.
+- No jury gates or race patterns until Phase 4.
+- Channel adapters for K2, GLM, DeepSeek, Gemini deferred until Phase 3.
 
 If you find yourself wanting to skip ahead, file a breadcrumb explaining why and let the principal decide.
 
@@ -58,3 +76,11 @@ If you find yourself wanting to skip ahead, file a breadcrumb explaining why and
 - Substrate repo: `/projects/substrate`
 - Socratic-specification repo (Stage 0 source): `/projects/socratic-specification`
 - v1 software factory (reference for *what not to do*, not for code reuse): `/projects/software-factory`
+
+## Testing
+
+```bash
+make test    # 259 tests, ~16s
+make lint    # ruff check + format (no errors)
+make check   # lint + test (full CI gate)
+```

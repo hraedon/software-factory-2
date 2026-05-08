@@ -353,8 +353,7 @@ def _run_pytest_collect(
                 },
             )
         if result.returncode != 0:
-            lines = (result.stdout.strip().splitlines()
-                     + result.stderr.strip().splitlines())
+            lines = result.stdout.strip().splitlines() + result.stderr.strip().splitlines()
             diagnostics = lines[:10] or ["pytest --collect-only failed"]
             return GateResult(
                 passed=False,

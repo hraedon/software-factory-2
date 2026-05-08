@@ -14,7 +14,8 @@ class TestDeriveFamily:
         assert _derive_family("ollama-cloud/deepseek-v4-pro") == "ollama"
 
     def test_fireworks_prefix(self):
-        assert _derive_family("fireworks-ai/accounts/fireworks/models/deepseek-v4-pro") == "fireworks"
+        family = _derive_family("fireworks-ai/accounts/fireworks/models/deepseek-v4-pro")
+        assert family == "fireworks"
 
     def test_opencode_prefix(self):
         assert _derive_family("opencode/nemotron-3-super-free") == "opencode-free"

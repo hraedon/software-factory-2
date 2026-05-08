@@ -35,14 +35,45 @@ Reusable tags:
 - `channel-claude`, `channel-k2`, `channel-glm`, `channel-deepseek`, `channel-gemini`, `channel-opencode`
 - `tier-a`, `tier-b`, `tier-c` — capability tier (spec §5)
 - `runner`, `telemetry`, `gate`, `jury`, `race`, `failure-routing`
+- `dep-v1-NNN` — lesson from software-factory v1 breadcrumb NNN
+- `rfc` — design proposal awaiting a future phase; not actionable yet
 
 ## Open
 
+### Active Bugs & Improvements
+
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 043 | test_author.md prompt template truncated mid-file — broken prompt delivered to every test_author invocation | critical | proposed |
+| 042 | AGENTS.md dangerously stale — claims Phase 0 design-only, repo is deep in Phase 2 | high | proposed |
+| 044 | OpenCodeChannel mutates self._family on invoke() — race condition corrupts telemetry | high | proposed |
+| 046 | Runner resubmits gate-rejected artifacts on subsequent claims — wastes Claude budget | high | proposed |
+| 054 | No PipelineRuntime namespace — live objects mix with serializable state (v1 BC-361 pattern) | high | proposed |
+| 055 | Stage contracts must be blocking from day one, not warn-and-continue (v1 BC-358 pattern) | high | proposed |
 | 031 | Gate process/runner coverage stuck at 54% — CLI/poll loops need integration tests | medium | proposed |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
 | 033 | Telemetry reporter skeleton (Wave 8) | medium | proposed |
+| 045 | report.py hardcodes workflow_version=1 — cannot report on Phase 2 runs | medium | proposed |
+| 050 | interface_architect.md worked example uses deprecated typing — contradicts implementer rules and lint gate | medium | proposed |
+| 051 | spec.md still cites BC-021 as Phase 1 blocker — substrate hooks appear to work | medium | proposed |
+| 056 | No single-source-of-truth rule for default values — v1 'string constant gravity' pattern risk | high | proposed |
+| 047 | _create_channel raises 'Multi-channel dispatch not yet implemented' for unknown single channel | low | proposed |
+| 048 | _check_pyi_stub SyntaxError handler is dead code | low | proposed |
+| 049 | _resume_and_submit has stale default role_name='interface_architect' | low | proposed |
+| 053 | evaluate_deterministic_gates is dead code — defined but never called | low | proposed |
+| 057 | Dead code audit — no CI enforcement for unused code accumulation | low | proposed |
+
+### RFCs (awaiting upstream phases)
+
+RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that cannot be acted on until later phases. They are candidates for improvement, not actionable defects.
+
+| # | Title | Severity | Phase Needed |
+|---|---|---|---|
+| RFC-001 | Prompt conflict detection — v1 BC-383 shows silent failure when role prompts contradict | high | Phase 3 (multi-role prompts) |
+| RFC-002 | Critical observer degradation — v1 BC-359 shows silent swallowing loses telemetry data | high | Phase 3 (hooks/observers) |
+| RFC-003 | Channel adapter auth-mode detection — v1 BC-376 shows env var injection breaks native auth | high | Phase 3 (multi-channel adapters) |
+| RFC-004 | Auto-generated pipeline documentation — v1 docs froze while pipeline grew | medium | Phase 3 (pipeline complexity) |
+| RFC-005 | Composable failure/escalation architecture — v1 imperative if/elif chain grew unbounded | medium | Phase 4 (jury disagreement) |
 
 ## Resolved
 

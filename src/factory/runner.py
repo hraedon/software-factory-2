@@ -137,10 +137,7 @@ def worker_loop(
 
 def _has_prior_gate_fail(sub: Substrate, work_item_id: str) -> bool:
     events = sub.read_events(work_item_id=work_item_id)
-    return any(
-        e.transition in ("gate_fail", "channel_fail")
-        for e in events
-    )
+    return any(e.transition in ("gate_fail", "channel_fail") for e in events)
 
 
 def process_work_item(

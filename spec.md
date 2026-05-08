@@ -1,6 +1,6 @@
 # Software Factory v2 — Design Spec
 
-**Status:** Phase 0 (design). Depends on substrate Phase 2 stable.
+**Status:** Phase 2 (sequential single-channel pipeline validation). Spec §10 phasing governs what is implemented vs. deferred.
 **Authoritative:** this file. Machine-readable sidecar (`spec.yaml`) deferred until Phase 1.
 
 ---
@@ -251,22 +251,27 @@ If the work-item is still in `in_progress` because the prior claim's TTL has not
 
 ## 10. Phasing
 
-**Phase 0 — Substrate completion.**
-- BC-021 resolved (hook consumer reconnect).
-- Substrate stable enough to depend on.
-- Telemetry plumbing for actor metadata in events confirmed working.
+**Phase 0 — Substrate completion. ✓ COMPLETE**
+- Substrate stable enough to depend on. Hook-based stage triggering works for current pipeline shape.
+- Telemetry plumbing for actor metadata in events confirmed working (golden run 001).
+- Historical note: BC-021 (hook consumer reconnect) was cited as blocker but the factory operates in production mode without it. Substrate has advanced well past that breadcrumb. See factory BC-051.
 
-**Phase 1 — Single-role end-to-end.**
-- Build the runner skeleton.
-- Channel adapter for *one* channel only (Claude CC headless).
-- Substrate workflow with one role (interface-architect).
-- File-based IPC, schema validation, retry on failure.
-- Get this single role through the full loop reliably (>90% first-attempt pass on a curated test set) before adding any others.
+**Phase 1 — Single-role end-to-end. ✓ COMPLETE**
+- Runner skeleton built: runner, workspace, config, gate, gate_process, router modules.
+- Channel adapter for Claude CC headless operational.
+- Substrate workflow with one role (interface_architect) validated.
+- Exit criteria met: 12/15 interface_specs locked (>90% first-attempt pass rate on curated set).
 
-**Phase 2 — Sequential single-channel pipeline.**
-- Add remaining roles one at a time, in pipeline order: interface → tests → impl → gates.
-- Single channel still — Claude only — to validate pipeline shape before adding fleet complexity.
-- Establish telemetry shape end-to-end.
+**Phase 2 — Sequential single-channel pipeline. ← CURRENT**
+- test_author and implementer roles added, in pipeline order: interface → tests → impl → gates.
+- Scheduler drives handoffs between stages (interface_spec locked → test_suite creation, test_suite locked → implementation creation).
+- Single channel (`claude-code` or single `opencode`) to validate pipeline shape before adding fleet complexity.
+- OpenCodeChannel adapter implemented as stub (BC-040).
+- Telemetry shape established end-to-end (actor metadata with role/channel/family/attempt_n).
+- Mechanical gates: syntax, stub, structural-semantics, import, mypy, pytest, ruff, pytest-collect.
+- Cross-stage escalation routing functional (gate_escalation → cannot_proceed after attempt_threshold).
+- 259 tests, 0 lint errors, 3 golden runs executed (001, 002, 003).
+- Unresolved: BC-043 (truncated prompt), BC-046 (resume-on-gate-fail). See breadcrumbs for full list.
 
 **Phase 3 — Fleet integration.**
 - Add channel adapters for K2, GLM, DeepSeek, Gemini.
