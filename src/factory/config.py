@@ -11,6 +11,7 @@ class RoleConfig:
     role: str
     channel: str
     timeout_seconds: int = 600
+    model: str | None = None
 
 
 _DEFAULT_WORKSPACE = Path(".factory/work")

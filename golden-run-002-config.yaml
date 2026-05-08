@@ -22,12 +22,15 @@ roles:
   - role: interface_architect
     channel: claude-code
     timeout_seconds: 600
+    model: sonnet
   - role: test_author
     channel: claude-code
     timeout_seconds: 600
+    model: sonnet
   - role: implementer
     channel: claude-code
     timeout_seconds: 600
+    model: sonnet
   - role: mechanical_gate
     channel: code
     timeout_seconds: 120

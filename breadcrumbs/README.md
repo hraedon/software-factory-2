@@ -43,6 +43,8 @@ Reusable tags:
 | 031 | Gate process/runner coverage stuck at 54% — CLI/poll loops need integration tests | medium | proposed |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
 | 033 | Telemetry reporter skeleton (Wave 8) | medium | proposed |
+| 039 | Implementation lint gate should auto-format before checking and prompt should teach modern typing | medium | proposed |
+| 040 | OpenCodeChannel adapter — invoke opencode CLI for models with generous usage limits | medium | proposed |
 
 ## Resolved
 

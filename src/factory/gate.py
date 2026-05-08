@@ -218,7 +218,7 @@ def evaluate_test_suite(
         except SyntaxError:
             pass
 
-    collect_result = _run_pytest_collect(artifact_path)
+    collect_result = _run_pytest_collect(artifact_path, interface_ref_pyi_path)
     if not collect_result.passed:
         return collect_result
 
@@ -325,20 +325,33 @@ def _is_forbidden_impl_import(module: str) -> bool:
     return module in ("conftest", "pytest")
 
 
-def _run_pytest_collect(artifact_path: Path) -> GateResult:
-    import shutil
-    import subprocess
+def _run_pytest_collect(
+    artifact_path: Path, interface_ref_pyi_path: Path | None = None
+) -> GateResult:
+    import os
+    import tempfile
 
     pytest_bin = shutil.which("pytest")
     if pytest_bin is None:
         return GateResult(passed=True, gate_name="test_suite_collect")
     try:
-        result = subprocess.run(
-            [pytest_bin, "--collect-only", "-q", str(artifact_path)],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        with tempfile.TemporaryDirectory(prefix="sf2_collect_") as tmpdir:
+            test_copy = Path(tmpdir) / artifact_path.name
+            test_copy.write_text(artifact_path.read_text())
+            if interface_ref_pyi_path is not None and interface_ref_pyi_path.exists():
+                iface_copy = Path(tmpdir) / "interface.py"
+                iface_copy.write_text(interface_ref_pyi_path.read_text())
+            result = subprocess.run(
+                [pytest_bin, "--collect-only", "-q", str(test_copy)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=tmpdir,
+                env={
+                    **os.environ,
+                    "PYTHONPATH": tmpdir,
+                },
+            )
         if result.returncode != 0:
             lines = (result.stdout.strip().splitlines()
                      + result.stderr.strip().splitlines())

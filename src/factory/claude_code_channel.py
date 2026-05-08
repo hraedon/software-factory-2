@@ -72,16 +72,19 @@ class ClaudeCodeChannel:
         role_config = self._config.get_role_config(role)
         effective_timeout = role_config.timeout_seconds if role_config else timeout
 
+        cmd = [
+            "claude",
+            "--print",
+            "--output-format",
+            "text",
+            "--max-turns",
+            "1",
+        ]
+        if role_config and role_config.model:
+            cmd.extend(["--model", role_config.model])
         try:
             result = subprocess.run(
-                [
-                    "claude",
-                    "--print",
-                    "--output-format",
-                    "text",
-                    "--max-turns",
-                    "1",
-                ],
+                cmd,
                 input=prompt,
                 capture_output=True,
                 text=True,
