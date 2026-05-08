@@ -38,21 +38,7 @@ class DiagnosticKind(StrEnum):
     CANNOT_PROCEED_SEAM = "cannot_proceed_seam"
     MISSING_DEPENDENCY = "missing_dependency"
     MISSING_ARTIFACT = "missing_artifact"
-
-
-KIND_TO_ROLE: dict[DiagnosticKind, str] = {
-    DiagnosticKind.SYNTAX: ROLE_INTERFACE_ARCHITECT,
-    DiagnosticKind.STUB: ROLE_INTERFACE_ARCHITECT,
-    DiagnosticKind.STRUCTURAL_SEMANTICS: ROLE_INTERFACE_ARCHITECT,
-    DiagnosticKind.FILE_EXISTS: ROLE_INTERFACE_ARCHITECT,
-    DiagnosticKind.NOT_EMPTY: ROLE_INTERFACE_ARCHITECT,
-    DiagnosticKind.CHANNEL_FAIL: ROLE_INTERFACE_ARCHITECT,
-    DiagnosticKind.CANNOT_PROCEED: ROLE_INTERFACE_ARCHITECT,
-    DiagnosticKind.UNKNOWN_TYPE: ROLE_INTERFACE_ARCHITECT,
-    DiagnosticKind.GENERIC: ROLE_INTERFACE_ARCHITECT,
-    DiagnosticKind.MISSING_DEPENDENCY: ROLE_INTERFACE_ARCHITECT,
-    DiagnosticKind.MISSING_ARTIFACT: ROLE_INTERFACE_ARCHITECT,
-}
+    TOOL_NOT_FOUND = "tool_not_found"
 
 
 def _classify_diagnostic(gate_result: GateResult) -> DiagnosticKind:
@@ -164,6 +150,10 @@ _PHASE2_DISPATCH = {
     ),
     DiagnosticKind.MISSING_ARTIFACT: Route(
         target_state=STATE_NEW,
+        target_role=ROLE_INTERFACE_ARCHITECT,
+    ),
+    DiagnosticKind.TOOL_NOT_FOUND: Route(
+        target_state=STATE_CANNOT_PROCEED,
         target_role=ROLE_INTERFACE_ARCHITECT,
     ),
 }

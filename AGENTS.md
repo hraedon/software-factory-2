@@ -54,11 +54,11 @@ The principal of this project is a **systems architect, not a developer**. Archi
   - 002: 15/15 interface_specs + 15/15 test_suites, 0/15 implementations (module resolution bug, fixed)
   - 003: 15/15 interface_specs + 12/15 test_suites, 2/12 implementations locked, 10 escalated (lint prompt quality issue, BC-039/040 applied since)
 
-**Known issues:** 5 open breadcrumbs (0 critical, 0 high, 4 medium, 1 low) + 5 RFCs. BC-056, BC-045 resolved this session. See `breadcrumbs/README.md`.
+**Known issues:** 2 open breadcrumbs (0 critical, 0 high, 2 medium, 0 low) + 5 RFCs. See `breadcrumbs/README.md`.
 
-**Blocking on:** nothing. Substrate is stable enough for sequential single-channel mode. The spec's BC-021 reference is historical — hooks work sufficiently for the current pipeline shape.
+**Blocking on:** nothing. Substrate is stable enough for sequential single-channel mode.
 
-**Next concrete step:** resolve remaining high breadcrumbs (BC-055 stage contracts blocking — already implemented, needs closed) then execute Golden Run 004 to validate prompt fixes and family-per-invocation telemetry.
+**Next concrete step:** execute Golden Run 004 to validate prompt fixes, telemetry reporter, and family-per-invocation telemetry.
 
 ## What not to build yet
 
@@ -80,7 +80,8 @@ If you find yourself wanting to skip ahead, file a breadcrumb explaining why and
 ## Testing
 
 ```bash
-make test    # 259 tests, ~16s
+make test    # 282 tests, ~14s
 make lint    # ruff check + format (no errors)
-make check   # lint + test (full CI gate)
+make audit   # vulture dead-code check (no findings)
+make check   # lint + audit + test (full CI gate)
 ```

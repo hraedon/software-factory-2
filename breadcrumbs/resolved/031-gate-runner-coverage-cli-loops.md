@@ -2,7 +2,7 @@
 number: "031"
 title: "Gate process runner coverage stuck at 54% — CLI/poll loops need integration tests"
 severity: medium
-status: proposed
+status: resolved
 kind: improvement
 author: opencode
 date: "2026-05-07"
@@ -25,3 +25,7 @@ Approach 1 is lower-effort and covers the arg-parsing; approach 2 covers the ful
 ## Impact
 
 Low blast-radius — the uncovered code is CLI plumbing, not business logic. The business logic (`process_gate_item`, `process_work_item`) is well-covered.
+
+## Resolution
+
+Applied approach 1: extracted `_main(argv)` from `main()` in runner.py, gate_process.py, scheduler.py, and telemetry.py. Each `main()` is now a one-line wrapper calling `_main()`. Tests in `test_main_entry.py` verify arg parsing and delegation with mocked run functions. 282 tests pass.

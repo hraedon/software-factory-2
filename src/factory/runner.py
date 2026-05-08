@@ -378,7 +378,7 @@ def _create_channel(config: FactoryConfig) -> Channel:
     raise NotImplementedError("Multi-channel dispatch not yet implemented")
 
 
-def main() -> None:
+def _main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Software Factory v2 - Worker process")
     parser.add_argument(
         "--config",
@@ -386,10 +386,14 @@ def main() -> None:
         default=None,
         help="Path to factory config YAML",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     config = load_config(args.config)
     channel = _create_channel(config)
     run_worker(config, channel)
+
+
+def main() -> None:
+    _main()
 
 
 if __name__ == "__main__":

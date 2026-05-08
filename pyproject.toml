@@ -18,15 +18,18 @@ substrate = { path = "/projects/substrate", editable = true }
 
 [project.optional-dependencies]
 dev = [
+    "mypy>=1.0",
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "ruff>=0.5",
+    "vulture>=2.0",
 ]
 
 [project.scripts]
 factory-run = "factory.runner:main"
 factory-gate = "factory.gate_process:main"
 factory-schedule = "factory.scheduler:main"
+factory-report = "factory.telemetry:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/factory"]

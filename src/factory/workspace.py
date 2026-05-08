@@ -28,10 +28,6 @@ class ArtifactManifest:
     created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
-def work_root(project_root: Path) -> Path:
-    return project_root / WORK_DIR_NAME / WORK_SUBDIR
-
-
 def attempt_dir(work_root_path: Path, work_item_id: str, attempt_number: int) -> Path:
     return work_root_path / work_item_id / f"attempt-{attempt_number:04d}"
 

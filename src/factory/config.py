@@ -11,8 +11,10 @@ from factory.constants import (
     ACTOR_ID_WORKER_PREFIX,
     CHANNEL_CLAUDE_CODE,
     CHANNEL_CODE,
+    CHANNEL_OPENCODE,
     FAMILY_ANTHROPIC,
     FAMILY_CODE,
+    FAMILY_OPENCODE,
     ROLE_IMPLEMENTER,
     ROLE_INTERFACE_ARCHITECT,
     ROLE_MECHANICAL_GATE,
@@ -35,6 +37,8 @@ class RoleConfig:
     def family(self) -> str:
         if self.channel == CHANNEL_CLAUDE_CODE:
             return FAMILY_ANTHROPIC
+        if self.channel == CHANNEL_OPENCODE:
+            return FAMILY_OPENCODE
         if self.channel == CHANNEL_CODE:
             return FAMILY_CODE
         return FAMILY_ANTHROPIC

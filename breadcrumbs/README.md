@@ -44,11 +44,16 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 060 | Channel.invoke inputs_dir is a dead parameter — protocol contract is misleading | high | proposed |
+| 061 | 95% code duplication between ClaudeCodeChannel and OpenCodeChannel | high | proposed |
+| 062 | Resume-on-gate-fail still wastes Claude budget — BC-046 not fully resolved | high | proposed |
 | 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | proposed |
-| 031 | Gate process/runner coverage stuck at 54% — CLI/poll loops need integration tests | medium | proposed |
+| 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | proposed |
+| 064 | No automated channel adapter integration tests — regression detection requires full golden run | medium | proposed |
+| 065 | Scattered hardcoded page_size values — not derived from FactoryConfig | medium | proposed |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
-| 033 | Telemetry reporter skeleton (Wave 8) | medium | proposed |
-| 057 | Dead code audit — no CI enforcement for unused code accumulation | low | proposed |
+| 066 | cannot_proceed string overloaded as both state name and transition name | low | proposed |
+| 067 | No FactoryConfig.phase2() constructor — requires manual setattr bypass | low | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -66,6 +71,10 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 059 | Gate soft-fail on missing tooling — returns passed=True when pytest/mypy/ruff not in PATH | critical | Changed all four to passed=False with tool_not_found diagnostic_kind; switched to sys.executable -m for venv-safe tool discovery |
+| 057 | Dead code audit — no CI enforcement for unused code accumulation | low | Removed dead code (KIND_TO_ROLE, work_root, redundant assignment); added vulture to CI via `make audit`; 282 tests pass |
+| 033 | Telemetry reporter skeleton (Wave 8) | medium | Created telemetry.py with per-(role, channel, gate) pass-rate tables; factory-report CLI; 12 tests |
+| 031 | Gate process/runner coverage stuck at 54% — CLI/poll loops need integration tests | medium | Extracted _main(argv) in runner.py, gate_process.py, scheduler.py, telemetry.py; 6 entry-point tests |
 | 056 | No single-source-of-truth rule for default values — v1 'string constant gravity' pattern risk | high | Created factory/constants.py; all identifier strings centralized; FactoryConfig.gate_actor_id/worker_actor_id/scheduler_actor_id properties; RoleConfig.family property; 264 tests pass |
 | 045 | report.py hardcodes workflow_version=1 — cannot report on Phase 2 runs | medium | report.py now reads workflow_name and workflow_version from FactoryConfig; remaining reporting improvements deferred to BC-033 |
 | 054 | No PipelineRuntime namespace — live objects mix with serializable state (v1 BC-361 pattern) | high | Introduced PipelineRuntime frozen dataclass; refactored runner.py, gate_process.py, scheduler.py to use it; 256 tests pass |

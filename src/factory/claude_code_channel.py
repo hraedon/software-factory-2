@@ -55,10 +55,9 @@ class ClaudeCodeChannel:
         outputs_dir.mkdir(parents=True, exist_ok=True)
         role_config = self._config.get_role_config(role)
         effective_timeout = role_config.timeout_seconds if role_config else timeout
-        invocation_family: str = FAMILY_ANTHROPIC
+        invocation_family = FAMILY_ANTHROPIC
         if role_config and role_config.model:
             self._family_override = FAMILY_ANTHROPIC
-            invocation_family = FAMILY_ANTHROPIC
 
         cmd = [
             "claude",

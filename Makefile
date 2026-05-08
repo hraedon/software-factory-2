@@ -1,6 +1,7 @@
-.PHONY: lint format test cov check
+.PHONY: lint format test cov audit check
 
 PYTEST := .venv/bin/python -m pytest
+VULTURE := .venv/bin/vulture
 
 lint:
 	ruff check src/ tests/
@@ -16,4 +17,7 @@ test:
 cov:
 	$(PYTEST) tests/ -q --cov=factory --cov-report=term-missing
 
-check: lint test
+audit:
+	$(VULTURE) src/factory/ tests/ .vulture_whitelist.py --min-confidence 80
+
+check: lint audit test

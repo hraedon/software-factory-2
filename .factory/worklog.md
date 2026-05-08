@@ -4,6 +4,40 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-08 — Session 14: Resolve BC-057, BC-033, BC-031
+
+**Invocation:** OpenCode (glm-5.1)
+
+**Focus:** Resolve three open breadcrumbs: dead code CI, telemetry reporter, main() extraction.
+
+**BC-057 — Dead code audit + CI enforcement:**
+- Removed dead code: `KIND_TO_ROLE` dict (router.py:43), `work_root()` function (workspace.py:31), redundant `invocation_family` reassignment (claude_code_channel.py:58-61)
+- Added `vulture>=2.0` to dev dependencies in pyproject.toml
+- Created `make audit` target running `vulture src/factory/ tests/ .vulture_whitelist.py --min-confidence 80`
+- Added `audit` to `make check` (now: lint + audit + test)
+- Whitelist at `.vulture_whitelist.py` for signal handler `frame` params (false positive)
+
+**BC-033 — Telemetry reporter skeleton:**
+- Created `src/factory/telemetry.py` with:
+  - `collect_gate_attempts(sub, config)` — reads work items and events, pairs submit→gate events to extract worker role/channel/family
+  - `compute_pass_rates(attempts)` — groups by (role, channel, family, gate_name), computes first-attempt and overall pass rates per unique work item
+  - `format_pass_rate_table(rows)` — outputs markdown table with header, per-row stats, and summary line
+  - `run_telemetry_report(config)` — main entry point
+  - `_main(argv)` / `main()` — CLI wrapper
+- Registered `factory-report` CLI entry point in pyproject.toml
+- 12 tests in `tests/test_telemetry.py`
+
+**BC-031 — Extract main() into testable _main():**
+- Refactored `runner.py`, `gate_process.py`, `scheduler.py`, `telemetry.py` to use `_main(argv)` pattern
+- Each `main()` is now a one-line wrapper: `_main()`
+- 6 tests in `tests/test_main_entry.py` verifying arg parsing and delegation
+
+**Test results:** 282 passed, 1 skipped, 0 failed. 0 lint errors. 0 dead code findings.
+
+**Breadcrumbs moved to resolved:** BC-057, BC-033, BC-031.
+
+---
+
 ## 2026-05-08 — Session 13: Fix BC-041 — _create_channel factory crash on default config
 
 **Invocation:** Claude Code

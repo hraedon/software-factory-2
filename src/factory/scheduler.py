@@ -171,16 +171,20 @@ def _ref_field_for(next_type: str) -> str | None:
     return None
 
 
-def main() -> None:
+def _main(argv: list[str] | None = None) -> None:
     import argparse
 
     from factory.config import load_config
 
     parser = argparse.ArgumentParser(description="Software Factory v2 - Scheduler")
     parser.add_argument("--config", type=str, default=None, help="Path to config YAML")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     config = load_config(args.config)
     run_scheduler(config)
+
+
+def main() -> None:
+    _main()
 
 
 if __name__ == "__main__":
