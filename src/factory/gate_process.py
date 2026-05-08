@@ -76,6 +76,15 @@ def gate_loop(runtime: PipelineRuntime) -> None:
     log.info("gate_loop_exiting")
 
 
+def _resolve_ref_artifact(sub: Substrate, ref: str) -> Path | None:
+    wi = sub.get_work_item(_to_uuid(ref))
+    if wi and wi.custom_fields:
+        ref_path = wi.custom_fields.get("artifact_path")
+        if ref_path:
+            return Path(ref_path)
+    return None
+
+
 def process_gate_item(
     runtime: PipelineRuntime,
     wi,
@@ -103,36 +112,113 @@ def process_gate_item(
         gate_result = evaluate_interface_spec(artifact_path, ac_ids=ac_ids)
     elif wi.work_item_type == "test_suite":
         interface_ref = custom.get("interface_ref")
-        interface_pyi_path = None
-        if interface_ref:
-            ref_wi = sub.get_work_item(_to_uuid(interface_ref))
-            if ref_wi and ref_wi.custom_fields:
-                ref_path = ref_wi.custom_fields.get("artifact_path")
-                if ref_path:
-                    interface_pyi_path = Path(ref_path)
-        gate_result = evaluate_test_suite(artifact_path, interface_ref_pyi_path=interface_pyi_path)
+        if not interface_ref:
+            gate_result = GateResult(
+                passed=False,
+                gate_name="test_suite_dependency",
+                diagnostics=[
+                    "Required field 'interface_ref' is missing — "
+                    "test_suite cannot be validated without a locked interface_spec"
+                ],
+                diagnostic_kind="missing_dependency",
+            )
+        else:
+            interface_pyi_path = _resolve_ref_artifact(sub, interface_ref)
+            if interface_pyi_path is None:
+                gate_result = GateResult(
+                    passed=False,
+                    gate_name="test_suite_dependency",
+                    diagnostics=[
+                        f"Referenced interface_spec "
+                        f"'{interface_ref}' has no artifact_path — "
+                        f"cannot locate locked interface"
+                    ],
+                    diagnostic_kind="missing_artifact",
+                )
+            elif not interface_pyi_path.exists():
+                gate_result = GateResult(
+                    passed=False,
+                    gate_name="test_suite_dependency",
+                    diagnostics=[
+                        f"Referenced interface_spec artifact not found at {interface_pyi_path}"
+                    ],
+                    diagnostic_kind="missing_artifact",
+                )
+            else:
+                gate_result = evaluate_test_suite(
+                    artifact_path,
+                    interface_ref_pyi_path=interface_pyi_path,
+                )
     elif wi.work_item_type == "implementation":
         interface_ref = custom.get("interface_ref")
         test_suite_ref = custom.get("test_suite_ref")
-        interface_pyi_path = None
-        test_suite_path = None
-        if interface_ref:
-            ref_wi = sub.get_work_item(_to_uuid(interface_ref))
-            if ref_wi and ref_wi.custom_fields:
-                ref_path = ref_wi.custom_fields.get("artifact_path")
-                if ref_path:
-                    interface_pyi_path = Path(ref_path)
-        if test_suite_ref:
-            ref_wi = sub.get_work_item(_to_uuid(test_suite_ref))
-            if ref_wi and ref_wi.custom_fields:
-                ref_path = ref_wi.custom_fields.get("artifact_path")
-                if ref_path:
-                    test_suite_path = Path(ref_path)
-        gate_result = evaluate_implementation(
-            artifact_path,
-            test_suite_path=test_suite_path,
-            interface_pyi_path=interface_pyi_path,
-        )
+        if not interface_ref:
+            gate_result = GateResult(
+                passed=False,
+                gate_name="implementation_dependency",
+                diagnostics=[
+                    "Required field 'interface_ref' is missing — "
+                    "implementation cannot be validated without a locked interface_spec"
+                ],
+                diagnostic_kind="missing_dependency",
+            )
+        elif not test_suite_ref:
+            gate_result = GateResult(
+                passed=False,
+                gate_name="implementation_dependency",
+                diagnostics=[
+                    "Required field 'test_suite_ref' is missing — "
+                    "implementation cannot be validated without a locked test_suite"
+                ],
+                diagnostic_kind="missing_dependency",
+            )
+        else:
+            interface_pyi_path = _resolve_ref_artifact(sub, interface_ref)
+            test_suite_path = _resolve_ref_artifact(sub, test_suite_ref)
+            if interface_pyi_path is None:
+                gate_result = GateResult(
+                    passed=False,
+                    gate_name="implementation_dependency",
+                    diagnostics=[
+                        f"Referenced interface_spec "
+                        f"'{interface_ref}' has no artifact_path — "
+                        f"cannot locate locked interface"
+                    ],
+                    diagnostic_kind="missing_artifact",
+                )
+            elif not interface_pyi_path.exists():
+                gate_result = GateResult(
+                    passed=False,
+                    gate_name="implementation_dependency",
+                    diagnostics=[
+                        f"Referenced interface_spec artifact not found at {interface_pyi_path}"
+                    ],
+                    diagnostic_kind="missing_artifact",
+                )
+            elif test_suite_path is None:
+                gate_result = GateResult(
+                    passed=False,
+                    gate_name="implementation_dependency",
+                    diagnostics=[
+                        f"Referenced test_suite "
+                        f"'{test_suite_ref}' has no artifact_path — "
+                        f"cannot locate test suite"
+                    ],
+                    diagnostic_kind="missing_artifact",
+                )
+            elif not test_suite_path.exists():
+                gate_result = GateResult(
+                    passed=False,
+                    gate_name="implementation_dependency",
+                    diagnostics=[f"Referenced test_suite artifact not found at {test_suite_path}"],
+                    diagnostic_kind="missing_artifact",
+                )
+            else:
+                gate_result = evaluate_implementation(
+                    artifact_path,
+                    test_suite_path=test_suite_path,
+                    interface_pyi_path=interface_pyi_path,
+                )
     else:
         gate_result = GateResult(
             passed=False,
@@ -174,6 +260,8 @@ def process_gate_item(
                 "messages": gate_result.diagnostics,
                 "message": "; ".join(gate_result.diagnostics),
             }
+        if gate_result.diagnostic_kind and "diagnostic_kind" not in diagnostics:
+            diagnostics["diagnostic_kind"] = gate_result.diagnostic_kind
         sub.transition(
             work_item_id,
             transition_name,

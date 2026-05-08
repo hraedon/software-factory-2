@@ -24,6 +24,8 @@ class DiagnosticKind(StrEnum):
     IMPL_LINT = "impl_lint"
     IMPL_IMPORT = "impl_import"
     CANNOT_PROCEED_SEAM = "cannot_proceed_seam"
+    MISSING_DEPENDENCY = "missing_dependency"
+    MISSING_ARTIFACT = "missing_artifact"
 
 
 KIND_TO_ROLE: dict[DiagnosticKind, str] = {
@@ -36,6 +38,8 @@ KIND_TO_ROLE: dict[DiagnosticKind, str] = {
     DiagnosticKind.CANNOT_PROCEED: "interface_architect",
     DiagnosticKind.UNKNOWN_TYPE: "interface_architect",
     DiagnosticKind.GENERIC: "interface_architect",
+    DiagnosticKind.MISSING_DEPENDENCY: "interface_architect",
+    DiagnosticKind.MISSING_ARTIFACT: "interface_architect",
 }
 
 
@@ -140,6 +144,14 @@ _PHASE2_DISPATCH = {
     ),
     DiagnosticKind.CANNOT_PROCEED_SEAM: Route(
         target_state="cannot_proceed",
+        target_role="interface_architect",
+    ),
+    DiagnosticKind.MISSING_DEPENDENCY: Route(
+        target_state="cannot_proceed",
+        target_role="interface_architect",
+    ),
+    DiagnosticKind.MISSING_ARTIFACT: Route(
+        target_state="new",
         target_role="interface_architect",
     ),
 }

@@ -2,7 +2,7 @@
 number: "055"
 title: "Stage contracts must be blocking from day one, not warn-and-continue (v1 BC-358 pattern)"
 severity: high
-status: proposed
+status: implemented
 kind: design
 author: adversarial-review
 date: "2026-05-08"
@@ -38,3 +38,15 @@ Make missing required references a **gate_fail** rather than silent degradation.
 - **Optional reference missing** → skip that check only
 
 Concretely: `gate_process.py` should fail `test_suite` items without `interface_ref`, and `implementation` items without both `interface_ref` and `test_suite_ref`. The `interface_ref` and `test_suite_ref` fields are declared `required: true` in phase2.yaml — the gate should enforce that.
+
+## Resolution
+
+Implemented in gate_process.py. The gate now blocks on contract violations instead of silently degrading:
+
+- **missing_dependency**: Required ref field is empty/None → gate_fail with `diagnostic_kind="missing_dependency"`. Routes to `cannot_proceed` (item cannot self-correct).
+- **missing_artifact**: Ref resolves but the referenced work item has no `artifact_path`, or the artifact file doesn't exist on disk → gate_fail with `diagnostic_kind="missing_artifact"`. Routes to `new` (may be a timing issue — retry after upstream artifact arrives).
+- **Optional reference missing**: Not yet applicable (no optional refs exist yet); the gate would skip that check per the original BC-055 spec.
+
+Added `missing_dependency` and `missing_artifact` to `DiagnosticKind` enum and `_PHASE2_DISPATCH` in router.py. Extracted `_resolve_ref_artifact()` helper to reduce duplication. Added `diagnostic_kind` propagation to the diagnostics dict in `process_gate_item`, with guard to not overwrite router-provided kinds (e.g., `cannot_proceed_seam`).
+
+8 new contract-enforcement tests in `test_gate_process_contract.py`, all passing. 264 total tests pass, 0 lint errors.
