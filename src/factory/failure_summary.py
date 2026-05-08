@@ -24,7 +24,7 @@ def derive_failures(substrate: Substrate, work_item_id: str) -> list[FailureEntr
     events = substrate.read_events(work_item_id=work_item_id, limit=1000)
     failures: list[FailureEntry] = []
     for event in events:
-        if event.transition == "gate_fail":
+        if event.transition in ("gate_fail", "gate_escalation"):
             meta = event.actor_metadata or {}
             diagnostics = {}
             if event.payload and "diagnostics" in event.payload:
@@ -34,7 +34,7 @@ def derive_failures(substrate: Substrate, work_item_id: str) -> list[FailureEntr
                     attempt_number=_attempt_from_meta(meta),
                     role=meta.get("role", "unknown"),
                     channel=meta.get("channel", "unknown"),
-                    failure_type="gate_fail",
+                    failure_type=event.transition,
                     gate_name=diagnostics.get("gate_name", "unknown"),
                     diagnostic=diagnostics.get("message", ""),
                     actor_metadata=meta,
@@ -68,7 +68,7 @@ def failures_to_json(failures: list[FailureEntry]) -> str:
             "channel": f.channel,
             "failure_type": f.failure_type,
         }
-        if f.failure_type == "gate_fail":
+        if f.failure_type in ("gate_fail", "gate_escalation"):
             d.update(gate_name=f.gate_name, diagnostic=f.diagnostic)
         elif f.failure_type == "channel_fail":
             d.update(error_message=f.error_message, timed_out=f.timed_out)

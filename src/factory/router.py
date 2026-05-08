@@ -139,7 +139,7 @@ _PHASE2_DISPATCH = {
         target_role="implementer",
     ),
     DiagnosticKind.CANNOT_PROCEED_SEAM: Route(
-        target_state="new",
+        target_state="cannot_proceed",
         target_role="interface_architect",
     ),
 }

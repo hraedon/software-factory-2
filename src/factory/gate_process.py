@@ -159,6 +159,8 @@ def process_gate_item(
         )
         log.info("gate_passed", work_item_id=str(work_item_id))
     else:
+        if routing.target_state == "cannot_proceed":
+            transition_name = "gate_escalation"
         diagnostics = routing.custom_fields_update.get("diagnostics", {})
         if not diagnostics:
             diagnostics = {
@@ -176,7 +178,7 @@ def process_gate_item(
             custom_fields={"diagnostics": diagnostics},
         )
         log.info(
-            "gate_failed",
+            "gate_escalation" if transition_name == "gate_escalation" else "gate_failed",
             work_item_id=str(work_item_id),
             gate=gate_result.gate_name,
         )

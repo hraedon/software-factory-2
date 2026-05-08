@@ -558,9 +558,7 @@ class TestPipelineIntegration:
             results["test_suite"].work_item_id,
         )
 
-    def test_e2e_escalation_through_three_gate_failures(self, mock_substrate, workspace_root):
-        from factory.gate_process import process_gate_item
-
+    def test_e2e_escalation_through_repeated_gate_failures(self, mock_substrate, workspace_root):
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
@@ -602,6 +600,7 @@ class TestPipelineIntegration:
         assert impl_wi is not None
 
         # Attempt 1: worker produces bad artifact (unused import), gate fails impl_lint
+        # Worker claim=attempt1, Gate claim=attempt2. attempt2 < 3, normal gate_fail.
         wi = _run_worker_stage(
             mock_substrate,
             config,
@@ -616,7 +615,9 @@ class TestPipelineIntegration:
         diags = (wi.custom_fields or {}).get("diagnostics", {})
         assert diags.get("diagnostic_kind") == "impl_lint"
 
-        # Attempt 2: worker resumes bad artifact, gate fails impl_lint again
+        # Attempt 2: worker resumes bad artifact, gate fails impl_lint again.
+        # Worker claim=attempt3, Gate claim=attempt4. attempt4 >= 3, escalation fires.
+        # Item transitions to cannot_proceed (terminal), stopping the retry loop.
         impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
         wi = _run_worker_stage(
             mock_substrate,
@@ -628,29 +629,15 @@ class TestPipelineIntegration:
         )
         assert wi.current_state == "gating"
         wi = _run_gate(mock_substrate, config, wi)
-        assert wi.current_state == "new"
-
-        # Attempt 3: worker submits, gate processes with real claim (attempt_number=3)
-        # Substrate now persists attempt_number across claim-release cycles (BC-054).
-        impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
-        wi = _run_worker_stage(
-            mock_substrate,
-            config,
-            channel,
-            impl_wi,
-            "factory-impl",
-            "implementer",
-        )
-        assert wi.current_state == "gating"
-
-        wi = _run_gate(mock_substrate, config, wi)
-        assert wi.current_state == "new"
+        assert wi.current_state == "cannot_proceed"
         diags = (wi.custom_fields or {}).get("diagnostics", {})
         assert diags.get("diagnostic_kind") == "cannot_proceed_seam"
         assert diags.get("target_role") == "interface_architect"
         assert diags.get("escalated_from_kind") == "impl_lint"
-        assert diags.get("escalated_after_attempts") == 6
+        assert diags.get("escalated_after_attempts") == 4
 
         impl_events = mock_substrate.read_events(work_item_id=impl_wi.work_item_id)
         gate_fails = [e for e in impl_events if e.transition == "gate_fail"]
-        assert len(gate_fails) == 3
+        assert len(gate_fails) == 1
+        gate_escalations = [e for e in impl_events if e.transition == "gate_escalation"]
+        assert len(gate_escalations) == 1

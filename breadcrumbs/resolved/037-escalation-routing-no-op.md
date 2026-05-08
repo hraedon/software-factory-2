@@ -2,12 +2,13 @@
 number: "037"
 title: Escalation routing is a no-op for non-interface_spec work item types
 severity: high
-status: proposed
+status: resolved
 kind: bug
 author: opencode
 date: "2026-05-08"
 tags: [runner, gate, failure-routing, stage-4, stage-5]
 related: ["027"]
+resolution: "Added gate_escalation transition (gating → cannot_proceed) to workflow YAMLs; router returns target_state=cannot_proceed on escalation; gate_process.py uses gate_escalation transition instead of gate_fail when escalation fires. Items now terminate in cannot_proceed instead of cycling indefinitely."
 ---
 
 ## Problem

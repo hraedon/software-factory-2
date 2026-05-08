@@ -114,3 +114,46 @@ def test_foo():
         )
         result = evaluate_test_suite(path, interface_ref_pyi_path=interface_stub)
         assert result.passed
+
+
+class TestTestSuiteCollectCheck:
+    def test_file_with_no_test_functions_fails(self, artifact_dir):
+        path = _write(
+            artifact_dir,
+            "helpers.py",
+            """
+def helper_a():
+    return 1
+
+def helper_b():
+    return 2
+""",
+        )
+        result = evaluate_test_suite(path)
+        assert not result.passed
+        assert result.gate_name == "test_suite_collect"
+        assert result.diagnostic_kind == "test_collect"
+
+    def test_file_with_test_functions_passes(self, artifact_dir):
+        path = _write(
+            artifact_dir,
+            "test_foo.py",
+            """
+def test_something():
+    assert True
+""",
+        )
+        result = evaluate_test_suite(path)
+        assert result.passed
+
+    def test_collect_failure_includes_diagnostic(self, artifact_dir):
+        path = _write(
+            artifact_dir,
+            "empty_tests.py",
+            """
+x = 42
+""",
+        )
+        result = evaluate_test_suite(path)
+        assert not result.passed
+        assert any("0 tests" in d or "collect" in d.lower() for d in result.diagnostics)

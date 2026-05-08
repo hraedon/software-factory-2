@@ -40,7 +40,6 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 037 | Escalation routing is a no-op for non-interface_spec work item types | high | proposed |
 | 031 | Gate process/runner coverage stuck at 54% — CLI/poll loops need integration tests | medium | proposed |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
 | 033 | Telemetry reporter skeleton (Wave 8) | medium | proposed |
@@ -49,6 +48,8 @@ Reusable tags:
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 038 | test_suite gate doesn't verify pytest collectability — test-theater gap | medium | Added _run_pytest_collect() to evaluate_test_suite(); fails on 0 collected tests |
+| 037 | Escalation routing is a no-op for non-interface_spec work item types | high | Added gate_escalation transition (gating → cannot_proceed); escalation now terminates item instead of cycling |
 | 030 | Real Substrate read_events should support composite filters (work_item_id + transition) | medium | Substrate shipped read_events_composite with AND-composable SQL filters; InMemorySubstrate also supports multi-dimension filters |
 | 029 | Test suite coverage gap closure — runner unit, IO failure, config malformed, prompt rendering, substrate coupling | medium | Added 22 tests across 4 new files + 5 modified; extracted shared helper; added pytest-cov dep |
 | 036 | InMemorySubstrate claim attempt_number resets after transition — escalation path untestable | high | Resolved by substrate BC-054: persistent attempt_number on work_items_current in both Postgres and InMemory backends |

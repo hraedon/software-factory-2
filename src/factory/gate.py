@@ -218,6 +218,10 @@ def evaluate_test_suite(
         except SyntaxError:
             pass
 
+    collect_result = _run_pytest_collect(artifact_path)
+    if not collect_result.passed:
+        return collect_result
+
     return GateResult(
         passed=True,
         gate_name="test_suite",
@@ -319,6 +323,54 @@ def _check_impl_imports(content: str) -> GateResult:
 
 def _is_forbidden_impl_import(module: str) -> bool:
     return module in ("conftest", "pytest")
+
+
+def _run_pytest_collect(artifact_path: Path) -> GateResult:
+    import shutil
+    import subprocess
+
+    pytest_bin = shutil.which("pytest")
+    if pytest_bin is None:
+        return GateResult(passed=True, gate_name="test_suite_collect")
+    try:
+        result = subprocess.run(
+            [pytest_bin, "--collect-only", "-q", str(artifact_path)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            lines = (result.stdout.strip().splitlines()
+                     + result.stderr.strip().splitlines())
+            diagnostics = lines[:10] or ["pytest --collect-only failed"]
+            return GateResult(
+                passed=False,
+                gate_name="test_suite_collect",
+                diagnostics=diagnostics,
+                diagnostic_kind="test_collect",
+            )
+        if "no tests collected" in result.stdout.lower() or "no tests ran" in result.stdout.lower():
+            return GateResult(
+                passed=False,
+                gate_name="test_suite_collect",
+                diagnostics=["pytest --collect-only reported 0 tests — file has no test functions"],
+                diagnostic_kind="test_collect",
+            )
+    except subprocess.TimeoutExpired:
+        return GateResult(
+            passed=False,
+            gate_name="test_suite_collect",
+            diagnostics=["pytest --collect-only timed out after 30s"],
+            diagnostic_kind="test_collect",
+        )
+    except Exception as e:
+        return GateResult(
+            passed=False,
+            gate_name="test_suite_collect",
+            diagnostics=[f"pytest --collect-only failed: {e}"],
+            diagnostic_kind="test_collect",
+        )
+    return GateResult(passed=True, gate_name="test_suite_collect")
 
 
 def _run_mypy(artifact_path: Path, interface_pyi_path: Path) -> GateResult:

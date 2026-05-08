@@ -48,6 +48,11 @@ transitions:
     to: new
     allowed_roles: [mechanical_gate]
 
+  - name: gate_escalation
+    from: gating
+    to: cannot_proceed
+    allowed_roles: [mechanical_gate]
+
 roles:
   - name: interface_architect
   - name: mechanical_gate
