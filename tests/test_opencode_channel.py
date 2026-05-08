@@ -54,5 +54,10 @@ class TestChannelProperties:
 
     def test_default_family(self):
         channel = OpenCodeChannel.__new__(OpenCodeChannel)
-        channel._family = "opencode"
+        channel._family_override = None
         assert channel.family == "opencode"
+
+    def test_override_family(self):
+        channel = OpenCodeChannel.__new__(OpenCodeChannel)
+        channel._family_override = "ollama"
+        assert channel.family == "ollama"

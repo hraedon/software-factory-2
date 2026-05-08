@@ -2,7 +2,7 @@
 number: "042"
 title: "AGENTS.md dangerously stale — claims Phase 0 design-only, repo is deep in Phase 2"
 severity: high
-status: proposed
+status: resolved
 kind: bug
 author: adversarial-review
 date: "2026-05-08"

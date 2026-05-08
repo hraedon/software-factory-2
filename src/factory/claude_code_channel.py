@@ -19,7 +19,7 @@ _extract_json_from_output = extract_json_from_output
 class ClaudeCodeChannel:
     def __init__(self, config: FactoryConfig):
         self._config = config
-        self._family = "anthropic"
+        self._family_override: str | None = None
 
     @property
     def name(self) -> str:
@@ -27,7 +27,9 @@ class ClaudeCodeChannel:
 
     @property
     def family(self) -> str:
-        return self._family
+        if self._family_override is not None:
+            return self._family_override
+        return "anthropic"
 
     @staticmethod
     def _artifact_extension_for_role(role: str) -> str:
@@ -46,6 +48,10 @@ class ClaudeCodeChannel:
         outputs_dir.mkdir(parents=True, exist_ok=True)
         role_config = self._config.get_role_config(role)
         effective_timeout = role_config.timeout_seconds if role_config else timeout
+        invocation_family: str = "anthropic"
+        if role_config and role_config.model:
+            self._family_override = "anthropic"
+            invocation_family = "anthropic"
 
         cmd = [
             "claude",
@@ -72,12 +78,14 @@ class ClaudeCodeChannel:
                 error_message=f"Timeout after {effective_timeout}s",
                 exit_code=None,
                 timed_out=True,
+                family=invocation_family,
             )
         except FileNotFoundError:
             return InvocationResult(
                 success=False,
                 error_message="claude not found in PATH",
                 exit_code=None,
+                family=invocation_family,
             )
 
         if result.returncode != 0:
@@ -85,6 +93,7 @@ class ClaudeCodeChannel:
                 success=False,
                 error_message=result.stderr[:2000] if result.stderr else "Non-zero exit code",
                 exit_code=result.returncode,
+                family=invocation_family,
             )
 
         output_text = result.stdout
@@ -96,6 +105,7 @@ class ClaudeCodeChannel:
                 success=False,
                 error_message="Empty output from claude",
                 exit_code=result.returncode,
+                family=invocation_family,
             )
 
         json_data = _extract_json_from_output(output_text)
@@ -106,6 +116,7 @@ class ClaudeCodeChannel:
                 success=False,
                 artifact_name=None,
                 error_message="cannot_proceed",
+                family=invocation_family,
             )
 
         artifact_content = _extract_artifact_from_output(output_text)
@@ -114,6 +125,7 @@ class ClaudeCodeChannel:
                 success=False,
                 error_message="Could not extract artifact from claude output",
                 exit_code=result.returncode,
+                family=invocation_family,
             )
 
         ext = self._artifact_extension_for_role(role)
@@ -123,4 +135,5 @@ class ClaudeCodeChannel:
         return InvocationResult(
             success=True,
             artifact_name=artifact_name,
+            family=invocation_family,
         )

@@ -48,17 +48,17 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - 7-module runner: runner, gate, gate_process, router, scheduler, config, workspace
 - 2 channel adapters: ClaudeCodeChannel (stable), OpenCodeChannel (stub, BC-040)
 - 2 workflow YAMLs: phase1.yaml (single-role), phase2.yaml (3-stage pipeline)
-- 259 passing tests, 0 lint errors
+- 260 passing tests, 0 lint errors
 - 3 golden runs executed against curated spec fixtures
   - 001: 12/15 interface_specs locked (Phase 1)
   - 002: 15/15 interface_specs + 15/15 test_suites, 0/15 implementations (module resolution bug, fixed)
   - 003: 15/15 interface_specs + 12/15 test_suites, 2/12 implementations locked, 10 escalated (lint prompt quality issue, BC-039/040 applied since)
 
-**Known issues:** 18 open breadcrumbs (1 critical, 7 high, 6 medium, 4 low) + 5 RFCs. See `breadcrumbs/README.md`.
+**Known issues:** 8 open breadcrumbs (0 critical, 3 high, 4 medium, 1 low) + 5 RFCs. BC-043, BC-044, BC-046, BC-047, BC-048, BC-049, BC-050, BC-051, BC-053 resolved this session. See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing. Substrate is stable enough for sequential single-channel mode. The spec's BC-021 reference is historical — hooks work sufficiently for the current pipeline shape.
 
-**Next concrete step:** resolve critical/high breadcrumbs (BC-043 truncated prompt, BC-046 resume-on-gate-fail) then execute Golden Run 004 to validate the auto-format + prompt fixes from BC-039/040.
+**Next concrete step:** resolve remaining high breadcrumbs (BC-054 PipelineRuntime namespace, BC-055 stage contracts blocking, BC-056 single-source-of-truth defaults) then execute Golden Run 004 to validate prompt fixes and family-per-invocation telemetry.
 
 ## What not to build yet
 

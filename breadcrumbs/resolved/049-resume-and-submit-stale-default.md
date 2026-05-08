@@ -2,7 +2,7 @@
 number: "049"
 title: "_resume_and_submit has stale default role_name='interface_architect'"
 severity: low
-status: proposed
+status: resolved
 kind: bug
 author: adversarial-review
 date: "2026-05-08"

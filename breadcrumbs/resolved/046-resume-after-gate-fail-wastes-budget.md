@@ -2,7 +2,7 @@
 number: "046"
 title: "Runner resubmits gate-rejected artifacts on subsequent claims — wastes Claude budget"
 severity: high
-status: proposed
+status: resolved
 kind: bug
 author: adversarial-review
 date: "2026-05-08"

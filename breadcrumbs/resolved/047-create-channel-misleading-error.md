@@ -2,7 +2,7 @@
 number: "047"
 title: "_create_channel raises 'Multi-channel dispatch not yet implemented' for unknown single channel"
 severity: low
-status: proposed
+status: resolved
 kind: bug
 author: adversarial-review
 date: "2026-05-08"

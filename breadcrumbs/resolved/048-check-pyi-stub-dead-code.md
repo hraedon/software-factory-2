@@ -2,7 +2,7 @@
 number: "048"
 title: "_check_pyi_stub SyntaxError handler is dead code"
 severity: low
-status: proposed
+status: resolved
 kind: bug
 author: adversarial-review
 date: "2026-05-08"

@@ -73,7 +73,7 @@ For an AC that says *"`parse_range` accepts a string and a `today: date`, return
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
-from typing import Union
+
 
 
 class ErrorCode(Enum):
@@ -100,7 +100,7 @@ class Error:
     original_input: str
 
 
-Result = Union[Range, Error]
+Result = Range | Error
 
 
 def parse_range(input: str, today: date) -> Result:

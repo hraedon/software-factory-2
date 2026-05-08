@@ -2,7 +2,7 @@
 number: "053"
 title: "evaluate_deterministic_gates is dead code — defined but never called"
 severity: low
-status: proposed
+status: resolved
 kind: improvement
 author: adversarial-review
 date: "2026-05-08"

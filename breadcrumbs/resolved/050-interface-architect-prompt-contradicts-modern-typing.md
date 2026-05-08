@@ -2,7 +2,7 @@
 number: "050"
 title: "interface_architect.md worked example uses deprecated typing — contradicts implementer rules and lint gate"
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: adversarial-review
 date: "2026-05-08"

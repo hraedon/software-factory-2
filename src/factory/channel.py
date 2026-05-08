@@ -12,6 +12,7 @@ class InvocationResult:
     error_message: str | None = None
     exit_code: int | None = None
     timed_out: bool = False
+    family: str | None = None
 
 
 @runtime_checkable

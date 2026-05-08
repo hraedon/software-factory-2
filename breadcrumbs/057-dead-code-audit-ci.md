@@ -1,23 +1,20 @@
 ---
 number: "057"
-title: "Dead code audit — evaluate_deterministic_gates and _check_pyi_stub exist without CI enforcement"
+title: "Dead code audit — no CI enforcement for unused code accumulation"
 severity: low
 status: proposed
 kind: improvement
 author: adversarial-review
 date: "2026-05-08"
 tags: [ci, gate, testing]
-related: ["048", "053"]
+related: []
 ---
 
 ## Problem
 
-v1 accumulated backward-compat shims, unused imports, and orphaned test fixtures because there was no recurring dead-code audit. The same pattern is starting in v2:
+v1 accumulated backward-compat shims, unused imports, and orphaned test fixtures because there was no recurring dead-code audit. BC-048 and BC-053 were resolved by removing the dead code they identified, but there is no automated guard preventing recurrence.
 
-- `gate.py:548-594`: `evaluate_deterministic_gates()` — defined, never called (BC-053).
-- `gate.py:90-91`: `except SyntaxError: pass` — unreachable (BC-048).
-
-These are low-severity now but set a precedent. Without an automated check, dead code survives indefinitely because no human reviews the factory's own code.
+Without an automated check, dead code survives indefinitely because no human reviews the factory's own code.
 
 ## Fix
 

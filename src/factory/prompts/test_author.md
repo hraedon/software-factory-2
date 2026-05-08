@@ -78,3 +78,13 @@ def test_inverted_range_returns_error():
     result = parse_range("2024-01-07..2024-01-01", date(2024, 1, 5))
     assert isinstance(result, Error)
     assert result.code == ErrorCode.INVERTED_RANGE
+```
+
+Every test in the example above: imports only from the locked interface, names the AC it satisfies in its docstring, and asserts on the public return types. Replicate this pattern for your spec.
+
+## Reminders
+
+- The interface is your sole source of truth. If the spec says one thing but the interface declares another, follow the interface.
+- Cover every AC listed in `ac_ids`. If an AC is missing from your tests, the gate will reject.
+- Error codes are not optional decoration — every `ErrorCode` variant in the interface must be exercised.
+- Output one code block only. No preamble, no explanation, no commentary after the block.

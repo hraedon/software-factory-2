@@ -2,7 +2,7 @@
 number: "044"
 title: "OpenCodeChannel mutates self._family on invoke() — race condition corrupts telemetry"
 severity: high
-status: proposed
+status: resolved
 kind: bug
 author: adversarial-review
 date: "2026-05-08"

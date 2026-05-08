@@ -45,6 +45,13 @@ class TestCreateChannel:
         with pytest.raises(NotImplementedError):
             _create_channel(config)
 
+    def test_unknown_single_channel_raises_value_error(self):
+        config = FactoryConfig(
+            roles=(RoleConfig(role="interface_architect", channel="kimi-api"),),
+        )
+        with pytest.raises(ValueError, match="Unknown channel: kimi-api"):
+            _create_channel(config)
+
 
 class TestRoleForType:
     def test_known_type_returns_role(self):

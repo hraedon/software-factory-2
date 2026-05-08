@@ -31,7 +31,7 @@ def _derive_family(model: str | None) -> str:
 class OpenCodeChannel:
     def __init__(self, config: FactoryConfig):
         self._config = config
-        self._family = "opencode"
+        self._family_override: str | None = None
 
     @property
     def name(self) -> str:
@@ -39,7 +39,9 @@ class OpenCodeChannel:
 
     @property
     def family(self) -> str:
-        return self._family
+        if self._family_override is not None:
+            return self._family_override
+        return "opencode"
 
     @staticmethod
     def _artifact_extension_for_role(role: str) -> str:
@@ -59,6 +61,8 @@ class OpenCodeChannel:
         role_config = self._config.get_role_config(role)
         effective_timeout = role_config.timeout_seconds if role_config else timeout
         model = role_config.model if role_config else None
+        invocation_family = _derive_family(model)
+        self._family_override = invocation_family
 
         cmd = [
             "opencode",
@@ -67,8 +71,6 @@ class OpenCodeChannel:
         ]
         if model:
             cmd.extend(["--model", model])
-        if role_config and role_config.model:
-            self._family = _derive_family(role_config.model)
         try:
             result = subprocess.run(
                 cmd,
@@ -84,12 +86,14 @@ class OpenCodeChannel:
                 error_message=f"Timeout after {effective_timeout}s",
                 exit_code=None,
                 timed_out=True,
+                family=invocation_family,
             )
         except FileNotFoundError:
             return InvocationResult(
                 success=False,
                 error_message="opencode not found in PATH",
                 exit_code=None,
+                family=invocation_family,
             )
 
         if result.returncode != 0:
@@ -97,6 +101,7 @@ class OpenCodeChannel:
                 success=False,
                 error_message=result.stderr[:2000] if result.stderr else "Non-zero exit code",
                 exit_code=result.returncode,
+                family=invocation_family,
             )
 
         output_text = result.stdout
@@ -108,6 +113,7 @@ class OpenCodeChannel:
                 success=False,
                 error_message="Empty output from opencode",
                 exit_code=result.returncode,
+                family=invocation_family,
             )
 
         json_data = extract_json_from_output(output_text)
@@ -118,6 +124,7 @@ class OpenCodeChannel:
                 success=False,
                 artifact_name=None,
                 error_message="cannot_proceed",
+                family=invocation_family,
             )
 
         artifact_content = extract_artifact_from_output(output_text)
@@ -126,6 +133,7 @@ class OpenCodeChannel:
                 success=False,
                 error_message="Could not extract artifact from opencode output",
                 exit_code=result.returncode,
+                family=invocation_family,
             )
 
         ext = self._artifact_extension_for_role(role)
@@ -135,4 +143,5 @@ class OpenCodeChannel:
         return InvocationResult(
             success=True,
             artifact_name=artifact_name,
+            family=invocation_family,
         )

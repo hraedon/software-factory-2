@@ -188,6 +188,7 @@ def process_work_item(
     inputs_dir = wr / work_item_id / "inputs"
     prompt = render_prompt(ctx)
     invoke_result = channel.invoke(role_name, prompt, inputs_dir, ad, timeout)
+    effective_family = invoke_result.family or channel.family
 
     if not invoke_result.success:
         _handle_invoke_failure(
@@ -200,6 +201,7 @@ def process_work_item(
             role_name,
             attempt_number,
             ctx,
+            effective_family,
         )
         return
 
@@ -214,7 +216,7 @@ def process_work_item(
         artifact_size=len(artifact_data),
         actor_id=actor_id,
         channel=channel.name,
-        family=channel.family,
+        family=effective_family,
         model=None,
         context_hash=ctx.context_hash,
     )
@@ -222,7 +224,7 @@ def process_work_item(
     actor_metadata = ActorMetadata(
         role=role_name,
         channel=channel.name,
-        family=channel.family,
+        family=effective_family,
         attempt_n=attempt_number,
         context_hash=ctx.context_hash,
     ).to_dict()
@@ -248,6 +250,7 @@ def _handle_invoke_failure(
     role_name: str,
     attempt_number: int,
     ctx,
+    effective_family: str,
 ) -> None:
     work_item_id = wi.work_item_id
     if invoke_result.error_message == "cannot_proceed":
@@ -261,7 +264,7 @@ def _handle_invoke_failure(
                 actor_metadata=ActorMetadata(
                     role=role_name,
                     channel=channel.name,
-                    family=channel.family,
+                    family=effective_family,
                     attempt_n=attempt_number,
                     context_hash=ctx.context_hash,
                 ).to_dict(),
@@ -277,7 +280,7 @@ def _handle_invoke_failure(
                 actor_metadata=ActorMetadata(
                     role=role_name,
                     channel=channel.name,
-                    family=channel.family,
+                    family=effective_family,
                     attempt_n=attempt_number,
                     context_hash=ctx.context_hash,
                 ).to_dict(),
@@ -300,7 +303,7 @@ def _handle_invoke_failure(
         actor_metadata=ActorMetadata(
             role=role_name,
             channel=channel.name,
-            family=channel.family,
+            family=effective_family,
             attempt_n=attempt_number,
             context_hash=ctx.context_hash,
         ).to_dict(),
@@ -322,7 +325,7 @@ def _resume_and_submit(
     actor_id: str,
     channel: Channel,
     artifact_path: Path,
-    role_name: str = "interface_architect",
+    role_name: str,
 ) -> None:
     actor_metadata = ActorMetadata(
         role=role_name,
@@ -355,7 +358,7 @@ def _create_channel(config: FactoryConfig) -> Channel:
             from factory.claude_code_channel import ClaudeCodeChannel
 
             return ClaudeCodeChannel(config)
-    # multi-channel: return a dispatching channel
+        raise ValueError(f"Unknown channel: {ch}. Supported: claude-code, opencode")
     raise NotImplementedError("Multi-channel dispatch not yet implemented")
 
 

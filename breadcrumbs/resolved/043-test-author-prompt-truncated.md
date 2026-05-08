@@ -2,7 +2,7 @@
 number: "043"
 title: "test_author.md prompt template truncated mid-file — broken prompt delivered to every test_author invocation"
 severity: critical
-status: proposed
+status: resolved
 kind: bug
 author: adversarial-review
 date: "2026-05-08"

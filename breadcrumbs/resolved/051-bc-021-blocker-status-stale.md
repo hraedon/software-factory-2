@@ -2,7 +2,7 @@
 number: "051"
 title: "spec.md still cites BC-021 as Phase 1 blocker — substrate hooks appear to work"
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: adversarial-review
 date: "2026-05-08"

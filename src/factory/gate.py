@@ -66,29 +66,26 @@ def _check_syntax(content: str) -> GateResult:
 
 
 def _check_pyi_stub(content: str, artifact_path: Path) -> GateResult:
-    try:
-        tree = ast.parse(content)
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                has_body = any(
-                    isinstance(stmt, (ast.Assign, ast.AugAssign, ast.Expr, ast.Return))
-                    for stmt in node.body
+    tree = ast.parse(content)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            has_body = any(
+                isinstance(stmt, (ast.Assign, ast.AugAssign, ast.Expr, ast.Return))
+                for stmt in node.body
+            )
+            if has_body and not any(
+                isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant)
+                for stmt in node.body
+            ):
+                return GateResult(
+                    passed=False,
+                    gate_name="interface_spec_stub",
+                    diagnostics=[
+                        f"Function '{node.name}' has implementation body. "
+                        f"Interface specs must use '...' as body."
+                    ],
+                    diagnostic_kind="stub",
                 )
-                if has_body and not any(
-                    isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant)
-                    for stmt in node.body
-                ):
-                    return GateResult(
-                        passed=False,
-                        gate_name="interface_spec_stub",
-                        diagnostics=[
-                            f"Function '{node.name}' has implementation body. "
-                            f"Interface specs must use '...' as body."
-                        ],
-                        diagnostic_kind="stub",
-                    )
-    except SyntaxError:
-        pass
     return GateResult(passed=True, gate_name="interface_spec_stub")
 
 
@@ -542,55 +539,6 @@ def _run_ruff(artifact_path: Path) -> GateResult:
             diagnostic_kind="impl_lint",
         )
     return GateResult(passed=True, gate_name="implementation_lint")
-
-
-def evaluate_deterministic_gates(
-    artifact_files: dict[str, Path],
-    config: dict,
-) -> list[GateResult]:
-    results: list[GateResult] = []
-
-    for artifact_key, artifact_path in artifact_files.items():
-        if not artifact_path.exists():
-            results.append(
-                GateResult(
-                    passed=False,
-                    gate_name=f"{artifact_key}_file_exists",
-                    diagnostics=[f"Artifact not found: {artifact_path}"],
-                    artifact_valid=False,
-                    diagnostic_kind="file_exists",
-                )
-            )
-            continue
-
-        content = artifact_path.read_text()
-        if not content.strip():
-            results.append(
-                GateResult(
-                    passed=False,
-                    gate_name=f"{artifact_key}_not_empty",
-                    diagnostics=[f"Artifact is empty: {artifact_path}"],
-                    artifact_valid=False,
-                    diagnostic_kind="not_empty",
-                )
-            )
-            continue
-
-        try:
-            ast.parse(content)
-        except SyntaxError as e:
-            results.append(
-                GateResult(
-                    passed=False,
-                    gate_name=f"{artifact_key}_syntax",
-                    diagnostics=[f"SyntaxError at line {e.lineno}: {e.msg}"],
-                    artifact_valid=False,
-                    diagnostic_kind="syntax",
-                )
-            )
-            continue
-
-    return results
 
 
 def structural_signature(pyi_content: str) -> list[str]:
