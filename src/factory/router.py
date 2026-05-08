@@ -145,6 +145,12 @@ _PHASE2_DISPATCH = {
 }
 
 
+# Worker-retryable failures: these kinds originate from non-deterministic channel
+# output (mypy/pytest/lint/import errors, test binding/collect/import issues) and
+# are eligible for escalation to cannot_proceed_seam after attempt_threshold retries.
+# Deterministic gate failures (syntax, stub, structural_semantics, file_exists,
+# not_empty, channel_fail, cannot_proceed, unknown_type) are NOT escalatable — they
+# always route directly to the originating role for immediate correction.
 _ESCALATABLE_KINDS = {
     DiagnosticKind.IMPL_MYPY,
     DiagnosticKind.IMPL_PYTEST,

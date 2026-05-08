@@ -28,7 +28,9 @@ class _IntegrationChannel:
         return self._family
 
     def scripted_failure(
-        self, role: str, attempt_number: int,
+        self,
+        role: str,
+        attempt_number: int,
         error: str = "scripted_failure",
     ) -> None:
         self._fail_at[(role, attempt_number)] = error
@@ -111,7 +113,13 @@ def _run_worker_stage(sub, config, channel, wi, actor_id, role_name, spec_conten
         actor_metadata={"role": role_name},
     )
     process_work_item(
-        sub, config, channel, wi, actor_id, claim, role_name,
+        sub,
+        config,
+        channel,
+        wi,
+        actor_id,
+        claim,
+        role_name,
         spec_content=spec_content,
     )
     return sub.get_work_item(wi.work_item_id)
@@ -146,9 +154,7 @@ def _create_downstream(sub, config, source_wi, source_type, source_state):
     for wi in sub.query_work_items(current_states=["new"], page_size=50).items:
         if wi.work_item_type == handoff["next_type"]:
             ref_field = (
-                "interface_ref"
-                if handoff["next_type"] == "test_suite"
-                else "test_suite_ref"
+                "interface_ref" if handoff["next_type"] == "test_suite" else "test_suite_ref"
             )
             cf = wi.custom_fields or {}
             if cf.get(ref_field) == str(source_wi.work_item_id):
@@ -170,8 +176,13 @@ def _drive_full_pipeline(sub, config, channel, spec_section="Compute function", 
 
     # Stage 1: interface_architect
     wi = _run_worker_stage(
-        sub, config, channel, iface,
-        "factory-arch", "interface_architect", spec_section,
+        sub,
+        config,
+        channel,
+        iface,
+        "factory-arch",
+        "interface_architect",
+        spec_section,
     )
     assert wi.current_state == "gating", f"Expected gating, got {wi.current_state}"
     wi = _run_gate(sub, config, wi)
@@ -181,8 +192,13 @@ def _drive_full_pipeline(sub, config, channel, spec_section="Compute function", 
     ts_wi = _create_downstream(sub, config, wi, "interface_spec", "locked")
     assert ts_wi is not None, "test_suite work item not created"
     wi = _run_worker_stage(
-        sub, config, channel, ts_wi,
-        "factory-tester", "test_author", spec_section,
+        sub,
+        config,
+        channel,
+        ts_wi,
+        "factory-tester",
+        "test_author",
+        spec_section,
     )
     assert wi.current_state == "gating"
     wi = _run_gate(sub, config, wi)
@@ -192,8 +208,13 @@ def _drive_full_pipeline(sub, config, channel, spec_section="Compute function", 
     impl_wi = _create_downstream(sub, config, wi, "test_suite", "locked")
     assert impl_wi is not None, "implementation work item not created"
     wi = _run_worker_stage(
-        sub, config, channel, impl_wi,
-        "factory-impl", "implementer", spec_section,
+        sub,
+        config,
+        channel,
+        impl_wi,
+        "factory-impl",
+        "implementer",
+        spec_section,
     )
     assert wi.current_state == "gating"
     wi = _run_gate(sub, config, wi)
@@ -206,8 +227,21 @@ def _drive_full_pipeline(sub, config, channel, spec_section="Compute function", 
     }
 
 
-class TestPipelineIntegration:
+class _BadImplIntegrationChannel(_IntegrationChannel):
+    """Produces implementation artifacts that trigger impl_lint gate failures
+    (unused import) for escalation testing."""
 
+    def invoke(self, role, prompt, inputs_dir, outputs_dir, timeout):
+        result = super().invoke(role, prompt, inputs_dir, outputs_dir, timeout)
+        if role == "implementer" and result.success:
+            name = result.artifact_name
+            (outputs_dir / name).write_text(
+                "import os\n\ndef compute(x: int) -> str:\n    return str(x)\n"
+            )
+        return result
+
+
+class TestPipelineIntegration:
     def test_three_item_subset_end_to_end(self, mock_substrate, workspace_root):
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
@@ -217,7 +251,9 @@ class TestPipelineIntegration:
         _register_roles(mock_substrate)
 
         results = _drive_full_pipeline(
-            mock_substrate, config, channel,
+            mock_substrate,
+            config,
+            channel,
             spec_section="Given int x, return str(x).",
             ac_ids=["AC-01"],
         )
@@ -229,9 +265,7 @@ class TestPipelineIntegration:
         iface_events = mock_substrate.read_events(
             work_item_id=results["interface_spec"].work_item_id
         )
-        ts_events = mock_substrate.read_events(
-            work_item_id=results["test_suite"].work_item_id
-        )
+        ts_events = mock_substrate.read_events(work_item_id=results["test_suite"].work_item_id)
         impl_events = mock_substrate.read_events(
             work_item_id=results["implementation"].work_item_id
         )
@@ -260,7 +294,9 @@ class TestPipelineIntegration:
         for spec_text, acs in specs:
             channel._pending_ac_ids = acs
             results = _drive_full_pipeline(
-                mock_substrate, config, channel,
+                mock_substrate,
+                config,
+                channel,
                 spec_section=spec_text,
                 ac_ids=acs,
             )
@@ -292,8 +328,12 @@ class TestPipelineIntegration:
 
         # Stage 1: interface_architect
         wi = _run_worker_stage(
-            mock_substrate, config, channel, iface,
-            "factory-arch", "interface_architect",
+            mock_substrate,
+            config,
+            channel,
+            iface,
+            "factory-arch",
+            "interface_architect",
         )
         wi = _run_gate(mock_substrate, config, wi)
         assert wi.current_state == "locked"
@@ -302,8 +342,12 @@ class TestPipelineIntegration:
         ts_wi = _create_downstream(mock_substrate, config, wi, "interface_spec", "locked")
         assert ts_wi is not None
         wi = _run_worker_stage(
-            mock_substrate, config, channel, ts_wi,
-            "factory-tester", "test_author",
+            mock_substrate,
+            config,
+            channel,
+            ts_wi,
+            "factory-tester",
+            "test_author",
         )
         wi = _run_gate(mock_substrate, config, wi)
         assert wi.current_state == "locked"
@@ -312,15 +356,23 @@ class TestPipelineIntegration:
         impl_wi = _create_downstream(mock_substrate, config, wi, "test_suite", "locked")
         assert impl_wi is not None
         wi = _run_worker_stage(
-            mock_substrate, config, channel, impl_wi,
-            "factory-impl", "implementer",
+            mock_substrate,
+            config,
+            channel,
+            impl_wi,
+            "factory-impl",
+            "implementer",
         )
         assert wi.current_state == "new"
 
         impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
         wi = _run_worker_stage(
-            mock_substrate, config, channel, impl_wi,
-            "factory-impl", "implementer",
+            mock_substrate,
+            config,
+            channel,
+            impl_wi,
+            "factory-impl",
+            "implementer",
         )
         assert wi.current_state == "gating"
         wi = _run_gate(mock_substrate, config, wi)
@@ -349,16 +401,24 @@ class TestPipelineIntegration:
 
         # Attempt 1: channel fail
         wi = _run_worker_stage(
-            mock_substrate, config, channel, iface,
-            "factory-arch", "interface_architect",
+            mock_substrate,
+            config,
+            channel,
+            iface,
+            "factory-arch",
+            "interface_architect",
         )
         assert wi.current_state == "new"
 
         # Attempt 2: succeeds
         iface = mock_substrate.get_work_item(iface.work_item_id)
         wi = _run_worker_stage(
-            mock_substrate, config, channel, iface,
-            "factory-arch", "interface_architect",
+            mock_substrate,
+            config,
+            channel,
+            iface,
+            "factory-arch",
+            "interface_architect",
         )
         assert wi.current_state == "gating"
         wi = _run_gate(mock_substrate, config, wi)
@@ -384,8 +444,12 @@ class TestPipelineIntegration:
 
         # Drive interface_spec to locked
         wi = _run_worker_stage(
-            mock_substrate, config, channel, iface,
-            "factory-arch", "interface_architect",
+            mock_substrate,
+            config,
+            channel,
+            iface,
+            "factory-arch",
+            "interface_architect",
         )
         wi = _run_gate(mock_substrate, config, wi)
         assert wi.current_state == "locked"
@@ -393,8 +457,12 @@ class TestPipelineIntegration:
         # Drive test_suite to locked
         ts_wi = _create_downstream(mock_substrate, config, wi, "interface_spec", "locked")
         wi = _run_worker_stage(
-            mock_substrate, config, channel, ts_wi,
-            "factory-tester", "test_author",
+            mock_substrate,
+            config,
+            channel,
+            ts_wi,
+            "factory-tester",
+            "test_author",
         )
         wi = _run_gate(mock_substrate, config, wi)
         assert wi.current_state == "locked"
@@ -406,8 +474,12 @@ class TestPipelineIntegration:
 
         # Attempt 1: submit + gate_fail
         wi = _run_worker_stage(
-            mock_substrate, config, channel, impl_wi,
-            "factory-impl", "implementer",
+            mock_substrate,
+            config,
+            channel,
+            impl_wi,
+            "factory-impl",
+            "implementer",
         )
         assert wi.current_state == "gating"
 
@@ -422,7 +494,6 @@ class TestPipelineIntegration:
             diagnostics=["error: Incompatible return value type"],
             diagnostic_kind="impl_mypy",
         )
-
 
         from factory.router import route
 
@@ -485,3 +556,106 @@ class TestPipelineIntegration:
         assert (impl.custom_fields or {}).get("test_suite_ref") == str(
             results["test_suite"].work_item_id,
         )
+
+    def test_e2e_escalation_through_three_gate_failures(self, mock_substrate, workspace_root):
+        from types import SimpleNamespace
+
+        from factory.gate_process import process_gate_item
+
+        mock_substrate.register_workflow_file(
+            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
+        )
+        config = _make_phase2_config(workspace_root)
+        channel = _BadImplIntegrationChannel(workspace_root)
+        _register_roles(mock_substrate)
+
+        iface, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="test-creator",
+            custom_fields={"spec_section": "def compute(x: int) -> str", "ac_ids": ["AC-01"]},
+        )
+
+        wi = _run_worker_stage(
+            mock_substrate,
+            config,
+            channel,
+            iface,
+            "factory-arch",
+            "interface_architect",
+        )
+        wi = _run_gate(mock_substrate, config, wi)
+        assert wi.current_state == "locked"
+
+        ts_wi = _create_downstream(mock_substrate, config, wi, "interface_spec", "locked")
+        wi = _run_worker_stage(
+            mock_substrate,
+            config,
+            channel,
+            ts_wi,
+            "factory-tester",
+            "test_author",
+        )
+        wi = _run_gate(mock_substrate, config, wi)
+        assert wi.current_state == "locked"
+
+        impl_wi = _create_downstream(mock_substrate, config, wi, "test_suite", "locked")
+        assert impl_wi is not None
+
+        # Attempt 1: worker produces bad artifact (forbidden import), gate fails impl_import
+        wi = _run_worker_stage(
+            mock_substrate,
+            config,
+            channel,
+            impl_wi,
+            "factory-impl",
+            "implementer",
+        )
+        assert wi.current_state == "gating"
+        wi = _run_gate(mock_substrate, config, wi)
+        assert wi.current_state == "new"
+        diags = (wi.custom_fields or {}).get("diagnostics", {})
+        assert diags.get("diagnostic_kind") == "impl_lint"
+
+        # Attempt 2: worker resumes bad artifact, gate fails again
+        impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
+        wi = _run_worker_stage(
+            mock_substrate,
+            config,
+            channel,
+            impl_wi,
+            "factory-impl",
+            "implementer",
+        )
+        assert wi.current_state == "gating"
+        wi = _run_gate(mock_substrate, config, wi)
+        assert wi.current_state == "new"
+
+        # Attempt 3: worker submits, then gate processes with attempt_number=3
+        # (InMemorySubstrate resets attempt_number after transitions, so we inject
+        # the accumulated count via a SimpleNamespace claim to trigger escalation)
+        impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
+        wi = _run_worker_stage(
+            mock_substrate,
+            config,
+            channel,
+            impl_wi,
+            "factory-impl",
+            "implementer",
+        )
+        assert wi.current_state == "gating"
+
+        fake_claim = SimpleNamespace(attempt_number=3)
+        process_gate_item(mock_substrate, config, wi, "factory-gate", fake_claim)
+
+        wi = mock_substrate.get_work_item(impl_wi.work_item_id)
+        assert wi.current_state == "new"
+        diags = (wi.custom_fields or {}).get("diagnostics", {})
+        assert diags.get("diagnostic_kind") == "cannot_proceed_seam"
+        assert diags.get("target_role") == "interface_architect"
+        assert diags.get("escalated_from_kind") == "impl_lint"
+        assert diags.get("escalated_after_attempts") == 3
+
+        impl_events = mock_substrate.read_events(work_item_id=impl_wi.work_item_id)
+        gate_fails = [e for e in impl_events if e.transition == "gate_fail"]
+        assert len(gate_fails) == 3

@@ -34,7 +34,9 @@ class _IdempotencyChannel:
         return self._family
 
     def scripted_failure(
-        self, role: str, attempt_number: int,
+        self,
+        role: str,
+        attempt_number: int,
         error: str = "scripted_failure",
     ) -> None:
         self._fail_at[(role, attempt_number)] = error
@@ -112,7 +114,13 @@ def _run_worker_stage(sub, config, channel, wi, actor_id, role_name, spec_conten
         actor_metadata={"role": role_name},
     )
     process_work_item(
-        sub, config, channel, wi, actor_id, claim, role_name,
+        sub,
+        config,
+        channel,
+        wi,
+        actor_id,
+        claim,
+        role_name,
         spec_content=spec_content,
     )
     return sub.get_work_item(wi.work_item_id)
@@ -144,12 +152,23 @@ def _write_resumable_artifact(workspace_root, work_item_id, attempt, role, artif
 
 
 def _resume_and_gate(
-    sub, config, channel, wi, workspace_root,
-    actor_id, role_name, artifact_content, artifact_name,
+    sub,
+    config,
+    channel,
+    wi,
+    workspace_root,
+    actor_id,
+    role_name,
+    artifact_content,
+    artifact_name,
 ):
     artifact_path = _write_resumable_artifact(
-        workspace_root, wi.work_item_id, 1, role_name[:4],
-        artifact_name, artifact_content,
+        workspace_root,
+        wi.work_item_id,
+        1,
+        role_name[:4],
+        artifact_name,
+        artifact_content,
     )
     resumable = find_resumable_artifact(workspace_root, str(wi.work_item_id))
     assert resumable is not None
@@ -158,13 +177,19 @@ def _resume_and_gate(
     _ = sub.acquire_claim(wi.work_item_id, actor_id)
     sub.transition(wi.work_item_id, "claim", actor_id, actor_metadata={"role": role_name})
     _resume_and_submit(
-        sub, wi, n, manifest, actor_id, channel, artifact_path, role_name=role_name,
+        sub,
+        wi,
+        n,
+        manifest,
+        actor_id,
+        channel,
+        artifact_path,
+        role_name=role_name,
     )
     return sub.get_work_item(wi.work_item_id)
 
 
 class TestPipelineIdempotencyInterfaceArchitect:
-
     def test_resume_after_worker_crash_before_submit(self, mock_substrate, workspace_root):
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
@@ -187,8 +212,15 @@ class TestPipelineIdempotencyInterfaceArchitect:
             "    ...\n"
         )
         wi = _resume_and_gate(
-            mock_substrate, config, channel, iface, workspace_root,
-            "factory-arch", "interface_architect", artifact_content, "artifact.pyi",
+            mock_substrate,
+            config,
+            channel,
+            iface,
+            workspace_root,
+            "factory-arch",
+            "interface_architect",
+            artifact_content,
+            "artifact.pyi",
         )
         assert wi.current_state == "gating"
         wi = _run_gate(mock_substrate, config, wi)
@@ -211,8 +243,11 @@ class TestPipelineIdempotencyInterfaceArchitect:
         )
 
         artifact_path = _write_resumable_artifact(
-            workspace_root, iface.work_item_id, 1,
-            "arch", "artifact.pyi",
+            workspace_root,
+            iface.work_item_id,
+            1,
+            "arch",
+            "artifact.pyi",
             "def foo() -> int:\n    'AC-01'\n    ...\n",
         )
         resumable = find_resumable_artifact(workspace_root, str(iface.work_item_id))
@@ -221,12 +256,20 @@ class TestPipelineIdempotencyInterfaceArchitect:
 
         _ = mock_substrate.acquire_claim(iface.work_item_id, "factory-arch")
         mock_substrate.transition(
-            iface.work_item_id, "claim", "factory-arch",
+            iface.work_item_id,
+            "claim",
+            "factory-arch",
             actor_metadata={"role": "interface_architect"},
         )
         _resume_and_submit(
-            mock_substrate, iface, attempt_num, manifest,
-            "factory-arch", channel, artifact_path, role_name="interface_architect",
+            mock_substrate,
+            iface,
+            attempt_num,
+            manifest,
+            "factory-arch",
+            channel,
+            artifact_path,
+            role_name="interface_architect",
         )
 
         events = mock_substrate.read_events(work_item_id=iface.work_item_id)
@@ -238,7 +281,6 @@ class TestPipelineIdempotencyInterfaceArchitect:
 
 
 class TestPipelineIdempotencyTestAuthor:
-
     def test_resume_test_author_after_crash(self, mock_substrate, workspace_root):
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
@@ -254,19 +296,27 @@ class TestPipelineIdempotencyTestAuthor:
             custom_fields={"spec_section": "def compute(x: int) -> str", "ac_ids": ["AC-01"]},
         )
         wi = _run_worker_stage(
-            mock_substrate, config, channel, iface,
-            "factory-arch", "interface_architect",
+            mock_substrate,
+            config,
+            channel,
+            iface,
+            "factory-arch",
+            "interface_architect",
         )
         wi = _run_gate(mock_substrate, config, wi)
         assert wi.current_state == "locked"
 
         _ensure_downstream_item(
-            mock_substrate, config, wi,
+            mock_substrate,
+            config,
+            wi,
             {"next_type": "test_suite", "link_type": "derived_from", "next_role": "test_author"},
         )
         ts_wis = [
-            w for w in mock_substrate.query_work_items(
-                current_states=["new"], page_size=50,
+            w
+            for w in mock_substrate.query_work_items(
+                current_states=["new"],
+                page_size=50,
             ).items
             if w.work_item_type == "test_suite"
         ]
@@ -280,8 +330,15 @@ class TestPipelineIdempotencyTestAuthor:
             '    assert compute(1) == "1"\n'
         )
         wi = _resume_and_gate(
-            mock_substrate, config, channel, ts_wi, workspace_root,
-            "factory-tester", "test_author", artifact_content, "test_suite.py",
+            mock_substrate,
+            config,
+            channel,
+            ts_wi,
+            workspace_root,
+            "factory-tester",
+            "test_author",
+            artifact_content,
+            "test_suite.py",
         )
         assert wi.current_state == "gating"
         wi = _run_gate(mock_substrate, config, wi)
@@ -289,7 +346,6 @@ class TestPipelineIdempotencyTestAuthor:
 
 
 class TestPipelineIdempotencyImplementer:
-
     def test_resume_implementer_after_crash(self, mock_substrate, workspace_root):
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
@@ -305,39 +361,59 @@ class TestPipelineIdempotencyImplementer:
             custom_fields={"spec_section": "def compute(x: int) -> str", "ac_ids": ["AC-01"]},
         )
         wi = _run_worker_stage(
-            mock_substrate, config, channel, iface,
-            "factory-arch", "interface_architect",
+            mock_substrate,
+            config,
+            channel,
+            iface,
+            "factory-arch",
+            "interface_architect",
         )
         wi = _run_gate(mock_substrate, config, wi)
         assert wi.current_state == "locked"
 
         _ensure_downstream_item(
-            mock_substrate, config, wi,
+            mock_substrate,
+            config,
+            wi,
             {"next_type": "test_suite", "link_type": "derived_from", "next_role": "test_author"},
         )
         ts_wis = [
-            w for w in mock_substrate.query_work_items(
-                current_states=["new"], page_size=50,
+            w
+            for w in mock_substrate.query_work_items(
+                current_states=["new"],
+                page_size=50,
             ).items
             if w.work_item_type == "test_suite"
         ]
         ts_wi = ts_wis[0]
 
         wi = _run_worker_stage(
-            mock_substrate, config, channel, ts_wi,
-            "factory-tester", "test_author",
+            mock_substrate,
+            config,
+            channel,
+            ts_wi,
+            "factory-tester",
+            "test_author",
         )
         wi = _run_gate(mock_substrate, config, wi)
         assert wi.current_state == "locked"
 
         _ensure_downstream_item(
-            mock_substrate, config, wi,
-            {"next_type": "implementation", "link_type": "tested_by",
-             "additional_links": ["implements"], "next_role": "implementer"},
+            mock_substrate,
+            config,
+            wi,
+            {
+                "next_type": "implementation",
+                "link_type": "tested_by",
+                "additional_links": ["implements"],
+                "next_role": "implementer",
+            },
         )
         impl_wis = [
-            w for w in mock_substrate.query_work_items(
-                current_states=["new"], page_size=50,
+            w
+            for w in mock_substrate.query_work_items(
+                current_states=["new"],
+                page_size=50,
             ).items
             if w.work_item_type == "implementation"
         ]
@@ -345,8 +421,15 @@ class TestPipelineIdempotencyImplementer:
 
         artifact_content = "def compute(x: int) -> str:\n    return str(x)\n"
         wi = _resume_and_gate(
-            mock_substrate, config, channel, impl_wi, workspace_root,
-            "factory-impl", "implementer", artifact_content, "impl.py",
+            mock_substrate,
+            config,
+            channel,
+            impl_wi,
+            workspace_root,
+            "factory-impl",
+            "implementer",
+            artifact_content,
+            "impl.py",
         )
         assert wi.current_state == "gating"
         wi = _run_gate(mock_substrate, config, wi)
@@ -354,7 +437,6 @@ class TestPipelineIdempotencyImplementer:
 
 
 class TestPipelineIdempotencyGateProcess:
-
     def test_gate_reclaim_after_crash_is_safe(self, mock_substrate, workspace_root):
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
@@ -371,8 +453,12 @@ class TestPipelineIdempotencyGateProcess:
         )
 
         wi = _run_worker_stage(
-            mock_substrate, config, channel, iface,
-            "factory-arch", "interface_architect",
+            mock_substrate,
+            config,
+            channel,
+            iface,
+            "factory-arch",
+            "interface_architect",
         )
         assert wi.current_state == "gating"
 
@@ -399,27 +485,39 @@ class TestPipelineIdempotencyGateProcess:
         )
 
         wi = _run_worker_stage(
-            mock_substrate, config, channel, iface,
-            "factory-arch", "interface_architect",
+            mock_substrate,
+            config,
+            channel,
+            iface,
+            "factory-arch",
+            "interface_architect",
         )
         wi = _run_gate(mock_substrate, config, wi)
         assert wi.current_state == "locked"
 
         _ensure_downstream_item(
-            mock_substrate, config, wi,
+            mock_substrate,
+            config,
+            wi,
             {"next_type": "test_suite", "link_type": "derived_from", "next_role": "test_author"},
         )
         ts_wis = [
-            w for w in mock_substrate.query_work_items(
-                current_states=["new"], page_size=50,
+            w
+            for w in mock_substrate.query_work_items(
+                current_states=["new"],
+                page_size=50,
             ).items
             if w.work_item_type == "test_suite"
         ]
         ts_wi = ts_wis[0]
 
         wi = _run_worker_stage(
-            mock_substrate, config, channel, ts_wi,
-            "factory-tester", "test_author",
+            mock_substrate,
+            config,
+            channel,
+            ts_wi,
+            "factory-tester",
+            "test_author",
         )
         assert wi.current_state == "gating"
 
@@ -428,7 +526,6 @@ class TestPipelineIdempotencyGateProcess:
 
 
 class TestPipelineIdempotencyMultiRole:
-
     def test_mid_pipeline_crash_at_each_stage(self, mock_substrate, workspace_root):
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
@@ -445,14 +542,17 @@ class TestPipelineIdempotencyMultiRole:
         )
 
         # Stage 1: interface_architect — resume from crash
-        iface_artifact = (
-            "def compute(x: int) -> str:\n"
-            '    """AC-01"""\n'
-            "    ...\n"
-        )
+        iface_artifact = 'def compute(x: int) -> str:\n    """AC-01"""\n    ...\n'
         wi = _resume_and_gate(
-            mock_substrate, config, channel, iface, workspace_root,
-            "factory-arch", "interface_architect", iface_artifact, "artifact.pyi",
+            mock_substrate,
+            config,
+            channel,
+            iface,
+            workspace_root,
+            "factory-arch",
+            "interface_architect",
+            iface_artifact,
+            "artifact.pyi",
         )
         assert wi.current_state == "gating"
         wi = _run_gate(mock_substrate, config, wi)
@@ -460,12 +560,16 @@ class TestPipelineIdempotencyMultiRole:
 
         # Stage 2: test_author — resume from crash
         _ensure_downstream_item(
-            mock_substrate, config, wi,
+            mock_substrate,
+            config,
+            wi,
             {"next_type": "test_suite", "link_type": "derived_from", "next_role": "test_author"},
         )
         ts_wis = [
-            w for w in mock_substrate.query_work_items(
-                current_states=["new"], page_size=50,
+            w
+            for w in mock_substrate.query_work_items(
+                current_states=["new"],
+                page_size=50,
             ).items
             if w.work_item_type == "test_suite"
         ]
@@ -478,8 +582,15 @@ class TestPipelineIdempotencyMultiRole:
             "    assert True\n"
         )
         wi = _resume_and_gate(
-            mock_substrate, config, channel, ts_wi, workspace_root,
-            "factory-tester", "test_author", ts_artifact, "test_suite.py",
+            mock_substrate,
+            config,
+            channel,
+            ts_wi,
+            workspace_root,
+            "factory-tester",
+            "test_author",
+            ts_artifact,
+            "test_suite.py",
         )
         assert wi.current_state == "gating"
         wi = _run_gate(mock_substrate, config, wi)
@@ -487,13 +598,21 @@ class TestPipelineIdempotencyMultiRole:
 
         # Stage 3: implementer — resume from crash
         _ensure_downstream_item(
-            mock_substrate, config, wi,
-            {"next_type": "implementation", "link_type": "tested_by",
-             "additional_links": ["implements"], "next_role": "implementer"},
+            mock_substrate,
+            config,
+            wi,
+            {
+                "next_type": "implementation",
+                "link_type": "tested_by",
+                "additional_links": ["implements"],
+                "next_role": "implementer",
+            },
         )
         impl_wis = [
-            w for w in mock_substrate.query_work_items(
-                current_states=["new"], page_size=50,
+            w
+            for w in mock_substrate.query_work_items(
+                current_states=["new"],
+                page_size=50,
             ).items
             if w.work_item_type == "implementation"
         ]
@@ -501,8 +620,15 @@ class TestPipelineIdempotencyMultiRole:
 
         impl_artifact = "def compute(x: int) -> str:\n    return str(x)\n"
         wi = _resume_and_gate(
-            mock_substrate, config, channel, impl_wi, workspace_root,
-            "factory-impl", "implementer", impl_artifact, "impl.py",
+            mock_substrate,
+            config,
+            channel,
+            impl_wi,
+            workspace_root,
+            "factory-impl",
+            "implementer",
+            impl_artifact,
+            "impl.py",
         )
         assert wi.current_state == "gating"
         wi = _run_gate(mock_substrate, config, wi)
