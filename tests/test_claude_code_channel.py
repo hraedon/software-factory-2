@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from factory.claude_code_channel import _extract_artifact_from_output, _extract_json_from_output
+from factory.claude_code_channel import (
+    ClaudeCodeChannel,
+    _extract_artifact_from_output,
+    _extract_json_from_output,
+)
 
 
 class TestExtractArtifact:
@@ -82,3 +86,17 @@ class TestExtractJson:
         result = _extract_json_from_output(content)
         assert result is not None
         assert result["status"] == "ok"
+
+
+class TestArtifactExtension:
+    def test_interface_architect_gets_pyi(self):
+        assert ClaudeCodeChannel._artifact_extension_for_role("interface_architect") == ".pyi"
+
+    def test_test_author_gets_py(self):
+        assert ClaudeCodeChannel._artifact_extension_for_role("test_author") == ".py"
+
+    def test_implementer_gets_py(self):
+        assert ClaudeCodeChannel._artifact_extension_for_role("implementer") == ".py"
+
+    def test_unknown_role_gets_py(self):
+        assert ClaudeCodeChannel._artifact_extension_for_role("unknown") == ".py"

@@ -40,6 +40,7 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 037 | Escalation routing is a no-op for non-interface_spec work item types | high | proposed |
 | 031 | Gate process/runner coverage stuck at 54% — CLI/poll loops need integration tests | medium | proposed |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
 | 033 | Telemetry reporter skeleton (Wave 8) | medium | proposed |

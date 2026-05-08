@@ -54,6 +54,12 @@ class ClaudeCodeChannel:
     def family(self) -> str:
         return self._family
 
+    @staticmethod
+    def _artifact_extension_for_role(role: str) -> str:
+        if role == "interface_architect":
+            return ".pyi"
+        return ".py"
+
     def invoke(
         self,
         role: str,
@@ -132,9 +138,11 @@ class ClaudeCodeChannel:
                 exit_code=result.returncode,
             )
 
-        artifact_path = outputs_dir / "artifact.pyi"
+        ext = self._artifact_extension_for_role(role)
+        artifact_name = f"artifact{ext}"
+        artifact_path = outputs_dir / artifact_name
         artifact_path.write_text(artifact_content + "\n")
         return InvocationResult(
             success=True,
-            artifact_name="artifact.pyi",
+            artifact_name=artifact_name,
         )

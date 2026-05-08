@@ -4,6 +4,75 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-08 — Session 10: Wave 7 attempt — golden-run-002 FAILED, module resolution bug found and fixed, escalation no-op discovered
+
+**Invocation:** OpenCode (glm-5.1)
+
+**Focus:** Execute Wave 7 of Phase 2 implementation plan — golden-run-002 with real Claude CC across the full 3-stage pipeline (interface_spec → test_suite → implementation).
+
+**Result: Golden run FAILED. 15/15 interface_specs locked, 15/15 test_suites locked, 0/15 implementations locked. 238/238 unit tests pass, lint clean.**
+
+**Primary failure: Cross-work-item module resolution in subprocess gates.**
+
+The implementation gate's `_run_pytest` and `_run_mypy` could not resolve imports from the `interface` module because the interface `.pyi`, test suite `.py`, and implementation `.py` artifacts lived in separate work-item directories. Test suites import `from interface import ...` (the canonical module name for the locked interface contract), but the implementation file was named `artifact.py` and wasn't on any Python import path. Every implementation attempt failed with `ImportError` on pytest collection.
+
+**Fix applied:** Both `_run_pytest` and `_run_mypy` now create isolated temp directories with correct module names:
+- Implementation copied as both its original filename and `interface.py` (for pytest)
+- Interface `.pyi` copied alongside as `interface.pyi` (for mypy)
+- Test suite copied alongside
+
+**Secondary discovery: Escalation routing is a no-op (BC-037).**
+
+When the router escalates an implementation item after exceeding `attempt_threshold`, it produces `cannot_proceed_seam` diagnostics targeting `interface_architect`. But the item goes back to state `new`, and the worker's `type_to_role` mapping always sends implementation items to the `implementer` role. The implementer re-claims and produces another failing artifact. Items cycled up to 80 times after escalation fired. BC-037 filed.
+
+**Infrastructure changes:**
+
+1. `ClaudeCodeChannel` — `_artifact_extension_for_role()` method: writes `.pyi` for `interface_architect`, `.py` for `test_author`/`implementer`.
+2. `populate_work_items.py` — Phase 2 support: `--workflow phase2`, `--set` flag for primary/secondary/routing-stress/all. Secondary LoB items (AC-01/02/03) and routing-stress items (RS-01/RS-02) added.
+3. Routing-stress fixtures created:
+   - `RS-01-type_narrowing.md` — mypy-stress spec (safe_compute with type narrowing)
+   - `RS-02-chunked_process.md` — pytest-stress spec (boundary cases in chunked processing)
+4. `golden-run-002-config.yaml` — Phase 2 config with 3 worker roles + scheduler.
+
+**Golden run 002 forensic data:**
+
+| Metric | Value |
+|---|---|
+| Total work items created | 46 (16 interface_spec + 15 test_suite + 15 implementation) |
+| Interface specs locked (1st attempt) | 15/15 (100%) |
+| Adversarial in cannot_proceed | 1/1 (correct) |
+| Test suites locked (1st attempt) | 15/15 (100%) |
+| Implementations locked | 0/15 (0%) |
+| Total Claude CC invocations | 234 |
+| Wasted on implementation retry | ~203 (87%) |
+| Gate failures (all impl_pytest) | 203 |
+| Gate passes | 30 (15 iface + 15 tsuite) |
+| Scheduler handoffs | 30 (15 tsuite + 15 impl) |
+| Run duration | ~20 minutes |
+| Escalation trigger attempts | 8–80 per item (threshold=3) |
+
+**Files changed:**
+- `src/factory/claude_code_channel.py` — `_artifact_extension_for_role()` method
+- `src/factory/gate.py` — `_run_pytest` and `_run_mypy` rewritten with temp directory isolation
+- `tests/test_claude_code_channel.py` — 4 new tests for artifact extension
+- `populate_work_items.py` — Phase 2 workflow, item sets, routing-stress fixtures
+- `tests/fixtures/routing-stress/RS-01-type_narrowing.md` — new spec fixture
+- `tests/fixtures/routing-stress/RS-02-chunked_process.md` — new spec fixture
+- `golden-run-002-config.yaml` — Phase 2 run config
+- `golden-run-002-log.md` — post-mortem
+- `breadcrumbs/037-escalation-routing-no-op.md` — new breadcrumb
+- `breadcrumbs/README.md` — index updated
+
+**Test count:** 238 pass, 1 skip. Lint clean.
+
+**What remains for Wave 7:**
+- Fix BC-037 (escalation routing) before re-running
+- Re-run golden-run-002 with Claude budget available
+- Record artifacts into `tests/fixtures/golden-run-002/`
+- Write `tests/test_golden_run_002.py` replay test
+
+---
+
 ## 2026-05-08 — Session 9: Breadcrumb sweep, BC-035 fixed, BC-034 moved to resolved, substrate-054 filed, BC-036 immediately resolved by substrate
 
 **Invocation:** OpenCode (opencode)

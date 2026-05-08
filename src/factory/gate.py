@@ -322,27 +322,37 @@ def _is_forbidden_impl_import(module: str) -> bool:
 
 
 def _run_mypy(artifact_path: Path, interface_pyi_path: Path) -> GateResult:
+    import os
+    import tempfile
+
     mypy = shutil.which("mypy")
     if mypy is None:
         return GateResult(passed=True, gate_name="implementation_mypy")
+    if interface_pyi_path is None or not interface_pyi_path.exists():
+        return GateResult(passed=True, gate_name="implementation_mypy")
     try:
-        result = subprocess.run(
-            [mypy, "--strict", "--no-error-summary", str(artifact_path)],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            cwd=artifact_path.parent,
-            env={**__import__("os").environ, "MYPYPATH": str(interface_pyi_path.parent)},
-        )
-        if result.returncode != 0:
-            lines = result.stdout.strip().splitlines()
-            diagnostics = lines[:10] if lines else ["mypy reported errors"]
-            return GateResult(
-                passed=False,
-                gate_name="implementation_mypy",
-                diagnostics=diagnostics,
-                diagnostic_kind="impl_mypy",
+        with tempfile.TemporaryDirectory(prefix="sf2_mypy_") as tmpdir:
+            impl_copy = Path(tmpdir) / "interface.py"
+            impl_copy.write_text(artifact_path.read_text())
+            stub_copy = Path(tmpdir) / "interface.pyi"
+            stub_copy.write_text(interface_pyi_path.read_text())
+            result = subprocess.run(
+                [mypy, "--strict", "--no-error-summary", str(impl_copy)],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=tmpdir,
+                env={**os.environ, "MYPYPATH": tmpdir},
             )
+            if result.returncode != 0:
+                lines = result.stdout.strip().splitlines()
+                diagnostics = lines[:10] if lines else ["mypy reported errors"]
+                return GateResult(
+                    passed=False,
+                    gate_name="implementation_mypy",
+                    diagnostics=diagnostics,
+                    diagnostic_kind="impl_mypy",
+                )
     except subprocess.TimeoutExpired:
         return GateResult(
             passed=False,
@@ -361,37 +371,49 @@ def _run_mypy(artifact_path: Path, interface_pyi_path: Path) -> GateResult:
 
 
 def _run_pytest(artifact_path: Path, test_suite_path: Path) -> GateResult:
+    import os
+    import tempfile
+
     pytest_bin = shutil.which("pytest")
     if pytest_bin is None:
         return GateResult(passed=True, gate_name="implementation_pytest")
     try:
-        result = subprocess.run(
-            [
-                pytest_bin,
-                str(test_suite_path),
-                "-x",
-                "--tb=short",
-                "-q",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            cwd=artifact_path.parent,
-            env={
-                **__import__("os").environ,
-                "PYTHONPATH": str(artifact_path.parent),
-            },
-        )
-        if result.returncode != 0:
-            lines = result.stdout.strip().splitlines()
-            err_lines = result.stderr.strip().splitlines()
-            diagnostics = (lines + err_lines)[:10] or ["pytest reported failures"]
-            return GateResult(
-                passed=False,
-                gate_name="implementation_pytest",
-                diagnostics=diagnostics,
-                diagnostic_kind="impl_pytest",
+        with tempfile.TemporaryDirectory(prefix="sf2_pytest_") as tmpdir:
+            impl_content = artifact_path.read_text()
+            impl_copy = Path(tmpdir) / artifact_path.name
+            impl_copy.write_text(impl_content)
+            if artifact_path.stem != "interface":
+                iface_copy = Path(tmpdir) / f"interface{artifact_path.suffix}"
+                iface_copy.write_text(impl_content)
+            test_copy = Path(tmpdir) / test_suite_path.name
+            test_copy.write_text(test_suite_path.read_text())
+            result = subprocess.run(
+                [
+                    pytest_bin,
+                    str(test_copy),
+                    "-x",
+                    "--tb=short",
+                    "-q",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                cwd=tmpdir,
+                env={
+                    **os.environ,
+                    "PYTHONPATH": tmpdir,
+                },
             )
+            if result.returncode != 0:
+                lines = result.stdout.strip().splitlines()
+                err_lines = result.stderr.strip().splitlines()
+                diagnostics = (lines + err_lines)[:10] or ["pytest reported failures"]
+                return GateResult(
+                    passed=False,
+                    gate_name="implementation_pytest",
+                    diagnostics=diagnostics,
+                    diagnostic_kind="impl_pytest",
+                )
     except subprocess.TimeoutExpired:
         return GateResult(
             passed=False,

@@ -7,10 +7,12 @@ from pathlib import Path
 
 from substrate import Substrate
 
-FIXTURES_DIR = Path(__file__).resolve().parent / "tests" / "fixtures" / "primary-spec"
-WORKFLOW_PATH = Path(__file__).resolve().parent / "workflows" / "phase1.yaml"
+ROOT_DIR = Path(__file__).resolve().parent
+FIXTURES_DIR = ROOT_DIR / "tests" / "fixtures" / "primary-spec"
+SECONDARY_DIR = ROOT_DIR / "tests" / "fixtures" / "secondary-spec"
+ROUTING_STRESS_DIR = ROOT_DIR / "tests" / "fixtures" / "routing-stress"
 
-ITEMS = [
+PRIMARY_ITEMS = [
     ("01-acquire_claim.md", "01", "pure-interface", ["AC-06"]),
     ("02-register_workflow.md", "02", "pure-interface", ["AC-17"]),
     ("03-create_link.md", "03", "pure-interface", ["AC-22"]),
@@ -21,15 +23,48 @@ ITEMS = [
     ("08-create_work_item.md", "08", "ADT-validation", ["AC-02"]),
     ("09-query_work_items.md", "09", "ADT-validation", ["AC-05b"]),
     ("10-dead_letter.md", "10", "ADT-validation", ["AC-14"]),
+]
+
+ADVERSARIAL_ITEMS = [
     ("AA-adversarial.md", "AA", "adversarial", ["TS-ADV-01", "TS-ADV-02"]),
 ]
 
+SECONDARY_ITEMS = [
+    ("spec.md", "S1", "pure-interface", ["AC-01"]),
+    ("spec.md", "S2", "error-taxonomy", ["AC-02"]),
+    ("spec.md", "S3", "ADT-validation", ["AC-03"]),
+]
+
+ROUTING_STRESS_ITEMS = [
+    ("RS-01-type_narrowing.md", "RS1", "pure-interface", ["AC-RS1"]),
+    ("RS-02-chunked_process.md", "RS2", "pure-interface", ["AC-RS2"]),
+]
+
+ALL_ITEMS = PRIMARY_ITEMS + ADVERSARIAL_ITEMS + SECONDARY_ITEMS + ROUTING_STRESS_ITEMS
+
 DSN = "postgresql://substrate_test:substrate_test@localhost:5432/substrate_test"
-KEY_PATH = str(Path(__file__).resolve().parent / "tests" / "test_keys.json")
+KEY_PATH = str(ROOT_DIR / "tests" / "test_keys.json")
+
+
+def _resolve_spec_text(filename: str, label: str) -> str | None:
+    if label.startswith("S"):
+        path = SECONDARY_DIR / filename
+    elif label.startswith("RS"):
+        path = ROUTING_STRESS_DIR / filename
+    else:
+        path = FIXTURES_DIR / filename
+    if not path.exists():
+        return None
+    return path.read_text()
 
 
 def _open_or_create_project(
-    dsn: str, project: str, key_path: str, reset: bool, workspace_root: str | None = None
+    dsn: str,
+    project: str,
+    key_path: str,
+    workflow_path: Path,
+    reset: bool,
+    workspace_root: str | None = None,
 ) -> Substrate:
     if reset:
         from substrate._testing import drop_project_schema
@@ -48,13 +83,13 @@ def _open_or_create_project(
     try:
         sub = Substrate.create_project(dsn, project, key_path)
         print(f"Created project '{project}'")
-        sub.register_workflow_file(str(WORKFLOW_PATH))
+        sub.register_workflow_file(str(workflow_path))
         return sub
     except Exception as e:
         if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
             sub = Substrate(dsn, project, key_path)
             print(f"Connected to existing project '{project}'")
-            sub.register_workflow_file(str(WORKFLOW_PATH))
+            sub.register_workflow_file(str(workflow_path))
             return sub
         if reset:
             raise
@@ -90,35 +125,51 @@ def main():
         default=None,
         help="Workspace directory to clean on --reset (e.g. /tmp/sf2-golden-001)",
     )
+    parser.add_argument(
+        "--set",
+        type=str,
+        default="all",
+        choices=["primary", "secondary", "routing-stress", "all"],
+        help="Which item set to populate (default: all)",
+    )
+    parser.add_argument(
+        "--workflow",
+        type=str,
+        default="phase2",
+        choices=["phase1", "phase2"],
+        help="Workflow version to register (default: phase2)",
+    )
     args = parser.parse_args()
+
+    workflow_path = ROOT_DIR / "workflows" / f"{args.workflow}.yaml"
+    workflow_version = 1 if args.workflow == "phase1" else 2
+
+    if args.set == "primary":
+        items = PRIMARY_ITEMS + ADVERSARIAL_ITEMS
+    elif args.set == "secondary":
+        items = SECONDARY_ITEMS
+    elif args.set == "routing-stress":
+        items = ROUTING_STRESS_ITEMS
+    else:
+        items = ALL_ITEMS
+
     only_labels = set(args.only.split(",")) if args.only else None
 
     sub = _open_or_create_project(
-        args.dsn, args.project, args.key_path, args.reset, args.workspace_root
+        args.dsn, args.project, args.key_path, workflow_path, args.reset, args.workspace_root
     )
     actor_id = "factory-setup"
 
-    if args.skip_existing:
-        existing_ids = set()
-        page = sub.query_work_items(
-            workflow_name="software_factory",
-            workflow_version=1,
-            page_size=50,
-        )
-        for wi in page.items:
-            existing_ids.add(str(wi.work_item_id))
-
     created = []
     skipped = 0
-    for filename, label, shape, ac_ids in ITEMS:
+    for filename, label, shape, ac_ids in items:
         if only_labels is not None and label not in only_labels:
             skipped += 1
             continue
-        spec_path = FIXTURES_DIR / filename
-        if not spec_path.exists():
+        spec_text = _resolve_spec_text(filename, label)
+        if spec_text is None:
             print(f"  [{label}] SKIP: {filename} not found")
             continue
-        spec_text = spec_path.read_text()
         try:
             wi, _ = sub.create_work_item(
                 workflow_name="software_factory",
@@ -140,7 +191,7 @@ def main():
                 raise
 
     print(f"\nCreated {len(created)} work-items, skipped {skipped} existing, "
-          f"in project '{args.project}'")
+          f"in project '{args.project}' (workflow_version={workflow_version})")
     print("\nSummary:")
     for label, shape, wi_id in created:
         print(f"  {label}  {shape:20s}  {wi_id}")
