@@ -3,6 +3,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from factory.constants import (
+    ROLE_IMPLEMENTER,
+    ROLE_INTERFACE_ARCHITECT,
+    ROLE_TEST_AUTHOR,
+    STATE_CANNOT_PROCEED,
+    STATE_GATING,
+    STATE_LOCKED,
+    STATE_NEW,
+    TRANSITION_CHANNEL_FAIL,
+    TRANSITION_GATE_FAIL,
+    TRANSITION_GATE_PASS,
+)
 from factory.gate import GateResult
 
 
@@ -29,17 +41,17 @@ class DiagnosticKind(StrEnum):
 
 
 KIND_TO_ROLE: dict[DiagnosticKind, str] = {
-    DiagnosticKind.SYNTAX: "interface_architect",
-    DiagnosticKind.STUB: "interface_architect",
-    DiagnosticKind.STRUCTURAL_SEMANTICS: "interface_architect",
-    DiagnosticKind.FILE_EXISTS: "interface_architect",
-    DiagnosticKind.NOT_EMPTY: "interface_architect",
-    DiagnosticKind.CHANNEL_FAIL: "interface_architect",
-    DiagnosticKind.CANNOT_PROCEED: "interface_architect",
-    DiagnosticKind.UNKNOWN_TYPE: "interface_architect",
-    DiagnosticKind.GENERIC: "interface_architect",
-    DiagnosticKind.MISSING_DEPENDENCY: "interface_architect",
-    DiagnosticKind.MISSING_ARTIFACT: "interface_architect",
+    DiagnosticKind.SYNTAX: ROLE_INTERFACE_ARCHITECT,
+    DiagnosticKind.STUB: ROLE_INTERFACE_ARCHITECT,
+    DiagnosticKind.STRUCTURAL_SEMANTICS: ROLE_INTERFACE_ARCHITECT,
+    DiagnosticKind.FILE_EXISTS: ROLE_INTERFACE_ARCHITECT,
+    DiagnosticKind.NOT_EMPTY: ROLE_INTERFACE_ARCHITECT,
+    DiagnosticKind.CHANNEL_FAIL: ROLE_INTERFACE_ARCHITECT,
+    DiagnosticKind.CANNOT_PROCEED: ROLE_INTERFACE_ARCHITECT,
+    DiagnosticKind.UNKNOWN_TYPE: ROLE_INTERFACE_ARCHITECT,
+    DiagnosticKind.GENERIC: ROLE_INTERFACE_ARCHITECT,
+    DiagnosticKind.MISSING_DEPENDENCY: ROLE_INTERFACE_ARCHITECT,
+    DiagnosticKind.MISSING_ARTIFACT: ROLE_INTERFACE_ARCHITECT,
 }
 
 
@@ -79,80 +91,80 @@ class Route:
 
 _PHASE2_DISPATCH = {
     DiagnosticKind.SYNTAX: Route(
-        target_state="new",
-        target_role="interface_architect",
+        target_state=STATE_NEW,
+        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.STUB: Route(
-        target_state="new",
-        target_role="interface_architect",
+        target_state=STATE_NEW,
+        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.STRUCTURAL_SEMANTICS: Route(
-        target_state="new",
-        target_role="interface_architect",
+        target_state=STATE_NEW,
+        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.FILE_EXISTS: Route(
-        target_state="new",
-        target_role="interface_architect",
+        target_state=STATE_NEW,
+        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.NOT_EMPTY: Route(
-        target_state="new",
-        target_role="interface_architect",
+        target_state=STATE_NEW,
+        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.CHANNEL_FAIL: Route(
-        target_state="new",
-        target_role="interface_architect",
+        target_state=STATE_NEW,
+        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.CANNOT_PROCEED: Route(
-        target_state="cannot_proceed",
-        target_role="interface_architect",
+        target_state=STATE_CANNOT_PROCEED,
+        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.UNKNOWN_TYPE: Route(
-        target_state="new",
-        target_role="interface_architect",
+        target_state=STATE_NEW,
+        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.GENERIC: Route(
-        target_state="new",
-        target_role="interface_architect",
+        target_state=STATE_NEW,
+        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.TEST_AC_BINDING: Route(
-        target_state="new",
-        target_role="test_author",
+        target_state=STATE_NEW,
+        target_role=ROLE_TEST_AUTHOR,
     ),
     DiagnosticKind.TEST_COLLECT: Route(
-        target_state="new",
-        target_role="test_author",
+        target_state=STATE_NEW,
+        target_role=ROLE_TEST_AUTHOR,
     ),
     DiagnosticKind.TEST_IMPORT_FORBIDDEN: Route(
-        target_state="new",
-        target_role="test_author",
+        target_state=STATE_NEW,
+        target_role=ROLE_TEST_AUTHOR,
     ),
     DiagnosticKind.IMPL_MYPY: Route(
-        target_state="new",
-        target_role="implementer",
+        target_state=STATE_NEW,
+        target_role=ROLE_IMPLEMENTER,
     ),
     DiagnosticKind.IMPL_PYTEST: Route(
-        target_state="new",
-        target_role="implementer",
+        target_state=STATE_NEW,
+        target_role=ROLE_IMPLEMENTER,
     ),
     DiagnosticKind.IMPL_LINT: Route(
-        target_state="new",
-        target_role="implementer",
+        target_state=STATE_NEW,
+        target_role=ROLE_IMPLEMENTER,
     ),
     DiagnosticKind.IMPL_IMPORT: Route(
-        target_state="new",
-        target_role="implementer",
+        target_state=STATE_NEW,
+        target_role=ROLE_IMPLEMENTER,
     ),
     DiagnosticKind.CANNOT_PROCEED_SEAM: Route(
-        target_state="cannot_proceed",
-        target_role="interface_architect",
+        target_state=STATE_CANNOT_PROCEED,
+        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.MISSING_DEPENDENCY: Route(
-        target_state="cannot_proceed",
-        target_role="interface_architect",
+        target_state=STATE_CANNOT_PROCEED,
+        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.MISSING_ARTIFACT: Route(
-        target_state="new",
-        target_role="interface_architect",
+        target_state=STATE_NEW,
+        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
 }
 
@@ -181,10 +193,10 @@ def route(
     attempt_number: int = 0,
     attempt_threshold: int = 3,
 ) -> Route:
-    if current_state == "gating" and transition == "gate_pass":
-        return Route(target_state="locked")
+    if current_state == STATE_GATING and transition == TRANSITION_GATE_PASS:
+        return Route(target_state=STATE_LOCKED)
 
-    if current_state == "gating" and transition == "gate_fail":
+    if current_state == STATE_GATING and transition == TRANSITION_GATE_FAIL:
         if gate_result is not None:
             kind = _classify_diagnostic(gate_result)
             base = _PHASE2_DISPATCH.get(kind, Route(target_state="new"))
@@ -226,12 +238,12 @@ def route(
                     }
                 },
             )
-        return Route(target_state="new", diagnostic_kind=DiagnosticKind.GENERIC)
+        return Route(target_state=STATE_NEW, diagnostic_kind=DiagnosticKind.GENERIC)
 
-    if current_state == "new" and transition == "channel_fail":
+    if current_state == STATE_NEW and transition == TRANSITION_CHANNEL_FAIL:
         return Route(
-            target_state="new",
-            target_role="interface_architect",
+            target_state=STATE_NEW,
+            target_role=ROLE_INTERFACE_ARCHITECT,
             diagnostic_kind=DiagnosticKind.CHANNEL_FAIL,
         )
 

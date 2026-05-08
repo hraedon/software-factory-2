@@ -5,6 +5,24 @@ from pathlib import Path
 
 import yaml
 
+from factory.constants import (
+    ACTOR_ID_GATE,
+    ACTOR_ID_SCHEDULER,
+    ACTOR_ID_WORKER_PREFIX,
+    CHANNEL_CLAUDE_CODE,
+    CHANNEL_CODE,
+    FAMILY_ANTHROPIC,
+    FAMILY_CODE,
+    ROLE_IMPLEMENTER,
+    ROLE_INTERFACE_ARCHITECT,
+    ROLE_MECHANICAL_GATE,
+    ROLE_TEST_AUTHOR,
+    WORK_ITEM_TYPE_IMPLEMENTATION,
+    WORK_ITEM_TYPE_INTERFACE_SPEC,
+    WORK_ITEM_TYPE_TEST_SUITE,
+)
+from factory.workspace import WORK_DIR_NAME, WORK_SUBDIR
+
 
 @dataclass(frozen=True)
 class RoleConfig:
@@ -13,8 +31,16 @@ class RoleConfig:
     timeout_seconds: int = 600
     model: str | None = None
 
+    @property
+    def family(self) -> str:
+        if self.channel == CHANNEL_CLAUDE_CODE:
+            return FAMILY_ANTHROPIC
+        if self.channel == CHANNEL_CODE:
+            return FAMILY_CODE
+        return FAMILY_ANTHROPIC
 
-_DEFAULT_WORKSPACE = Path(".factory/work")
+
+_DEFAULT_WORKSPACE = Path(WORK_DIR_NAME) / WORK_SUBDIR
 
 
 @dataclass(frozen=True)
@@ -29,30 +55,43 @@ class FactoryConfig:
     poll_interval_seconds: int = 5
     claim_ttl_seconds: int = 300
     attempt_threshold: int = 3
-    worker_roles: tuple[str, ...] = ("interface_architect",)
-    gate_roles: tuple[str, ...] = ("mechanical_gate",)
-    type_to_role: tuple[tuple[str, str], ...] = (("interface_spec", "interface_architect"),)
+    worker_roles: tuple[str, ...] = (ROLE_INTERFACE_ARCHITECT,)
+    gate_roles: tuple[str, ...] = (ROLE_MECHANICAL_GATE,)
+    type_to_role: tuple[tuple[str, str], ...] = (
+        (WORK_ITEM_TYPE_INTERFACE_SPEC, ROLE_INTERFACE_ARCHITECT),
+    )
     roles: tuple[RoleConfig, ...] = (
-        RoleConfig(role="interface_architect", channel="claude-code"),
-        RoleConfig(role="mechanical_gate", channel="code"),
+        RoleConfig(role=ROLE_INTERFACE_ARCHITECT, channel=CHANNEL_CLAUDE_CODE),
+        RoleConfig(role=ROLE_MECHANICAL_GATE, channel=CHANNEL_CODE),
     )
 
     PHASE2_WORKER_ROLES: tuple[str, ...] = (
-        "interface_architect",
-        "test_author",
-        "implementer",
+        ROLE_INTERFACE_ARCHITECT,
+        ROLE_TEST_AUTHOR,
+        ROLE_IMPLEMENTER,
     )
     PHASE2_TYPE_TO_ROLE: tuple[tuple[str, str], ...] = (
-        ("interface_spec", "interface_architect"),
-        ("test_suite", "test_author"),
-        ("implementation", "implementer"),
+        (WORK_ITEM_TYPE_INTERFACE_SPEC, ROLE_INTERFACE_ARCHITECT),
+        (WORK_ITEM_TYPE_TEST_SUITE, ROLE_TEST_AUTHOR),
+        (WORK_ITEM_TYPE_IMPLEMENTATION, ROLE_IMPLEMENTER),
     )
     PHASE2_ROLES: tuple[RoleConfig, ...] = (
-        RoleConfig(role="interface_architect", channel="claude-code"),
-        RoleConfig(role="test_author", channel="claude-code"),
-        RoleConfig(role="implementer", channel="claude-code"),
-        RoleConfig(role="mechanical_gate", channel="code"),
+        RoleConfig(role=ROLE_INTERFACE_ARCHITECT, channel=CHANNEL_CLAUDE_CODE),
+        RoleConfig(role=ROLE_TEST_AUTHOR, channel=CHANNEL_CLAUDE_CODE),
+        RoleConfig(role=ROLE_IMPLEMENTER, channel=CHANNEL_CLAUDE_CODE),
+        RoleConfig(role=ROLE_MECHANICAL_GATE, channel=CHANNEL_CODE),
     )
+
+    def worker_actor_id(self, channel_name: str) -> str:
+        return f"{ACTOR_ID_WORKER_PREFIX}-{channel_name}"
+
+    @property
+    def gate_actor_id(self) -> str:
+        return ACTOR_ID_GATE
+
+    @property
+    def scheduler_actor_id(self) -> str:
+        return ACTOR_ID_SCHEDULER
 
     def get_role_config(self, role: str) -> RoleConfig | None:
         for rc in self.roles:

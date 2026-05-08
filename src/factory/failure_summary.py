@@ -5,13 +5,19 @@ from dataclasses import dataclass
 
 from substrate import Substrate
 
+from factory.constants import (
+    TRANSITION_CHANNEL_FAIL,
+    TRANSITION_GATE_ESCALATION,
+    TRANSITION_GATE_FAIL,
+)
+
 
 @dataclass(frozen=True)
 class FailureEntry:
     attempt_number: int
     role: str
     channel: str
-    failure_type: str = "gate_fail"
+    failure_type: str = TRANSITION_GATE_FAIL
     gate_name: str = ""
     diagnostic: str = ""
     error_message: str = ""
@@ -24,7 +30,7 @@ def derive_failures(substrate: Substrate, work_item_id: str) -> list[FailureEntr
     events = substrate.read_events(work_item_id=work_item_id, limit=1000)
     failures: list[FailureEntry] = []
     for event in events:
-        if event.transition in ("gate_fail", "gate_escalation"):
+        if event.transition in (TRANSITION_GATE_FAIL, TRANSITION_GATE_ESCALATION):
             meta = event.actor_metadata or {}
             diagnostics = {}
             if event.payload and "diagnostics" in event.payload:
@@ -40,7 +46,7 @@ def derive_failures(substrate: Substrate, work_item_id: str) -> list[FailureEntr
                     actor_metadata=meta,
                 )
             )
-        elif event.transition == "channel_fail":
+        elif event.transition == TRANSITION_CHANNEL_FAIL:
             payload = event.payload or {}
             meta = event.actor_metadata or {}
             diagnostics = payload.get("diagnostics", {})
@@ -49,7 +55,7 @@ def derive_failures(substrate: Substrate, work_item_id: str) -> list[FailureEntr
                     attempt_number=_attempt_from_meta(meta),
                     role=meta.get("role", "unknown"),
                     channel=meta.get("channel", "unknown"),
-                    failure_type="channel_fail",
+                    failure_type=TRANSITION_CHANNEL_FAIL,
                     error_message=diagnostics.get("error_message", ""),
                     timed_out=bool(diagnostics.get("timed_out", False)),
                     exit_code=diagnostics.get("exit_code"),
@@ -68,9 +74,9 @@ def failures_to_json(failures: list[FailureEntry]) -> str:
             "channel": f.channel,
             "failure_type": f.failure_type,
         }
-        if f.failure_type in ("gate_fail", "gate_escalation"):
+        if f.failure_type in (TRANSITION_GATE_FAIL, TRANSITION_GATE_ESCALATION):
             d.update(gate_name=f.gate_name, diagnostic=f.diagnostic)
-        elif f.failure_type == "channel_fail":
+        elif f.failure_type == TRANSITION_CHANNEL_FAIL:
             d.update(error_message=f.error_message, timed_out=f.timed_out)
             if f.exit_code is not None:
                 d["exit_code"] = f.exit_code

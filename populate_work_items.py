@@ -7,6 +7,14 @@ from pathlib import Path
 
 from substrate import Substrate
 
+from factory.constants import (
+    CUSTOM_FIELD_AC_IDS,
+    CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_SPEC_SECTION,
+    WORK_ITEM_TYPE_INTERFACE_SPEC,
+)
+from factory.config import FactoryConfig
+
 ROOT_DIR = Path(__file__).resolve().parent
 FIXTURES_DIR = ROOT_DIR / "tests" / "fixtures" / "primary-spec"
 SECONDARY_DIR = ROOT_DIR / "tests" / "fixtures" / "secondary-spec"
@@ -42,8 +50,8 @@ ROUTING_STRESS_ITEMS = [
 
 ALL_ITEMS = PRIMARY_ITEMS + ADVERSARIAL_ITEMS + SECONDARY_ITEMS + ROUTING_STRESS_ITEMS
 
-DSN = "postgresql://substrate_test:substrate_test@localhost:5432/substrate_test"
-KEY_PATH = str(ROOT_DIR / "tests" / "test_keys.json")
+_PRIMARY_DSN = "postgresql://substrate_test:substrate_test@localhost:5432/substrate_test"
+_KEY_PATH = str(ROOT_DIR / "tests" / "test_keys.json")
 
 
 def _resolve_spec_text(filename: str, label: str) -> str | None:
@@ -103,8 +111,8 @@ def main():
 
     parser = ArgumentParser(description="Populate SF2 work-items from fixture specs")
     parser.add_argument("--project", default="sf2_test", help="Substrate project name")
-    parser.add_argument("--dsn", default=DSN, help="Postgres connection string")
-    parser.add_argument("--key-path", default=KEY_PATH, help="Path to HMAC key file")
+    parser.add_argument("--dsn", default=_PRIMARY_DSN, help="Postgres connection string")
+    parser.add_argument("--key-path", default=_KEY_PATH, help="Path to HMAC key file")
     parser.add_argument(
         "--reset", action="store_true", help="Drop and recreate the project before populating"
     )
@@ -158,6 +166,7 @@ def main():
     sub = _open_or_create_project(
         args.dsn, args.project, args.key_path, workflow_path, args.reset, args.workspace_root
     )
+    _config = FactoryConfig()
     actor_id = "factory-setup"
 
     created = []
@@ -172,12 +181,12 @@ def main():
             continue
         try:
             wi, _ = sub.create_work_item(
-                workflow_name="software_factory",
-                work_item_type="interface_spec",
+                workflow_name=_config.workflow_name,
+                work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
                 actor_id=actor_id,
                 custom_fields={
-                    "spec_section": spec_text,
-                    "ac_ids": ac_ids,
+                    CUSTOM_FIELD_SPEC_SECTION: spec_text,
+                    CUSTOM_FIELD_AC_IDS: ac_ids,
                     "shape": shape,
                 },
             )

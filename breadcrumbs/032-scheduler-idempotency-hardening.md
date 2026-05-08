@@ -7,7 +7,7 @@ kind: improvement
 author: opencode
 date: "2026-05-07"
 tags: [scheduler, runner]
-related: []
+related: ["058"]
 ---
 
 ## Problem

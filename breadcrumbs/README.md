@@ -44,11 +44,10 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 056 | No single-source-of-truth rule for default values — v1 'string constant gravity' pattern risk | high | proposed |
+| 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | proposed |
 | 031 | Gate process/runner coverage stuck at 54% — CLI/poll loops need integration tests | medium | proposed |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
 | 033 | Telemetry reporter skeleton (Wave 8) | medium | proposed |
-| 045 | report.py hardcodes workflow_version=1 — cannot report on Phase 2 runs | medium | proposed |
 | 057 | Dead code audit — no CI enforcement for unused code accumulation | low | proposed |
 
 ### RFCs (awaiting upstream phases)
@@ -67,6 +66,8 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 056 | No single-source-of-truth rule for default values — v1 'string constant gravity' pattern risk | high | Created factory/constants.py; all identifier strings centralized; FactoryConfig.gate_actor_id/worker_actor_id/scheduler_actor_id properties; RoleConfig.family property; 264 tests pass |
+| 045 | report.py hardcodes workflow_version=1 — cannot report on Phase 2 runs | medium | report.py now reads workflow_name and workflow_version from FactoryConfig; remaining reporting improvements deferred to BC-033 |
 | 054 | No PipelineRuntime namespace — live objects mix with serializable state (v1 BC-361 pattern) | high | Introduced PipelineRuntime frozen dataclass; refactored runner.py, gate_process.py, scheduler.py to use it; 256 tests pass |
 | 055 | Stage contracts must be blocking from day one, not warn-and-continue (v1 BC-358 pattern) | high | Gate now fails on missing/absent required refs (missing_dependency, missing_artifact); added DiagnosticKind routing; 8 contract tests; 264 total pass |
 | 051 | spec.md still cites BC-021 as Phase 1 blocker — substrate hooks appear to work | medium | Updated spec.md §8 to reflect that BC-021 is historical; added cross-ref to BC-051 |

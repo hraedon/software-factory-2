@@ -2,7 +2,7 @@
 number: "056"
 title: "No single-source-of-truth rule for default values — v1 'string constant gravity' pattern risk"
 severity: high
-status: proposed
+status: resolved
 kind: design
 author: adversarial-review
 date: "2026-05-08"
@@ -30,3 +30,15 @@ None of these are yet a problem (single-channel, single-worker mode), but each i
 2. Move `actor_id` generation into config (or a `PipelineRuntime` namespace per BC-054).
 3. Move channel `family` into `FactoryConfig` (or `RoleConfig`) rather than hardcoding in each adapter.
 4. Wire `report.py` to read config rather than hardcoding connection params.
+
+## Resolution
+
+Created `factory/constants.py` as the single source of truth for all identifier strings used across the codebase. Every string that appeared in more than one file — work item types, role names, state names, transition names, custom field keys, link types, channel names, actor IDs, artifact filenames, tempfile prefixes, and provider-family mappings — now lives in one module and is imported everywhere else.
+
+Specific changes:
+
+1. `AGENTS.md` already had the convention (added during BC-056 proposal). Verified it is present.
+2. `factory/constants.py` — new module with 40+ named constants: `WORK_ITEM_TYPE_*`, `ROLE_*`, `CHANNEL_*`, `FAMILY_*`, `STATE_*`, `TRANSITION_*`, `LINK_TYPE_*`, `CUSTOM_FIELD_*`, `ACTOR_ID_*`, `ACTOR_KIND_*`, `ARTIFACT_FILENAME_*`, `TEMPFILE_PREFIX_*`, `FAMILY_BY_PROVIDER`.
+3. `FactoryConfig` now references constants for all default values; added `worker_actor_id(channel_name)`, `gate_actor_id`, and `scheduler_actor_id` properties. `RoleConfig.family` property derives family from channel name.
+4. All 11 source files refactored to import from `constants.py` instead of bare strings: `runner.py`, `gate_process.py`, `scheduler.py`, `router.py`, `context.py`, `failure_summary.py`, `claude_code_channel.py`, `opencode_channel.py`, `gate.py`, `report.py`, `populate_work_items.py`.
+5. 264 tests pass, 0 lint errors.

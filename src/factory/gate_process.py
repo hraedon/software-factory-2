@@ -9,6 +9,23 @@ import structlog
 from substrate import ActorMetadata, Substrate
 
 from factory.config import FactoryConfig, load_config
+from factory.constants import (
+    CHANNEL_CODE,
+    CUSTOM_FIELD_AC_IDS,
+    CUSTOM_FIELD_ARTIFACT_PATH,
+    CUSTOM_FIELD_DIAGNOSTICS,
+    CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_TEST_SUITE_REF,
+    FAMILY_CODE,
+    STATE_CANNOT_PROCEED,
+    STATE_GATING,
+    TRANSITION_GATE_ESCALATION,
+    TRANSITION_GATE_FAIL,
+    TRANSITION_GATE_PASS,
+    WORK_ITEM_TYPE_IMPLEMENTATION,
+    WORK_ITEM_TYPE_INTERFACE_SPEC,
+    WORK_ITEM_TYPE_TEST_SUITE,
+)
 from factory.context import _to_uuid
 from factory.gate import (
     GateResult,
@@ -34,7 +51,7 @@ def run_gate(config: FactoryConfig) -> None:
 def gate_loop(runtime: PipelineRuntime) -> None:
     sub = runtime.sub
     config = runtime.config
-    actor_id = "factory-gate-code"
+    actor_id = config.gate_actor_id
     for role_name in config.gate_roles:
         sub.register_actor_role(actor_id, role_name)
     poll_interval = config.poll_interval_seconds
@@ -53,7 +70,7 @@ def gate_loop(runtime: PipelineRuntime) -> None:
         page = sub.query_work_items(
             workflow_name=config.workflow_name,
             workflow_version=config.workflow_version,
-            current_states=["gating"],
+            current_states=[STATE_GATING],
             claimable_now=True,
             page_size=10,
         )
@@ -79,7 +96,7 @@ def gate_loop(runtime: PipelineRuntime) -> None:
 def _resolve_ref_artifact(sub: Substrate, ref: str) -> Path | None:
     wi = sub.get_work_item(_to_uuid(ref))
     if wi and wi.custom_fields:
-        ref_path = wi.custom_fields.get("artifact_path")
+        ref_path = wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
         if ref_path:
             return Path(ref_path)
     return None
@@ -95,8 +112,8 @@ def process_gate_item(
     config = runtime.config
     work_item_id = wi.work_item_id
     custom = wi.custom_fields or {}
-    artifact_path_str = custom.get("artifact_path", "")
-    ac_ids_raw = custom.get("ac_ids", [])
+    artifact_path_str = custom.get(CUSTOM_FIELD_ARTIFACT_PATH, "")
+    ac_ids_raw = custom.get(CUSTOM_FIELD_AC_IDS, [])
     ac_ids = ac_ids_raw if isinstance(ac_ids_raw, list) else [ac_ids_raw]
     artifact_path = Path(artifact_path_str) if artifact_path_str else None
 
@@ -108,10 +125,10 @@ def process_gate_item(
             artifact_valid=False,
             diagnostic_kind="file_exists",
         )
-    elif wi.work_item_type == "interface_spec":
+    elif wi.work_item_type == WORK_ITEM_TYPE_INTERFACE_SPEC:
         gate_result = evaluate_interface_spec(artifact_path, ac_ids=ac_ids)
-    elif wi.work_item_type == "test_suite":
-        interface_ref = custom.get("interface_ref")
+    elif wi.work_item_type == WORK_ITEM_TYPE_TEST_SUITE:
+        interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
         if not interface_ref:
             gate_result = GateResult(
                 passed=False,
@@ -149,9 +166,9 @@ def process_gate_item(
                     artifact_path,
                     interface_ref_pyi_path=interface_pyi_path,
                 )
-    elif wi.work_item_type == "implementation":
-        interface_ref = custom.get("interface_ref")
-        test_suite_ref = custom.get("test_suite_ref")
+    elif wi.work_item_type == WORK_ITEM_TYPE_IMPLEMENTATION:
+        interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
+        test_suite_ref = custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
         if not interface_ref:
             gate_result = GateResult(
                 passed=False,
@@ -226,14 +243,16 @@ def process_gate_item(
             diagnostics=[f"Unknown work_item_type: {wi.work_item_type}"],
         )
 
+    gate_role = config.gate_roles[0]
+    gate_rc = config.get_role_config(gate_role)
     actor_metadata = ActorMetadata(
-        role="mechanical_gate",
-        channel="code",
-        family="code",
+        role=gate_role,
+        channel=gate_rc.channel if gate_rc else CHANNEL_CODE,
+        family=gate_rc.family if gate_rc else FAMILY_CODE,
         attempt_n=claim.attempt_number,
     ).to_dict()
 
-    transition_name = "gate_pass" if gate_result.passed else "gate_fail"
+    transition_name = TRANSITION_GATE_PASS if gate_result.passed else TRANSITION_GATE_FAIL
     routing = route(
         wi.current_state,
         transition_name,
@@ -250,9 +269,9 @@ def process_gate_item(
         )
         log.info("gate_passed", work_item_id=str(work_item_id))
     else:
-        if routing.target_state == "cannot_proceed":
-            transition_name = "gate_escalation"
-        diagnostics = routing.custom_fields_update.get("diagnostics", {})
+        if routing.target_state == STATE_CANNOT_PROCEED:
+            transition_name = TRANSITION_GATE_ESCALATION
+        diagnostics = routing.custom_fields_update.get(CUSTOM_FIELD_DIAGNOSTICS, {})
         if not diagnostics:
             diagnostics = {
                 "gate_name": gate_result.gate_name,
@@ -271,7 +290,9 @@ def process_gate_item(
             custom_fields={"diagnostics": diagnostics},
         )
         log.info(
-            "gate_escalation" if transition_name == "gate_escalation" else "gate_failed",
+            TRANSITION_GATE_ESCALATION
+            if transition_name == TRANSITION_GATE_ESCALATION
+            else "gate_failed",
             work_item_id=str(work_item_id),
             gate=gate_result.gate_name,
         )

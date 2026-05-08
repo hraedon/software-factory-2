@@ -6,6 +6,13 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from factory.constants import (
+    ARTIFACT_FILENAME_INTERFACE,
+    TEMPFILE_PREFIX_COLLECT,
+    TEMPFILE_PREFIX_MYPY,
+    TEMPFILE_PREFIX_PYTEST,
+)
+
 
 @dataclass(frozen=True)
 class GateResult:
@@ -332,7 +339,7 @@ def _run_pytest_collect(
     if pytest_bin is None:
         return GateResult(passed=True, gate_name="test_suite_collect")
     try:
-        with tempfile.TemporaryDirectory(prefix="sf2_collect_") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_COLLECT) as tmpdir:
             test_copy = Path(tmpdir) / artifact_path.name
             test_copy.write_text(artifact_path.read_text())
             if interface_ref_pyi_path is not None and interface_ref_pyi_path.exists():
@@ -392,7 +399,7 @@ def _run_mypy(artifact_path: Path, interface_pyi_path: Path) -> GateResult:
     if interface_pyi_path is None or not interface_pyi_path.exists():
         return GateResult(passed=True, gate_name="implementation_mypy")
     try:
-        with tempfile.TemporaryDirectory(prefix="sf2_mypy_") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_MYPY) as tmpdir:
             impl_copy = Path(tmpdir) / "interface.py"
             impl_copy.write_text(artifact_path.read_text())
             stub_copy = Path(tmpdir) / "interface.pyi"
@@ -439,11 +446,11 @@ def _run_pytest(artifact_path: Path, test_suite_path: Path) -> GateResult:
     if pytest_bin is None:
         return GateResult(passed=True, gate_name="implementation_pytest")
     try:
-        with tempfile.TemporaryDirectory(prefix="sf2_pytest_") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_PYTEST) as tmpdir:
             impl_content = artifact_path.read_text()
             impl_copy = Path(tmpdir) / artifact_path.name
             impl_copy.write_text(impl_content)
-            if artifact_path.stem != "interface":
+            if artifact_path.stem != ARTIFACT_FILENAME_INTERFACE:
                 iface_copy = Path(tmpdir) / f"interface{artifact_path.suffix}"
                 iface_copy.write_text(impl_content)
             test_copy = Path(tmpdir) / test_suite_path.name

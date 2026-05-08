@@ -9,6 +9,15 @@ from typing import Any
 
 from substrate import Substrate
 
+from factory.constants import (
+    CUSTOM_FIELD_AC_IDS,
+    CUSTOM_FIELD_ARTIFACT_PATH,
+    CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_SPEC_SECTION,
+    CUSTOM_FIELD_TEST_SUITE_REF,
+    ROLE_IMPLEMENTER,
+    ROLE_TEST_AUTHOR,
+)
 from factory.failure_summary import FailureEntry, derive_failures
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -45,8 +54,8 @@ def derive_context(
     if wi is None:
         raise ValueError(f"Work item {work_item_id} not found")
     custom = wi.custom_fields or {}
-    spec_section = custom.get("spec_section", "")
-    ac_ids_raw = custom.get("ac_ids", [])
+    spec_section = custom.get(CUSTOM_FIELD_SPEC_SECTION, "")
+    ac_ids_raw = custom.get(CUSTOM_FIELD_AC_IDS, [])
     ac_ids = ac_ids_raw if isinstance(ac_ids_raw, list) else [ac_ids_raw]
     failures = derive_failures(substrate, work_item_id)
     prompt_path = PROMPTS_DIR / f"{role}.md"
@@ -83,12 +92,12 @@ def derive_test_author_context(
         raise ValueError(f"Work item {work_item_id} not found")
     custom = wi.custom_fields or {}
 
-    interface_ref = custom.get("interface_ref")
+    interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
     locked_interface = ""
     if interface_ref:
         ref_wi = substrate.get_work_item(_to_uuid(interface_ref))
         if ref_wi and ref_wi.custom_fields:
-            ref_path = ref_wi.custom_fields.get("artifact_path")
+            ref_path = ref_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
             if ref_path:
                 p = Path(ref_path)
                 if p.exists():
@@ -101,7 +110,7 @@ def derive_test_author_context(
     return derive_context(
         substrate,
         work_item_id,
-        role="test_author",
+        role=ROLE_TEST_AUTHOR,
         spec_content=spec_content,
         spec_glossary=spec_glossary,
         extra_artifacts=extra_artifacts,
@@ -120,8 +129,8 @@ def derive_implementer_context(
         raise ValueError(f"Work item {work_item_id} not found")
     custom = wi.custom_fields or {}
 
-    interface_ref = custom.get("interface_ref")
-    test_suite_ref = custom.get("test_suite_ref")
+    interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
+    test_suite_ref = custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
 
     locked_interface = ""
     test_suite = ""
@@ -129,7 +138,7 @@ def derive_implementer_context(
     if interface_ref:
         ref_wi = substrate.get_work_item(_to_uuid(interface_ref))
         if ref_wi and ref_wi.custom_fields:
-            ref_path = ref_wi.custom_fields.get("artifact_path")
+            ref_path = ref_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
             if ref_path:
                 p = Path(ref_path)
                 if p.exists():
@@ -138,7 +147,7 @@ def derive_implementer_context(
     if test_suite_ref:
         ref_wi = substrate.get_work_item(_to_uuid(test_suite_ref))
         if ref_wi and ref_wi.custom_fields:
-            ref_path = ref_wi.custom_fields.get("artifact_path")
+            ref_path = ref_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
             if ref_path:
                 p = Path(ref_path)
                 if p.exists():
@@ -153,7 +162,7 @@ def derive_implementer_context(
     return derive_context(
         substrate,
         work_item_id,
-        role="implementer",
+        role=ROLE_IMPLEMENTER,
         spec_content=spec_content,
         spec_glossary=spec_glossary,
         extra_artifacts=extra_artifacts,

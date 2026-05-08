@@ -6,21 +6,37 @@ import uuid as _uuid
 import structlog
 
 from factory.config import FactoryConfig
+from factory.constants import (
+    ACTOR_KIND_AGENT,
+    CUSTOM_FIELD_AC_IDS,
+    CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_SPEC_SECTION,
+    CUSTOM_FIELD_TEST_SUITE_REF,
+    LINK_TYPE_DERIVED_FROM,
+    LINK_TYPE_IMPLEMENTS,
+    LINK_TYPE_TESTED_BY,
+    ROLE_IMPLEMENTER,
+    ROLE_TEST_AUTHOR,
+    STATE_LOCKED,
+    WORK_ITEM_TYPE_IMPLEMENTATION,
+    WORK_ITEM_TYPE_INTERFACE_SPEC,
+    WORK_ITEM_TYPE_TEST_SUITE,
+)
 from factory.runtime import PipelineRuntime
 
 log = structlog.get_logger()
 
 _STAGE_HANDOFF = {
-    ("interface_spec", "locked"): {
-        "next_type": "test_suite",
-        "link_type": "derived_from",
-        "next_role": "test_author",
+    (WORK_ITEM_TYPE_INTERFACE_SPEC, STATE_LOCKED): {
+        "next_type": WORK_ITEM_TYPE_TEST_SUITE,
+        "link_type": LINK_TYPE_DERIVED_FROM,
+        "next_role": ROLE_TEST_AUTHOR,
     },
-    ("test_suite", "locked"): {
-        "next_type": "implementation",
-        "link_type": "tested_by",
-        "additional_links": ["implements"],
-        "next_role": "implementer",
+    (WORK_ITEM_TYPE_TEST_SUITE, STATE_LOCKED): {
+        "next_type": WORK_ITEM_TYPE_IMPLEMENTATION,
+        "link_type": LINK_TYPE_TESTED_BY,
+        "additional_links": [LINK_TYPE_IMPLEMENTS],
+        "next_role": ROLE_IMPLEMENTER,
     },
 }
 
@@ -100,20 +116,20 @@ def _ensure_downstream_item(
     extra = {}
     if ref_field:
         extra[ref_field] = str(source_wi.work_item_id)
-    if next_type == "implementation":
-        iface_ref = custom.get("interface_ref")
+    if next_type == WORK_ITEM_TYPE_IMPLEMENTATION:
+        iface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
         if iface_ref:
-            extra["interface_ref"] = iface_ref
+            extra[CUSTOM_FIELD_INTERFACE_REF] = iface_ref
 
     downstream, _ = sub.create_work_item(
         workflow_name=config.workflow_name,
         work_item_type=next_type,
-        actor_id="factory-scheduler",
-        actor_kind="agent",
+        actor_id=config.scheduler_actor_id,
+        actor_kind=ACTOR_KIND_AGENT,
         actor_metadata={"role": next_role},
         custom_fields={
-            "spec_section": custom.get("spec_section", ""),
-            "ac_ids": custom.get("ac_ids", []),
+            CUSTOM_FIELD_SPEC_SECTION: custom.get(CUSTOM_FIELD_SPEC_SECTION, ""),
+            CUSTOM_FIELD_AC_IDS: custom.get(CUSTOM_FIELD_AC_IDS, []),
             **extra,
         },
     )
@@ -122,20 +138,20 @@ def _ensure_downstream_item(
         from_work_item_id=downstream.work_item_id,
         to_work_item_id=source_wi.work_item_id,
         link_type=link_type,
-        actor_id="factory-scheduler",
-        actor_kind="agent",
+        actor_id=config.scheduler_actor_id,
+        actor_kind=ACTOR_KIND_AGENT,
     )
 
     for extra_link_type in additional_links:
-        if extra_link_type == "implements":
-            interface_ref = custom.get("interface_ref")
+        if extra_link_type == LINK_TYPE_IMPLEMENTS:
+            interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
             if interface_ref:
                 sub.create_link(
                     from_work_item_id=downstream.work_item_id,
                     to_work_item_id=_uuid.UUID(interface_ref),
-                    link_type="implements",
-                    actor_id="factory-scheduler",
-                    actor_kind="agent",
+                    link_type=LINK_TYPE_IMPLEMENTS,
+                    actor_id=config.scheduler_actor_id,
+                    actor_kind=ACTOR_KIND_AGENT,
                 )
 
     log.info(
@@ -148,10 +164,10 @@ def _ensure_downstream_item(
 
 
 def _ref_field_for(next_type: str) -> str | None:
-    if next_type == "test_suite":
-        return "interface_ref"
-    if next_type == "implementation":
-        return "test_suite_ref"
+    if next_type == WORK_ITEM_TYPE_TEST_SUITE:
+        return CUSTOM_FIELD_INTERFACE_REF
+    if next_type == WORK_ITEM_TYPE_IMPLEMENTATION:
+        return CUSTOM_FIELD_TEST_SUITE_REF
     return None
 
 

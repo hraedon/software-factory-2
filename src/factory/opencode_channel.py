@@ -7,25 +7,24 @@ from pathlib import Path
 
 from factory.channel import InvocationResult
 from factory.config import FactoryConfig
+from factory.constants import (
+    ARTIFACT_FILENAME_CANNOT_PROCEED,
+    ARTIFACT_FILENAME_RAW_STDOUT,
+    CHANNEL_OPENCODE,
+    FAMILY_BY_PROVIDER,
+    FAMILY_OPENCODE,
+    ROLE_INTERFACE_ARCHITECT,
+)
 from factory.output_extraction import extract_artifact_from_output, extract_json_from_output
 
 log = logging.getLogger(__name__)
 
-# Mapping from model provider prefix to family name for telemetry.
-_FAMILY_BY_PROVIDER: dict[str, str] = {
-    "zai-coding-plan": "zai",
-    "ollama-cloud": "ollama",
-    "fireworks-ai": "fireworks",
-    "opencode": "opencode-free",
-    "mac-studio-lms": "local-lms",
-}
-
 
 def _derive_family(model: str | None) -> str:
     if not model:
-        return "opencode"
+        return FAMILY_OPENCODE
     prefix = model.split("/")[0]
-    return _FAMILY_BY_PROVIDER.get(prefix, prefix)
+    return FAMILY_BY_PROVIDER.get(prefix, prefix)
 
 
 class OpenCodeChannel:
@@ -35,17 +34,17 @@ class OpenCodeChannel:
 
     @property
     def name(self) -> str:
-        return "opencode"
+        return CHANNEL_OPENCODE
 
     @property
     def family(self) -> str:
         if self._family_override is not None:
             return self._family_override
-        return "opencode"
+        return FAMILY_OPENCODE
 
     @staticmethod
     def _artifact_extension_for_role(role: str) -> str:
-        if role == "interface_architect":
+        if role == ROLE_INTERFACE_ARCHITECT:
             return ".pyi"
         return ".py"
 
@@ -105,7 +104,7 @@ class OpenCodeChannel:
             )
 
         output_text = result.stdout
-        raw_path = outputs_dir / "raw_stdout.txt"
+        raw_path = outputs_dir / ARTIFACT_FILENAME_RAW_STDOUT
         raw_path.write_text(output_text)
 
         if not output_text.strip():
@@ -118,7 +117,7 @@ class OpenCodeChannel:
 
         json_data = extract_json_from_output(output_text)
         if json_data is not None and json_data.get("status") == "cannot_proceed":
-            cp_path = outputs_dir / "cannot_proceed.json"
+            cp_path = outputs_dir / ARTIFACT_FILENAME_CANNOT_PROCEED
             cp_path.write_text(json.dumps(json_data, indent=2))
             return InvocationResult(
                 success=False,

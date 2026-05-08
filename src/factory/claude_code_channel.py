@@ -7,6 +7,13 @@ from pathlib import Path
 
 from factory.channel import InvocationResult
 from factory.config import FactoryConfig
+from factory.constants import (
+    ARTIFACT_FILENAME_CANNOT_PROCEED,
+    ARTIFACT_FILENAME_RAW_STDOUT,
+    CHANNEL_CLAUDE_CODE,
+    FAMILY_ANTHROPIC,
+    ROLE_INTERFACE_ARCHITECT,
+)
 from factory.output_extraction import extract_artifact_from_output, extract_json_from_output
 
 log = logging.getLogger(__name__)
@@ -23,17 +30,17 @@ class ClaudeCodeChannel:
 
     @property
     def name(self) -> str:
-        return "claude-code"
+        return CHANNEL_CLAUDE_CODE
 
     @property
     def family(self) -> str:
         if self._family_override is not None:
             return self._family_override
-        return "anthropic"
+        return FAMILY_ANTHROPIC
 
     @staticmethod
     def _artifact_extension_for_role(role: str) -> str:
-        if role == "interface_architect":
+        if role == ROLE_INTERFACE_ARCHITECT:
             return ".pyi"
         return ".py"
 
@@ -48,10 +55,10 @@ class ClaudeCodeChannel:
         outputs_dir.mkdir(parents=True, exist_ok=True)
         role_config = self._config.get_role_config(role)
         effective_timeout = role_config.timeout_seconds if role_config else timeout
-        invocation_family: str = "anthropic"
+        invocation_family: str = FAMILY_ANTHROPIC
         if role_config and role_config.model:
-            self._family_override = "anthropic"
-            invocation_family = "anthropic"
+            self._family_override = FAMILY_ANTHROPIC
+            invocation_family = FAMILY_ANTHROPIC
 
         cmd = [
             "claude",
@@ -97,7 +104,7 @@ class ClaudeCodeChannel:
             )
 
         output_text = result.stdout
-        raw_path = outputs_dir / "raw_stdout.txt"
+        raw_path = outputs_dir / ARTIFACT_FILENAME_RAW_STDOUT
         raw_path.write_text(output_text)
 
         if not output_text.strip():
@@ -110,7 +117,7 @@ class ClaudeCodeChannel:
 
         json_data = _extract_json_from_output(output_text)
         if json_data is not None and json_data.get("status") == "cannot_proceed":
-            cp_path = outputs_dir / "cannot_proceed.json"
+            cp_path = outputs_dir / ARTIFACT_FILENAME_CANNOT_PROCEED
             cp_path.write_text(json.dumps(json_data, indent=2))
             return InvocationResult(
                 success=False,

@@ -10,6 +10,22 @@ from substrate import ActorMetadata, Substrate
 
 from factory.channel import Channel
 from factory.config import FactoryConfig, load_config
+from factory.constants import (
+    ARTIFACT_FILENAME_CANNOT_PROCEED,
+    CHANNEL_CLAUDE_CODE,
+    CHANNEL_CODE,
+    CHANNEL_OPENCODE,
+    CUSTOM_FIELD_ARTIFACT_HASH,
+    CUSTOM_FIELD_ARTIFACT_PATH,
+    ROLE_IMPLEMENTER,
+    ROLE_TEST_AUTHOR,
+    STATE_NEW,
+    TRANSITION_CANNOT_PROCEED,
+    TRANSITION_CHANNEL_FAIL,
+    TRANSITION_CLAIM,
+    TRANSITION_GATE_FAIL,
+    TRANSITION_SUBMIT,
+)
 from factory.context import (
     derive_context,
     derive_implementer_context,
@@ -41,9 +57,9 @@ def _derive_role_context(
     role_name: str,
 ):
     spec = runtime.spec_content
-    if role_name == "test_author":
+    if role_name == ROLE_TEST_AUTHOR:
         return derive_test_author_context(runtime.sub, work_item_id, spec_content=spec)
-    if role_name == "implementer":
+    if role_name == ROLE_IMPLEMENTER:
         return derive_implementer_context(runtime.sub, work_item_id, spec_content=spec)
     return derive_context(runtime.sub, work_item_id, role_name, spec_content=spec)
 
@@ -68,7 +84,7 @@ def worker_loop(runtime: PipelineRuntime) -> None:
     sub = runtime.sub
     config = runtime.config
     channel = runtime.channel
-    actor_id = f"factory-worker-{channel.name}"
+    actor_id = config.worker_actor_id(channel.name)
     for role_name in config.worker_roles:
         sub.register_actor_role(actor_id, role_name)
     poll_interval = config.poll_interval_seconds
@@ -89,7 +105,7 @@ def worker_loop(runtime: PipelineRuntime) -> None:
         page = sub.query_work_items(
             workflow_name=config.workflow_name,
             workflow_version=config.workflow_version,
-            current_states=["new"],
+            current_states=[STATE_NEW],
             claimable_now=True,
             page_size=10,
         )
@@ -107,7 +123,7 @@ def worker_loop(runtime: PipelineRuntime) -> None:
                 )
             sub.transition(
                 wi.work_item_id,
-                "claim",
+                TRANSITION_CLAIM,
                 actor_id,
                 actor_metadata=ActorMetadata(
                     role=role_name,
@@ -135,7 +151,7 @@ def worker_loop(runtime: PipelineRuntime) -> None:
 
 def _has_prior_gate_fail(sub: Substrate, work_item_id: str) -> bool:
     events = sub.read_events(work_item_id=work_item_id)
-    return any(e.transition in ("gate_fail", "channel_fail") for e in events)
+    return any(e.transition in (TRANSITION_GATE_FAIL, TRANSITION_CHANNEL_FAIL) for e in events)
 
 
 def process_work_item(
@@ -228,12 +244,12 @@ def process_work_item(
     ).to_dict()
     sub.transition(
         wi.work_item_id,
-        "submit",
+        TRANSITION_SUBMIT,
         actor_id,
         actor_metadata=actor_metadata,
         custom_fields={
-            "artifact_path": str(artifact_path),
-            "artifact_hash": sha,
+            CUSTOM_FIELD_ARTIFACT_PATH: str(artifact_path),
+            CUSTOM_FIELD_ARTIFACT_HASH: sha,
         },
     )
 
@@ -252,12 +268,12 @@ def _handle_invoke_failure(
 ) -> None:
     work_item_id = wi.work_item_id
     if invoke_result.error_message == "cannot_proceed":
-        cp_path = ad / "cannot_proceed.json"
+        cp_path = ad / ARTIFACT_FILENAME_CANNOT_PROCEED
         if cp_path.exists():
             cp_data = cp_path.read_bytes()
             sub.transition(
                 work_item_id,
-                "cannot_proceed",
+                TRANSITION_CANNOT_PROCEED,
                 actor_id,
                 actor_metadata=ActorMetadata(
                     role=role_name,
@@ -273,7 +289,7 @@ def _handle_invoke_failure(
         else:
             sub.transition(
                 work_item_id,
-                "channel_fail",
+                TRANSITION_CHANNEL_FAIL,
                 actor_id,
                 actor_metadata=ActorMetadata(
                     role=role_name,
@@ -296,7 +312,7 @@ def _handle_invoke_failure(
     )
     sub.transition(
         work_item_id,
-        "channel_fail",
+        TRANSITION_CHANNEL_FAIL,
         actor_id,
         actor_metadata=ActorMetadata(
             role=role_name,
@@ -334,29 +350,31 @@ def _resume_and_submit(
     ).to_dict()
     sub.transition(
         wi.work_item_id,
-        "submit",
+        TRANSITION_SUBMIT,
         actor_id,
         actor_metadata=actor_metadata,
         custom_fields={
-            "artifact_path": str(artifact_path),
-            "artifact_hash": manifest.artifact_sha256,
+            CUSTOM_FIELD_ARTIFACT_PATH: str(artifact_path),
+            CUSTOM_FIELD_ARTIFACT_HASH: manifest.artifact_sha256,
         },
     )
 
 
 def _create_channel(config: FactoryConfig) -> Channel:
-    channels = set(rc.channel for rc in config.roles if rc.channel != "code")
+    channels = set(rc.channel for rc in config.roles if rc.channel != CHANNEL_CODE)
     if len(channels) == 1:
         ch = channels.pop()
-        if ch == "opencode":
+        if ch == CHANNEL_OPENCODE:
             from factory.opencode_channel import OpenCodeChannel
 
             return OpenCodeChannel(config)
-        if ch == "claude-code":
+        if ch == CHANNEL_CLAUDE_CODE:
             from factory.claude_code_channel import ClaudeCodeChannel
 
             return ClaudeCodeChannel(config)
-        raise ValueError(f"Unknown channel: {ch}. Supported: claude-code, opencode")
+        raise ValueError(
+            f"Unknown channel: {ch}. Supported: {CHANNEL_CLAUDE_CODE}, {CHANNEL_OPENCODE}"
+        )
     raise NotImplementedError("Multi-channel dispatch not yet implemented")
 
 
