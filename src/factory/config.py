@@ -71,6 +71,7 @@ class FactoryConfig:
     query_page_size: int = 50
     telemetry_event_limit: int = 500
     per_channel_timeout: dict[str, int] | None = None
+    use_project_venv: bool = False
 
     PHASE2_WORKER_ROLES: tuple[str, ...] = (
         ROLE_INTERFACE_ARCHITECT,

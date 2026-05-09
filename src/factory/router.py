@@ -31,6 +31,7 @@ class DiagnosticKind(StrEnum):
     TEST_AC_BINDING = "test_ac_binding"
     TEST_COLLECT = "test_collect"
     TEST_IMPORT_FORBIDDEN = "test_import_forbidden"
+    TEST_NO_ASSERTIONS = "test_no_assertions"
     IMPL_MYPY = "impl_mypy"
     IMPL_PYTEST = "impl_pytest"
     IMPL_LINT = "impl_lint"
@@ -121,6 +122,10 @@ _PHASE2_DISPATCH = {
         target_role=ROLE_TEST_AUTHOR,
     ),
     DiagnosticKind.TEST_IMPORT_FORBIDDEN: Route(
+        target_state=STATE_NEW,
+        target_role=ROLE_TEST_AUTHOR,
+    ),
+    DiagnosticKind.TEST_NO_ASSERTIONS: Route(
         target_state=STATE_NEW,
         target_role=ROLE_TEST_AUTHOR,
     ),

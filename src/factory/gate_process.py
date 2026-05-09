@@ -40,6 +40,7 @@ from factory.gate import (
 )
 from factory.router import route
 from factory.runtime import PipelineRuntime
+from factory.venv import ensure_project_venv
 
 log = structlog.get_logger()
 
@@ -121,6 +122,9 @@ def process_gate_item(
     ac_ids_raw = custom.get(CUSTOM_FIELD_AC_IDS, [])
     ac_ids = ac_ids_raw if isinstance(ac_ids_raw, list) else [ac_ids_raw]
     artifact_path = Path(artifact_path_str) if artifact_path_str else None
+    python_executable: str | None = None
+    if config.use_project_venv:
+        python_executable = str(ensure_project_venv(runtime.workspace_root))
 
     if artifact_path is None or not artifact_path.exists():
         gate_result = GateResult(
@@ -170,6 +174,7 @@ def process_gate_item(
                 gate_result = evaluate_test_suite(
                     artifact_path,
                     interface_ref_pyi_path=interface_pyi_path,
+                    python_executable=python_executable,
                 )
     elif wi.work_item_type == WORK_ITEM_TYPE_IMPLEMENTATION:
         interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
@@ -240,6 +245,7 @@ def process_gate_item(
                     artifact_path,
                     test_suite_path=test_suite_path,
                     interface_pyi_path=interface_pyi_path,
+                    python_executable=python_executable,
                 )
     else:
         gate_result = GateResult(

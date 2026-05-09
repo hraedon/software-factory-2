@@ -25,6 +25,7 @@ from factory.constants import (
     GATE_NAME_INTERFACE_SPEC_STUB,
     GATE_NAME_INTERFACE_SPEC_SYNTAX,
     GATE_NAME_TEST_SUITE,
+    GATE_NAME_TEST_SUITE_ASSERTIONS,
     GATE_NAME_TEST_SUITE_COLLECT,
     GATE_NAME_TEST_SUITE_FILE_EXISTS,
     GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
@@ -43,6 +44,7 @@ class GateResult:
     diagnostics: list[str] = field(default_factory=list)
     artifact_valid: bool = True
     diagnostic_kind: str = ""
+    skipped: bool = False
 
 
 def evaluate_interface_spec(artifact_path: Path, ac_ids: list[str] | None = None) -> GateResult:
@@ -194,6 +196,7 @@ def _has_ac_ref(text: str) -> bool:
 def evaluate_test_suite(
     artifact_path: Path,
     interface_ref_pyi_path: Path | None = None,
+    python_executable: str | None = None,
 ) -> GateResult:
     if not artifact_path.exists():
         return GateResult(
@@ -244,9 +247,15 @@ def evaluate_test_suite(
         except SyntaxError:
             pass
 
-    collect_result = _run_pytest_collect(artifact_path, interface_ref_pyi_path)
+    collect_result = _run_pytest_collect(
+        artifact_path, interface_ref_pyi_path, python_executable=python_executable
+    )
     if not collect_result.passed:
         return collect_result
+
+    assertion_result = _check_assertion_count(artifact_path)
+    if not assertion_result.passed:
+        return assertion_result
 
     return GateResult(
         passed=True,
@@ -254,6 +263,58 @@ def evaluate_test_suite(
         diagnostics=[],
         artifact_valid=True,
     )
+
+
+def _check_assertion_count(artifact_path: Path) -> GateResult:
+    try:
+        tree = ast.parse(artifact_path.read_text())
+    except SyntaxError:
+        return GateResult(passed=True, gate_name=GATE_NAME_TEST_SUITE_ASSERTIONS)
+
+    test_functions: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.name.startswith("test_"):
+                test_functions.append(node)
+
+    if not test_functions:
+        return GateResult(passed=True, gate_name=GATE_NAME_TEST_SUITE_ASSERTIONS)
+
+    total_assertions = 0
+    zero_assert_funcs: list[str] = []
+    for func in test_functions:
+        count = _count_asserts(func)
+        total_assertions += count
+        if count == 0:
+            zero_assert_funcs.append(func.name)
+
+    if zero_assert_funcs:
+        return GateResult(
+            passed=False,
+            gate_name=GATE_NAME_TEST_SUITE_ASSERTIONS,
+            diagnostics=[f"Test function(s) with zero assertions: {', '.join(zero_assert_funcs)}"],
+            diagnostic_kind="test_no_assertions",
+        )
+
+    if total_assertions < len(test_functions):
+        return GateResult(
+            passed=False,
+            gate_name=GATE_NAME_TEST_SUITE_ASSERTIONS,
+            diagnostics=[
+                f"Total assertions ({total_assertions}) < test functions ({len(test_functions)})"
+            ],
+            diagnostic_kind="test_no_assertions",
+        )
+
+    return GateResult(passed=True, gate_name=GATE_NAME_TEST_SUITE_ASSERTIONS)
+
+
+def _count_asserts(node: ast.AST) -> int:
+    count = 0
+    for child in ast.walk(node):
+        if isinstance(child, ast.Assert):
+            count += 1
+    return count
 
 
 def _import_module_name(node: ast.Import | ast.ImportFrom) -> str:
@@ -271,6 +332,7 @@ def evaluate_implementation(
     artifact_path: Path,
     test_suite_path: Path | None = None,
     interface_pyi_path: Path | None = None,
+    python_executable: str | None = None,
 ) -> GateResult:
     if not artifact_path.exists():
         return GateResult(
@@ -307,16 +369,20 @@ def evaluate_implementation(
             return import_result
 
     if interface_pyi_path is not None:
-        mypy_result = _run_mypy(artifact_path, interface_pyi_path)
+        mypy_result = _run_mypy(
+            artifact_path, interface_pyi_path, python_executable=python_executable
+        )
         if not mypy_result.passed:
             return mypy_result
 
     if test_suite_path is not None:
-        pytest_result = _run_pytest(artifact_path, test_suite_path)
+        pytest_result = _run_pytest(
+            artifact_path, test_suite_path, python_executable=python_executable
+        )
         if not pytest_result.passed:
             return pytest_result
 
-    ruff_result = _run_ruff(artifact_path)
+    ruff_result = _run_ruff(artifact_path, python_executable=python_executable)
     if not ruff_result.passed:
         return ruff_result
 
@@ -352,11 +418,14 @@ def _is_forbidden_impl_import(module: str) -> bool:
 
 
 def _run_pytest_collect(
-    artifact_path: Path, interface_ref_pyi_path: Path | None = None
+    artifact_path: Path,
+    interface_ref_pyi_path: Path | None = None,
+    python_executable: str | None = None,
 ) -> GateResult:
     import os
     import tempfile
 
+    exe = python_executable or sys.executable
     try:
         with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_COLLECT) as tmpdir:
             test_copy = Path(tmpdir) / artifact_path.name
@@ -365,7 +434,7 @@ def _run_pytest_collect(
                 iface_copy = Path(tmpdir) / "interface.py"
                 iface_copy.write_text(interface_ref_pyi_path.read_text())
             result = subprocess.run(
-                [sys.executable, "-m", "pytest", "--collect-only", "-q", str(test_copy)],
+                [exe, "-m", "pytest", "--collect-only", "-q", str(test_copy)],
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -419,10 +488,15 @@ def _run_pytest_collect(
     return GateResult(passed=True, gate_name=GATE_NAME_TEST_SUITE_COLLECT)
 
 
-def _run_mypy(artifact_path: Path, interface_pyi_path: Path) -> GateResult:
+def _run_mypy(
+    artifact_path: Path,
+    interface_pyi_path: Path,
+    python_executable: str | None = None,
+) -> GateResult:
     import os
     import tempfile
 
+    exe = python_executable or sys.executable
     if interface_pyi_path is None or not interface_pyi_path.exists():
         return GateResult(
             passed=False,
@@ -437,7 +511,7 @@ def _run_mypy(artifact_path: Path, interface_pyi_path: Path) -> GateResult:
             stub_copy = Path(tmpdir) / "interface.pyi"
             stub_copy.write_text(interface_pyi_path.read_text())
             result = subprocess.run(
-                [sys.executable, "-m", "mypy", "--strict", "--no-error-summary", str(impl_copy)],
+                [exe, "-m", "mypy", "--strict", "--no-error-summary", str(impl_copy)],
                 capture_output=True,
                 text=True,
                 timeout=60,
@@ -477,10 +551,15 @@ def _run_mypy(artifact_path: Path, interface_pyi_path: Path) -> GateResult:
     return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_MYPY)
 
 
-def _run_pytest(artifact_path: Path, test_suite_path: Path) -> GateResult:
+def _run_pytest(
+    artifact_path: Path,
+    test_suite_path: Path,
+    python_executable: str | None = None,
+) -> GateResult:
     import os
     import tempfile
 
+    exe = python_executable or sys.executable
     try:
         with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_PYTEST) as tmpdir:
             impl_content = artifact_path.read_text()
@@ -493,7 +572,7 @@ def _run_pytest(artifact_path: Path, test_suite_path: Path) -> GateResult:
             test_copy.write_text(test_suite_path.read_text())
             result = subprocess.run(
                 [
-                    sys.executable,
+                    exe,
                     "-m",
                     "pytest",
                     str(test_copy),
@@ -544,7 +623,10 @@ def _run_pytest(artifact_path: Path, test_suite_path: Path) -> GateResult:
     return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_PYTEST)
 
 
-def _run_ruff(artifact_path: Path) -> GateResult:
+def _run_ruff(
+    artifact_path: Path,
+    python_executable: str | None = None,
+) -> GateResult:
     ruff = shutil.which("ruff") or shutil.which("ruff", path=str(Path(sys.prefix) / "bin"))
     if ruff is None:
         return GateResult(

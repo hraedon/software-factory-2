@@ -32,7 +32,8 @@ class TestTestSuiteHappyPath:
             artifact_dir,
             "test_foo.py",
             """
-def test_foo(): ...
+def test_foo():
+    assert True
 """,
         )
         result = evaluate_test_suite(path)

@@ -69,6 +69,7 @@ GATE_NAME_TEST_SUITE_NOT_EMPTY = "test_suite_not_empty"
 GATE_NAME_TEST_SUITE_SYNTAX = "test_suite_syntax"
 GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN = "test_suite_import_forbidden"
 GATE_NAME_TEST_SUITE_COLLECT = "test_suite_collect"
+GATE_NAME_TEST_SUITE_ASSERTIONS = "test_suite_assertions"
 GATE_NAME_TEST_SUITE_DEPENDENCY = "test_suite_dependency"
 
 GATE_NAME_IMPLEMENTATION = "implementation"
