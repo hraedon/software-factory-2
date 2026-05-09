@@ -1,4 +1,4 @@
-.PHONY: lint format test cov audit check
+.PHONY: lint format test cov audit check golden-run
 
 PYTEST := .venv/bin/python -m pytest
 VULTURE := .venv/bin/vulture
@@ -21,3 +21,14 @@ audit:
 	$(VULTURE) src/factory/ tests/ .vulture_whitelist.py --min-confidence 80
 
 check: lint audit test
+
+golden-run:
+	@test -n "$(CONFIG)" || (echo "CONFIG=<path> required" && exit 1)
+	python populate_work_items.py --config $(CONFIG) --reset
+	python -m factory.runner --config $(CONFIG) &
+	python -m factory.gate_process --config $(CONFIG) &
+	python -m factory.scheduler --config $(CONFIG) &
+	wait
+	python -m factory.report --config $(CONFIG)
+	python -m factory.telemetry --config $(CONFIG)
+	python -m factory.telemetry --verify --config $(CONFIG)

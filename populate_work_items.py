@@ -147,12 +147,43 @@ def main():
         choices=["phase1", "phase2"],
         help="Workflow version to register (default: phase2)",
     )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to factory config YAML (overrides --dsn, --project, --key-path, --workspace-root)",
+    )
+    parser.add_argument(
+        "--fixtures",
+        type=str,
+        default=None,
+        help="Directory containing .md fixture files for custom golden-run sets",
+    )
     args = parser.parse_args()
+
+    # Load config if provided
+    config: FactoryConfig | None = None
+    if args.config:
+        config = FactoryConfig.from_yaml(args.config)
+
+    dsn = args.dsn
+    project = args.project
+    key_path = args.key_path
+    workspace_root = args.workspace_root
+    if config is not None:
+        dsn = config.dsn
+        project = config.project_name
+        key_path = config.hmac_key_path
+        workspace_root = str(config.workspace_root)
 
     workflow_path = ROOT_DIR / "workflows" / f"{args.workflow}.yaml"
     workflow_version = 1 if args.workflow == "phase1" else 2
 
-    if args.set == "primary":
+    if args.fixtures:
+        fixtures_dir = Path(args.fixtures)
+        md_files = sorted(fixtures_dir.glob("*.md"))
+        items = [(f.name, f.stem, "custom", ["AC-01"]) for f in md_files]
+    elif args.set == "primary":
         items = PRIMARY_ITEMS + ADVERSARIAL_ITEMS
     elif args.set == "secondary":
         items = SECONDARY_ITEMS
@@ -164,18 +195,25 @@ def main():
     only_labels = set(args.only.split(",")) if args.only else None
 
     sub = _open_or_create_project(
-        args.dsn, args.project, args.key_path, workflow_path, args.reset, args.workspace_root
+        dsn, project, key_path, workflow_path, args.reset, workspace_root
     )
     _config = FactoryConfig()
+    if config is not None:
+        _config = config
     actor_id = "factory-setup"
 
     created = []
     skipped = 0
+    fixtures_dir_custom = Path(args.fixtures) if args.fixtures else None
     for filename, label, shape, ac_ids in items:
         if only_labels is not None and label not in only_labels:
             skipped += 1
             continue
-        spec_text = _resolve_spec_text(filename, label)
+        if fixtures_dir_custom is not None:
+            spec_path = fixtures_dir_custom / filename
+            spec_text = spec_path.read_text() if spec_path.exists() else None
+        else:
+            spec_text = _resolve_spec_text(filename, label)
         if spec_text is None:
             print(f"  [{label}] SKIP: {filename} not found")
             continue
