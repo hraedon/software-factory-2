@@ -21,3 +21,8 @@ When a debate item is resolved (accepted or rejected), it should be:
 | 008 | Golden-run fixture representativeness | Run an adversarial multi-module+stateful+UI fixture before declaring Phase 2 done | Phase 2 exit criteria |
 | 009 | Event schema evolution | Add optional versioned payload schemas to prevent producer/consumer drift | Phase 3 (fleet integration) |
 | 010 | Unbounded event log growth | Define hot/cold retention policy before missions exceed 7 days | Phase 5+ |
+| 011 | Prompt versioning in telemetry | Track prompt template hash to deconfound channel comparisons | Phase 3 (fleet integration) |
+| 012 | Attempt-level latency tracking | Record per-attempt wall-clock for fleet placement tradeoffs | Phase 3 (fleet integration) |
+| NEW-001 | Prompt version in ActorMetadata | Content-hash prompt templates for comparable golden runs | Phase 3 (fleet integration) |
+| NEW-002 | Channel protocol cleanup | Remove dead `inputs_dir` parameter before Phase 3 adapters | Phase 3 (fleet integration) |
+| NEW-003 | Golden run automation | `make golden-run` target for repeatable multi-channel comparisons | Phase 3 (fleet integration) |
