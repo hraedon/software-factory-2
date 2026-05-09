@@ -4,6 +4,66 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-09 — Session 16: Opus plan execution — Window A, 1.2–1.5, C1, C6; GR006a kicked off
+
+**Invocation:** OpenCode (kimi-k2p6-turbo)
+
+**Focus:** Execute `plans/phase2-close-and-phase3-prep.md` (claude-opus-4-7 authored).
+
+**Window A — Bundled telemetry refactor (+30 tests, 329 pass):**
+- A1: Consumer-level event schemas (`src/factory/event_schemas.py`) with round-trip + replay fixture tests
+- A2: Prompt template hash in ActorMetadata; telemetry groups by hash; confounding-warning on multi-hash groups
+- A3: Attempt-level latency tracking (`duration_seconds` in SubmitPayload/ChannelFailPayload); mean/median duration in telemetry table; `per_channel_timeout` config
+- A4: `python -m factory.telemetry --verify` data-quality gate (unknown gate names, orphan submits, unmatched gates, confounding)
+- A5: Bundle gate clean (`make check` passes)
+
+**Window 1.2 — Per-project venv helper:**
+- `src/factory/venv.py` with `ensure_project_venv()`; uv-preferred; hash-based cache; 4 tests
+
+**Window 1.3 — Behavioral gate stub:**
+- `src/factory/behavioral_gate.py` stub; skip-when-empty, NotImplementedError when scenarios present
+- Playwright fixture (`tests/fixtures/broken_fastapi/app.py`)
+- Skip-marked test is Phase-5 accountability
+
+**Window 1.4 — Assertion-counting gate:**
+- `_check_assertion_count()` after collect-only in `evaluate_test_suite()`
+- Fails on zero-assertion test functions or total assertions < function count
+- `DiagnosticKind.TEST_NO_ASSERTIONS` routes to `test_author`
+- 5 tests
+
+**Window 1.5 — GR006a fixtures + criteria tests:**
+- `tests/fixtures/cert-watch-mini/` with 3 interface specs (certificate_model, FR-02 TLS scan, FR-03 file upload)
+- `golden-run-006a-config.yaml` (claude-code, `use_project_venv: true`)
+- `tests/test_gr006a_criteria.py` with 4 skip-when-absent criteria tests
+
+**Window C1 — BC-060 channel protocol cleanup:**
+- Removed dead `inputs_dir` from `Channel.invoke()`, all adapters, all call sites, all tests
+- Added `tests/test_channel_protocol_no_dead_params.py` introspection test
+
+**Window C6 — `make golden-run` automation:**
+- Makefile `golden-run` target chains populate → runner/gate/scheduler → report → telemetry --verify
+- `populate_work_items.py` gains `--config` and `--fixtures` flags
+
+**GR006a execution kicked off:**
+- `make golden-run CONFIG=golden-run-006a-config.yaml FIXTURES=tests/fixtures/cert-watch-mini` running in background
+- 3 work-items populated (wi_certificate_model, wi_fr02_tls_scan, wi_fr03_file_upload)
+- Pre-built venv at `/tmp/sf2-gr006a/.venv` with `cryptography>=42.0`
+- 2 interface_specs already `locked` after ~10 minutes; 1 test_suite `in_progress`
+- Run PID logged at `/tmp/gr006a-run.pid`; log at `/tmp/gr006a-run.log`
+
+**Breadcrumbs status:**
+- BC-060 moved to resolved (channel protocol cleanup)
+- BC-061 (channel composition refactor) — remaining Window C item
+- All other open breadcrumbs unchanged
+
+**Commits:**
+- `9428978` — Window A telemetry bundle + debate resolution + plans
+- `57099f3` — Windows 1.2–1.5 (venv, behavioral stub, assertion gate, GR006a fixtures)
+- `0e28695` — Window C1 (BC-060 channel cleanup)
+- `31ac9f8` — Window C6 (make golden-run automation)
+
+---
+
 ## 2026-05-09 — Session 15: Execute Golden Runs 004 and 005
 
 **Invocation:** OpenCode (deepseek-v4-pro)

@@ -24,11 +24,11 @@ check: lint audit test
 
 golden-run:
 	@test -n "$(CONFIG)" || (echo "CONFIG=<path> required" && exit 1)
-	python populate_work_items.py --config $(CONFIG) --reset
-	python -m factory.runner --config $(CONFIG) &
-	python -m factory.gate_process --config $(CONFIG) &
-	python -m factory.scheduler --config $(CONFIG) &
+	.venv/bin/python populate_work_items.py --config $(CONFIG) --reset $(if $(FIXTURES),--fixtures $(FIXTURES))
+	.venv/bin/python -m factory.runner --config $(CONFIG) &
+	.venv/bin/python -m factory.gate_process --config $(CONFIG) &
+	.venv/bin/python -m factory.scheduler --config $(CONFIG) &
 	wait
-	python -m factory.report --config $(CONFIG)
-	python -m factory.telemetry --config $(CONFIG)
-	python -m factory.telemetry --verify --config $(CONFIG)
+	.venv/bin/python -m factory.report --config $(CONFIG)
+	.venv/bin/python -m factory.telemetry --config $(CONFIG)
+	.venv/bin/python -m factory.telemetry --verify --config $(CONFIG)
