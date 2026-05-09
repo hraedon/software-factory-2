@@ -1,0 +1,4 @@
+{
+  "cross_module_import_success": false,
+  "root_cause": "test_suite_collect fails when test imports from cross-module dependency (certificate_model) not copied to pytest temp dir"
+}

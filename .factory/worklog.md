@@ -4,6 +4,38 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-09 — Session 16 (continued): GR006a complete — Phase 2 PAUSE decision
+
+**GR006a result:**
+- 7 work-items total: 5 locked (71%), 2 escalated (29%)
+- Interface spec: 3/3 locked (100%)
+- Test suite: 1/3 locked (33%), 2 escalated (67%)
+- Implementation: 1/1 locked (100%) — but only 1 created because 2 test_suites escalated
+- **Implementation lock rate: 33%** (below 40% threshold)
+
+**Criteria test results:**
+- `test_gr006a_meets_phase2_exit_threshold`: **FAIL** (0.33 < 0.70)
+- `test_gr006a_produces_no_unknown_gate_names`: **PASS**
+- `test_gr006a_cross_module_imports_resolve`: **FAIL**
+- `test_gr006a_telemetry_verify_passes`: **PASS**
+
+**Phase 2 decision per plan §2.3:** `test_gr006a_meets_phase2_exit_threshold` fails (< 40% impl) → **PAUSE Phase 3; root-cause.**
+
+**Root cause identified:** Cross-module import resolution in gate temp directory.
+Both FR-02 and FR-03 test_suites import `Certificate` from `certificate_model` (a separate interface_spec dependency). The gate's `_run_pytest_collect` only copies the direct `interface.pyi` → `interface.py` into the temp directory. It does NOT copy `certificate_model.pyi`, so pytest collection fails with `ModuleNotFoundError`.
+
+**Fix required before Phase 3:**
+1. Scheduler must propagate full dependency chain into work-item custom_fields
+2. Gate must copy ALL dependency `.pyi` files into pytest/mypy temp directories
+3. OR: test_author prompt must be instructed not to import from cross-module dependencies
+
+**Artifacts produced:**
+- `golden-run-006a-log.md` — full run log and analysis
+- `tests/fixtures/golden-run-006a/telemetry.json` — results for criteria tests
+- `tests/fixtures/golden-run-006a/artifacts.json` — root cause documentation
+
+---
+
 ## 2026-05-09 — Session 16: Opus plan execution — Window A, 1.2–1.5, C1, C6; GR006a kicked off
 
 **Invocation:** OpenCode (kimi-k2p6-turbo)

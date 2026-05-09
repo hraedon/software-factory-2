@@ -1,0 +1,10 @@
+{
+  "implementation_pass_rate": 0.33,
+  "unknown_gate_rate": 0.0,
+  "total_work_items": 7,
+  "locked": 5,
+  "escalated": 2,
+  "interface_spec_pass_rate": 1.0,
+  "test_suite_pass_rate": 0.33,
+  "implementation_items_created": 1
+}

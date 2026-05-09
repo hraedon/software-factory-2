@@ -44,8 +44,8 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 072 | Cross-module imports fail in gate temp directory | high | proposed |
 | 071 | sub.transition(custom_fields=...) merges into WorkItem but API surface implies per-event storage — telemetry footgun | low | proposed |
-| 060 | Channel.invoke inputs_dir is a dead parameter — protocol contract is misleading | high | proposed |
 | 061 | 95% code duplication between ClaudeCodeChannel and OpenCodeChannel | high | proposed |
 | 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | proposed |
 | 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | proposed |
@@ -70,6 +70,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 060 | Channel.invoke inputs_dir is a dead parameter — protocol contract is misleading | high | Removed from Channel protocol, both adapters, runner call site, 15+ test files; added `test_channel_protocol_no_dead_params.py` introspection test; 341 tests pass |
 | 070 | Telemetry test helper _gate_md always emits payload on pass events — diverges from real gate_process shape | medium | _gate_md() now matches production (pass events carry None payload; gate_name in actor_metadata); added test_gate_pass_event_with_no_payload_resolves_from_metadata data-quality test; 299 tests pass |
 | 069 | Gate names are bare string literals scattered across gate.py — no constants or closed set | medium | Added 23 GATE_NAME_* constants to constants.py; replaced all bare string literals in gate.py, gate_process.py, telemetry.py, failure_summary.py; updated 6 test files; 299 tests pass |
 | 068 | Telemetry reporter matches gate events with "unknown" gate name and 0% first-attempt pass rate | high | Added gate_name to ActorMetadata; gate_process emits it; telemetry reads from actor_metadata first with fallback to payload; failure_summary reads from actor_metadata first; logging on unknown; 5 data-quality tests; 298+293 tests pass |
