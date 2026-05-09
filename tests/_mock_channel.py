@@ -12,7 +12,7 @@ class MockChannel:
         self._name = name
         self._family = family
         self._fail_at_attempt: dict[str, int] = {}
-        self._call_log: list[tuple[str, str, Path, Path]] = []
+        self._call_log: list[tuple[str, str, Path]] = []
 
     @property
     def name(self) -> str:
@@ -29,11 +29,10 @@ class MockChannel:
         self,
         role: str,
         prompt: str,
-        inputs_dir: Path,
         outputs_dir: Path,
         timeout: int,
     ) -> InvocationResult:
-        self._call_log.append((role, prompt, inputs_dir, outputs_dir))
+        self._call_log.append((role, prompt, outputs_dir))
 
         if role in self._fail_at_attempt:
             call_index = sum(1 for c in self._call_log if c[0] == role)

@@ -36,7 +36,7 @@ class _IntegrationChannel:
     ) -> None:
         self._fail_at[(role, attempt_number)] = error
 
-    def invoke(self, role, prompt, inputs_dir, outputs_dir, timeout):
+    def invoke(self, role, prompt, outputs_dir, timeout):
         n = self._role_attempt_counts.get(role, 0) + 1
         self._role_attempt_counts[role] = n
         self._invocations.append((role, n))
@@ -232,8 +232,8 @@ class _BadImplIntegrationChannel(_IntegrationChannel):
     """Produces implementation artifacts that trigger impl_lint gate failures
     (bare except, which ruff cannot auto-fix) for escalation testing."""
 
-    def invoke(self, role, prompt, inputs_dir, outputs_dir, timeout):
-        result = super().invoke(role, prompt, inputs_dir, outputs_dir, timeout)
+    def invoke(self, role, prompt, outputs_dir, timeout):
+        result = super().invoke(role, prompt, outputs_dir, timeout)
         if role == "implementer" and result.success:
             name = result.artifact_name
             (outputs_dir / name).write_text(

@@ -48,7 +48,6 @@ class ClaudeCodeChannel:
         self,
         role: str,
         prompt: str,
-        inputs_dir: Path,
         outputs_dir: Path,
         timeout: int,
     ) -> InvocationResult:

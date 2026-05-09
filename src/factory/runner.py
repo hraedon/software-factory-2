@@ -202,10 +202,9 @@ def process_work_item(
     if config.per_channel_timeout and channel.name in config.per_channel_timeout:
         timeout = config.per_channel_timeout[channel.name]
     ad = attempt_dir(wr, work_item_id, attempt_number)
-    inputs_dir = wr / work_item_id / "inputs"
     prompt = render_prompt(ctx)
     invocation_start = time.monotonic()
-    invoke_result = channel.invoke(role_name, prompt, inputs_dir, ad, timeout)
+    invoke_result = channel.invoke(role_name, prompt, ad, timeout)
     invocation_end = time.monotonic()
     duration_seconds = round(invocation_end - invocation_start, 3)
     effective_family = invoke_result.family or channel.family

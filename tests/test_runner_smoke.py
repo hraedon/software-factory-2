@@ -38,11 +38,10 @@ class FakeChannel:
         self,
         role: str,
         prompt: str,
-        inputs_dir: Path,
         outputs_dir: Path,
         timeout: int,
     ) -> InvocationResult:
-        self._invocations.append((role, prompt, inputs_dir, outputs_dir))
+        self._invocations.append((role, prompt, outputs_dir))
         outputs_dir.mkdir(parents=True, exist_ok=True)
         ac_doc = ", ".join(self._ac_ids) if self._ac_ids else "AC-01"
         content = f'def foo(x: int) -> str:\n    """Satisfies {ac_doc}."""\n    ...\n'

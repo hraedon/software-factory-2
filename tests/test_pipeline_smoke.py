@@ -29,7 +29,7 @@ class _MultiStageChannel:
     def family(self) -> str:
         return self._family
 
-    def invoke(self, role, prompt, inputs_dir, outputs_dir, timeout):
+    def invoke(self, role, prompt, outputs_dir, timeout):
         self._invocations.append(role)
         outputs_dir.mkdir(parents=True, exist_ok=True)
         if role == "interface_architect":

@@ -39,7 +39,7 @@ class TestMockChannel:
         (role_dir / "artifact.pyi").write_text("def foo() -> int: ...")
         outputs = fixtures_dir / "outputs"
         ch = MockChannel(fixtures_dir)
-        result = ch.invoke("interface_architect", "prompt", fixtures_dir, outputs, 60)
+        result = ch.invoke("interface_architect", "prompt", outputs, 60)
         assert result.success
         assert result.artifact_name == "artifact.pyi"
         assert (outputs / "artifact.pyi").read_text() == "def foo() -> int: ..."
@@ -52,7 +52,7 @@ class TestMockChannel:
         )
         outputs = fixtures_dir / "outputs"
         ch = MockChannel(fixtures_dir)
-        result = ch.invoke("interface_architect", "prompt", fixtures_dir, outputs, 60)
+        result = ch.invoke("interface_architect", "prompt", outputs, 60)
         assert not result.success
         assert result.error_message == "cannot_proceed"
 
@@ -62,7 +62,7 @@ class TestMockChannel:
         (role_dir / "artifact.pyi").write_text("def foo() -> int: ...")
         outputs = fixtures_dir / "outputs"
         ch = MockChannel(fixtures_dir)
-        ch.invoke("interface_architect", "prompt text", fixtures_dir, outputs, 60)
+        ch.invoke("interface_architect", "prompt text", outputs, 60)
         assert len(ch.call_log) == 1
         assert ch.call_log[0][0] == "interface_architect"
         assert ch.call_log[0][1] == "prompt text"
@@ -74,8 +74,7 @@ class TestMockChannel:
         (role_dir / "artifact.pyi").write_bytes(artifact_data)
         ch = MockChannel(fixtures_dir)
         ad = attempt_dir(workspace_root, "wi-abc", 1)
-        src_dir = workspace_root / "wi-abc" / "inputs"
-        result = ch.invoke("interface_architect", "prompt", src_dir, ad, 60)
+        result = ch.invoke("interface_architect", "prompt", ad, 60)
         assert result.success
         sha = compute_sha256(artifact_data)
         manifest = ArtifactManifest(
