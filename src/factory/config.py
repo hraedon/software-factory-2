@@ -68,6 +68,8 @@ class FactoryConfig:
         RoleConfig(role=ROLE_INTERFACE_ARCHITECT, channel=CHANNEL_CLAUDE_CODE),
         RoleConfig(role=ROLE_MECHANICAL_GATE, channel=CHANNEL_CODE),
     )
+    query_page_size: int = 50
+    telemetry_event_limit: int = 500
 
     PHASE2_WORKER_ROLES: tuple[str, ...] = (
         ROLE_INTERFACE_ARCHITECT,
@@ -85,6 +87,16 @@ class FactoryConfig:
         RoleConfig(role=ROLE_IMPLEMENTER, channel=CHANNEL_CLAUDE_CODE),
         RoleConfig(role=ROLE_MECHANICAL_GATE, channel=CHANNEL_CODE),
     )
+
+    @classmethod
+    def phase2(cls, **overrides) -> FactoryConfig:
+        return cls(
+            workflow_version=2,
+            worker_roles=cls.PHASE2_WORKER_ROLES,
+            type_to_role=cls.PHASE2_TYPE_TO_ROLE,
+            roles=cls.PHASE2_ROLES,
+            **overrides,
+        )
 
     def worker_actor_id(self, channel_name: str) -> str:
         return f"{ACTOR_ID_WORKER_PREFIX}-{channel_name}"

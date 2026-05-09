@@ -2,12 +2,13 @@
 number: "065"
 title: "Scattered hardcoded page_size values — not derived from FactoryConfig"
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: adversarial-reviewer
 date: "2026-05-08"
 tags: [runner, gate, telemetry]
 related: []
+---
 
 ## Summary
 
@@ -26,3 +27,7 @@ A run with more than 10 items in `new` at once (runner/gate) or more than 50 ite
 ## Fix
 
 Add `query_page_size: int = 50` and `telemetry_event_limit: int = 500` to `FactoryConfig`. Replace all 5 hardcoded values with config references. Use a single shared page_size for runner/gate/scheduler queries.
+
+## Resolution
+
+Added `query_page_size: int = 50` and `telemetry_event_limit: int = 500` to `FactoryConfig`. All 5 hardcoded values in runner.py, gate_process.py, scheduler.py, and telemetry.py now use `config.query_page_size` and `config.telemetry_event_limit`.

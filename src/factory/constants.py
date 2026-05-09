@@ -29,7 +29,7 @@ TRANSITION_GATE_PASS = "gate_pass"
 TRANSITION_GATE_FAIL = "gate_fail"
 TRANSITION_GATE_ESCALATION = "gate_escalation"
 TRANSITION_CHANNEL_FAIL = "channel_fail"
-TRANSITION_CANNOT_PROCEED = "cannot_proceed"
+TRANSITION_ROUTE_TO_CANNOT_PROCEED = "cannot_proceed"
 
 LINK_TYPE_DERIVED_FROM = "derived_from"
 LINK_TYPE_TESTED_BY = "tested_by"

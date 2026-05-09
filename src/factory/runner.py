@@ -20,10 +20,10 @@ from factory.constants import (
     ROLE_IMPLEMENTER,
     ROLE_TEST_AUTHOR,
     STATE_NEW,
-    TRANSITION_CANNOT_PROCEED,
     TRANSITION_CHANNEL_FAIL,
     TRANSITION_CLAIM,
     TRANSITION_GATE_FAIL,
+    TRANSITION_ROUTE_TO_CANNOT_PROCEED,
     TRANSITION_SUBMIT,
 )
 from factory.context import (
@@ -107,7 +107,7 @@ def worker_loop(runtime: PipelineRuntime) -> None:
             workflow_version=config.workflow_version,
             current_states=[STATE_NEW],
             claimable_now=True,
-            page_size=10,
+            page_size=config.query_page_size,
         )
         for wi in page.items:
             role_name = _role_for_type(wi.work_item_type, config)
@@ -273,7 +273,7 @@ def _handle_invoke_failure(
             cp_data = cp_path.read_bytes()
             sub.transition(
                 work_item_id,
-                TRANSITION_CANNOT_PROCEED,
+                TRANSITION_ROUTE_TO_CANNOT_PROCEED,
                 actor_id,
                 actor_metadata=ActorMetadata(
                     role=role_name,

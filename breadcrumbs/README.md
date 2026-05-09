@@ -46,14 +46,9 @@ Reusable tags:
 |---|---|---|---|
 | 060 | Channel.invoke inputs_dir is a dead parameter — protocol contract is misleading | high | proposed |
 | 061 | 95% code duplication between ClaudeCodeChannel and OpenCodeChannel | high | proposed |
-| 062 | Resume-on-gate-fail still wastes Claude budget — BC-046 not fully resolved | high | proposed |
 | 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | proposed |
 | 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | proposed |
-| 064 | No automated channel adapter integration tests — regression detection requires full golden run | medium | proposed |
-| 065 | Scattered hardcoded page_size values — not derived from FactoryConfig | medium | proposed |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
-| 066 | cannot_proceed string overloaded as both state name and transition name | low | proposed |
-| 067 | No FactoryConfig.phase2() constructor — requires manual setattr bypass | low | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -71,6 +66,11 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 067 | No FactoryConfig.phase2() constructor — requires manual setattr bypass | low | Added `FactoryConfig.phase2(**overrides)` classmethod returning pre-populated Phase 2 config |
+| 066 | cannot_proceed string overloaded as both state name and transition name | low | Renamed `TRANSITION_CANNOT_PROCEED` to `TRANSITION_ROUTE_TO_CANNOT_PROCEED`; string value unchanged for substrate compatibility |
+| 064 | No automated channel adapter integration tests — regression detection requires full golden run | medium | Added `test_channel_integration.py` with CLI smoke tests (skipif) and golden-file extraction tests against golden-run-001 fixtures; 11 new tests |
+| 065 | Scattered hardcoded page_size values — not derived from FactoryConfig | medium | Added `query_page_size` and `telemetry_event_limit` to `FactoryConfig`; all 5 hardcoded values replaced with config references |
+| 062 | Resume-on-gate-fail still wastes Claude budget — BC-046 not fully resolved | high | `_has_prior_gate_fail()` guard now checked in `process_work_item` before resuming; skips resume with log message when prior gate/channel fail exists |
 | 059 | Gate soft-fail on missing tooling — returns passed=True when pytest/mypy/ruff not in PATH | critical | Changed all four to passed=False with tool_not_found diagnostic_kind; switched to sys.executable -m for venv-safe tool discovery |
 | 057 | Dead code audit — no CI enforcement for unused code accumulation | low | Removed dead code (KIND_TO_ROLE, work_root, redundant assignment); added vulture to CI via `make audit`; 282 tests pass |
 | 033 | Telemetry reporter skeleton (Wave 8) | medium | Created telemetry.py with per-(role, channel, gate) pass-rate tables; factory-report CLI; 12 tests |

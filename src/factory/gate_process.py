@@ -72,7 +72,7 @@ def gate_loop(runtime: PipelineRuntime) -> None:
             workflow_version=config.workflow_version,
             current_states=[STATE_GATING],
             claimable_now=True,
-            page_size=10,
+            page_size=config.query_page_size,
         )
         for wi in page.items:
             claim = sub.acquire_claim(wi.work_item_id, actor_id, config.claim_ttl_seconds)

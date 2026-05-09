@@ -2,7 +2,7 @@
 number: "062"
 title: "Resume-on-gate-fail still wastes Claude budget — BC-046 not fully resolved"
 severity: high
-status: proposed
+status: resolved
 kind: bug
 author: adversarial-reviewer
 date: "2026-05-08"
@@ -35,3 +35,7 @@ The `_has_prior_gate_fail` check reads events to detect gate_fail events. The lo
 The runner should only use resume semantics when the artifact has **never been submitted to a gate**. Check: no `gate_fail` or `gate_pass` events exist. If either exists, clear the resumable artifact (don't quarantine — it's valid, just already-rejected) and invoke Claude fresh.
 
 Affected code: `runner.py:process_work_item` around the `_has_prior_gate_fail` / `find_resumable_artifact` interaction.
+
+## Resolution
+
+Fixed. `runner.py:process_work_item` now checks `_has_prior_gate_fail()` before resuming, and when it returns `True`, skips artifact resumption with a `skipping_resume_due_to_prior_gate_fail` log message, invoking the channel fresh instead.

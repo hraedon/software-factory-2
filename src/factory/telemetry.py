@@ -30,11 +30,11 @@ def collect_gate_attempts(sub: Substrate, config: FactoryConfig) -> list[GateAtt
     page = sub.query_work_items(
         workflow_name=config.workflow_name,
         workflow_version=config.workflow_version,
-        page_size=200,
+        page_size=config.query_page_size,
     )
     attempts: list[GateAttempt] = []
     for wi in page.items:
-        events = sub.read_events(work_item_id=wi.work_item_id, limit=200)
+        events = sub.read_events(work_item_id=wi.work_item_id, limit=config.telemetry_event_limit)
         worker_meta: dict = {}
         for ev in events:
             md = ev.actor_metadata or {}

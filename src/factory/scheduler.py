@@ -74,7 +74,7 @@ def scheduler_loop(runtime: PipelineRuntime) -> None:
                 workflow_name=config.workflow_name,
                 workflow_version=config.workflow_version,
                 current_states=[source_state],
-                page_size=50,
+                page_size=config.query_page_size,
             )
             for wi in page.items:
                 if wi.work_item_type != source_type:
@@ -104,7 +104,7 @@ def _ensure_downstream_item(
             workflow_name=config.workflow_name,
             workflow_version=config.workflow_version,
             work_item_types=[next_type],
-            page_size=100,
+            page_size=config.query_page_size,
         )
         for item in existing.items:
             item_ref = (item.custom_fields or {}).get(ref_field)
