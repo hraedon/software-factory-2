@@ -10,3 +10,4 @@ build/
 .factory/work/
 .ruff_cache/
 .coverage
+Credentials/

@@ -4,6 +4,34 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-09 — Session 15: Execute Golden Runs 004 and 005
+
+**Invocation:** OpenCode (deepseek-v4-pro)
+
+**Focus:** Execute two golden runs:
+- GR004: Validate BC-039 (auto-format + implementer prompt), BC-046 (resume-on-gate-fail guard), telemetry reporter (claude-code channel, Sonnet)
+- GR005: Validate BC-040 (OpenCodeChannel adapter) with Kimi k2.6 via Fireworks AI (opencode channel)
+
+**GR004 result: 42/46 items locked (91%), 4 escalated (9%).**
+- 15/15 interface_specs (100%), 15/15 test_suites (100%), 12/15 implementations (80%)
+- Massive improvement over GR003 (17% → 80% impl pass rate). BC-039 + BC-046 validated.
+
+**GR005 result: 43/46 items locked (93%), 2 escalated (4%), 1 in_progress.**
+- 15/15 interface_specs (100%), 15/15 test_suites (100%), 13/15 implementations (87%)
+- First non-Anthropic golden run. Kimi k2.6 via opencode channel. Only 1 impl escalation (vs 3 for Sonnet).
+- BC-040 validated end-to-end. Family derivation "fireworks" correct. OpenCodeChannel works for real providers.
+- Kimi slower than Sonnet (~52 min vs ~31 min) but produces better lint-passing code.
+
+**Telemetry:** family-per-invocation telemetry working for both channels. Same "unknown" gate name + 0% first-attempt bug in both runs — event-matching logic needs refinement.
+
+**Configs:** `golden-run-004-config.yaml`, `golden-run-005-config.yaml`.
+
+**Wall clock:** GR004 ~31 min, GR005 ~52 min. 293 unit tests clean.
+
+**Post-run artifacts:** `golden-run-004-log.md`, `golden-run-005-log.md`.
+
+---
+
 ## 2026-05-08 — Session 14: Resolve BC-057, BC-033, BC-031
 
 **Invocation:** OpenCode (glm-5.1)

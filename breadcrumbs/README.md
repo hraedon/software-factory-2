@@ -44,6 +44,7 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 068 | Telemetry reporter matches gate events with "unknown" gate name and 0% first-attempt pass rate | high | proposed |
 | 060 | Channel.invoke inputs_dir is a dead parameter — protocol contract is misleading | high | proposed |
 | 061 | 95% code duplication between ClaudeCodeChannel and OpenCodeChannel | high | proposed |
 | 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | proposed |
@@ -61,6 +62,9 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-003 | Channel adapter auth-mode detection — v1 BC-376 shows env var injection breaks native auth | high | Phase 3 (multi-channel adapters) |
 | RFC-004 | Auto-generated pipeline documentation — v1 docs froze while pipeline grew | medium | Phase 3 (pipeline complexity) |
 | RFC-005 | Composable failure/escalation architecture — v1 imperative if/elif chain grew unbounded | medium | Phase 4 (jury disagreement) |
+| RFC-006 | Per-project venv isolation for subprocess gates — v1 BC-192, prevents ModuleNotFoundError in real workloads | medium | Phase 5 (first real workload) |
+| RFC-007 | Test efficacy scoring via mutation testing gates — v1 BC-107/186, mechanical antidote to test theater | high | Phase 4–5 (jury / real workload) |
+| RFC-008 | Pipeline checkpoint and surgical resume system — v1 BC-122, preserve progress across 30–50 min runs | medium | Phase 3–5 (fleet / real workload) |
 
 ## Resolved
 
