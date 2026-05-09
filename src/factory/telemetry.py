@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -8,10 +9,13 @@ from substrate import Substrate
 
 from factory.config import FactoryConfig, load_config
 from factory.constants import (
+    GATE_NAME_UNKNOWN,
     TRANSITION_GATE_FAIL,
     TRANSITION_GATE_PASS,
     TRANSITION_SUBMIT,
 )
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -42,9 +46,18 @@ def collect_gate_attempts(sub: Substrate, config: FactoryConfig) -> list[GateAtt
                 worker_meta = md
             if ev.transition not in (TRANSITION_GATE_PASS, TRANSITION_GATE_FAIL):
                 continue
-            payload = ev.payload or {}
-            diagnostics = payload.get("diagnostics", {})
-            gate_name = diagnostics.get("gate_name", "unknown")
+            gate_name = md.get("gate_name")
+            if not gate_name:
+                payload = ev.payload or {}
+                diagnostics = payload.get("diagnostics", {})
+                gate_name = diagnostics.get("gate_name")
+            if not gate_name:
+                gate_name = GATE_NAME_UNKNOWN
+                log.warning(
+                    "telemetry_gate_name_unknown",
+                    work_item_id=str(wi.work_item_id),
+                    transition=ev.transition,
+                )
             attempts.append(
                 GateAttempt(
                     work_item_id=str(wi.work_item_id),
@@ -55,7 +68,7 @@ def collect_gate_attempts(sub: Substrate, config: FactoryConfig) -> list[GateAtt
                     attempt_n=md.get("attempt_n", 0) or 0,
                     gate_name=gate_name,
                     passed=ev.transition == TRANSITION_GATE_PASS,
-                )
+                ),
             )
     return attempts
 

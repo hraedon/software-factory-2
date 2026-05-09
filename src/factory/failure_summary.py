@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from substrate import Substrate
 
 from factory.constants import (
+    GATE_NAME_UNKNOWN,
     TRANSITION_CHANNEL_FAIL,
     TRANSITION_GATE_ESCALATION,
     TRANSITION_GATE_FAIL,
@@ -32,17 +33,20 @@ def derive_failures(substrate: Substrate, work_item_id: str) -> list[FailureEntr
     for event in events:
         if event.transition in (TRANSITION_GATE_FAIL, TRANSITION_GATE_ESCALATION):
             meta = event.actor_metadata or {}
-            diagnostics = {}
-            if event.payload and "diagnostics" in event.payload:
-                diagnostics = event.payload["diagnostics"]
+            gate_name = meta.get("gate_name")
+            if not gate_name:
+                diagnostics = {}
+                if event.payload and "diagnostics" in event.payload:
+                    diagnostics = event.payload["diagnostics"]
+                gate_name = diagnostics.get("gate_name", GATE_NAME_UNKNOWN)
             failures.append(
                 FailureEntry(
                     attempt_number=_attempt_from_meta(meta),
                     role=meta.get("role", "unknown"),
                     channel=meta.get("channel", "unknown"),
                     failure_type=event.transition,
-                    gate_name=diagnostics.get("gate_name", "unknown"),
-                    diagnostic=diagnostics.get("message", ""),
+                    gate_name=gate_name,
+                    diagnostic=_extract_diagnostic_message(event),
                     actor_metadata=meta,
                 )
             )
@@ -86,3 +90,9 @@ def failures_to_json(failures: list[FailureEntry]) -> str:
 
 def _attempt_from_meta(meta: dict) -> int:
     return meta.get("attempt_n", 0)
+
+
+def _extract_diagnostic_message(event) -> str:
+    payload = event.payload or {}
+    diagnostics = payload.get("diagnostics", {})
+    return diagnostics.get("message", "")

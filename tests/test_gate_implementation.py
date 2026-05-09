@@ -5,6 +5,11 @@ from pathlib import Path
 
 import pytest
 
+from factory.constants import (
+    GATE_NAME_IMPLEMENTATION_FILE_EXISTS,
+    GATE_NAME_IMPLEMENTATION_NOT_EMPTY,
+    GATE_NAME_IMPLEMENTATION_SYNTAX,
+)
 from factory.gate import evaluate_implementation
 
 
@@ -50,14 +55,14 @@ class TestImplementationFailureModes:
     def test_file_not_found(self, artifact_dir):
         result = evaluate_implementation(artifact_dir / "nonexistent.py")
         assert not result.passed
-        assert result.gate_name == "implementation_file_exists"
+        assert result.gate_name == GATE_NAME_IMPLEMENTATION_FILE_EXISTS
         assert result.diagnostic_kind == "file_exists"
 
     def test_empty_file(self, artifact_dir):
         path = _write(artifact_dir, "empty.py", "")
         result = evaluate_implementation(path)
         assert not result.passed
-        assert result.gate_name == "implementation_not_empty"
+        assert result.gate_name == GATE_NAME_IMPLEMENTATION_NOT_EMPTY
         assert result.diagnostic_kind == "not_empty"
 
     def test_syntax_error(self, artifact_dir):
@@ -71,7 +76,7 @@ def bad_code(
         )
         result = evaluate_implementation(path)
         assert not result.passed
-        assert result.gate_name == "implementation_syntax"
+        assert result.gate_name == GATE_NAME_IMPLEMENTATION_SYNTAX
         assert result.diagnostic_kind == "syntax"
 
     def test_passes_with_refs_provided(self, artifact_dir):

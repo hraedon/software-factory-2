@@ -40,11 +40,11 @@ Reusable tags:
 
 ## Open
 
-### Active Bugs & Improvements
+| ### Active Bugs & Improvements
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 068 | Telemetry reporter matches gate events with "unknown" gate name and 0% first-attempt pass rate | high | proposed |
+| 071 | sub.transition(custom_fields=...) merges into WorkItem but API surface implies per-event storage — telemetry footgun | low | proposed |
 | 060 | Channel.invoke inputs_dir is a dead parameter — protocol contract is misleading | high | proposed |
 | 061 | 95% code duplication between ClaudeCodeChannel and OpenCodeChannel | high | proposed |
 | 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | proposed |
@@ -70,6 +70,9 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 070 | Telemetry test helper _gate_md always emits payload on pass events — diverges from real gate_process shape | medium | _gate_md() now matches production (pass events carry None payload; gate_name in actor_metadata); added test_gate_pass_event_with_no_payload_resolves_from_metadata data-quality test; 299 tests pass |
+| 069 | Gate names are bare string literals scattered across gate.py — no constants or closed set | medium | Added 23 GATE_NAME_* constants to constants.py; replaced all bare string literals in gate.py, gate_process.py, telemetry.py, failure_summary.py; updated 6 test files; 299 tests pass |
+| 068 | Telemetry reporter matches gate events with "unknown" gate name and 0% first-attempt pass rate | high | Added gate_name to ActorMetadata; gate_process emits it; telemetry reads from actor_metadata first with fallback to payload; failure_summary reads from actor_metadata first; logging on unknown; 5 data-quality tests; 298+293 tests pass |
 | 067 | No FactoryConfig.phase2() constructor — requires manual setattr bypass | low | Added `FactoryConfig.phase2(**overrides)` classmethod returning pre-populated Phase 2 config |
 | 066 | cannot_proceed string overloaded as both state name and transition name | low | Renamed `TRANSITION_CANNOT_PROCEED` to `TRANSITION_ROUTE_TO_CANNOT_PROCEED`; string value unchanged for substrate compatibility |
 | 064 | No automated channel adapter integration tests — regression detection requires full golden run | medium | Added `test_channel_integration.py` with CLI smoke tests (skipif) and golden-file extraction tests against golden-run-001 fixtures; 11 new tests |

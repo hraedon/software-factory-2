@@ -17,6 +17,10 @@ from factory.constants import (
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_TEST_SUITE_REF,
     FAMILY_CODE,
+    GATE_NAME_IMPLEMENTATION_DEPENDENCY,
+    GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
+    GATE_NAME_TEST_SUITE_DEPENDENCY,
+    GATE_NAME_UNKNOWN_TYPE,
     STATE_CANNOT_PROCEED,
     STATE_GATING,
     TRANSITION_GATE_ESCALATION,
@@ -120,7 +124,7 @@ def process_gate_item(
     if artifact_path is None or not artifact_path.exists():
         gate_result = GateResult(
             passed=False,
-            gate_name="interface_spec_file_exists",
+            gate_name=GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
             diagnostics=[f"Artifact path missing or not found: {artifact_path_str}"],
             artifact_valid=False,
             diagnostic_kind="file_exists",
@@ -132,7 +136,7 @@ def process_gate_item(
         if not interface_ref:
             gate_result = GateResult(
                 passed=False,
-                gate_name="test_suite_dependency",
+                gate_name=GATE_NAME_TEST_SUITE_DEPENDENCY,
                 diagnostics=[
                     "Required field 'interface_ref' is missing — "
                     "test_suite cannot be validated without a locked interface_spec"
@@ -144,7 +148,7 @@ def process_gate_item(
             if interface_pyi_path is None:
                 gate_result = GateResult(
                     passed=False,
-                    gate_name="test_suite_dependency",
+                    gate_name=GATE_NAME_TEST_SUITE_DEPENDENCY,
                     diagnostics=[
                         f"Referenced interface_spec "
                         f"'{interface_ref}' has no artifact_path — "
@@ -155,7 +159,7 @@ def process_gate_item(
             elif not interface_pyi_path.exists():
                 gate_result = GateResult(
                     passed=False,
-                    gate_name="test_suite_dependency",
+                    gate_name=GATE_NAME_TEST_SUITE_DEPENDENCY,
                     diagnostics=[
                         f"Referenced interface_spec artifact not found at {interface_pyi_path}"
                     ],
@@ -172,7 +176,7 @@ def process_gate_item(
         if not interface_ref:
             gate_result = GateResult(
                 passed=False,
-                gate_name="implementation_dependency",
+                gate_name=GATE_NAME_IMPLEMENTATION_DEPENDENCY,
                 diagnostics=[
                     "Required field 'interface_ref' is missing — "
                     "implementation cannot be validated without a locked interface_spec"
@@ -182,7 +186,7 @@ def process_gate_item(
         elif not test_suite_ref:
             gate_result = GateResult(
                 passed=False,
-                gate_name="implementation_dependency",
+                gate_name=GATE_NAME_IMPLEMENTATION_DEPENDENCY,
                 diagnostics=[
                     "Required field 'test_suite_ref' is missing — "
                     "implementation cannot be validated without a locked test_suite"
@@ -195,7 +199,7 @@ def process_gate_item(
             if interface_pyi_path is None:
                 gate_result = GateResult(
                     passed=False,
-                    gate_name="implementation_dependency",
+                    gate_name=GATE_NAME_IMPLEMENTATION_DEPENDENCY,
                     diagnostics=[
                         f"Referenced interface_spec "
                         f"'{interface_ref}' has no artifact_path — "
@@ -206,7 +210,7 @@ def process_gate_item(
             elif not interface_pyi_path.exists():
                 gate_result = GateResult(
                     passed=False,
-                    gate_name="implementation_dependency",
+                    gate_name=GATE_NAME_IMPLEMENTATION_DEPENDENCY,
                     diagnostics=[
                         f"Referenced interface_spec artifact not found at {interface_pyi_path}"
                     ],
@@ -215,7 +219,7 @@ def process_gate_item(
             elif test_suite_path is None:
                 gate_result = GateResult(
                     passed=False,
-                    gate_name="implementation_dependency",
+                    gate_name=GATE_NAME_IMPLEMENTATION_DEPENDENCY,
                     diagnostics=[
                         f"Referenced test_suite "
                         f"'{test_suite_ref}' has no artifact_path — "
@@ -226,7 +230,7 @@ def process_gate_item(
             elif not test_suite_path.exists():
                 gate_result = GateResult(
                     passed=False,
-                    gate_name="implementation_dependency",
+                    gate_name=GATE_NAME_IMPLEMENTATION_DEPENDENCY,
                     diagnostics=[f"Referenced test_suite artifact not found at {test_suite_path}"],
                     diagnostic_kind="missing_artifact",
                 )
@@ -239,7 +243,7 @@ def process_gate_item(
     else:
         gate_result = GateResult(
             passed=False,
-            gate_name="unknown_type",
+            gate_name=GATE_NAME_UNKNOWN_TYPE,
             diagnostics=[f"Unknown work_item_type: {wi.work_item_type}"],
         )
 
@@ -249,6 +253,7 @@ def process_gate_item(
         role=gate_role,
         channel=gate_rc.channel if gate_rc else CHANNEL_CODE,
         family=gate_rc.family if gate_rc else FAMILY_CODE,
+        gate_name=gate_result.gate_name,
         attempt_n=claim.attempt_number,
     ).to_dict()
 

@@ -2,6 +2,13 @@ from __future__ import annotations
 
 import pytest
 
+from factory.constants import (
+    GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
+    GATE_NAME_INTERFACE_SPEC_NOT_EMPTY,
+    GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS,
+    GATE_NAME_INTERFACE_SPEC_STUB,
+    GATE_NAME_INTERFACE_SPEC_SYNTAX,
+)
 from factory.gate import GateResult
 from factory.router import DiagnosticKind, _classify_diagnostic, route
 
@@ -14,7 +21,7 @@ class TestRouterPhase1:
     def test_gate_fail_syntax_classified_correctly(self):
         gate = GateResult(
             passed=False,
-            gate_name="interface_spec_syntax",
+            gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX,
             diagnostics=["SyntaxError at line 5"],
             diagnostic_kind="syntax",
         )
@@ -27,7 +34,7 @@ class TestRouterPhase1:
     def test_gate_fail_structural_semantics_classified(self):
         gate = GateResult(
             passed=False,
-            gate_name="interface_spec_structural_semantics",
+            gate_name=GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS,
             diagnostics=["AC 'AC-02' not in any function/class docstring"],
             diagnostic_kind="structural_semantics",
         )
@@ -39,13 +46,16 @@ class TestRouterPhase1:
     def test_gate_fail_with_diagnostics_in_custom_fields(self):
         gate = GateResult(
             passed=False,
-            gate_name="interface_spec_syntax",
+            gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX,
             diagnostics=["SyntaxError at line 5"],
             diagnostic_kind="syntax",
         )
         result = route("gating", "gate_fail", gate_result=gate)
         assert result.diagnostics == ["SyntaxError at line 5"]
-        assert result.custom_fields_update["diagnostics"]["gate_name"] == "interface_spec_syntax"
+        assert (
+            result.custom_fields_update["diagnostics"]["gate_name"]
+            == GATE_NAME_INTERFACE_SPEC_SYNTAX
+        )
         assert result.custom_fields_update["diagnostics"]["messages"] == ["SyntaxError at line 5"]
         assert result.custom_fields_update["diagnostics"]["message"] == "SyntaxError at line 5"
         assert result.custom_fields_update["diagnostics"]["target_role"] == "interface_architect"
@@ -69,7 +79,7 @@ class TestDiagnosticClassification:
     def test_syntax_parse(self):
         gate = GateResult(
             passed=False,
-            gate_name="interface_spec_syntax",
+            gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX,
             diagnostics=["bad"],
             diagnostic_kind="syntax",
         )
@@ -78,7 +88,7 @@ class TestDiagnosticClassification:
     def test_stub_parse(self):
         gate = GateResult(
             passed=False,
-            gate_name="interface_spec_stub",
+            gate_name=GATE_NAME_INTERFACE_SPEC_STUB,
             diagnostics=["bad"],
             diagnostic_kind="stub",
         )
@@ -87,7 +97,7 @@ class TestDiagnosticClassification:
     def test_structural_semantics_parse(self):
         gate = GateResult(
             passed=False,
-            gate_name="interface_spec_structural_semantics",
+            gate_name=GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS,
             diagnostics=["bad"],
             diagnostic_kind="structural_semantics",
         )
@@ -96,7 +106,7 @@ class TestDiagnosticClassification:
     def test_file_exists_parse(self):
         gate = GateResult(
             passed=False,
-            gate_name="interface_spec_file_exists",
+            gate_name=GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
             diagnostics=["bad"],
             diagnostic_kind="file_exists",
         )
@@ -105,7 +115,7 @@ class TestDiagnosticClassification:
     def test_not_empty_parse(self):
         gate = GateResult(
             passed=False,
-            gate_name="interface_spec_not_empty",
+            gate_name=GATE_NAME_INTERFACE_SPEC_NOT_EMPTY,
             diagnostics=["bad"],
             diagnostic_kind="not_empty",
         )

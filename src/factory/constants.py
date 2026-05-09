@@ -56,6 +56,35 @@ TEMPFILE_PREFIX_COLLECT = "sf2_collect_"
 TEMPFILE_PREFIX_MYPY = "sf2_mypy_"
 TEMPFILE_PREFIX_PYTEST = "sf2_pytest_"
 
+GATE_NAME_INTERFACE_SPEC = "interface_spec"
+GATE_NAME_INTERFACE_SPEC_FILE_EXISTS = "interface_spec_file_exists"
+GATE_NAME_INTERFACE_SPEC_NOT_EMPTY = "interface_spec_not_empty"
+GATE_NAME_INTERFACE_SPEC_SYNTAX = "interface_spec_syntax"
+GATE_NAME_INTERFACE_SPEC_STUB = "interface_spec_stub"
+GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS = "interface_spec_structural_semantics"
+
+GATE_NAME_TEST_SUITE = "test_suite"
+GATE_NAME_TEST_SUITE_FILE_EXISTS = "test_suite_file_exists"
+GATE_NAME_TEST_SUITE_NOT_EMPTY = "test_suite_not_empty"
+GATE_NAME_TEST_SUITE_SYNTAX = "test_suite_syntax"
+GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN = "test_suite_import_forbidden"
+GATE_NAME_TEST_SUITE_COLLECT = "test_suite_collect"
+GATE_NAME_TEST_SUITE_DEPENDENCY = "test_suite_dependency"
+
+GATE_NAME_IMPLEMENTATION = "implementation"
+GATE_NAME_IMPLEMENTATION_FILE_EXISTS = "implementation_file_exists"
+GATE_NAME_IMPLEMENTATION_NOT_EMPTY = "implementation_not_empty"
+GATE_NAME_IMPLEMENTATION_SYNTAX = "implementation_syntax"
+GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN = "implementation_import_forbidden"
+GATE_NAME_IMPLEMENTATION_IMPORTS = "implementation_imports"
+GATE_NAME_IMPLEMENTATION_MYPY = "implementation_mypy"
+GATE_NAME_IMPLEMENTATION_PYTEST = "implementation_pytest"
+GATE_NAME_IMPLEMENTATION_LINT = "implementation_lint"
+GATE_NAME_IMPLEMENTATION_DEPENDENCY = "implementation_dependency"
+
+GATE_NAME_UNKNOWN_TYPE = "unknown_type"
+GATE_NAME_UNKNOWN = "unknown"
+
 FAMILY_BY_PROVIDER = {
     "zai-coding-plan": "zai",
     "ollama-cloud": "ollama",

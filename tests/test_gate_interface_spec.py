@@ -5,6 +5,12 @@ from pathlib import Path
 
 import pytest
 
+from factory.constants import (
+    GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
+    GATE_NAME_INTERFACE_SPEC_NOT_EMPTY,
+    GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS,
+    GATE_NAME_INTERFACE_SPEC_SYNTAX,
+)
 from factory.gate import evaluate_interface_spec, structural_signature, structurally_equivalent_pyi
 
 
@@ -59,7 +65,7 @@ def foo( -> int: ...
         )
         result = evaluate_interface_spec(stub)
         assert not result.passed
-        assert result.gate_name == "interface_spec_syntax"
+        assert result.gate_name == GATE_NAME_INTERFACE_SPEC_SYNTAX
         assert "SyntaxError" in result.diagnostics[0]
 
 
@@ -125,13 +131,13 @@ class TestInterfaceSpecFileNotFound:
         missing = artifact_dir / "nonexistent.pyi"
         result = evaluate_interface_spec(missing)
         assert not result.passed
-        assert result.gate_name == "interface_spec_file_exists"
+        assert result.gate_name == GATE_NAME_INTERFACE_SPEC_FILE_EXISTS
 
     def test_empty_file(self, artifact_dir):
         stub = _write_stub(artifact_dir, "empty.pyi", "")
         result = evaluate_interface_spec(stub)
         assert not result.passed
-        assert result.gate_name == "interface_spec_not_empty"
+        assert result.gate_name == GATE_NAME_INTERFACE_SPEC_NOT_EMPTY
 
 
 class TestStructuralSemantics:
@@ -147,7 +153,7 @@ x: int = 1
         )
         result = evaluate_interface_spec(stub, ac_ids=["AC-01"])
         assert not result.passed
-        assert result.gate_name == "interface_spec_structural_semantics"
+        assert result.gate_name == GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS
         assert "vacuous" in result.diagnostics[0]
 
     def test_missing_return_annotation_fails(self, artifact_dir):
@@ -161,7 +167,7 @@ def foo(x: int):
         )
         result = evaluate_interface_spec(stub)
         assert not result.passed
-        assert result.gate_name == "interface_spec_structural_semantics"
+        assert result.gate_name == GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS
         assert "no return type annotation" in result.diagnostics[0]
 
     def test_no_params_no_ac_ref_fails(self, artifact_dir):
@@ -174,7 +180,7 @@ def foo() -> int: ...
         )
         result = evaluate_interface_spec(stub)
         assert not result.passed
-        assert result.gate_name == "interface_spec_structural_semantics"
+        assert result.gate_name == GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS
         assert "no parameters" in result.diagnostics[0]
 
     def test_no_params_with_ac_ref_passes(self, artifact_dir):
@@ -202,7 +208,7 @@ def foo(x: int) -> str:
         )
         result = evaluate_interface_spec(stub, ac_ids=["AC-01", "AC-02"])
         assert not result.passed
-        assert result.gate_name == "interface_spec_structural_semantics"
+        assert result.gate_name == GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS
         assert "AC-02" in result.diagnostics[0]
         assert "detached" in result.diagnostics[0]
 

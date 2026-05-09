@@ -2,7 +2,7 @@
 number: "068"
 title: "Telemetry reporter matches gate events with 'unknown' gate name and 0% first-attempt pass rate"
 severity: high
-status: proposed
+status: resolved
 kind: bug
 author: opencode
 date: "2026-05-09"

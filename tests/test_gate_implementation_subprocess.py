@@ -6,6 +6,12 @@ from pathlib import Path
 
 import pytest
 
+from factory.constants import (
+    GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN,
+    GATE_NAME_IMPLEMENTATION_LINT,
+    GATE_NAME_IMPLEMENTATION_PYTEST,
+    GATE_NAME_IMPLEMENTATION_SYNTAX,
+)
 from factory.gate import evaluate_implementation
 
 
@@ -37,7 +43,7 @@ def compute(x: int) -> str:
             interface_pyi_path=iface_path,
         )
         assert not result.passed
-        assert result.gate_name == "implementation_import_forbidden"
+        assert result.gate_name == GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN
         assert result.diagnostic_kind == "impl_import"
         assert "pytest" in result.diagnostics[0]
 
@@ -91,7 +97,7 @@ def compute(x: int) -> str:
 """,
         )
         result = evaluate_implementation(impl_path)
-        if not result.passed and result.gate_name == "implementation_lint":
+        if not result.passed and result.gate_name == GATE_NAME_IMPLEMENTATION_LINT:
             assert result.diagnostic_kind == "impl_lint"
             assert len(result.diagnostics) > 0
 
@@ -135,7 +141,7 @@ def test_compute():
             test_suite_path=test_path,
         )
         assert not result.passed
-        assert result.gate_name == "implementation_pytest"
+        assert result.gate_name == GATE_NAME_IMPLEMENTATION_PYTEST
         assert result.diagnostic_kind == "impl_pytest"
 
     @pytest.mark.skipif(not shutil.which("pytest"), reason="pytest not installed")
@@ -178,7 +184,7 @@ def bad(
         iface_path = _write(tmp_path, "iface.pyi", "def bad() -> None: ...\n")
         result = evaluate_implementation(bad_path, interface_pyi_path=iface_path)
         assert not result.passed
-        assert result.gate_name == "implementation_syntax"
+        assert result.gate_name == GATE_NAME_IMPLEMENTATION_SYNTAX
         assert result.diagnostic_kind == "syntax"
 
     def test_import_checked_before_subprocess_gates(self, tmp_path):

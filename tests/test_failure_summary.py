@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import json
 
+from factory.constants import (
+    GATE_NAME_INTERFACE_SPEC_SYNTAX,
+    GATE_NAME_UNKNOWN,
+)
 from factory.failure_summary import FailureEntry, derive_failures, failures_to_json
 
 
@@ -18,7 +22,7 @@ class TestFailuresToJson:
                 role="mechanical_gate",
                 channel="code",
                 failure_type="gate_fail",
-                gate_name="interface_spec_syntax",
+                gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX,
                 diagnostic="SyntaxError: invalid syntax",
             )
         ]
@@ -26,7 +30,7 @@ class TestFailuresToJson:
         parsed = json.loads(result)
         assert len(parsed) == 1
         assert parsed[0]["attempt_number"] == 1
-        assert parsed[0]["gate_name"] == "interface_spec_syntax"
+        assert parsed[0]["gate_name"] == GATE_NAME_INTERFACE_SPEC_SYNTAX
         assert parsed[0]["failure_type"] == "gate_fail"
 
     def test_multiple_failures_ordered(self):
@@ -135,6 +139,7 @@ class TestDeriveFailures:
             actor_metadata={
                 "role": "mechanical_gate",
                 "channel": "code",
+                "gate_name": "interface_spec_syntax",
                 "attempt_n": 1,
             },
             payload={
@@ -152,7 +157,7 @@ class TestDeriveFailures:
         assert failures[0].role == "mechanical_gate"
         assert failures[0].channel == "code"
         assert failures[0].failure_type == "gate_fail"
-        assert failures[0].gate_name == "interface_spec_syntax"
+        assert failures[0].gate_name == GATE_NAME_INTERFACE_SPEC_SYNTAX
         assert failures[0].diagnostic == "SyntaxError at line 5"
 
     def test_single_channel_fail(self, mock_substrate):
@@ -244,6 +249,7 @@ class TestDeriveFailures:
             actor_metadata={
                 "role": "mechanical_gate",
                 "channel": "code",
+                "gate_name": "interface_spec_syntax",
                 "attempt_n": 2,
             },
             payload={
@@ -288,6 +294,7 @@ class TestDeriveFailures:
             actor_metadata={
                 "role": "mechanical_gate",
                 "channel": "code",
+                "gate_name": "syntax",
                 "attempt_n": 1,
             },
             payload={
@@ -318,6 +325,7 @@ class TestDeriveFailures:
             actor_metadata={
                 "role": "mechanical_gate",
                 "channel": "code",
+                "gate_name": "ac_reference",
                 "attempt_n": 2,
             },
             payload={
@@ -359,7 +367,12 @@ class TestDeriveFailures:
             wi.work_item_id,
             "gate_fail",
             "test-gate",
-            actor_metadata={"role": "mechanical_gate", "channel": "code", "attempt_n": 1},
+            actor_metadata={
+                "role": "mechanical_gate",
+                "channel": "code",
+                "gate_name": "syntax",
+                "attempt_n": 1,
+            },
             payload={
                 "diagnostics": {
                     "gate_name": "syntax",
@@ -399,5 +412,5 @@ class TestDeriveFailures:
         )
         failures = derive_failures(mock_substrate, wi.work_item_id)
         assert len(failures) == 1
-        assert failures[0].gate_name == "unknown"
+        assert failures[0].gate_name == GATE_NAME_UNKNOWN
         assert failures[0].diagnostic == ""

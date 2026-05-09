@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+from factory.constants import (
+    GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN,
+    GATE_NAME_IMPLEMENTATION_LINT,
+    GATE_NAME_IMPLEMENTATION_MYPY,
+    GATE_NAME_IMPLEMENTATION_PYTEST,
+    GATE_NAME_INTERFACE_SPEC_SYNTAX,
+    GATE_NAME_TEST_SUITE_COLLECT,
+    GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
+)
 from factory.gate import GateResult
 from factory.router import _PHASE2_DISPATCH, DiagnosticKind, route
 
@@ -19,7 +28,7 @@ class TestPhase2Dispatch:
     def test_test_collect_routes_to_test_author(self):
         gate = GateResult(
             passed=False,
-            gate_name="test_suite_collect",
+            gate_name=GATE_NAME_TEST_SUITE_COLLECT,
             diagnostics=["pytest --collect-only failed"],
             diagnostic_kind="test_collect",
         )
@@ -30,7 +39,7 @@ class TestPhase2Dispatch:
     def test_test_import_forbidden_routes_to_test_author(self):
         gate = GateResult(
             passed=False,
-            gate_name="test_suite_import_forbidden",
+            gate_name=GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
             diagnostics=["Test imports _impl"],
             diagnostic_kind="test_import_forbidden",
         )
@@ -41,7 +50,7 @@ class TestPhase2Dispatch:
     def test_impl_mypy_routes_to_implementer(self):
         gate = GateResult(
             passed=False,
-            gate_name="implementation_mypy",
+            gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
             diagnostics=["Incompatible return type"],
             diagnostic_kind="impl_mypy",
         )
@@ -52,7 +61,7 @@ class TestPhase2Dispatch:
     def test_impl_pytest_routes_to_implementer(self):
         gate = GateResult(
             passed=False,
-            gate_name="implementation_pytest",
+            gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
             diagnostics=["FAILED test_foo - AssertionError"],
             diagnostic_kind="impl_pytest",
         )
@@ -63,7 +72,7 @@ class TestPhase2Dispatch:
     def test_impl_lint_routes_to_implementer(self):
         gate = GateResult(
             passed=False,
-            gate_name="implementation_lint",
+            gate_name=GATE_NAME_IMPLEMENTATION_LINT,
             diagnostics=["Ruff: unused import"],
             diagnostic_kind="impl_lint",
         )
@@ -74,7 +83,7 @@ class TestPhase2Dispatch:
     def test_impl_import_routes_to_implementer(self):
         gate = GateResult(
             passed=False,
-            gate_name="implementation_import_forbidden",
+            gate_name=GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN,
             diagnostics=["Implementation imports pytest"],
             diagnostic_kind="impl_import",
         )
@@ -87,7 +96,7 @@ class TestCrossStageEscalation:
     def test_impl_failure_below_threshold_routes_normally(self):
         gate = GateResult(
             passed=False,
-            gate_name="implementation_pytest",
+            gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
             diagnostics=["FAILED test"],
             diagnostic_kind="impl_pytest",
         )
@@ -104,7 +113,7 @@ class TestCrossStageEscalation:
     def test_impl_failure_at_threshold_escalates_to_interface_architect(self):
         gate = GateResult(
             passed=False,
-            gate_name="implementation_pytest",
+            gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
             diagnostics=["FAILED test"],
             diagnostic_kind="impl_pytest",
         )
@@ -124,7 +133,7 @@ class TestCrossStageEscalation:
     def test_test_author_failure_at_threshold_escalates(self):
         gate = GateResult(
             passed=False,
-            gate_name="test_suite_collect",
+            gate_name=GATE_NAME_TEST_SUITE_COLLECT,
             diagnostics=["collect failed"],
             diagnostic_kind="test_collect",
         )
@@ -143,7 +152,7 @@ class TestCrossStageEscalation:
     def test_interface_architect_failure_never_escalates(self):
         gate = GateResult(
             passed=False,
-            gate_name="interface_spec_syntax",
+            gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX,
             diagnostics=["SyntaxError"],
             diagnostic_kind="syntax",
         )
@@ -160,7 +169,7 @@ class TestCrossStageEscalation:
     def test_escalation_preserves_original_diagnostics(self):
         gate = GateResult(
             passed=False,
-            gate_name="implementation_mypy",
+            gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
             diagnostics=["error: Incompatible return type"],
             diagnostic_kind="impl_mypy",
         )
@@ -178,7 +187,7 @@ class TestCrossStageEscalation:
     def test_above_threshold_also_escalates(self):
         gate = GateResult(
             passed=False,
-            gate_name="implementation_lint",
+            gate_name=GATE_NAME_IMPLEMENTATION_LINT,
             diagnostics=["lint error"],
             diagnostic_kind="impl_lint",
         )

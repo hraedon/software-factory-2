@@ -9,6 +9,27 @@ from pathlib import Path
 
 from factory.constants import (
     ARTIFACT_FILENAME_INTERFACE,
+    GATE_NAME_IMPLEMENTATION,
+    GATE_NAME_IMPLEMENTATION_FILE_EXISTS,
+    GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN,
+    GATE_NAME_IMPLEMENTATION_IMPORTS,
+    GATE_NAME_IMPLEMENTATION_LINT,
+    GATE_NAME_IMPLEMENTATION_MYPY,
+    GATE_NAME_IMPLEMENTATION_NOT_EMPTY,
+    GATE_NAME_IMPLEMENTATION_PYTEST,
+    GATE_NAME_IMPLEMENTATION_SYNTAX,
+    GATE_NAME_INTERFACE_SPEC,
+    GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
+    GATE_NAME_INTERFACE_SPEC_NOT_EMPTY,
+    GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS,
+    GATE_NAME_INTERFACE_SPEC_STUB,
+    GATE_NAME_INTERFACE_SPEC_SYNTAX,
+    GATE_NAME_TEST_SUITE,
+    GATE_NAME_TEST_SUITE_COLLECT,
+    GATE_NAME_TEST_SUITE_FILE_EXISTS,
+    GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
+    GATE_NAME_TEST_SUITE_NOT_EMPTY,
+    GATE_NAME_TEST_SUITE_SYNTAX,
     TEMPFILE_PREFIX_COLLECT,
     TEMPFILE_PREFIX_MYPY,
     TEMPFILE_PREFIX_PYTEST,
@@ -28,7 +49,7 @@ def evaluate_interface_spec(artifact_path: Path, ac_ids: list[str] | None = None
     if not artifact_path.exists():
         return GateResult(
             passed=False,
-            gate_name="interface_spec_file_exists",
+            gate_name=GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
             diagnostics=[f"Artifact not found: {artifact_path}"],
             artifact_valid=False,
             diagnostic_kind="file_exists",
@@ -37,7 +58,7 @@ def evaluate_interface_spec(artifact_path: Path, ac_ids: list[str] | None = None
     if not content.strip():
         return GateResult(
             passed=False,
-            gate_name="interface_spec_not_empty",
+            gate_name=GATE_NAME_INTERFACE_SPEC_NOT_EMPTY,
             diagnostics=["Artifact is empty"],
             artifact_valid=False,
             diagnostic_kind="not_empty",
@@ -53,7 +74,7 @@ def evaluate_interface_spec(artifact_path: Path, ac_ids: list[str] | None = None
         return structural_result
     return GateResult(
         passed=True,
-        gate_name="interface_spec",
+        gate_name=GATE_NAME_INTERFACE_SPEC,
         diagnostics=[],
         artifact_valid=True,
     )
@@ -65,12 +86,12 @@ def _check_syntax(content: str) -> GateResult:
     except SyntaxError as e:
         return GateResult(
             passed=False,
-            gate_name="interface_spec_syntax",
+            gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX,
             diagnostics=[f"SyntaxError at line {e.lineno}: {e.msg}"],
             artifact_valid=False,
             diagnostic_kind="syntax",
         )
-    return GateResult(passed=True, gate_name="interface_spec_syntax")
+    return GateResult(passed=True, gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX)
 
 
 def _check_pyi_stub(content: str, artifact_path: Path) -> GateResult:
@@ -87,14 +108,14 @@ def _check_pyi_stub(content: str, artifact_path: Path) -> GateResult:
             ):
                 return GateResult(
                     passed=False,
-                    gate_name="interface_spec_stub",
+                    gate_name=GATE_NAME_INTERFACE_SPEC_STUB,
                     diagnostics=[
                         f"Function '{node.name}' has implementation body. "
                         f"Interface specs must use '...' as body."
                     ],
                     diagnostic_kind="stub",
                 )
-    return GateResult(passed=True, gate_name="interface_spec_stub")
+    return GateResult(passed=True, gate_name=GATE_NAME_INTERFACE_SPEC_STUB)
 
 
 def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateResult:
@@ -107,7 +128,7 @@ def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateR
     if not top_level_defs:
         return GateResult(
             passed=False,
-            gate_name="interface_spec_structural_semantics",
+            gate_name=GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS,
             diagnostics=["No top-level functions or classes defined — interface is vacuous"],
             diagnostic_kind="structural_semantics",
         )
@@ -116,7 +137,7 @@ def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateR
             if node.returns is None:
                 return GateResult(
                     passed=False,
-                    gate_name="interface_spec_structural_semantics",
+                    gate_name=GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS,
                     diagnostics=[
                         f"Function '{node.name}' has no return type annotation — ambiguous contract"
                     ],
@@ -128,7 +149,7 @@ def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateR
                 if not _has_ac_ref(doc):
                     return GateResult(
                         passed=False,
-                        gate_name="interface_spec_structural_semantics",
+                        gate_name=GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS,
                         diagnostics=[
                             f"Function '{node.name}' has no parameters and no AC reference in "
                             f"docstring — likely vacuous"
@@ -153,14 +174,14 @@ def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateR
         if unbound:
             return GateResult(
                 passed=False,
-                gate_name="interface_spec_structural_semantics",
+                gate_name=GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS,
                 diagnostics=[
                     f"AC '{ac}' not in any function/class docstring — detached from contract"
                     for ac in unbound
                 ],
                 diagnostic_kind="structural_semantics",
             )
-    return GateResult(passed=True, gate_name="interface_spec_structural_semantics")
+    return GateResult(passed=True, gate_name=GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS)
 
 
 def _has_ac_ref(text: str) -> bool:
@@ -177,7 +198,7 @@ def evaluate_test_suite(
     if not artifact_path.exists():
         return GateResult(
             passed=False,
-            gate_name="test_suite_file_exists",
+            gate_name=GATE_NAME_TEST_SUITE_FILE_EXISTS,
             diagnostics=[f"Artifact not found: {artifact_path}"],
             artifact_valid=False,
             diagnostic_kind="file_exists",
@@ -187,7 +208,7 @@ def evaluate_test_suite(
     if not content.strip():
         return GateResult(
             passed=False,
-            gate_name="test_suite_not_empty",
+            gate_name=GATE_NAME_TEST_SUITE_NOT_EMPTY,
             diagnostics=["Artifact is empty"],
             artifact_valid=False,
             diagnostic_kind="not_empty",
@@ -197,7 +218,7 @@ def evaluate_test_suite(
     if not syntax_result.passed:
         return GateResult(
             passed=syntax_result.passed,
-            gate_name="test_suite_syntax",
+            gate_name=GATE_NAME_TEST_SUITE_SYNTAX,
             diagnostics=syntax_result.diagnostics,
             artifact_valid=False,
             diagnostic_kind="syntax",
@@ -212,7 +233,7 @@ def evaluate_test_suite(
                     if _is_non_interface_module(mod):
                         return GateResult(
                             passed=False,
-                            gate_name="test_suite_import_forbidden",
+                            gate_name=GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
                             diagnostics=[
                                 f"Test imports forbidden module '{mod}' — must only reference "
                                 f"the locked interface"
@@ -229,7 +250,7 @@ def evaluate_test_suite(
 
     return GateResult(
         passed=True,
-        gate_name="test_suite",
+        gate_name=GATE_NAME_TEST_SUITE,
         diagnostics=[],
         artifact_valid=True,
     )
@@ -254,7 +275,7 @@ def evaluate_implementation(
     if not artifact_path.exists():
         return GateResult(
             passed=False,
-            gate_name="implementation_file_exists",
+            gate_name=GATE_NAME_IMPLEMENTATION_FILE_EXISTS,
             diagnostics=[f"Artifact not found: {artifact_path}"],
             artifact_valid=False,
             diagnostic_kind="file_exists",
@@ -264,7 +285,7 @@ def evaluate_implementation(
     if not content.strip():
         return GateResult(
             passed=False,
-            gate_name="implementation_not_empty",
+            gate_name=GATE_NAME_IMPLEMENTATION_NOT_EMPTY,
             diagnostics=["Artifact is empty"],
             artifact_valid=False,
             diagnostic_kind="not_empty",
@@ -274,7 +295,7 @@ def evaluate_implementation(
     if not syntax_result.passed:
         return GateResult(
             passed=syntax_result.passed,
-            gate_name="implementation_syntax",
+            gate_name=GATE_NAME_IMPLEMENTATION_SYNTAX,
             diagnostics=syntax_result.diagnostics,
             artifact_valid=False,
             diagnostic_kind="syntax",
@@ -301,7 +322,7 @@ def evaluate_implementation(
 
     return GateResult(
         passed=True,
-        gate_name="implementation",
+        gate_name=GATE_NAME_IMPLEMENTATION,
         diagnostics=[],
         artifact_valid=True,
     )
@@ -316,14 +337,14 @@ def _check_impl_imports(content: str) -> GateResult:
                 if _is_forbidden_impl_import(mod):
                     return GateResult(
                         passed=False,
-                        gate_name="implementation_import_forbidden",
+                        gate_name=GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN,
                         diagnostics=[f"Implementation imports forbidden module '{mod}'"],
                         artifact_valid=False,
                         diagnostic_kind="impl_import",
                     )
     except SyntaxError:
         pass
-    return GateResult(passed=True, gate_name="implementation_imports")
+    return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_IMPORTS)
 
 
 def _is_forbidden_impl_import(module: str) -> bool:
@@ -358,7 +379,7 @@ def _run_pytest_collect(
                 if "No module named pytest" in result.stderr:
                     return GateResult(
                         passed=False,
-                        gate_name="test_suite_collect",
+                        gate_name=GATE_NAME_TEST_SUITE_COLLECT,
                         diagnostics=["pytest not installed"],
                         diagnostic_kind="tool_not_found",
                     )
@@ -366,7 +387,7 @@ def _run_pytest_collect(
                 diagnostics = lines[:10] or ["pytest --collect-only failed"]
                 return GateResult(
                     passed=False,
-                    gate_name="test_suite_collect",
+                    gate_name=GATE_NAME_TEST_SUITE_COLLECT,
                     diagnostics=diagnostics,
                     diagnostic_kind="test_collect",
                 )
@@ -377,25 +398,25 @@ def _run_pytest_collect(
             if no_tests:
                 return GateResult(
                     passed=False,
-                    gate_name="test_suite_collect",
+                    gate_name=GATE_NAME_TEST_SUITE_COLLECT,
                     diagnostics=["pytest --collect-only reported 0 tests"],
                     diagnostic_kind="test_collect",
                 )
     except subprocess.TimeoutExpired:
         return GateResult(
             passed=False,
-            gate_name="test_suite_collect",
+            gate_name=GATE_NAME_TEST_SUITE_COLLECT,
             diagnostics=["pytest --collect-only timed out after 30s"],
             diagnostic_kind="test_collect",
         )
     except Exception as e:
         return GateResult(
             passed=False,
-            gate_name="test_suite_collect",
+            gate_name=GATE_NAME_TEST_SUITE_COLLECT,
             diagnostics=[f"pytest --collect-only failed: {e}"],
             diagnostic_kind="test_collect",
         )
-    return GateResult(passed=True, gate_name="test_suite_collect")
+    return GateResult(passed=True, gate_name=GATE_NAME_TEST_SUITE_COLLECT)
 
 
 def _run_mypy(artifact_path: Path, interface_pyi_path: Path) -> GateResult:
@@ -405,7 +426,7 @@ def _run_mypy(artifact_path: Path, interface_pyi_path: Path) -> GateResult:
     if interface_pyi_path is None or not interface_pyi_path.exists():
         return GateResult(
             passed=False,
-            gate_name="implementation_mypy",
+            gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
             diagnostics=["missing interface .pyi, cannot type-check"],
             diagnostic_kind="missing_artifact",
         )
@@ -427,7 +448,7 @@ def _run_mypy(artifact_path: Path, interface_pyi_path: Path) -> GateResult:
                 if "No module named mypy" in result.stderr:
                     return GateResult(
                         passed=False,
-                        gate_name="implementation_mypy",
+                        gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
                         diagnostics=["mypy not installed"],
                         diagnostic_kind="tool_not_found",
                     )
@@ -435,25 +456,25 @@ def _run_mypy(artifact_path: Path, interface_pyi_path: Path) -> GateResult:
                 diagnostics = lines[:10] if lines else ["mypy reported errors"]
                 return GateResult(
                     passed=False,
-                    gate_name="implementation_mypy",
+                    gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
                     diagnostics=diagnostics,
                     diagnostic_kind="impl_mypy",
                 )
     except subprocess.TimeoutExpired:
         return GateResult(
             passed=False,
-            gate_name="implementation_mypy",
+            gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
             diagnostics=["mypy timed out after 60s"],
             diagnostic_kind="impl_mypy",
         )
     except Exception as e:
         return GateResult(
             passed=False,
-            gate_name="implementation_mypy",
+            gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
             diagnostics=[f"mypy invocation failed: {e}"],
             diagnostic_kind="impl_mypy",
         )
-    return GateResult(passed=True, gate_name="implementation_mypy")
+    return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_MYPY)
 
 
 def _run_pytest(artifact_path: Path, test_suite_path: Path) -> GateResult:
@@ -493,7 +514,7 @@ def _run_pytest(artifact_path: Path, test_suite_path: Path) -> GateResult:
                 if "No module named pytest" in result.stderr:
                     return GateResult(
                         passed=False,
-                        gate_name="implementation_pytest",
+                        gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
                         diagnostics=["pytest not installed"],
                         diagnostic_kind="tool_not_found",
                     )
@@ -502,25 +523,25 @@ def _run_pytest(artifact_path: Path, test_suite_path: Path) -> GateResult:
                 diagnostics = (lines + err_lines)[:10] or ["pytest reported failures"]
                 return GateResult(
                     passed=False,
-                    gate_name="implementation_pytest",
+                    gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
                     diagnostics=diagnostics,
                     diagnostic_kind="impl_pytest",
                 )
     except subprocess.TimeoutExpired:
         return GateResult(
             passed=False,
-            gate_name="implementation_pytest",
+            gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
             diagnostics=["pytest timed out after 120s"],
             diagnostic_kind="impl_pytest",
         )
     except Exception as e:
         return GateResult(
             passed=False,
-            gate_name="implementation_pytest",
+            gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
             diagnostics=[f"pytest invocation failed: {e}"],
             diagnostic_kind="impl_pytest",
         )
-    return GateResult(passed=True, gate_name="implementation_pytest")
+    return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_PYTEST)
 
 
 def _run_ruff(artifact_path: Path) -> GateResult:
@@ -528,7 +549,7 @@ def _run_ruff(artifact_path: Path) -> GateResult:
     if ruff is None:
         return GateResult(
             passed=False,
-            gate_name="implementation_lint",
+            gate_name=GATE_NAME_IMPLEMENTATION_LINT,
             diagnostics=["ruff not installed"],
             diagnostic_kind="tool_not_found",
         )
@@ -556,25 +577,25 @@ def _run_ruff(artifact_path: Path) -> GateResult:
             diagnostics = lines[:10] if lines else ["ruff reported lint issues"]
             return GateResult(
                 passed=False,
-                gate_name="implementation_lint",
+                gate_name=GATE_NAME_IMPLEMENTATION_LINT,
                 diagnostics=diagnostics,
                 diagnostic_kind="impl_lint",
             )
     except subprocess.TimeoutExpired:
         return GateResult(
             passed=False,
-            gate_name="implementation_lint",
+            gate_name=GATE_NAME_IMPLEMENTATION_LINT,
             diagnostics=["ruff timed out after 30s"],
             diagnostic_kind="impl_lint",
         )
     except Exception as e:
         return GateResult(
             passed=False,
-            gate_name="implementation_lint",
+            gate_name=GATE_NAME_IMPLEMENTATION_LINT,
             diagnostics=[f"ruff invocation failed: {e}"],
             diagnostic_kind="impl_lint",
         )
-    return GateResult(passed=True, gate_name="implementation_lint")
+    return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_LINT)
 
 
 def structural_signature(pyi_content: str) -> list[str]:

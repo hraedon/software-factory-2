@@ -5,6 +5,13 @@ from pathlib import Path
 
 import pytest
 
+from factory.constants import (
+    GATE_NAME_TEST_SUITE_COLLECT,
+    GATE_NAME_TEST_SUITE_FILE_EXISTS,
+    GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
+    GATE_NAME_TEST_SUITE_NOT_EMPTY,
+    GATE_NAME_TEST_SUITE_SYNTAX,
+)
 from factory.gate import evaluate_test_suite
 
 
@@ -49,14 +56,14 @@ class TestTestSuiteFailureModes:
     def test_file_not_found(self, artifact_dir):
         result = evaluate_test_suite(artifact_dir / "nonexistent.py")
         assert not result.passed
-        assert result.gate_name == "test_suite_file_exists"
+        assert result.gate_name == GATE_NAME_TEST_SUITE_FILE_EXISTS
         assert result.diagnostic_kind == "file_exists"
 
     def test_empty_file(self, artifact_dir):
         path = _write(artifact_dir, "empty.py", "")
         result = evaluate_test_suite(path)
         assert not result.passed
-        assert result.gate_name == "test_suite_not_empty"
+        assert result.gate_name == GATE_NAME_TEST_SUITE_NOT_EMPTY
         assert result.diagnostic_kind == "not_empty"
 
     def test_syntax_error(self, artifact_dir):
@@ -70,7 +77,7 @@ def test_foo(:
         )
         result = evaluate_test_suite(path)
         assert not result.passed
-        assert result.gate_name == "test_suite_syntax"
+        assert result.gate_name == GATE_NAME_TEST_SUITE_SYNTAX
         assert result.diagnostic_kind == "syntax"
 
     def test_forbidden_import_when_interface_ref_provided(self, artifact_dir):
@@ -91,7 +98,7 @@ def test_foo():
         )
         result = evaluate_test_suite(path, interface_ref_pyi_path=interface_stub)
         assert not result.passed
-        assert result.gate_name == "test_suite_import_forbidden"
+        assert result.gate_name == GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN
         assert result.diagnostic_kind == "test_import_forbidden"
         assert "_impl" in result.diagnostics[0]
 
@@ -131,7 +138,7 @@ def helper_b():
         )
         result = evaluate_test_suite(path)
         assert not result.passed
-        assert result.gate_name == "test_suite_collect"
+        assert result.gate_name == GATE_NAME_TEST_SUITE_COLLECT
         assert result.diagnostic_kind == "test_collect"
 
     def test_file_with_test_functions_passes(self, artifact_dir):
