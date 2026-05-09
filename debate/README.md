@@ -9,20 +9,6 @@ When a debate item is resolved (accepted or rejected), it should be:
 
 ## Index
 
-| # | Title | Position | Blocking |
-|---|---|---|---|
-| 001 | UI/UX validation first pass | Implement playwright-driven behavioral gate before Phase 5 | Phase 5 (first real workload) |
-| 002 | Telemetry data quality | Fix event-matching before any fleet integration | Phase 3 (fleet integration) |
-| 003 | Channel adapter deduplication | Extract `SubprocessChannel` base class before adding K2/GLM/DeepSeek/Gemini | Phase 3 (fleet integration) |
-| 004 | Pipeline checkpoints | Implement checkpoint system before multi-channel runs | Phase 3 (fleet integration) |
-| 005 | Test efficacy / mutation testing | Add lightweight mutation-testing gate before jury gates | Phase 4 (jury gates) |
-| 006 | Per-project venv isolation | Build per-project venv before real workloads with external deps | Phase 5 (first real workload) |
-| 007 | Credential management for Phase 3 multi-channel | Add `CredentialManager` and `credentials.yaml` schema before fleet integration | Phase 3 (fleet integration) |
-| 008 | Golden-run fixture representativeness | Run an adversarial multi-module+stateful+UI fixture before declaring Phase 2 done | Phase 2 exit criteria |
-| 009 | Event schema evolution | Add optional versioned payload schemas to prevent producer/consumer drift | Phase 3 (fleet integration) |
-| 010 | Unbounded event log growth | Define hot/cold retention policy before missions exceed 7 days | Phase 5+ |
-| 011 | Prompt versioning in telemetry | Track prompt template hash to deconfound channel comparisons | Phase 3 (fleet integration) |
-| 012 | Attempt-level latency tracking | Record per-attempt wall-clock for fleet placement tradeoffs | Phase 3 (fleet integration) |
-| NEW-001 | Prompt version in ActorMetadata | Content-hash prompt templates for comparable golden runs | Phase 3 (fleet integration) |
-| NEW-002 | Channel protocol cleanup | Remove dead `inputs_dir` parameter before Phase 3 adapters | Phase 3 (fleet integration) |
-| NEW-003 | Golden run automation | `make golden-run` target for repeatable multi-channel comparisons | Phase 3 (fleet integration) |
+_No active debates._
+
+All round-1 items (001–010), follow-on items (011, 012, NEW-001/002/003), and round-2 items (R2-001 through R2-006) were reviewed by claude-opus-4-7, gemini-cli, glm-5.1, deepseek-v4-pro, and kimi-k2p6-turbo. Synthesis is in `debate/resolved/positions/claude-opus-4-7/RECOMMENDATIONS.md`. Accepted items are now tracked in `plans/phase2-close-and-phase3-prep.md`. Deferred items live as RFCs (RFC-006/007/008) or as named-trigger entries in §4 of that plan. All retired items and their per-reviewer positions are preserved under `debate/resolved/`.

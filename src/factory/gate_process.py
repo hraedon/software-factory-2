@@ -31,6 +31,7 @@ from factory.constants import (
     WORK_ITEM_TYPE_TEST_SUITE,
 )
 from factory.context import _to_uuid
+from factory.event_schemas import GateFailPayload
 from factory.gate import (
     GateResult,
     evaluate_implementation,
@@ -291,7 +292,7 @@ def process_gate_item(
             transition_name,
             actor_id,
             actor_metadata=actor_metadata,
-            payload={"diagnostics": diagnostics},
+            payload=GateFailPayload(diagnostics=diagnostics).to_dict(),
             custom_fields={"diagnostics": diagnostics},
         )
         log.info(

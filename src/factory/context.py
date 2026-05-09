@@ -33,6 +33,7 @@ class PromptContext:
     prior_failures: list[FailureEntry]
     prompt_template: str
     context_hash: str
+    prompt_template_hash: str
     extra_artifacts: dict[str, str]
 
 
@@ -65,6 +66,7 @@ def derive_context(
     if not section_content and spec_content is not None:
         section_content = spec_content
     extras = extra_artifacts or {}
+    prompt_template_hash = hashlib.sha256(prompt_template.encode()).hexdigest()
     bundle = _serialize_bundle(section_content, ac_ids, glossary, failures, prompt_template, extras)
     context_hash = hashlib.sha256(bundle.encode()).hexdigest()
     return PromptContext(
@@ -76,6 +78,7 @@ def derive_context(
         prior_failures=failures,
         prompt_template=prompt_template,
         context_hash=context_hash,
+        prompt_template_hash=prompt_template_hash,
         extra_artifacts=extras,
     )
 

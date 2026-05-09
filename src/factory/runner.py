@@ -32,6 +32,7 @@ from factory.context import (
     derive_test_author_context,
     render_prompt,
 )
+from factory.event_schemas import ChannelFailPayload, SubmitPayload
 from factory.runtime import PipelineRuntime
 from factory.workspace import (
     ArtifactManifest,
@@ -198,10 +199,15 @@ def process_work_item(
     ctx = _derive_role_context(runtime, wi.work_item_id, role_name)
     role_config = config.get_role_config(role_name)
     timeout = role_config.timeout_seconds if role_config else config.claim_ttl_seconds
+    if config.per_channel_timeout and channel.name in config.per_channel_timeout:
+        timeout = config.per_channel_timeout[channel.name]
     ad = attempt_dir(wr, work_item_id, attempt_number)
     inputs_dir = wr / work_item_id / "inputs"
     prompt = render_prompt(ctx)
+    invocation_start = time.monotonic()
     invoke_result = channel.invoke(role_name, prompt, inputs_dir, ad, timeout)
+    invocation_end = time.monotonic()
+    duration_seconds = round(invocation_end - invocation_start, 3)
     effective_family = invoke_result.family or channel.family
 
     if not invoke_result.success:
@@ -216,6 +222,7 @@ def process_work_item(
             attempt_number,
             ctx,
             effective_family,
+            duration_seconds,
         )
         return
 
@@ -241,12 +248,14 @@ def process_work_item(
         family=effective_family,
         attempt_n=attempt_number,
         context_hash=ctx.context_hash,
+        prompt_template_hash=ctx.prompt_template_hash,
     ).to_dict()
     sub.transition(
         wi.work_item_id,
         TRANSITION_SUBMIT,
         actor_id,
         actor_metadata=actor_metadata,
+        payload=SubmitPayload(duration_seconds=duration_seconds).to_dict(),
         custom_fields={
             CUSTOM_FIELD_ARTIFACT_PATH: str(artifact_path),
             CUSTOM_FIELD_ARTIFACT_HASH: sha,
@@ -265,6 +274,7 @@ def _handle_invoke_failure(
     attempt_number: int,
     ctx,
     effective_family: str,
+    duration_seconds: float | None = None,
 ) -> None:
     work_item_id = wi.work_item_id
     if invoke_result.error_message == "cannot_proceed":
@@ -281,6 +291,7 @@ def _handle_invoke_failure(
                     family=effective_family,
                     attempt_n=attempt_number,
                     context_hash=ctx.context_hash,
+                    prompt_template_hash=ctx.prompt_template_hash,
                 ).to_dict(),
                 custom_fields={
                     "diagnostics": json.loads(cp_data),
@@ -297,12 +308,14 @@ def _handle_invoke_failure(
                     family=effective_family,
                     attempt_n=attempt_number,
                     context_hash=ctx.context_hash,
+                    prompt_template_hash=ctx.prompt_template_hash,
                 ).to_dict(),
-                payload={
-                    "diagnostics": {
+                payload=ChannelFailPayload(
+                    diagnostics={
                         "error_message": "cannot_proceed without diagnostics file",
+                        "duration_seconds": duration_seconds,
                     }
-                },
+                ).to_dict(),
             )
         return
     log.error(
@@ -320,14 +333,16 @@ def _handle_invoke_failure(
             family=effective_family,
             attempt_n=attempt_number,
             context_hash=ctx.context_hash,
+            prompt_template_hash=ctx.prompt_template_hash,
         ).to_dict(),
-        payload={
-            "diagnostics": {
+        payload=ChannelFailPayload(
+            diagnostics={
                 "error_message": invoke_result.error_message,
                 "timed_out": invoke_result.timed_out,
                 "exit_code": invoke_result.exit_code,
+                "duration_seconds": duration_seconds,
             }
-        },
+        ).to_dict(),
     )
 
 
@@ -347,6 +362,7 @@ def _resume_and_submit(
         family=manifest.family or channel.family,
         attempt_n=resumable_attempt,
         context_hash=manifest.context_hash,
+        prompt_template_hash=None,
     ).to_dict()
     sub.transition(
         wi.work_item_id,

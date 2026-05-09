@@ -117,6 +117,7 @@ class TestPromptContext:
             prior_failures=[],
             prompt_template="",
             context_hash="abc123",
+            prompt_template_hash="",
             extra_artifacts={},
         )
         with pytest.raises(AttributeError):
@@ -241,6 +242,7 @@ class TestRenderPrompt:
             prior_failures=[],
             prompt_template="",
             context_hash="abc",
+            prompt_template_hash="",
             extra_artifacts={},
         )
         rendered = render_prompt(ctx)
@@ -260,6 +262,7 @@ class TestRenderPrompt:
             prior_failures=[],
             prompt_template="template",
             context_hash="abc",
+            prompt_template_hash="",
             extra_artifacts={},
         )
         rendered = render_prompt(ctx)
@@ -284,6 +287,7 @@ class TestRenderPrompt:
             ],
             prompt_template="template",
             context_hash="abc",
+            prompt_template_hash="",
             extra_artifacts={},
         )
         rendered = render_prompt(ctx)
@@ -300,6 +304,7 @@ class TestRenderPrompt:
             prior_failures=[],
             prompt_template="template",
             context_hash="abc",
+            prompt_template_hash="",
             extra_artifacts={"locked_interface": "def foo(): ..."},
         )
         rendered = render_prompt(ctx)
@@ -316,6 +321,7 @@ class TestRenderPrompt:
             prior_failures=[],
             prompt_template="System prompt goes here.",
             context_hash="abc",
+            prompt_template_hash="",
             extra_artifacts={},
         )
         rendered = render_prompt(ctx)
@@ -333,6 +339,7 @@ class TestRenderPrompt:
             prior_failures=[],
             prompt_template="",
             context_hash="abc",
+            prompt_template_hash="",
             extra_artifacts={},
         )
         rendered = render_prompt(ctx)

@@ -1,0 +1,48 @@
+[
+  {
+    "transition": "gate_pass",
+    "payload": {}
+  },
+  {
+    "transition": "gate_fail",
+    "payload": {
+      "diagnostics": {
+        "gate_name": "implementation_pytest",
+        "passed": false,
+        "messages": ["assertion failed"],
+        "message": "assertion failed",
+        "diagnostic_kind": "impl_pytest",
+        "target_role": "implementer"
+      }
+    }
+  },
+  {
+    "transition": "channel_fail",
+    "payload": {
+      "diagnostics": {
+        "error_message": "timed out after 600s",
+        "timed_out": true,
+        "exit_code": -1
+      }
+    }
+  },
+  {
+    "transition": "gate_fail",
+    "payload": {
+      "diagnostics": {
+        "gate_name": "interface_spec_syntax",
+        "passed": false,
+        "messages": ["SyntaxError at line 3"],
+        "message": "SyntaxError at line 3",
+        "diagnostic_kind": "syntax",
+        "target_role": "interface_architect",
+        "escalated_from_kind": "impl_mypy",
+        "escalated_after_attempts": 3
+      }
+    }
+  },
+  {
+    "transition": "gate_pass",
+    "payload": {}
+  }
+]

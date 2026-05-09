@@ -11,6 +11,7 @@ from factory.constants import (
     TRANSITION_GATE_ESCALATION,
     TRANSITION_GATE_FAIL,
 )
+from factory.event_schemas import ChannelFailPayload, EventSchemaError, GateFailPayload
 
 
 @dataclass(frozen=True)
@@ -35,9 +36,13 @@ def derive_failures(substrate: Substrate, work_item_id: str) -> list[FailureEntr
             meta = event.actor_metadata or {}
             gate_name = meta.get("gate_name")
             if not gate_name:
-                diagnostics = {}
-                if event.payload and "diagnostics" in event.payload:
-                    diagnostics = event.payload["diagnostics"]
+                diagnostics: dict = {}
+                if event.payload:
+                    try:
+                        parsed = GateFailPayload.from_dict(event.payload)
+                        diagnostics = parsed.diagnostics
+                    except EventSchemaError:
+                        diagnostics = event.payload.get("diagnostics", {})
                 gate_name = diagnostics.get("gate_name", GATE_NAME_UNKNOWN)
             failures.append(
                 FailureEntry(
@@ -53,7 +58,13 @@ def derive_failures(substrate: Substrate, work_item_id: str) -> list[FailureEntr
         elif event.transition == TRANSITION_CHANNEL_FAIL:
             payload = event.payload or {}
             meta = event.actor_metadata or {}
-            diagnostics = payload.get("diagnostics", {})
+            diagnostics: dict = {}
+            if payload:
+                try:
+                    parsed = ChannelFailPayload.from_dict(payload)
+                    diagnostics = parsed.diagnostics
+                except EventSchemaError:
+                    diagnostics = payload.get("diagnostics", {})
             failures.append(
                 FailureEntry(
                     attempt_number=_attempt_from_meta(meta),
