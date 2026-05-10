@@ -17,6 +17,7 @@ from factory.constants import (
     CHANNEL_OPENCODE,
     CUSTOM_FIELD_ARTIFACT_HASH,
     CUSTOM_FIELD_ARTIFACT_PATH,
+    CUSTOM_FIELD_INTERFACE_REF,
     ROLE_IMPLEMENTER,
     ROLE_TEST_AUTHOR,
     STATE_NEW,
@@ -27,12 +28,14 @@ from factory.constants import (
     TRANSITION_SUBMIT,
 )
 from factory.context import (
+    PromptContext,
     derive_context,
     derive_implementer_context,
     derive_test_author_context,
     render_prompt,
 )
 from factory.event_schemas import ChannelFailPayload, SubmitPayload
+from factory.pre_gate import pre_gate_implementation
 from factory.runtime import PipelineRuntime
 from factory.workspace import (
     ArtifactManifest,
@@ -155,6 +158,23 @@ def _has_prior_gate_fail(sub: Substrate, work_item_id: str) -> bool:
     return any(e.transition in (TRANSITION_GATE_FAIL, TRANSITION_CHANNEL_FAIL) for e in events)
 
 
+def _resolve_pre_gate_deps(
+    sub: Substrate, wi, config: FactoryConfig
+) -> tuple[Path | None, list[tuple[str, Path]] | None]:
+    from factory.gate_process import _resolve_dependency_refs, _resolve_ref_artifact
+
+    custom = wi.custom_fields or {}
+    interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
+    interface_pyi_path = _resolve_ref_artifact(sub, interface_ref) if interface_ref else None
+    dep_paths = _resolve_dependency_refs(sub, custom) if interface_ref else None
+    python_executable: str | None = None
+    if config.use_project_venv:
+        from factory.venv import ensure_project_venv
+
+        python_executable = str(ensure_project_venv(Path(config.workspace_root)))
+    return interface_pyi_path, dep_paths, python_executable
+
+
 def process_work_item(
     runtime: PipelineRuntime,
     wi,
@@ -226,6 +246,27 @@ def process_work_item(
         return
 
     artifact_path = ad / invoke_result.artifact_name
+
+    if role_name == ROLE_IMPLEMENTER and config.inner_gate_retries > 0:
+        artifact_path, ctx, duration_seconds = _inner_gate_loop(
+            runtime,
+            wi,
+            actor_id,
+            claim,
+            role_name,
+            channel,
+            ctx,
+            artifact_path,
+            attempt_number,
+            ad,
+            timeout,
+            invocation_start,
+            effective_family,
+            config,
+        )
+        if artifact_path is None:
+            return
+
     artifact_data = artifact_path.read_bytes()
     sha = compute_sha256(artifact_data)
     manifest = ArtifactManifest(
@@ -260,6 +301,113 @@ def process_work_item(
             CUSTOM_FIELD_ARTIFACT_HASH: sha,
         },
     )
+
+
+def _inner_gate_loop(
+    runtime: PipelineRuntime,
+    wi,
+    actor_id: str,
+    claim,
+    role_name: str,
+    channel: Channel,
+    ctx: PromptContext,
+    artifact_path: Path,
+    attempt_number: int,
+    ad: Path,
+    timeout: int,
+    invocation_start: float,
+    effective_family: str,
+    config: FactoryConfig,
+) -> tuple[Path | None, PromptContext, float]:
+    sub = runtime.sub
+    work_item_id = str(wi.work_item_id)
+    interface_pyi_path, dep_paths, python_executable = _resolve_pre_gate_deps(sub, wi, config)
+    max_retries = config.inner_gate_retries
+    current_artifact = artifact_path
+    current_ctx = ctx
+    duration_seconds = round(time.monotonic() - invocation_start, 3)
+
+    for retry in range(max_retries):
+        if not current_artifact.exists():
+            log.warning("inner_gate_artifact_missing", work_item_id=work_item_id)
+            return current_artifact, current_ctx, duration_seconds
+
+        pre_result = pre_gate_implementation(
+            current_artifact,
+            interface_pyi_path=interface_pyi_path,
+            dependency_pyi_paths=dep_paths,
+            python_executable=python_executable,
+        )
+        if pre_result.passed:
+            log.info(
+                "inner_gate_passed",
+                work_item_id=work_item_id,
+                retry=retry,
+            )
+            return current_artifact, current_ctx, duration_seconds
+
+        log.info(
+            "inner_gate_failed_retry",
+            work_item_id=work_item_id,
+            retry=retry,
+            mypy_passed=pre_result.mypy_passed,
+            ruff_passed=pre_result.ruff_passed,
+            diagnostics=pre_result.diagnostics[:3],
+        )
+
+        from factory.failure_summary import FailureEntry
+
+        retry_failures = [
+            *current_ctx.prior_failures,
+            FailureEntry(
+                attempt_number=attempt_number,
+                role=role_name,
+                channel=channel.name,
+                gate_name="inner_mypy" if not pre_result.mypy_passed else "inner_ruff",
+                diagnostic="; ".join(pre_result.diagnostics[:5]),
+            ),
+        ]
+        current_ctx = PromptContext(
+            work_item_id=current_ctx.work_item_id,
+            role=current_ctx.role,
+            spec_section=current_ctx.spec_section,
+            ac_ids=current_ctx.ac_ids,
+            glossary=current_ctx.glossary,
+            prior_failures=retry_failures,
+            prompt_template=current_ctx.prompt_template,
+            context_hash=current_ctx.context_hash,
+            prompt_template_hash=current_ctx.prompt_template_hash,
+            extra_artifacts=current_ctx.extra_artifacts,
+        )
+        retry_prompt = render_prompt(current_ctx)
+        retry_ad = attempt_dir(runtime.workspace_root, work_item_id, attempt_number)
+        retry_start = time.monotonic()
+        retry_result = channel.invoke(role_name, retry_prompt, retry_ad, timeout)
+        duration_seconds += round(time.monotonic() - retry_start, 3)
+
+        if not retry_result.success:
+            _handle_invoke_failure(
+                sub,
+                wi,
+                retry_ad,
+                retry_result,
+                actor_id,
+                channel,
+                role_name,
+                attempt_number,
+                current_ctx,
+                effective_family,
+                duration_seconds,
+            )
+            return None, current_ctx, duration_seconds
+        current_artifact = retry_ad / retry_result.artifact_name
+
+    log.info(
+        "inner_gate_exhausted_retries",
+        work_item_id=work_item_id,
+        max_retries=max_retries,
+    )
+    return current_artifact, current_ctx, duration_seconds
 
 
 def _handle_invoke_failure(

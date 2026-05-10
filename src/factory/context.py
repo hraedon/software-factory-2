@@ -12,6 +12,7 @@ from substrate import Substrate
 from factory.constants import (
     CUSTOM_FIELD_AC_IDS,
     CUSTOM_FIELD_ARTIFACT_PATH,
+    CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_SPEC_SECTION,
     CUSTOM_FIELD_TEST_SUITE_REF,
@@ -83,6 +84,41 @@ def derive_context(
     )
 
 
+def _resolve_dependency_contents(substrate: Substrate, custom: dict) -> dict[str, str]:
+    dep_refs_raw = custom.get(CUSTOM_FIELD_DEPENDENCY_REFS) or []
+    if isinstance(dep_refs_raw, str):
+        dep_refs_raw = [dep_refs_raw]
+    contents: dict[str, str] = {}
+    for ref in dep_refs_raw:
+        ref_wi = substrate.get_work_item(_to_uuid(ref))
+        if not ref_wi or not ref_wi.custom_fields:
+            continue
+        ref_path = ref_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
+        if not ref_path:
+            continue
+        p = Path(ref_path)
+        if not p.exists():
+            continue
+        dep_spec = ref_wi.custom_fields.get(CUSTOM_FIELD_SPEC_SECTION, "")
+        module_name = _extract_module_name_from_spec(dep_spec) if dep_spec else None
+        if module_name is None:
+            module_name = p.stem
+        contents[f"locked_dependency_{module_name}"] = p.read_text()
+    return contents
+
+
+def _extract_module_name_from_spec(spec_section: str) -> str | None:
+    import re
+
+    m = re.search(r"^#\s*Interface Specification:\s*(.+)$", spec_section, re.MULTILINE)
+    if m:
+        title = m.group(1).strip()
+        module_name = re.sub(r"[^a-zA-Z0-9_]", "_", title).lower()
+        if not module_name.startswith("_"):
+            return module_name
+    return None
+
+
 def derive_test_author_context(
     substrate: Substrate,
     work_item_id: str,
@@ -109,6 +145,8 @@ def derive_test_author_context(
     extra_artifacts = {}
     if locked_interface:
         extra_artifacts["locked_interface"] = locked_interface
+    dep_contents = _resolve_dependency_contents(substrate, custom)
+    extra_artifacts.update(dep_contents)
 
     return derive_context(
         substrate,
@@ -161,6 +199,8 @@ def derive_implementer_context(
         extra_artifacts["locked_interface"] = locked_interface
     if test_suite:
         extra_artifacts["test_suite"] = test_suite
+    dep_contents = _resolve_dependency_contents(substrate, custom)
+    extra_artifacts.update(dep_contents)
 
     return derive_context(
         substrate,

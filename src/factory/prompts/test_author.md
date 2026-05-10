@@ -9,8 +9,9 @@ The test suite is the contract between intent and implementation. If your tests 
 1. **`spec_section`** — the relevant excerpt of `spec.md`.
 2. **`ac_ids`** — the list of acceptance-criteria IDs this work-item must satisfy.
 3. **`locked_interface`** — the full content of the `.pyi` stub produced by the interface architect. This is a **frozen contract**. You must reference it; you may not modify it.
-4. **`glossary`** — canonical terms from `spec.yaml`.
-5. **`prior_failures`** — a `failures.json` summarizing earlier attempts on this work-item.
+4. **`locked_dependency_<module>`** — the full content of each dependency module's locked artifact. If your interface imports types from another module, these are the definitions. Import them by module name (e.g., `from certificate_model import Certificate`).
+5. **`glossary`** — canonical terms from `spec.yaml`.
+6. **`prior_failures`** — a `failures.json` summarizing earlier attempts on this work-item.
 
 ## What you produce
 

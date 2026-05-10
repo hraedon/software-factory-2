@@ -72,6 +72,7 @@ class FactoryConfig:
     telemetry_event_limit: int = 500
     per_channel_timeout: dict[str, int] | None = None
     use_project_venv: bool = False
+    inner_gate_retries: int = 2
 
     PHASE2_WORKER_ROLES: tuple[str, ...] = (
         ROLE_INTERFACE_ARCHITECT,

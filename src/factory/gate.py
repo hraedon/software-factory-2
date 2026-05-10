@@ -433,8 +433,11 @@ def _copy_dependency_pyis(
     tmpdir_path = Path(tmpdir)
     for module_name, dep_path in dependency_pyi_paths:
         if dep_path.exists():
+            content = dep_path.read_text()
             dep_py = tmpdir_path / f"{module_name}.py"
-            dep_py.write_text(dep_path.read_text())
+            dep_py.write_text(content)
+            dep_pyi = tmpdir_path / f"{module_name}.pyi"
+            dep_pyi.write_text(content)
 
 
 def _is_forbidden_impl_import(module: str) -> bool:

@@ -1,0 +1,98 @@
+{
+  "2cc46a19-fccd-4b3f-b227-2ee8a4853fd3": {
+    "type": "implementation",
+    "state": "cannot_proceed",
+    "attempt": 4,
+    "diagnostics": {
+      "passed": false,
+      "message": "certificate_model.py:22: error: Missing return statement  [empty-body]; certificate_model.py:27: error: Missing return statement  [empty-body]",
+      "messages": [
+        "certificate_model.py:22: error: Missing return statement  [empty-body]",
+        "certificate_model.py:27: error: Missing return statement  [empty-body]"
+      ],
+      "gate_name": "implementation_mypy",
+      "target_role": "interface_architect",
+      "diagnostic_kind": "cannot_proceed_seam",
+      "escalated_from_kind": "impl_mypy",
+      "escalated_after_attempts": 4
+    }
+  },
+  "343cc699-d43b-4b7a-909a-564dc2b39b6c": {
+    "type": "interface_spec",
+    "state": "locked",
+    "attempt": 2,
+    "diagnostics": null
+  },
+  "35642a15-4cc6-4684-a198-0ea27b32e8eb": {
+    "type": "interface_spec",
+    "state": "locked",
+    "attempt": 2,
+    "diagnostics": null
+  },
+  "36d16669-36b1-441e-ae84-4a8ebcd3ff83": {
+    "type": "test_suite",
+    "state": "locked",
+    "attempt": 4,
+    "diagnostics": {
+      "passed": false,
+      "message": "==================================== ERRORS ====================================; _________________________ ERROR collecting artifact.py _________________________; ImportError while importing test module '/tmp/sf2_collect_40n3mtm2/artifact.py'.; Hint: make sure your test modules/packages have valid Python names.; Traceback:; /usr/lib/python3.12/importlib/__init__.py:90: in import_module;     return _bootstrap._gcd_import(name[level:], package, level);            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^; artifact.py:5: in <module>;     from interface import upload_certificate, UploadedEntry, ParseError",
+      "messages": [
+        "==================================== ERRORS ====================================",
+        "_________________________ ERROR collecting artifact.py _________________________",
+        "ImportError while importing test module '/tmp/sf2_collect_40n3mtm2/artifact.py'.",
+        "Hint: make sure your test modules/packages have valid Python names.",
+        "Traceback:",
+        "/usr/lib/python3.12/importlib/__init__.py:90: in import_module",
+        "    return _bootstrap._gcd_import(name[level:], package, level)",
+        "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "artifact.py:5: in <module>",
+        "    from interface import upload_certificate, UploadedEntry, ParseError"
+      ],
+      "gate_name": "test_suite_collect",
+      "target_role": "test_author",
+      "diagnostic_kind": "test_collect"
+    }
+  },
+  "4c37bb9f-ce3b-4051-b8d5-38264cfc6a5a": {
+    "type": "interface_spec",
+    "state": "locked",
+    "attempt": 2,
+    "diagnostics": null
+  },
+  "8be5ef32-208f-4b61-afda-605d71c874ff": {
+    "type": "test_suite",
+    "state": "locked",
+    "attempt": 2,
+    "diagnostics": null
+  },
+  "e728518a-e731-44c5-a539-766e58a27742": {
+    "type": "test_suite",
+    "state": "locked",
+    "attempt": 2,
+    "diagnostics": null
+  },
+  "e8f9495b-d0f2-44ed-a392-28780c0b05ef": {
+    "type": "implementation",
+    "state": "locked",
+    "attempt": 2,
+    "diagnostics": null
+  },
+  "f5c167c1-48e7-41bb-aa7d-75042bc411e2": {
+    "type": "implementation",
+    "state": "cannot_proceed",
+    "attempt": 4,
+    "diagnostics": {
+      "passed": false,
+      "message": "certificate_model.py:22: error: Missing return statement  [empty-body]; certificate_model.py:27: error: Missing return statement  [empty-body]",
+      "messages": [
+        "certificate_model.py:22: error: Missing return statement  [empty-body]",
+        "certificate_model.py:27: error: Missing return statement  [empty-body]"
+      ],
+      "gate_name": "implementation_mypy",
+      "target_role": "interface_architect",
+      "diagnostic_kind": "cannot_proceed_seam",
+      "escalated_from_kind": "impl_mypy",
+      "escalated_after_attempts": 4
+    }
+  }
+}

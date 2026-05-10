@@ -515,3 +515,174 @@ class TestDeriveImplementerContext:
 
         ctx = derive_implementer_context(mock_substrate, impl.work_item_id)
         assert ctx.extra_artifacts == {}
+
+    def test_dependency_contents_injected_into_implementer(self, mock_substrate, tmp_path):
+        from factory.context import derive_implementer_context
+
+        mock_substrate.register_workflow_file(
+            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
+        )
+
+        dep_pyi = tmp_path / "certificate_model.pyi"
+        dep_pyi.write_text("class Certificate:\n    subject: str\n    issuer: str\n")
+
+        iface_pyi = tmp_path / "iface.pyi"
+        iface_pyi.write_text(
+            "from certificate_model import Certificate\ndef scan(host: str) -> Certificate: ...\n"
+        )
+        ts_file = tmp_path / "test_scan.py"
+        ts_file.write_text("def test_scan(): assert True\n")
+
+        dep, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="arch",
+            custom_fields={
+                "spec_section": "# Interface Specification: Certificate Model\n\nAC-01: Subject DN",
+                "ac_ids": ["AC-01"],
+                "artifact_path": str(dep_pyi),
+            },
+        )
+
+        iface, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="arch",
+            custom_fields={
+                "spec_section": "Section D",
+                "ac_ids": ["AC-01"],
+                "artifact_path": str(iface_pyi),
+            },
+        )
+
+        ts, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="test_suite",
+            actor_id="tester",
+            custom_fields={
+                "spec_section": "Section D",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+                "artifact_path": str(ts_file),
+            },
+        )
+
+        impl, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="implementation",
+            actor_id="impl",
+            custom_fields={
+                "spec_section": "Section D",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+                "test_suite_ref": str(ts.work_item_id),
+                "dependency_refs": [str(dep.work_item_id)],
+            },
+        )
+
+        ctx = derive_implementer_context(mock_substrate, impl.work_item_id)
+        assert "locked_dependency_certificate_model" in ctx.extra_artifacts
+        assert "Certificate" in ctx.extra_artifacts["locked_dependency_certificate_model"]
+
+    def test_dependency_contents_injected_into_test_author(self, mock_substrate, tmp_path):
+        from factory.context import derive_test_author_context
+
+        mock_substrate.register_workflow_file(
+            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
+        )
+
+        dep_pyi = tmp_path / "certificate_model.pyi"
+        dep_pyi.write_text("class Certificate:\n    subject: str\n    issuer: str\n")
+
+        iface_pyi = tmp_path / "iface.pyi"
+        iface_pyi.write_text(
+            "from certificate_model import Certificate\ndef scan(host: str) -> Certificate: ...\n"
+        )
+
+        dep, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="arch",
+            custom_fields={
+                "spec_section": "# Interface Specification: Certificate Model\n\nAC-01: Subject DN",
+                "ac_ids": ["AC-01"],
+                "artifact_path": str(dep_pyi),
+            },
+        )
+
+        iface, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="arch",
+            custom_fields={
+                "spec_section": "Section E",
+                "ac_ids": ["AC-01"],
+                "artifact_path": str(iface_pyi),
+            },
+        )
+
+        ts, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="test_suite",
+            actor_id="tester",
+            custom_fields={
+                "spec_section": "Section E",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+                "dependency_refs": [str(dep.work_item_id)],
+            },
+        )
+
+        ctx = derive_test_author_context(mock_substrate, ts.work_item_id)
+        assert "locked_dependency_certificate_model" in ctx.extra_artifacts
+        assert "Certificate" in ctx.extra_artifacts["locked_dependency_certificate_model"]
+
+    def test_no_dependency_refs_produces_no_locked_dependencies(self, mock_substrate, tmp_path):
+        from factory.context import derive_implementer_context
+
+        mock_substrate.register_workflow_file(
+            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
+        )
+
+        iface_pyi = tmp_path / "iface_no_dep.pyi"
+        iface_pyi.write_text("def compute(x: int) -> str: ...\n")
+        ts_file = tmp_path / "test_compute.py"
+        ts_file.write_text("def test_compute(): assert True\n")
+
+        iface, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="arch",
+            custom_fields={
+                "spec_section": "Section F",
+                "ac_ids": ["AC-01"],
+                "artifact_path": str(iface_pyi),
+            },
+        )
+        ts, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="test_suite",
+            actor_id="tester",
+            custom_fields={
+                "spec_section": "Section F",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+                "artifact_path": str(ts_file),
+            },
+        )
+
+        impl, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="implementation",
+            actor_id="impl",
+            custom_fields={
+                "spec_section": "Section F",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+                "test_suite_ref": str(ts.work_item_id),
+            },
+        )
+
+        ctx = derive_implementer_context(mock_substrate, impl.work_item_id)
+        dep_keys = [k for k in ctx.extra_artifacts if k.startswith("locked_dependency_")]
+        assert dep_keys == []
