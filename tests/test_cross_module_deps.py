@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tempfile
 import textwrap
 from pathlib import Path
 
@@ -9,11 +10,62 @@ from factory.constants import (
     CUSTOM_FIELD_INTERFACE_REF,
 )
 from factory.gate import (
+    _copy_dependency_pyis,
     evaluate_implementation,
     evaluate_test_suite,
 )
 from factory.runtime import PipelineRuntime
 from factory.scheduler import _ensure_downstream_item
+
+
+class TestModuleNameResolution:
+    def test_dependency_pyi_named_artifact_gets_correct_module_name(self, tmp_path):
+        artifact_pyi = tmp_path / "artifact.pyi"
+        artifact_pyi.write_text("class Certificate:\n    subject_dn: str\n")
+        test_suite = tmp_path / "test_tls.py"
+        test_suite.write_text(
+            "from interface import scan_host\n"
+            "from certificate_model import Certificate\n\n"
+            "def test_scan():\n    assert scan_host is not None\n"
+        )
+        interface_pyi = tmp_path / "interface.pyi"
+        interface_pyi.write_text("def scan_host(host: str) -> dict: ...\n")
+        result = evaluate_test_suite(
+            test_suite,
+            interface_ref_pyi_path=interface_pyi,
+            dependency_pyi_paths=[("certificate_model", artifact_pyi)],
+        )
+        assert result.passed, f"Expected pass, got: {result.diagnostics}"
+
+    def test_copy_dependency_pyis_uses_module_name(self, tmp_path):
+        artifact_pyi = tmp_path / "artifact.pyi"
+        artifact_pyi.write_text("class Certificate:\n    subject_dn: str\n")
+        with tempfile.TemporaryDirectory(prefix="sf2_test_") as tmpdir:
+            _copy_dependency_pyis(
+                tmpdir,
+                [("certificate_model", artifact_pyi)],
+            )
+            module_file = Path(tmpdir) / "certificate_model.py"
+            assert module_file.exists()
+            assert "Certificate" in module_file.read_text()
+
+    def test_extract_module_name_from_spec(self):
+        from factory.gate_process import _extract_module_name_from_spec
+
+        spec = "# Interface Specification: Certificate Model\n\n## AC-01\nFoo"
+        assert _extract_module_name_from_spec(spec) == "certificate_model"
+
+    def test_extract_module_name_from_spec_multi_word(self):
+        from factory.gate_process import _extract_module_name_from_spec
+
+        spec = "# Interface Specification: TLS Scanner Utils\n\n## AC-01\nBar"
+        assert _extract_module_name_from_spec(spec) == "tls_scanner_utils"
+
+    def test_extract_module_name_from_spec_no_title(self):
+        from factory.gate_process import _extract_module_name_from_spec
+
+        spec = "## AC-01\nNo title"
+        assert _extract_module_name_from_spec(spec) is None
 
 
 def _write(artifact_dir: Path, name: str, content: str) -> Path:
@@ -126,7 +178,7 @@ class TestCrossModuleImportInCollect:
         result = evaluate_test_suite(
             test_suite,
             interface_ref_pyi_path=interface_pyi,
-            dependency_pyi_paths=[cert_model_pyi],
+            dependency_pyi_paths=[("certificate_model", cert_model_pyi)],
         )
         assert result.passed, f"Expected pass, got: {result.diagnostics}"
 
@@ -201,7 +253,10 @@ class TestCrossModuleImportInCollect:
         result = evaluate_test_suite(
             test_suite,
             interface_ref_pyi_path=interface_pyi,
-            dependency_pyi_paths=[cert_model_pyi, tls_utils_pyi],
+            dependency_pyi_paths=[
+                ("certificate_model", cert_model_pyi),
+                ("tls_utils", tls_utils_pyi),
+            ],
         )
         assert result.passed, f"Expected pass, got: {result.diagnostics}"
 
@@ -227,6 +282,17 @@ class TestCrossModuleImportInImplementation:
                 return {"host": hostname, "port": port}
             """,
         )
+        test_suite = _write(
+            tmp_path,
+            "test_scan.py",
+            """\
+            from impl import scan_host
+
+            def test_scan():
+                result = scan_host("example.com", 443)
+                assert result is not None
+            """,
+        )
         interface_pyi = _write(
             tmp_path,
             "interface.pyi",
@@ -238,8 +304,9 @@ class TestCrossModuleImportInImplementation:
         )
         result = evaluate_implementation(
             impl,
+            test_suite_path=test_suite,
             interface_pyi_path=interface_pyi,
-            dependency_pyi_paths=[cert_model_pyi],
+            dependency_pyi_paths=[("certificate_model", cert_model_pyi)],
         )
         assert result.passed, f"Expected pass, got: {result.diagnostics}"
 
@@ -286,7 +353,7 @@ class TestCrossModuleImportInImplementation:
             impl,
             test_suite_path=test_suite,
             interface_pyi_path=interface_pyi,
-            dependency_pyi_paths=[cert_model_pyi],
+            dependency_pyi_paths=[("certificate_model", cert_model_pyi)],
         )
         assert result.passed, f"Expected pass, got: {result.diagnostics}"
 

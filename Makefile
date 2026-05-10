@@ -29,6 +29,5 @@ golden-run:
 	.venv/bin/python -m factory.gate_process --config $(CONFIG) &
 	.venv/bin/python -m factory.scheduler --config $(CONFIG) &
 	wait
-	.venv/bin/python -m factory.report --config $(CONFIG)
 	.venv/bin/python -m factory.telemetry --config $(CONFIG)
 	.venv/bin/python -m factory.telemetry --verify --config $(CONFIG)

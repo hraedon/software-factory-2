@@ -69,14 +69,16 @@ Implemented Option A (structural fix). Changes:
 
 1. **constants.py** — Added `CUSTOM_FIELD_DEPENDENCY_REFS = "dependency_refs"` constant.
 
-2. **gate.py** — Added `dependency_pyi_paths: list[Path] | None` parameter to `evaluate_test_suite`, `evaluate_implementation`, `_run_pytest_collect`, `_run_pytest`, `_run_mypy`. Added `_copy_dependency_pyis()` helper that copies each `.pyi` dependency as `<module_name>.py` into the temp directory. All three subprocess gate functions now copy dependency modules alongside the direct interface.
+2. **gate.py** — Changed `dependency_pyi_paths` from `list[Path]` to `list[tuple[str, Path]]` (module name, path) pairs. `_copy_dependency_pyis()` now uses the provided module name instead of `dep_path.stem` (which always produced `artifact.py`). All subprocess gate functions updated.
 
-3. **gate_process.py** — Added `_resolve_dependency_refs()` helper that reads `dependency_refs` from work-item `custom_fields` and resolves each ref to its artifact path. Both test_suite and implementation branches now pass `dep_pyi_paths` to gate evaluation functions.
+3. **gate_process.py** — `_resolve_dependency_refs()` now returns `list[tuple[str, Path]]` with module names derived from the dependency spec's `# Interface Specification: <Title>` header via `_extract_module_name_from_spec()`. This fixes the core bug where `artifact.pyi` was copied as `artifact.py` instead of the correct module name (e.g., `certificate_model.py`).
 
-4. **scheduler.py** — `_ensure_downstream_item()` now propagates `dependency_refs` from source work-item to downstream (test_suite and implementation get the same dependency_refs as their source).
+4. **scheduler.py** — `_ensure_downstream_item()` propagates `dependency_refs` from source work-item to downstream.
 
-5. **populate_work_items.py** — Added `_parse_dependency_refs()` to extract `interface_ref:` entries from spec text's "Dependencies" section. Two-phase creation: create all items, then resolve dependency names to UUIDs and update via `claim`/`release` transitions.
+5. **populate_work_items.py** — Added `_parse_dependency_refs()` for spec text parsing. Fixed `ROLE_NOT_PERMITTED` error by using `interface_architect` role for dependency ref transitions. Added `--fixtures` mode `requirements.txt` copy to workspace root.
 
-6. **workflows/phase1.yaml, phase2.yaml** — Added `dependency_refs` custom field (type: json, required: false) to all three work_item_types.
+6. **tests/test_cross_module_deps.py** — 17 tests including module name resolution, artifact.pyi → correct name, `_copy_dependency_pyis` with tuples, spec title parsing.
 
-7. **tests/test_cross_module_deps.py** — 12 new tests: 4 dependency parsing, 3 pytest-collect with deps, 2 implementation mypy/pytest with deps, 3 scheduler propagation.
+7. **workflows/phase1.yaml, phase2.yaml** — Added `dependency_refs` custom field (type: json, required: false) to all three work_item_types.
+
+**Validated:** GR007 golden run with cert-watch-mini fixtures. All 3 test_suites with `dependency_refs` passed the gate. Both implementations with cross-module deps passed mypy/pytest. 8/9 items locked (1 escalated for model quality, not pipeline).

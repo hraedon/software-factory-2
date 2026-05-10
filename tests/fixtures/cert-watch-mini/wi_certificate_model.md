@@ -24,7 +24,7 @@ The `Certificate` dataclass must store the raw DER bytes of the leaf certificate
 The `Certificate` dataclass must provide `days_until_expiry() -> int` returning the number of whole days between now and `not_after`.
 
 ## AC-08: Parse from DER
-A standalone function `parse_certificate(der_bytes: bytes) -> Certificate | MalformedCertificateError` must parse a DER-encoded leaf certificate and return a populated `Certificate`.
+A standalone function `parse_certificate(der_bytes: bytes) -> Certificate | MalformedCertificateError` must parse a DER-encoded X.509 certificate. On success it returns a `Certificate`; on failure it returns a `MalformedCertificateError`.
 
 ## AC-09: Error on Malformed
-If the input is not a valid DER-encoded X.509 certificate, `parse_certificate` must raise `MalformedCertificateError` with a human-readable message.
+If the input is not a valid DER-encoded X.509 certificate, `parse_certificate` must return a `MalformedCertificateError` instance with `message: str`.

@@ -16,6 +16,7 @@ from factory.constants import (
     CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_SPEC_SECTION,
+    ROLE_INTERFACE_ARCHITECT,
     WORK_ITEM_TYPE_INTERFACE_SPEC,
 )
 from factory.config import FactoryConfig
@@ -230,10 +231,19 @@ def main():
         _config = config
     actor_id = "factory-setup"
 
+    fixtures_dir_custom = Path(args.fixtures) if args.fixtures else None
+    if fixtures_dir_custom is not None and workspace_root:
+        fixture_reqs = fixtures_dir_custom / "requirements.txt"
+        if fixture_reqs.exists():
+            ws_root = Path(workspace_root)
+            ws_root.mkdir(parents=True, exist_ok=True)
+            dest = ws_root / "requirements.txt"
+            dest.write_text(fixture_reqs.read_text())
+            print(f"  Copied {fixture_reqs} -> {dest}")
+
     created = []
     skipped = 0
     label_to_id: dict[str, str] = {}
-    fixtures_dir_custom = Path(args.fixtures) if args.fixtures else None
     pending_deps: dict[str, list[str]] = {}
     dep_name_to_label: dict[str, str] = {}
     for filename, label, shape, ac_ids in items:
@@ -281,6 +291,8 @@ def main():
             bare = dep_label_name.removeprefix("wi_")
             name_to_id[bare] = label_to_id[dep_label_name]
             name_to_id[dep_label_name] = label_to_id[dep_label_name]
+        deps_actor_id = ROLE_INTERFACE_ARCHITECT
+        deps_actor_metadata = {"role": ROLE_INTERFACE_ARCHITECT}
         for wi_id_str, dep_names in pending_deps.items():
             resolved = []
             for dn in dep_names:
@@ -293,14 +305,15 @@ def main():
                 sub.transition(
                     work_item_id=_uuid.UUID(wi_id_str),
                     transition_name="claim",
-                    actor_id=actor_id,
+                    actor_id=deps_actor_id,
+                    actor_metadata=deps_actor_metadata,
                     custom_fields={CUSTOM_FIELD_DEPENDENCY_REFS: resolved},
                 )
-                sub.release_claim(_uuid.UUID(wi_id_str), actor_id)
                 sub.transition(
                     work_item_id=_uuid.UUID(wi_id_str),
                     transition_name="release",
-                    actor_id=actor_id,
+                    actor_id=deps_actor_id,
+                    actor_metadata=deps_actor_metadata,
                 )
                 print(f"  [{wi_id_str[:8]}] dependency_refs updated: {resolved}")
 

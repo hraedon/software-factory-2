@@ -16,6 +16,7 @@ from factory.constants import (
     CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_DIAGNOSTICS,
     CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_SPEC_SECTION,
     CUSTOM_FIELD_TEST_SUITE_REF,
     FAMILY_CODE,
     GATE_NAME_IMPLEMENTATION_DEPENDENCY,
@@ -109,16 +110,37 @@ def _resolve_ref_artifact(sub: Substrate, ref: str) -> Path | None:
     return None
 
 
-def _resolve_dependency_refs(sub: Substrate, custom: dict) -> list[Path]:
+def _extract_module_name_from_spec(spec_section: str) -> str | None:
+    import re
+
+    m = re.search(r"^#\s*Interface Specification:\s*(.+)$", spec_section, re.MULTILINE)
+    if m:
+        title = m.group(1).strip()
+        module_name = re.sub(r"[^a-zA-Z0-9_]", "_", title).lower()
+        if not module_name.startswith("_"):
+            return module_name
+    return None
+
+
+def _resolve_dependency_refs(sub: Substrate, custom: dict) -> list[tuple[str, Path]]:
     dep_refs_raw = custom.get(CUSTOM_FIELD_DEPENDENCY_REFS) or []
     if isinstance(dep_refs_raw, str):
         dep_refs_raw = [dep_refs_raw]
-    paths = []
+    name_path_pairs: list[tuple[str, Path]] = []
     for ref in dep_refs_raw:
         p = _resolve_ref_artifact(sub, ref)
-        if p and p.exists():
-            paths.append(p)
-    return paths
+        if p is None or not p.exists():
+            continue
+        dep_wi = sub.get_work_item(_to_uuid(ref))
+        module_name = None
+        if dep_wi and dep_wi.custom_fields:
+            dep_spec = dep_wi.custom_fields.get(CUSTOM_FIELD_SPEC_SECTION, "")
+            if dep_spec:
+                module_name = _extract_module_name_from_spec(dep_spec)
+        if module_name is None:
+            module_name = p.stem
+        name_path_pairs.append((module_name, p))
+    return name_path_pairs
 
 
 def process_gate_item(

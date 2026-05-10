@@ -1,0 +1,30 @@
+---
+number: "073"
+title: ensure_project_venv not invoked when workspace has no requirements.txt — implementation mypy gate fails on project dependencies
+severity: medium
+status: proposed
+kind: bug
+author: glm-5.1
+date: "2026-05-10"
+tags: [gate, venv, stage-5]
+related: ["072"]
+---
+
+## Problem
+
+When `populate_work_items.py --fixtures` creates a project that depends on third-party packages (e.g., `cryptography`), the fixture's `requirements.txt` is not copied to the workspace root. The gate's `ensure_project_venv()` checks `<workspace_root>/requirements.txt` and falls back to `sys.executable` if not found. This causes `implementation_mypy` and `implementation_pytest` gates to fail because the project venv lacks the required packages.
+
+GR007 saw 2/3 implementations fail `implementation_mypy` because `mypy` could not find the `cryptography` module — the `.venv` at `/tmp/sf2-golden-007/.venv` had it installed, but `ensure_project_venv()` never found the requirements file and returned `sys.executable` instead.
+
+## Impact
+
+- Implementation gates fail for any workload that depends on third-party packages not in the factory's own environment
+- The `use_project_venv: true` config flag has no effect unless `requirements.txt` happens to be in the workspace root
+
+## Resolution (partial, 2026-05-10)
+
+`populate_work_items.py --fixtures` now copies `requirements.txt` from the fixture directory to the workspace root. This unblocks the cert-watch-mini fixture for golden runs but is not a general fix — manual venv creation or other fixture sets still need the file placed manually.
+
+## Remaining gap
+
+A more robust fix would be for `ensure_project_venv()` to also check `<workspace_root>/<work_item_dir>/requirements.txt` or for the scheduler to propagate `requirements.txt` paths through custom_fields.

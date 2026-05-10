@@ -196,7 +196,7 @@ def _has_ac_ref(text: str) -> bool:
 def evaluate_test_suite(
     artifact_path: Path,
     interface_ref_pyi_path: Path | None = None,
-    dependency_pyi_paths: list[Path] | None = None,
+    dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     if not artifact_path.exists():
@@ -336,7 +336,7 @@ def evaluate_implementation(
     artifact_path: Path,
     test_suite_path: Path | None = None,
     interface_pyi_path: Path | None = None,
-    dependency_pyi_paths: list[Path] | None = None,
+    dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     if not artifact_path.exists():
@@ -424,13 +424,15 @@ def _check_impl_imports(content: str) -> GateResult:
     return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_IMPORTS)
 
 
-def _copy_dependency_pyis(tmpdir: str, dependency_pyi_paths: list[Path] | None) -> None:
+def _copy_dependency_pyis(
+    tmpdir: str,
+    dependency_pyi_paths: list[tuple[str, Path]] | None,
+) -> None:
     if not dependency_pyi_paths:
         return
     tmpdir_path = Path(tmpdir)
-    for dep_path in dependency_pyi_paths:
+    for module_name, dep_path in dependency_pyi_paths:
         if dep_path.exists():
-            module_name = dep_path.stem
             dep_py = tmpdir_path / f"{module_name}.py"
             dep_py.write_text(dep_path.read_text())
 
@@ -442,7 +444,7 @@ def _is_forbidden_impl_import(module: str) -> bool:
 def _run_pytest_collect(
     artifact_path: Path,
     interface_ref_pyi_path: Path | None = None,
-    dependency_pyi_paths: list[Path] | None = None,
+    dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     import os
@@ -515,7 +517,7 @@ def _run_pytest_collect(
 def _run_mypy(
     artifact_path: Path,
     interface_pyi_path: Path,
-    dependency_pyi_paths: list[Path] | None = None,
+    dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     import os
@@ -580,7 +582,7 @@ def _run_mypy(
 def _run_pytest(
     artifact_path: Path,
     test_suite_path: Path,
-    dependency_pyi_paths: list[Path] | None = None,
+    dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     import os
