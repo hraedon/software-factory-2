@@ -9,6 +9,7 @@ from factory.config import FactoryConfig
 from factory.constants import (
     ACTOR_KIND_AGENT,
     CUSTOM_FIELD_AC_IDS,
+    CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_SPEC_SECTION,
     CUSTOM_FIELD_TEST_SUITE_REF,
@@ -120,6 +121,12 @@ def _ensure_downstream_item(
         iface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
         if iface_ref:
             extra[CUSTOM_FIELD_INTERFACE_REF] = iface_ref
+
+    dep_refs = custom.get(CUSTOM_FIELD_DEPENDENCY_REFS) or []
+    if isinstance(dep_refs, str):
+        dep_refs = [dep_refs]
+    if dep_refs:
+        extra[CUSTOM_FIELD_DEPENDENCY_REFS] = dep_refs
 
     downstream, _ = sub.create_work_item(
         workflow_name=config.workflow_name,

@@ -42,6 +42,7 @@ CUSTOM_FIELD_TEST_SUITE_REF = "test_suite_ref"
 CUSTOM_FIELD_SPEC_SECTION = "spec_section"
 CUSTOM_FIELD_AC_IDS = "ac_ids"
 CUSTOM_FIELD_DIAGNOSTICS = "diagnostics"
+CUSTOM_FIELD_DEPENDENCY_REFS = "dependency_refs"
 
 ACTOR_ID_WORKER_PREFIX = "factory-worker"
 ACTOR_ID_GATE = "factory-gate-code"

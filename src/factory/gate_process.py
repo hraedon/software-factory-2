@@ -13,6 +13,7 @@ from factory.constants import (
     CHANNEL_CODE,
     CUSTOM_FIELD_AC_IDS,
     CUSTOM_FIELD_ARTIFACT_PATH,
+    CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_DIAGNOSTICS,
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_TEST_SUITE_REF,
@@ -108,6 +109,18 @@ def _resolve_ref_artifact(sub: Substrate, ref: str) -> Path | None:
     return None
 
 
+def _resolve_dependency_refs(sub: Substrate, custom: dict) -> list[Path]:
+    dep_refs_raw = custom.get(CUSTOM_FIELD_DEPENDENCY_REFS) or []
+    if isinstance(dep_refs_raw, str):
+        dep_refs_raw = [dep_refs_raw]
+    paths = []
+    for ref in dep_refs_raw:
+        p = _resolve_ref_artifact(sub, ref)
+        if p and p.exists():
+            paths.append(p)
+    return paths
+
+
 def process_gate_item(
     runtime: PipelineRuntime,
     wi,
@@ -171,9 +184,11 @@ def process_gate_item(
                     diagnostic_kind="missing_artifact",
                 )
             else:
+                dep_pyi_paths = _resolve_dependency_refs(sub, custom)
                 gate_result = evaluate_test_suite(
                     artifact_path,
                     interface_ref_pyi_path=interface_pyi_path,
+                    dependency_pyi_paths=dep_pyi_paths,
                     python_executable=python_executable,
                 )
     elif wi.work_item_type == WORK_ITEM_TYPE_IMPLEMENTATION:
@@ -241,10 +256,12 @@ def process_gate_item(
                     diagnostic_kind="missing_artifact",
                 )
             else:
+                dep_pyi_paths = _resolve_dependency_refs(sub, custom)
                 gate_result = evaluate_implementation(
                     artifact_path,
                     test_suite_path=test_suite_path,
                     interface_pyi_path=interface_pyi_path,
+                    dependency_pyi_paths=dep_pyi_paths,
                     python_executable=python_executable,
                 )
     else:

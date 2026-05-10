@@ -89,6 +89,10 @@ work_item_types:
         type: string
         required: false
         ui_visible: true
+      - name: dependency_refs
+        type: json
+        required: false
+        ui_visible: true
       - name: artifact_path
         type: string
         ui_visible: true
@@ -113,6 +117,10 @@ work_item_types:
         type: work_item_ref
         target_work_item_type: interface_spec
         required: true
+        ui_visible: true
+      - name: dependency_refs
+        type: json
+        required: false
         ui_visible: true
       - name: artifact_path
         type: string
@@ -143,6 +151,10 @@ work_item_types:
         type: work_item_ref
         target_work_item_type: test_suite
         required: true
+        ui_visible: true
+      - name: dependency_refs
+        type: json
+        required: false
         ui_visible: true
       - name: artifact_path
         type: string

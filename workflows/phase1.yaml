@@ -72,6 +72,10 @@ work_item_types:
         type: string
         required: false
         ui_visible: true
+      - name: dependency_refs
+        type: json
+        required: false
+        ui_visible: true
       - name: artifact_path
         type: string
         ui_visible: true

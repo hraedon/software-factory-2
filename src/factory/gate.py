@@ -196,6 +196,7 @@ def _has_ac_ref(text: str) -> bool:
 def evaluate_test_suite(
     artifact_path: Path,
     interface_ref_pyi_path: Path | None = None,
+    dependency_pyi_paths: list[Path] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     if not artifact_path.exists():
@@ -248,7 +249,10 @@ def evaluate_test_suite(
             pass
 
     collect_result = _run_pytest_collect(
-        artifact_path, interface_ref_pyi_path, python_executable=python_executable
+        artifact_path,
+        interface_ref_pyi_path,
+        dependency_pyi_paths=dependency_pyi_paths,
+        python_executable=python_executable,
     )
     if not collect_result.passed:
         return collect_result
@@ -332,6 +336,7 @@ def evaluate_implementation(
     artifact_path: Path,
     test_suite_path: Path | None = None,
     interface_pyi_path: Path | None = None,
+    dependency_pyi_paths: list[Path] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     if not artifact_path.exists():
@@ -370,14 +375,20 @@ def evaluate_implementation(
 
     if interface_pyi_path is not None:
         mypy_result = _run_mypy(
-            artifact_path, interface_pyi_path, python_executable=python_executable
+            artifact_path,
+            interface_pyi_path,
+            dependency_pyi_paths=dependency_pyi_paths,
+            python_executable=python_executable,
         )
         if not mypy_result.passed:
             return mypy_result
 
     if test_suite_path is not None:
         pytest_result = _run_pytest(
-            artifact_path, test_suite_path, python_executable=python_executable
+            artifact_path,
+            test_suite_path,
+            dependency_pyi_paths=dependency_pyi_paths,
+            python_executable=python_executable,
         )
         if not pytest_result.passed:
             return pytest_result
@@ -413,6 +424,17 @@ def _check_impl_imports(content: str) -> GateResult:
     return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_IMPORTS)
 
 
+def _copy_dependency_pyis(tmpdir: str, dependency_pyi_paths: list[Path] | None) -> None:
+    if not dependency_pyi_paths:
+        return
+    tmpdir_path = Path(tmpdir)
+    for dep_path in dependency_pyi_paths:
+        if dep_path.exists():
+            module_name = dep_path.stem
+            dep_py = tmpdir_path / f"{module_name}.py"
+            dep_py.write_text(dep_path.read_text())
+
+
 def _is_forbidden_impl_import(module: str) -> bool:
     return module in ("conftest", "pytest")
 
@@ -420,6 +442,7 @@ def _is_forbidden_impl_import(module: str) -> bool:
 def _run_pytest_collect(
     artifact_path: Path,
     interface_ref_pyi_path: Path | None = None,
+    dependency_pyi_paths: list[Path] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     import os
@@ -433,6 +456,7 @@ def _run_pytest_collect(
             if interface_ref_pyi_path is not None and interface_ref_pyi_path.exists():
                 iface_copy = Path(tmpdir) / "interface.py"
                 iface_copy.write_text(interface_ref_pyi_path.read_text())
+            _copy_dependency_pyis(tmpdir, dependency_pyi_paths)
             result = subprocess.run(
                 [exe, "-m", "pytest", "--collect-only", "-q", str(test_copy)],
                 capture_output=True,
@@ -491,6 +515,7 @@ def _run_pytest_collect(
 def _run_mypy(
     artifact_path: Path,
     interface_pyi_path: Path,
+    dependency_pyi_paths: list[Path] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     import os
@@ -510,6 +535,7 @@ def _run_mypy(
             impl_copy.write_text(artifact_path.read_text())
             stub_copy = Path(tmpdir) / "interface.pyi"
             stub_copy.write_text(interface_pyi_path.read_text())
+            _copy_dependency_pyis(tmpdir, dependency_pyi_paths)
             result = subprocess.run(
                 [exe, "-m", "mypy", "--strict", "--no-error-summary", str(impl_copy)],
                 capture_output=True,
@@ -554,6 +580,7 @@ def _run_mypy(
 def _run_pytest(
     artifact_path: Path,
     test_suite_path: Path,
+    dependency_pyi_paths: list[Path] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     import os
@@ -570,6 +597,7 @@ def _run_pytest(
                 iface_copy.write_text(impl_content)
             test_copy = Path(tmpdir) / test_suite_path.name
             test_copy.write_text(test_suite_path.read_text())
+            _copy_dependency_pyis(tmpdir, dependency_pyi_paths)
             result = subprocess.run(
                 [
                     exe,

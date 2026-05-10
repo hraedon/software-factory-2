@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import re
 import shutil
 import sys
+import uuid as _uuid
 from pathlib import Path
+
+import re
 
 from substrate import Substrate
 
 from factory.constants import (
     CUSTOM_FIELD_AC_IDS,
+    CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_SPEC_SECTION,
     WORK_ITEM_TYPE_INTERFACE_SPEC,
@@ -64,6 +69,29 @@ def _resolve_spec_text(filename: str, label: str) -> str | None:
     if not path.exists():
         return None
     return path.read_text()
+
+
+def _parse_dependency_refs(spec_text: str) -> list[str]:
+    deps = []
+    in_deps = False
+    for line in spec_text.splitlines():
+        stripped = line.strip()
+        if stripped.lower().startswith("## dependencies"):
+            in_deps = True
+            continue
+        if in_deps and stripped.startswith("##"):
+            break
+        if in_deps:
+            m = re.match(r"^-?\s*`?interface_ref`?\s*:\s*`?([^`\s]+)`?", stripped)
+            if m:
+                deps.append(m.group(1))
+    return deps
+
+
+def _to_uuid(value: str | _uuid.UUID) -> _uuid.UUID:
+    if isinstance(value, _uuid.UUID):
+        return value
+    return _uuid.UUID(value)
 
 
 def _open_or_create_project(
@@ -204,7 +232,10 @@ def main():
 
     created = []
     skipped = 0
+    label_to_id: dict[str, str] = {}
     fixtures_dir_custom = Path(args.fixtures) if args.fixtures else None
+    pending_deps: dict[str, list[str]] = {}
+    dep_name_to_label: dict[str, str] = {}
     for filename, label, shape, ac_ids in items:
         if only_labels is not None and label not in only_labels:
             skipped += 1
@@ -217,6 +248,7 @@ def main():
         if spec_text is None:
             print(f"  [{label}] SKIP: {filename} not found")
             continue
+        dep_names = _parse_dependency_refs(spec_text)
         try:
             wi, _ = sub.create_work_item(
                 workflow_name=_config.workflow_name,
@@ -229,13 +261,48 @@ def main():
                 },
             )
             created.append((label, shape, str(wi.work_item_id)))
+            label_to_id[label] = str(wi.work_item_id)
+            bare_label = label.removeprefix("wi_")
+            dep_name_to_label[bare_label] = label
+            dep_name_to_label[label] = label
             print(f"  [{label}] {shape:20s} {wi.work_item_id}")
+            if dep_names:
+                pending_deps[str(wi.work_item_id)] = dep_names
         except Exception as e:
             if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
                 print(f"  [{label}] {shape:20s} (already exists, skipping)")
                 skipped += 1
             else:
                 raise
+
+    if pending_deps:
+        name_to_id: dict[str, str] = {}
+        for dep_label_name in label_to_id:
+            bare = dep_label_name.removeprefix("wi_")
+            name_to_id[bare] = label_to_id[dep_label_name]
+            name_to_id[dep_label_name] = label_to_id[dep_label_name]
+        for wi_id_str, dep_names in pending_deps.items():
+            resolved = []
+            for dn in dep_names:
+                rid = name_to_id.get(dn)
+                if rid:
+                    resolved.append(rid)
+                else:
+                    print(f"  WARNING: dependency '{dn}' not resolved for {wi_id_str}")
+            if resolved:
+                sub.transition(
+                    work_item_id=_uuid.UUID(wi_id_str),
+                    transition_name="claim",
+                    actor_id=actor_id,
+                    custom_fields={CUSTOM_FIELD_DEPENDENCY_REFS: resolved},
+                )
+                sub.release_claim(_uuid.UUID(wi_id_str), actor_id)
+                sub.transition(
+                    work_item_id=_uuid.UUID(wi_id_str),
+                    transition_name="release",
+                    actor_id=actor_id,
+                )
+                print(f"  [{wi_id_str[:8]}] dependency_refs updated: {resolved}")
 
     print(f"\nCreated {len(created)} work-items, skipped {skipped} existing, "
           f"in project '{args.project}' (workflow_version={workflow_version})")
