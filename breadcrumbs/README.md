@@ -64,12 +64,13 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-006 | Per-project venv isolation for subprocess gates — v1 BC-192, prevents ModuleNotFoundError in real workloads | medium | Phase 5 (first real workload) |
 | RFC-007 | Test efficacy scoring via mutation testing gates — v1 BC-107/186, mechanical antidote to test theater | high | Phase 4–5 (jury / real workload) |
 | RFC-008 | Pipeline checkpoint and surgical resume system — v1 BC-122, preserve progress across 30–50 min runs | medium | Phase 3–5 (fleet / real workload) |
+| RFC-009 | Interactive debugging inner loop — channel tool-use surface for implementer | high | Phase 5+ (evidence threshold: 3+ golden runs with pytest-in-inner-loop still failing) |
 
 ## Resolved
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
-| 075 | Inner gate loop — pre-submission mypy+ruff validation for implementer role | medium | Created pre_gate.py with pre_gate_implementation() running mypy+ruff before submit; added _inner_gate_loop() in runner.py with configurable inner_gate_retries (default 2); FactoryConfig.inner_gate_retries field; GR010 validated: inner loop caught ruff errors on one WI; 5 tests |
+| 075 | Inner gate loop — pre-submission mypy+ruff+pytest validation for implementer role | medium | Created pre_gate.py with pre_gate_implementation() running mypy+ruff+pytest (short-circuit order) before submit; added _inner_gate_loop() in runner.py with PreGateDeps NamedTuple and configurable inner_gate_retries (default 2); PreGateResult.gate_name now inner_mypy/inner_ruff/inner_pytest; _copy_dependency_pyis promoted to public copy_dependency_pyis; 7 new tests; RFC-009 filed for option #3 |
 | 074 | Cross-module dependency types invisible to implementer and test_author | high | context.py now resolves CUSTOM_FIELD_DEPENDENCY_REFS and injects locked_dependency_<module> into extra_artifacts for both roles; gate.py _copy_dependency_pyis writes both .py and .pyi files; prompt templates updated; GR009 validated: impl lock rate 33%→67%, mypy empty-body eliminated; 3 context tests |
 | 072 | Cross-module imports fail in gate temp directory | high | Module name derived from spec title via `_extract_module_name_from_spec()`; dependency refs now carry `(module_name, path)` tuples; `_copy_dependency_pyis` uses correct module names; populate_work_items fixes role-based transitions and requirements.txt copy; GR007 validated end-to-end (8/9 locked); 17 tests; 359 pass |
 | 061 | 95% code duplication between ClaudeCodeChannel and OpenCodeChannel | high | Created `SubprocessChannel` base class with shared invoke(), error handling, artifact extraction; ClaudeCodeChannel and OpenCodeChannel now thin wrappers (~20 lines each); consumer audit: GATE_NAME_BEHAVIORAL constant added, test_failure_summary.py test data drift fixed; 359 tests pass, lint/audit clean |

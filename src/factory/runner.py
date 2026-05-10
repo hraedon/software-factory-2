@@ -18,6 +18,7 @@ from factory.constants import (
     CUSTOM_FIELD_ARTIFACT_HASH,
     CUSTOM_FIELD_ARTIFACT_PATH,
     CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_TEST_SUITE_REF,
     ROLE_IMPLEMENTER,
     ROLE_TEST_AUTHOR,
     STATE_NEW,
@@ -35,7 +36,7 @@ from factory.context import (
     render_prompt,
 )
 from factory.event_schemas import ChannelFailPayload, SubmitPayload
-from factory.pre_gate import pre_gate_implementation
+from factory.pre_gate import PreGateDeps, pre_gate_implementation
 from factory.runtime import PipelineRuntime
 from factory.workspace import (
     ArtifactManifest,
@@ -158,21 +159,26 @@ def _has_prior_gate_fail(sub: Substrate, work_item_id: str) -> bool:
     return any(e.transition in (TRANSITION_GATE_FAIL, TRANSITION_CHANNEL_FAIL) for e in events)
 
 
-def _resolve_pre_gate_deps(
-    sub: Substrate, wi, config: FactoryConfig
-) -> tuple[Path | None, list[tuple[str, Path]] | None]:
+def _resolve_pre_gate_deps(sub: Substrate, wi, config: FactoryConfig) -> PreGateDeps:
     from factory.gate_process import _resolve_dependency_refs, _resolve_ref_artifact
 
     custom = wi.custom_fields or {}
     interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
     interface_pyi_path = _resolve_ref_artifact(sub, interface_ref) if interface_ref else None
     dep_paths = _resolve_dependency_refs(sub, custom) if interface_ref else None
+    test_suite_ref = custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
+    test_suite_path = _resolve_ref_artifact(sub, test_suite_ref) if test_suite_ref else None
     python_executable: str | None = None
     if config.use_project_venv:
         from factory.venv import ensure_project_venv
 
         python_executable = str(ensure_project_venv(Path(config.workspace_root)))
-    return interface_pyi_path, dep_paths, python_executable
+    return PreGateDeps(
+        interface_pyi_path=interface_pyi_path,
+        dep_paths=dep_paths,
+        python_executable=python_executable,
+        test_suite_path=test_suite_path,
+    )
 
 
 def process_work_item(
@@ -321,7 +327,7 @@ def _inner_gate_loop(
 ) -> tuple[Path | None, PromptContext, float]:
     sub = runtime.sub
     work_item_id = str(wi.work_item_id)
-    interface_pyi_path, dep_paths, python_executable = _resolve_pre_gate_deps(sub, wi, config)
+    pre_gate_deps = _resolve_pre_gate_deps(sub, wi, config)
     max_retries = config.inner_gate_retries
     current_artifact = artifact_path
     current_ctx = ctx
@@ -334,9 +340,10 @@ def _inner_gate_loop(
 
         pre_result = pre_gate_implementation(
             current_artifact,
-            interface_pyi_path=interface_pyi_path,
-            dependency_pyi_paths=dep_paths,
-            python_executable=python_executable,
+            interface_pyi_path=pre_gate_deps.interface_pyi_path,
+            dependency_pyi_paths=pre_gate_deps.dep_paths,
+            python_executable=pre_gate_deps.python_executable,
+            test_suite_path=pre_gate_deps.test_suite_path,
         )
         if pre_result.passed:
             log.info(
@@ -352,18 +359,25 @@ def _inner_gate_loop(
             retry=retry,
             mypy_passed=pre_result.mypy_passed,
             ruff_passed=pre_result.ruff_passed,
+            pytest_passed=pre_result.pytest_passed,
             diagnostics=pre_result.diagnostics[:3],
         )
 
         from factory.failure_summary import FailureEntry
 
+        if not pre_result.mypy_passed:
+            gate_label = "inner_mypy"
+        elif not pre_result.ruff_passed:
+            gate_label = "inner_ruff"
+        else:
+            gate_label = "inner_pytest"
         retry_failures = [
             *current_ctx.prior_failures,
             FailureEntry(
                 attempt_number=attempt_number,
                 role=role_name,
                 channel=channel.name,
-                gate_name="inner_mypy" if not pre_result.mypy_passed else "inner_ruff",
+                gate_name=gate_label,
                 diagnostic="; ".join(pre_result.diagnostics[:5]),
             ),
         ]

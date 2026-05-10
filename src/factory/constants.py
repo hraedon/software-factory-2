@@ -83,6 +83,7 @@ GATE_NAME_IMPLEMENTATION_MYPY = "implementation_mypy"
 GATE_NAME_IMPLEMENTATION_PYTEST = "implementation_pytest"
 GATE_NAME_IMPLEMENTATION_LINT = "implementation_lint"
 GATE_NAME_IMPLEMENTATION_DEPENDENCY = "implementation_dependency"
+GATE_NAME_INNER_PYTEST = "inner_pytest"
 
 GATE_NAME_UNKNOWN_TYPE = "unknown_type"
 GATE_NAME_BEHAVIORAL = "behavioral"

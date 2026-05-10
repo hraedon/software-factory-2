@@ -5,8 +5,22 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NamedTuple
 
-from factory.constants import TEMPFILE_PREFIX_MYPY
+from factory.constants import (
+    ARTIFACT_FILENAME_INTERFACE,
+    TEMPFILE_PREFIX_MYPY,
+    TEMPFILE_PREFIX_PYTEST,
+)
+
+_PYTEST_DIAGNOSTIC_CHAR_LIMIT = 300
+
+
+class PreGateDeps(NamedTuple):
+    interface_pyi_path: Path | None
+    dep_paths: list[tuple[str, Path]] | None
+    python_executable: str | None
+    test_suite_path: Path | None
 
 
 @dataclass(frozen=True)
@@ -14,6 +28,7 @@ class PreGateResult:
     passed: bool
     mypy_passed: bool
     ruff_passed: bool
+    pytest_passed: bool
     diagnostics: list[str]
 
 
@@ -22,24 +37,75 @@ def pre_gate_implementation(
     interface_pyi_path: Path | None = None,
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
+    test_suite_path: Path | None = None,
 ) -> PreGateResult:
+    if not artifact_path.exists():
+        return PreGateResult(
+            passed=False,
+            mypy_passed=True,
+            ruff_passed=True,
+            pytest_passed=True,
+            diagnostics=[f"Artifact not found: {artifact_path}"],
+        )
+
     mypy_result = _run_mypy_fast(
         artifact_path,
         interface_pyi_path,
         dependency_pyi_paths=dependency_pyi_paths,
         python_executable=python_executable,
     )
+    if not mypy_result["passed"]:
+        all_diagnostics = mypy_result.get("diagnostics", [])
+        return PreGateResult(
+            passed=False,
+            mypy_passed=False,
+            ruff_passed=True,
+            pytest_passed=True,
+            diagnostics=_truncate_diagnostics(all_diagnostics),
+        )
+
     ruff_result = _run_ruff_fast(artifact_path, python_executable=python_executable)
-    all_diagnostics = mypy_result.get("diagnostics", []) + ruff_result.get("diagnostics", [])
+    if not ruff_result["passed"]:
+        all_diagnostics = mypy_result.get("diagnostics", []) + ruff_result.get("diagnostics", [])
+        return PreGateResult(
+            passed=False,
+            mypy_passed=True,
+            ruff_passed=False,
+            pytest_passed=True,
+            diagnostics=_truncate_diagnostics(all_diagnostics),
+        )
+
+    pytest_result = _run_pytest_fast(
+        artifact_path,
+        interface_pyi_path=interface_pyi_path,
+        dependency_pyi_paths=dependency_pyi_paths,
+        python_executable=python_executable,
+        test_suite_path=test_suite_path,
+    )
+    all_diagnostics = ruff_result.get("diagnostics", []) + pytest_result.get("diagnostics", [])
     return PreGateResult(
-        passed=mypy_result["passed"] and ruff_result["passed"],
-        mypy_passed=mypy_result["passed"],
-        ruff_passed=ruff_result["passed"],
-        diagnostics=all_diagnostics,
+        passed=mypy_result["passed"] and ruff_result["passed"] and pytest_result["passed"],
+        mypy_passed=True,
+        ruff_passed=True,
+        pytest_passed=pytest_result["passed"],
+        diagnostics=_truncate_diagnostics(all_diagnostics),
     )
 
 
-def _copy_dependency_pyis(
+def _truncate_diagnostics(
+    diagnostics: list[str],
+    char_limit: int = _PYTEST_DIAGNOSTIC_CHAR_LIMIT,
+) -> list[str]:
+    truncated = []
+    for line in diagnostics:
+        if len(line) > char_limit:
+            truncated.append(line[:char_limit] + "...")
+        else:
+            truncated.append(line)
+    return truncated
+
+
+def copy_dependency_pyis(
     tmpdir: str,
     dependency_pyi_paths: list[tuple[str, Path]] | None,
 ) -> None:
@@ -72,7 +138,7 @@ def _run_mypy_fast(
             impl_copy.write_text(artifact_path.read_text())
             stub_copy = Path(tmpdir) / "interface.pyi"
             stub_copy.write_text(interface_pyi_path.read_text())
-            _copy_dependency_pyis(tmpdir, dependency_pyi_paths)
+            copy_dependency_pyis(tmpdir, dependency_pyi_paths)
             result = subprocess.run(
                 [exe, "-m", "mypy", "--strict", "--no-error-summary", str(impl_copy)],
                 capture_output=True,
@@ -124,4 +190,65 @@ def _run_ruff_fast(
         return {"passed": True, "diagnostics": []}
     except Exception:
         return {"passed": True, "diagnostics": []}
+    return {"passed": True, "diagnostics": []}
+
+
+def _run_pytest_fast(
+    artifact_path: Path,
+    interface_pyi_path: Path | None = None,
+    dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    python_executable: str | None = None,
+    test_suite_path: Path | None = None,
+) -> dict:
+    import tempfile
+
+    if test_suite_path is None or not test_suite_path.exists():
+        return {"passed": True, "diagnostics": []}
+
+    exe = python_executable or sys.executable
+    try:
+        with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_PYTEST) as tmpdir:
+            impl_content = artifact_path.read_text()
+            impl_copy = Path(tmpdir) / artifact_path.name
+            impl_copy.write_text(impl_content)
+            if artifact_path.stem != ARTIFACT_FILENAME_INTERFACE:
+                iface_copy = Path(tmpdir) / f"interface{artifact_path.suffix}"
+                iface_copy.write_text(impl_content)
+            if interface_pyi_path is not None and interface_pyi_path.exists():
+                stub_copy = Path(tmpdir) / "interface.pyi"
+                stub_copy.write_text(interface_pyi_path.read_text())
+            test_copy = Path(tmpdir) / test_suite_path.name
+            test_copy.write_text(test_suite_path.read_text())
+            copy_dependency_pyis(tmpdir, dependency_pyi_paths)
+            result = subprocess.run(
+                [
+                    exe,
+                    "-m",
+                    "pytest",
+                    str(test_copy),
+                    "-x",
+                    "--tb=short",
+                    "-q",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                cwd=tmpdir,
+                env={
+                    **os.environ,
+                    "PYTHONPATH": tmpdir,
+                },
+            )
+            if result.returncode != 0:
+                if "No module named pytest" in result.stderr:
+                    return {"passed": True, "diagnostics": []}
+                lines = result.stdout.strip().splitlines()
+                err_lines = result.stderr.strip().splitlines()
+                combined = lines + err_lines
+                diagnostics = combined[-3:] if combined else ["pytest reported failures"]
+                return {"passed": False, "diagnostics": diagnostics}
+    except subprocess.TimeoutExpired:
+        return {"passed": False, "diagnostics": ["pytest timed out after 120s"]}
+    except Exception as e:
+        return {"passed": False, "diagnostics": [f"pytest invocation failed: {e}"]}
     return {"passed": True, "diagnostics": []}

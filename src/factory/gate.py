@@ -35,6 +35,7 @@ from factory.constants import (
     TEMPFILE_PREFIX_MYPY,
     TEMPFILE_PREFIX_PYTEST,
 )
+from factory.pre_gate import copy_dependency_pyis
 
 
 @dataclass(frozen=True)
@@ -424,22 +425,6 @@ def _check_impl_imports(content: str) -> GateResult:
     return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_IMPORTS)
 
 
-def _copy_dependency_pyis(
-    tmpdir: str,
-    dependency_pyi_paths: list[tuple[str, Path]] | None,
-) -> None:
-    if not dependency_pyi_paths:
-        return
-    tmpdir_path = Path(tmpdir)
-    for module_name, dep_path in dependency_pyi_paths:
-        if dep_path.exists():
-            content = dep_path.read_text()
-            dep_py = tmpdir_path / f"{module_name}.py"
-            dep_py.write_text(content)
-            dep_pyi = tmpdir_path / f"{module_name}.pyi"
-            dep_pyi.write_text(content)
-
-
 def _is_forbidden_impl_import(module: str) -> bool:
     return module in ("conftest", "pytest")
 
@@ -461,7 +446,7 @@ def _run_pytest_collect(
             if interface_ref_pyi_path is not None and interface_ref_pyi_path.exists():
                 iface_copy = Path(tmpdir) / "interface.py"
                 iface_copy.write_text(interface_ref_pyi_path.read_text())
-            _copy_dependency_pyis(tmpdir, dependency_pyi_paths)
+            copy_dependency_pyis(tmpdir, dependency_pyi_paths)
             result = subprocess.run(
                 [exe, "-m", "pytest", "--collect-only", "-q", str(test_copy)],
                 capture_output=True,
@@ -540,7 +525,7 @@ def _run_mypy(
             impl_copy.write_text(artifact_path.read_text())
             stub_copy = Path(tmpdir) / "interface.pyi"
             stub_copy.write_text(interface_pyi_path.read_text())
-            _copy_dependency_pyis(tmpdir, dependency_pyi_paths)
+            copy_dependency_pyis(tmpdir, dependency_pyi_paths)
             result = subprocess.run(
                 [exe, "-m", "mypy", "--strict", "--no-error-summary", str(impl_copy)],
                 capture_output=True,
@@ -602,7 +587,7 @@ def _run_pytest(
                 iface_copy.write_text(impl_content)
             test_copy = Path(tmpdir) / test_suite_path.name
             test_copy.write_text(test_suite_path.read_text())
-            _copy_dependency_pyis(tmpdir, dependency_pyi_paths)
+            copy_dependency_pyis(tmpdir, dependency_pyi_paths)
             result = subprocess.run(
                 [
                     exe,

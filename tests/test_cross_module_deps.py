@@ -10,10 +10,10 @@ from factory.constants import (
     CUSTOM_FIELD_INTERFACE_REF,
 )
 from factory.gate import (
-    _copy_dependency_pyis,
     evaluate_implementation,
     evaluate_test_suite,
 )
+from factory.pre_gate import copy_dependency_pyis
 from factory.runtime import PipelineRuntime
 from factory.scheduler import _ensure_downstream_item
 
@@ -41,7 +41,7 @@ class TestModuleNameResolution:
         artifact_pyi = tmp_path / "artifact.pyi"
         artifact_pyi.write_text("class Certificate:\n    subject_dn: str\n")
         with tempfile.TemporaryDirectory(prefix="sf2_test_") as tmpdir:
-            _copy_dependency_pyis(
+            copy_dependency_pyis(
                 tmpdir,
                 [("certificate_model", artifact_pyi)],
             )
