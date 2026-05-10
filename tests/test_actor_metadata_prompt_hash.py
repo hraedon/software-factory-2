@@ -76,6 +76,7 @@ def test_submit_event_carries_prompt_template_hash() -> None:
         context_hash="abc123",
         prompt_template_hash="deadbeef0000",
         extra_artifacts={},
+        stub_only_deps=[],
     )
     ad = Path("/tmp/fake_attempt")
     ad.mkdir(parents=True, exist_ok=True)

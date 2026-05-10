@@ -165,7 +165,10 @@ def _resolve_pre_gate_deps(sub: Substrate, wi, config: FactoryConfig) -> PreGate
     custom = wi.custom_fields or {}
     interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
     interface_pyi_path = _resolve_ref_artifact(sub, interface_ref) if interface_ref else None
-    dep_paths = _resolve_dependency_refs(sub, custom) if interface_ref else None
+    if interface_ref:
+        dep_pyi_paths, dep_spec_paths = _resolve_dependency_refs(sub, custom)
+    else:
+        dep_pyi_paths, dep_spec_paths = [], None
     test_suite_ref = custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
     test_suite_path = _resolve_ref_artifact(sub, test_suite_ref) if test_suite_ref else None
     python_executable: str | None = None
@@ -175,7 +178,8 @@ def _resolve_pre_gate_deps(sub: Substrate, wi, config: FactoryConfig) -> PreGate
         python_executable = str(ensure_project_venv(Path(config.workspace_root)))
     return PreGateDeps(
         interface_pyi_path=interface_pyi_path,
-        dep_paths=dep_paths,
+        dep_paths=dep_pyi_paths if dep_pyi_paths else None,
+        dep_spec_paths=dep_spec_paths,
         python_executable=python_executable,
         test_suite_path=test_suite_path,
     )
@@ -342,6 +346,7 @@ def _inner_gate_loop(
             current_artifact,
             interface_pyi_path=pre_gate_deps.interface_pyi_path,
             dependency_pyi_paths=pre_gate_deps.dep_paths,
+            dependency_spec_paths=pre_gate_deps.dep_spec_paths,
             python_executable=pre_gate_deps.python_executable,
             test_suite_path=pre_gate_deps.test_suite_path,
         )
@@ -392,6 +397,7 @@ def _inner_gate_loop(
             context_hash=current_ctx.context_hash,
             prompt_template_hash=current_ctx.prompt_template_hash,
             extra_artifacts=current_ctx.extra_artifacts,
+            stub_only_deps=current_ctx.stub_only_deps,
         )
         retry_prompt = render_prompt(current_ctx)
         retry_ad = attempt_dir(runtime.workspace_root, work_item_id, attempt_number)

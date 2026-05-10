@@ -50,19 +50,19 @@ class TestModuleNameResolution:
             assert "Certificate" in module_file.read_text()
 
     def test_extract_module_name_from_spec(self):
-        from factory.gate_process import _extract_module_name_from_spec
+        from factory.dep_resolution import _extract_module_name_from_spec
 
         spec = "# Interface Specification: Certificate Model\n\n## AC-01\nFoo"
         assert _extract_module_name_from_spec(spec) == "certificate_model"
 
     def test_extract_module_name_from_spec_multi_word(self):
-        from factory.gate_process import _extract_module_name_from_spec
+        from factory.dep_resolution import _extract_module_name_from_spec
 
         spec = "# Interface Specification: TLS Scanner Utils\n\n## AC-01\nBar"
         assert _extract_module_name_from_spec(spec) == "tls_scanner_utils"
 
     def test_extract_module_name_from_spec_no_title(self):
-        from factory.gate_process import _extract_module_name_from_spec
+        from factory.dep_resolution import _extract_module_name_from_spec
 
         spec = "## AC-01\nNo title"
         assert _extract_module_name_from_spec(spec) is None

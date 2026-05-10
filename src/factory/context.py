@@ -19,6 +19,7 @@ from factory.constants import (
     ROLE_IMPLEMENTER,
     ROLE_TEST_AUTHOR,
 )
+from factory.dep_resolution import resolve_dep_refs_for_context
 from factory.failure_summary import FailureEntry, derive_failures
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -36,6 +37,7 @@ class PromptContext:
     context_hash: str
     prompt_template_hash: str
     extra_artifacts: dict[str, str]
+    stub_only_deps: list[str]
 
 
 def _to_uuid(value: str | uuid.UUID) -> uuid.UUID:
@@ -51,6 +53,7 @@ def derive_context(
     spec_content: str | None = None,
     spec_glossary: dict[str, str] | None = None,
     extra_artifacts: dict[str, str] | None = None,
+    stub_only_deps: list[str] | None = None,
 ) -> PromptContext:
     wi = substrate.get_work_item(work_item_id)
     if wi is None:
@@ -68,7 +71,15 @@ def derive_context(
         section_content = spec_content
     extras = extra_artifacts or {}
     prompt_template_hash = hashlib.sha256(prompt_template.encode()).hexdigest()
-    bundle = _serialize_bundle(section_content, ac_ids, glossary, failures, prompt_template, extras)
+    bundle = _serialize_bundle(
+        section_content,
+        ac_ids,
+        glossary,
+        failures,
+        prompt_template,
+        extras,
+        stub_only_deps or [],
+    )
     context_hash = hashlib.sha256(bundle.encode()).hexdigest()
     return PromptContext(
         work_item_id=str(work_item_id),
@@ -81,42 +92,20 @@ def derive_context(
         context_hash=context_hash,
         prompt_template_hash=prompt_template_hash,
         extra_artifacts=extras,
+        stub_only_deps=stub_only_deps or [],
     )
 
 
-def _resolve_dependency_contents(substrate: Substrate, custom: dict) -> dict[str, str]:
+def _resolve_dependency_contents(
+    substrate: Substrate,
+    custom: dict,
+) -> tuple[dict[str, str], list[str]]:
     dep_refs_raw = custom.get(CUSTOM_FIELD_DEPENDENCY_REFS) or []
     if isinstance(dep_refs_raw, str):
         dep_refs_raw = [dep_refs_raw]
-    contents: dict[str, str] = {}
-    for ref in dep_refs_raw:
-        ref_wi = substrate.get_work_item(_to_uuid(ref))
-        if not ref_wi or not ref_wi.custom_fields:
-            continue
-        ref_path = ref_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
-        if not ref_path:
-            continue
-        p = Path(ref_path)
-        if not p.exists():
-            continue
-        dep_spec = ref_wi.custom_fields.get(CUSTOM_FIELD_SPEC_SECTION, "")
-        module_name = _extract_module_name_from_spec(dep_spec) if dep_spec else None
-        if module_name is None:
-            module_name = p.stem
-        contents[f"locked_dependency_{module_name}"] = p.read_text()
-    return contents
-
-
-def _extract_module_name_from_spec(spec_section: str) -> str | None:
-    import re
-
-    m = re.search(r"^#\s*Interface Specification:\s*(.+)$", spec_section, re.MULTILINE)
-    if m:
-        title = m.group(1).strip()
-        module_name = re.sub(r"[^a-zA-Z0-9_]", "_", title).lower()
-        if not module_name.startswith("_"):
-            return module_name
-    return None
+    if not dep_refs_raw:
+        return {}, []
+    return resolve_dep_refs_for_context(substrate, dep_refs_raw)
 
 
 def derive_test_author_context(
@@ -145,7 +134,7 @@ def derive_test_author_context(
     extra_artifacts = {}
     if locked_interface:
         extra_artifacts["locked_interface"] = locked_interface
-    dep_contents = _resolve_dependency_contents(substrate, custom)
+    dep_contents, stub_only = _resolve_dependency_contents(substrate, custom)
     extra_artifacts.update(dep_contents)
 
     return derive_context(
@@ -155,6 +144,7 @@ def derive_test_author_context(
         spec_content=spec_content,
         spec_glossary=spec_glossary,
         extra_artifacts=extra_artifacts,
+        stub_only_deps=stub_only,
     )
 
 
@@ -199,7 +189,7 @@ def derive_implementer_context(
         extra_artifacts["locked_interface"] = locked_interface
     if test_suite:
         extra_artifacts["test_suite"] = test_suite
-    dep_contents = _resolve_dependency_contents(substrate, custom)
+    dep_contents, stub_only = _resolve_dependency_contents(substrate, custom)
     extra_artifacts.update(dep_contents)
 
     return derive_context(
@@ -209,6 +199,7 @@ def derive_implementer_context(
         spec_content=spec_content,
         spec_glossary=spec_glossary,
         extra_artifacts=extra_artifacts,
+        stub_only_deps=stub_only,
     )
 
 
@@ -219,6 +210,7 @@ def _serialize_bundle(
     failures: list[FailureEntry],
     prompt_template: str,
     extra_artifacts: dict[str, str] | None = None,
+    stub_only_deps: list[str] | None = None,
 ) -> str:
     data: dict[str, Any] = {
         "spec_section": spec_section,
@@ -241,6 +233,8 @@ def _serialize_bundle(
     }
     if extra_artifacts:
         data["extra_artifacts"] = extra_artifacts
+    if stub_only_deps:
+        data["stub_only_deps"] = sorted(stub_only_deps)
     return json.dumps(data, sort_keys=True)
 
 
@@ -280,4 +274,15 @@ def render_prompt(ctx: PromptContext) -> str:
             parts.append("")
             parts.append(value)
             parts.append("")
+    if ctx.stub_only_deps:
+        parts.append("## stub_only_dependencies")
+        parts.append("")
+        parts.append(
+            "WARNING: The following dependency modules are stub-only (interface_spec "
+            "without a locked implementation). Their function bodies are Ellipsis (...). "
+            "Do NOT call these functions at runtime — construct their return types directly."
+        )
+        for dep_name in sorted(ctx.stub_only_deps):
+            parts.append(f"- {dep_name}")
+        parts.append("")
     return "\n".join(parts)

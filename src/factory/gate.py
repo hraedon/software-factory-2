@@ -198,6 +198,7 @@ def evaluate_test_suite(
     artifact_path: Path,
     interface_ref_pyi_path: Path | None = None,
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     if not artifact_path.exists():
@@ -253,6 +254,7 @@ def evaluate_test_suite(
         artifact_path,
         interface_ref_pyi_path,
         dependency_pyi_paths=dependency_pyi_paths,
+        dependency_spec_paths=dependency_spec_paths,
         python_executable=python_executable,
     )
     if not collect_result.passed:
@@ -338,6 +340,7 @@ def evaluate_implementation(
     test_suite_path: Path | None = None,
     interface_pyi_path: Path | None = None,
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     if not artifact_path.exists():
@@ -379,6 +382,7 @@ def evaluate_implementation(
             artifact_path,
             interface_pyi_path,
             dependency_pyi_paths=dependency_pyi_paths,
+            dependency_spec_paths=dependency_spec_paths,
             python_executable=python_executable,
         )
         if not mypy_result.passed:
@@ -389,6 +393,7 @@ def evaluate_implementation(
             artifact_path,
             test_suite_path,
             dependency_pyi_paths=dependency_pyi_paths,
+            dependency_spec_paths=dependency_spec_paths,
             python_executable=python_executable,
         )
         if not pytest_result.passed:
@@ -433,6 +438,7 @@ def _run_pytest_collect(
     artifact_path: Path,
     interface_ref_pyi_path: Path | None = None,
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     import os
@@ -446,7 +452,7 @@ def _run_pytest_collect(
             if interface_ref_pyi_path is not None and interface_ref_pyi_path.exists():
                 iface_copy = Path(tmpdir) / "interface.py"
                 iface_copy.write_text(interface_ref_pyi_path.read_text())
-            copy_dependency_pyis(tmpdir, dependency_pyi_paths)
+            copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
             result = subprocess.run(
                 [exe, "-m", "pytest", "--collect-only", "-q", str(test_copy)],
                 capture_output=True,
@@ -506,6 +512,7 @@ def _run_mypy(
     artifact_path: Path,
     interface_pyi_path: Path,
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     import os
@@ -525,7 +532,7 @@ def _run_mypy(
             impl_copy.write_text(artifact_path.read_text())
             stub_copy = Path(tmpdir) / "interface.pyi"
             stub_copy.write_text(interface_pyi_path.read_text())
-            copy_dependency_pyis(tmpdir, dependency_pyi_paths)
+            copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
             result = subprocess.run(
                 [exe, "-m", "mypy", "--strict", "--no-error-summary", str(impl_copy)],
                 capture_output=True,
@@ -571,6 +578,7 @@ def _run_pytest(
     artifact_path: Path,
     test_suite_path: Path,
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
     import os
@@ -587,7 +595,7 @@ def _run_pytest(
                 iface_copy.write_text(impl_content)
             test_copy = Path(tmpdir) / test_suite_path.name
             test_copy.write_text(test_suite_path.read_text())
-            copy_dependency_pyis(tmpdir, dependency_pyi_paths)
+            copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
             result = subprocess.run(
                 [
                     exe,

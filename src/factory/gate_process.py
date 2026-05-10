@@ -16,7 +16,6 @@ from factory.constants import (
     CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_DIAGNOSTICS,
     CUSTOM_FIELD_INTERFACE_REF,
-    CUSTOM_FIELD_SPEC_SECTION,
     CUSTOM_FIELD_TEST_SUITE_REF,
     FAMILY_CODE,
     GATE_NAME_IMPLEMENTATION_DEPENDENCY,
@@ -32,7 +31,7 @@ from factory.constants import (
     WORK_ITEM_TYPE_INTERFACE_SPEC,
     WORK_ITEM_TYPE_TEST_SUITE,
 )
-from factory.context import _to_uuid
+from factory.dep_resolution import _to_uuid, resolve_dep_artifacts
 from factory.event_schemas import GateFailPayload
 from factory.gate import (
     GateResult,
@@ -110,37 +109,29 @@ def _resolve_ref_artifact(sub: Substrate, ref: str) -> Path | None:
     return None
 
 
-def _extract_module_name_from_spec(spec_section: str) -> str | None:
-    import re
+def _resolve_dependency_refs(
+    sub: Substrate,
+    custom: dict,
+) -> tuple[list[tuple[str, Path]], list[tuple[str, Path]] | None]:
 
-    m = re.search(r"^#\s*Interface Specification:\s*(.+)$", spec_section, re.MULTILINE)
-    if m:
-        title = m.group(1).strip()
-        module_name = re.sub(r"[^a-zA-Z0-9_]", "_", title).lower()
-        if not module_name.startswith("_"):
-            return module_name
-    return None
-
-
-def _resolve_dependency_refs(sub: Substrate, custom: dict) -> list[tuple[str, Path]]:
     dep_refs_raw = custom.get(CUSTOM_FIELD_DEPENDENCY_REFS) or []
     if isinstance(dep_refs_raw, str):
         dep_refs_raw = [dep_refs_raw]
-    name_path_pairs: list[tuple[str, Path]] = []
-    for ref in dep_refs_raw:
-        p = _resolve_ref_artifact(sub, ref)
-        if p is None or not p.exists():
-            continue
-        dep_wi = sub.get_work_item(_to_uuid(ref))
-        module_name = None
-        if dep_wi and dep_wi.custom_fields:
-            dep_spec = dep_wi.custom_fields.get(CUSTOM_FIELD_SPEC_SECTION, "")
-            if dep_spec:
-                module_name = _extract_module_name_from_spec(dep_spec)
-        if module_name is None:
-            module_name = p.stem
-        name_path_pairs.append((module_name, p))
-    return name_path_pairs
+    if not dep_refs_raw:
+        return [], None
+    dep_artifacts = resolve_dep_artifacts(sub, dep_refs_raw)
+    primary_paths: list[tuple[str, Path]] = []
+    spec_paths: list[tuple[str, Path]] = []
+    has_impl = False
+    for dep in dep_artifacts:
+        path = dep.impl_path if dep.impl_path else dep.spec_path
+        primary_paths.append((dep.module_name, path))
+        if dep.impl_path:
+            has_impl = True
+            spec_paths.append((dep.module_name, dep.spec_path))
+        else:
+            spec_paths.append((dep.module_name, dep.spec_path))
+    return primary_paths, spec_paths if has_impl else None
 
 
 def process_gate_item(
@@ -206,11 +197,12 @@ def process_gate_item(
                     diagnostic_kind="missing_artifact",
                 )
             else:
-                dep_pyi_paths = _resolve_dependency_refs(sub, custom)
+                dep_pyi_paths, dep_spec_paths = _resolve_dependency_refs(sub, custom)
                 gate_result = evaluate_test_suite(
                     artifact_path,
                     interface_ref_pyi_path=interface_pyi_path,
                     dependency_pyi_paths=dep_pyi_paths,
+                    dependency_spec_paths=dep_spec_paths,
                     python_executable=python_executable,
                 )
     elif wi.work_item_type == WORK_ITEM_TYPE_IMPLEMENTATION:
@@ -278,12 +270,13 @@ def process_gate_item(
                     diagnostic_kind="missing_artifact",
                 )
             else:
-                dep_pyi_paths = _resolve_dependency_refs(sub, custom)
+                dep_pyi_paths, dep_spec_paths = _resolve_dependency_refs(sub, custom)
                 gate_result = evaluate_implementation(
                     artifact_path,
                     test_suite_path=test_suite_path,
                     interface_pyi_path=interface_pyi_path,
                     dependency_pyi_paths=dep_pyi_paths,
+                    dependency_spec_paths=dep_spec_paths,
                     python_executable=python_executable,
                 )
     else:

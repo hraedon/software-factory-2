@@ -119,6 +119,7 @@ class TestPromptContext:
             context_hash="abc123",
             prompt_template_hash="",
             extra_artifacts={},
+            stub_only_deps=[],
         )
         with pytest.raises(AttributeError):
             ctx.role = "test_author"
@@ -244,6 +245,7 @@ class TestRenderPrompt:
             context_hash="abc",
             prompt_template_hash="",
             extra_artifacts={},
+            stub_only_deps=[],
         )
         rendered = render_prompt(ctx)
         assert "work_item_id: wi-1" in rendered
@@ -264,6 +266,7 @@ class TestRenderPrompt:
             context_hash="abc",
             prompt_template_hash="",
             extra_artifacts={},
+            stub_only_deps=[],
         )
         rendered = render_prompt(ctx)
         assert "## glossary" in rendered
@@ -289,6 +292,7 @@ class TestRenderPrompt:
             context_hash="abc",
             prompt_template_hash="",
             extra_artifacts={},
+            stub_only_deps=[],
         )
         rendered = render_prompt(ctx)
         assert "## prior_failures" in rendered
@@ -306,6 +310,7 @@ class TestRenderPrompt:
             context_hash="abc",
             prompt_template_hash="",
             extra_artifacts={"locked_interface": "def foo(): ..."},
+            stub_only_deps=[],
         )
         rendered = render_prompt(ctx)
         assert "## locked_interface" in rendered
@@ -323,6 +328,7 @@ class TestRenderPrompt:
             context_hash="abc",
             prompt_template_hash="",
             extra_artifacts={},
+            stub_only_deps=[],
         )
         rendered = render_prompt(ctx)
         lines = rendered.splitlines()
@@ -341,6 +347,7 @@ class TestRenderPrompt:
             context_hash="abc",
             prompt_template_hash="",
             extra_artifacts={},
+            stub_only_deps=[],
         )
         rendered = render_prompt(ctx)
         assert spec in rendered

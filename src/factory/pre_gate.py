@@ -19,8 +19,9 @@ _PYTEST_DIAGNOSTIC_CHAR_LIMIT = 300
 class PreGateDeps(NamedTuple):
     interface_pyi_path: Path | None
     dep_paths: list[tuple[str, Path]] | None
-    python_executable: str | None
-    test_suite_path: Path | None
+    dep_spec_paths: list[tuple[str, Path]] | None = None
+    python_executable: str | None = None
+    test_suite_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,7 @@ def pre_gate_implementation(
     artifact_path: Path,
     interface_pyi_path: Path | None = None,
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
     test_suite_path: Path | None = None,
 ) -> PreGateResult:
@@ -52,6 +54,7 @@ def pre_gate_implementation(
         artifact_path,
         interface_pyi_path,
         dependency_pyi_paths=dependency_pyi_paths,
+        dependency_spec_paths=dependency_spec_paths,
         python_executable=python_executable,
     )
     if not mypy_result["passed"]:
@@ -79,6 +82,7 @@ def pre_gate_implementation(
         artifact_path,
         interface_pyi_path=interface_pyi_path,
         dependency_pyi_paths=dependency_pyi_paths,
+        dependency_spec_paths=dependency_spec_paths,
         python_executable=python_executable,
         test_suite_path=test_suite_path,
     )
@@ -108,15 +112,28 @@ def _truncate_diagnostics(
 def copy_dependency_pyis(
     tmpdir: str,
     dependency_pyi_paths: list[tuple[str, Path]] | None,
+    dependency_spec_paths: list[tuple[str, Path]] | None = None,
 ) -> None:
-    if not dependency_pyi_paths:
+    if not dependency_pyi_paths and not dependency_spec_paths:
         return
     tmpdir_path = Path(tmpdir)
+    spec_map: dict[str, Path] = {}
+    if dependency_spec_paths:
+        for module_name, spec_path in dependency_spec_paths:
+            if spec_path.exists():
+                spec_map[module_name] = spec_path
+    if not dependency_pyi_paths:
+        return
     for module_name, dep_path in dependency_pyi_paths:
-        if dep_path.exists():
-            content = dep_path.read_text()
-            dep_py = tmpdir_path / f"{module_name}.py"
-            dep_py.write_text(content)
+        if not dep_path.exists():
+            continue
+        content = dep_path.read_text()
+        dep_py = tmpdir_path / f"{module_name}.py"
+        dep_py.write_text(content)
+        if module_name in spec_map:
+            dep_pyi = tmpdir_path / f"{module_name}.pyi"
+            dep_pyi.write_text(spec_map[module_name].read_text())
+        else:
             dep_pyi = tmpdir_path / f"{module_name}.pyi"
             dep_pyi.write_text(content)
 
@@ -125,6 +142,7 @@ def _run_mypy_fast(
     artifact_path: Path,
     interface_pyi_path: Path | None = None,
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
 ) -> dict:
     import tempfile
@@ -138,7 +156,7 @@ def _run_mypy_fast(
             impl_copy.write_text(artifact_path.read_text())
             stub_copy = Path(tmpdir) / "interface.pyi"
             stub_copy.write_text(interface_pyi_path.read_text())
-            copy_dependency_pyis(tmpdir, dependency_pyi_paths)
+            copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
             result = subprocess.run(
                 [exe, "-m", "mypy", "--strict", "--no-error-summary", str(impl_copy)],
                 capture_output=True,
@@ -197,6 +215,7 @@ def _run_pytest_fast(
     artifact_path: Path,
     interface_pyi_path: Path | None = None,
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
     test_suite_path: Path | None = None,
 ) -> dict:
@@ -219,7 +238,7 @@ def _run_pytest_fast(
                 stub_copy.write_text(interface_pyi_path.read_text())
             test_copy = Path(tmpdir) / test_suite_path.name
             test_copy.write_text(test_suite_path.read_text())
-            copy_dependency_pyis(tmpdir, dependency_pyi_paths)
+            copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
             result = subprocess.run(
                 [
                     exe,

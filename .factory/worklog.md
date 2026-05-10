@@ -4,6 +4,119 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-10 — Session 19: BC-076 implemented — dep resolution prefers locked implementations
+
+**Invocation:** OpenCode (glm-5.1)
+
+**Focus:** Implement BC-076 fix: when resolving dependency references, prefer the locked implementation's `.py` artifact over the interface_spec's `.pyi` stub for runtime use, while keeping the spec's `.pyi` for mypy type checking.
+
+**Changes:**
+
+1. **New module `src/factory/dep_resolution.py`** — Centralized dependency resolution:
+   - `DepArtifact` dataclass with `module_name`, `impl_path`, `spec_path`, `is_stub_only`
+   - `resolve_dep_artifacts()` — resolves each dep ref, finding locked implementations via `_find_locked_impl()` (queries substrate for locked implementations matching the spec's `interface_ref`)
+   - `resolve_dep_refs_for_gate()` — returns `list[tuple[str, Path]]` of primary artifact paths (impl .py preferred over spec .pyi)
+   - `resolve_dep_refs_for_gate_rich()` — returns `list[tuple[str, Path, Path | None]]` with both impl and spec paths
+   - `resolve_dep_refs_for_context()` — returns `(contents_dict, stub_only_list)` for prompt injection
+
+2. **`src/factory/context.py`** — Updated `PromptContext` with `stub_only_deps: list[str]`; `_resolve_dependency_contents` now returns `(dict, list)` tuple; `render_prompt()` adds `## stub_only_dependencies` warning section; `_serialize_bundle` includes `stub_only_deps` in context hash
+
+3. **`src/factory/gate_process.py`** — `_resolve_dependency_refs()` now returns `tuple[list[tuple[str, Path]], list[tuple[str, Path]] | None]` (primary paths + spec paths); delegates to `resolve_dep_artifacts` for impl-preference logic
+
+4. **`src/factory/pre_gate.py`** — `PreGateDeps` gains `dep_spec_paths` field; `copy_dependency_pyis()` gains `dependency_spec_paths` parameter; when impl exists, writes `.py` from impl and `.pyi` from spec; when stub-only, writes same content as both (preserving backward compatibility)
+
+5. **`src/factory/gate.py`** — `evaluate_test_suite()` and `evaluate_implementation()` gain `dependency_spec_paths` parameter; propagated through `_run_pytest_collect`, `_run_mypy`, `_run_pytest`
+
+6. **`src/factory/runner.py`** — `_resolve_pre_gate_deps` unpacks the new tuple; `PreGateDeps` now includes `dep_spec_paths`; `PromptContext` construction includes `stub_only_deps`
+
+7. **`tests/fixtures/cert-watch/`** — Full 7-work-unit fixture with diamond deps, multi-hop chains
+
+8. **Tests:** All 374 pass, lint clean, audit clean. Existing test `PromptContext` constructions updated with `stub_only_deps=[]`.
+
+**Key design choice (per Opus):** Option 1 (find locked impl artifact) is the architecturally honest fix. Option 2 (prompt guard) is the fallback for stub-only deps. Both are implemented.
+
+**Scheduler note:** No scheduler change needed. The scheduler already propagates `dependency_refs` verbatim. The dep resolution finds locked implementations at query time. For parallel channels (Phase 3+), the scheduler should respect dep-impl ordering — but that's a Phase 3+ concern.
+
+---
+
+## 2026-05-10 — Session 18: GR-011 complete; BC-076 filed; cert-watch full fixture created
+
+**Invocation:** OpenCode (glm-5.1)
+
+**Focus:** Execute GR-011 to validate BC-074/075 fixes; diagnose FR-03 failure; create expanded cert-watch fixture; file BC-076.
+
+**GR-011 result (cert-watch-mini, kimi-k2p6-turbo via Fireworks):**
+- 9 work items: 8 locked (89%), 1 escalated (11%)
+- Interface specs: 3/3 (100%), Test suites: 3/3 (100%), Implementations: 2/3 (67%)
+- FR-03 file_upload escalated to `cannot_proceed` — inner gate pytest failures on `test_upload_certificate_valid_pem_returns_uploaded_entry`
+- Wall clock: ~21 min. Telemetry verification passed.
+
+**Root cause diagnosis (principal-identified):**
+- FR-03 test calls `parse_certificate(der)` from `certificate_model`, but the gate copies the `.pyi` stub as the runtime `.py` dep. Stub bodies are `...` (Ellipsis), so `parse_certificate(der)` returns `Ellipsis`, failing the `isinstance` check.
+- FR-02 passed because its test constructs `Certificate(...)` directly — never calling the dep's functions at runtime.
+- This is a pipeline gap, not a model quality issue. BC-076 filed at severity=high.
+
+**BC-076: Dependency .pyi stub bodies are Ellipsis — gate copies stub as runtime dep.**
+- `copy_dependency_pyis()` copies `.pyi` content into both `.py` and `.pyi` files for dependency modules. For interface specs, `.pyi` bodies are `...`, causing runtime failures.
+- Three options proposed: (1) add implementation work-items to fixtures so dep has real `.py`, (2) prompt guard for test_author, (3) gate auto-mocking (rejected).
+- Option 1 is the honest fix; option 2 is complementary.
+
+**New fixture: `/tests/fixtures/cert-watch/`**
+- 7 work-units with full dependency graph matching v1 cert-watch:
+  - certificate_model (no deps) — foundation
+  - database_layer ← certificate_model
+  - fr01_dashboard ← database_layer
+  - fr02_tls_scan ← certificate_model, database_layer (diamond dep)
+  - fr03_upload ← certificate_model, database_layer (diamond dep)
+  - fr04_alerts ← database_layer
+  - fr05_scheduler ← fr02_tls_scan, fr04_alerts (multi-hop chain)
+- Exercises: independent foundation, single-dep, diamond deps, multi-hop chains.
+- Retains `tests/fixtures/cert-watch-mini/` as the 3-spec quick-validation fixture.
+
+**Files created/modified:**
+- `golden-run-011-config.yaml` — config
+- `golden-run-011-log.md` — full analysis
+- `breadcrumbs/076-dep-stub-as-runtime-pipeline-gap.md` — new BC
+- `breadcrumbs/README.md` — updated index
+- `tests/fixtures/cert-watch/` — 7 spec files + requirements.txt
+
+---
+
+## 2026-05-10 — Session 17: GR-011 validation of BC-074/075 fixes
+
+**Invocation:** OpenCode (glm-5.1)
+
+**Focus:** Execute golden run 011 to validate BC-072 (cross-module imports), BC-074 (dependency context injection), BC-075 (inner gate loop with pytest).
+
+**GR-011 result:**
+- 9 work items: 8 locked (89%), 1 escalated (11%)
+- Interface specs: 3/3 locked (100%)
+- Test suites: 3/3 locked (100%)
+- Implementations: 2/3 locked (67%), 1/3 escalated (FR-03 file_upload)
+- Wall clock: ~21 minutes
+- Telemetry verification: passed (0 unknown gates, 0 orphans, 0 confounding)
+
+**Inner gate loop (BC-075) validated:**
+- Implementation `4191c68d`: inner gate caught RUF059 on retry 0, passed on retry 1
+- Implementation `c47c6e90`: inner gate caught pytest failures on retries 0 and 1, exhausted max_retries=2, submitted anyway; outer gate then also failed; item ultimately escalated to cannot_proceed
+- Implementation `3387c000`: inner gate passed first try, no retries needed
+
+**BC-074 dependency context validated:** Cross-module test_suites and implementations resolved imports correctly. No ModuleNotFoundError in any gate.
+
+**BC-039 lint autofix validated:** Inner gate ruff check caught and autofixed RUF059 (unused unpacked variable).
+
+**BC-046 resume guard validated:** `skipping_resume_due_to_prior_gate_fail` correctly logged for `c47c6e90` on attempt 3.
+
+**BC-037 escalation routing validated:** `c47c6e90` escalated to cannot_proceed after attempt_threshold=3.
+
+**Remaining issue:** FR-03 `test_upload_certificate_valid_pem_returns_uploaded_entry` consistently fails pytest across multiple implementation attempts. This appears to be a model quality issue (model can't correctly implement the certificate-aware upload function) rather than a pipeline bug.
+
+**Artifacts:**
+- `golden-run-011-config.yaml` — config
+- `golden-run-011-log.md` — full run log and analysis
+
+---
+
 ## 2026-05-09 — Session 16 (continued): GR006a complete — Phase 2 PAUSE decision
 
 **GR006a result:**

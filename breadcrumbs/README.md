@@ -44,6 +44,7 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 076 | Dependency .pyi stub bodies are Ellipsis — gate copies stub as runtime dep, causing pytest failures | high | implemented |
 | 073 | ensure_project_venv not invoked when workspace has no requirements.txt — mypy gate fails on project dependencies | medium | proposed |
 | 071 | sub.transition(custom_fields=...) merges into WorkItem but API surface implies per-event storage — telemetry footgun | low | proposed |
 | 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | proposed |
