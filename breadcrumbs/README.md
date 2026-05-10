@@ -46,7 +46,6 @@ Reusable tags:
 |---|---|---|---|
 | 073 | ensure_project_venv not invoked when workspace has no requirements.txt — mypy gate fails on project dependencies | medium | proposed |
 | 071 | sub.transition(custom_fields=...) merges into WorkItem but API surface implies per-event storage — telemetry footgun | low | proposed |
-| 061 | 95% code duplication between ClaudeCodeChannel and OpenCodeChannel | high | proposed |
 | 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | proposed |
 | 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | proposed |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
@@ -71,6 +70,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | # | Title | Severity | Resolution |
 |---|---|---|---|
 | 072 | Cross-module imports fail in gate temp directory | high | Module name derived from spec title via `_extract_module_name_from_spec()`; dependency refs now carry `(module_name, path)` tuples; `_copy_dependency_pyis` uses correct module names; populate_work_items fixes role-based transitions and requirements.txt copy; GR007 validated end-to-end (8/9 locked); 17 tests; 359 pass |
+| 061 | 95% code duplication between ClaudeCodeChannel and OpenCodeChannel | high | Created `SubprocessChannel` base class with shared invoke(), error handling, artifact extraction; ClaudeCodeChannel and OpenCodeChannel now thin wrappers (~20 lines each); consumer audit: GATE_NAME_BEHAVIORAL constant added, test_failure_summary.py test data drift fixed; 359 tests pass, lint/audit clean |
 | 070 | Telemetry test helper _gate_md always emits payload on pass events — diverges from real gate_process shape | medium | _gate_md() now matches production (pass events carry None payload; gate_name in actor_metadata); added test_gate_pass_event_with_no_payload_resolves_from_metadata data-quality test; 299 tests pass |
 | 060 | Channel.invoke inputs_dir is a dead parameter — protocol contract is misleading | high | Removed from Channel protocol, both adapters, runner call site, 15+ test files; added `test_channel_protocol_no_dead_params.py` introspection test; 341 tests pass |
 | 069 | Gate names are bare string literals scattered across gate.py — no constants or closed set | medium | Added 23 GATE_NAME_* constants to constants.py; replaced all bare string literals in gate.py, gate_process.py, telemetry.py, failure_summary.py; updated 6 test files; 299 tests pass |

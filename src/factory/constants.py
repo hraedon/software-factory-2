@@ -85,6 +85,7 @@ GATE_NAME_IMPLEMENTATION_LINT = "implementation_lint"
 GATE_NAME_IMPLEMENTATION_DEPENDENCY = "implementation_dependency"
 
 GATE_NAME_UNKNOWN_TYPE = "unknown_type"
+GATE_NAME_BEHAVIORAL = "behavioral"
 GATE_NAME_UNKNOWN = "unknown"
 
 FAMILY_BY_PROVIDER = {

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from factory.constants import (
+    GATE_NAME_INTERFACE_SPEC_STUB,
     GATE_NAME_INTERFACE_SPEC_SYNTAX,
     GATE_NAME_UNKNOWN,
 )
@@ -139,12 +140,12 @@ class TestDeriveFailures:
             actor_metadata={
                 "role": "mechanical_gate",
                 "channel": "code",
-                "gate_name": "interface_spec_syntax",
+                "gate_name": GATE_NAME_INTERFACE_SPEC_SYNTAX,
                 "attempt_n": 1,
             },
             payload={
                 "diagnostics": {
-                    "gate_name": "interface_spec_syntax",
+                    "gate_name": GATE_NAME_INTERFACE_SPEC_SYNTAX,
                     "passed": False,
                     "messages": ["SyntaxError at line 5"],
                     "message": "SyntaxError at line 5",
@@ -249,12 +250,12 @@ class TestDeriveFailures:
             actor_metadata={
                 "role": "mechanical_gate",
                 "channel": "code",
-                "gate_name": "interface_spec_syntax",
+                "gate_name": GATE_NAME_INTERFACE_SPEC_SYNTAX,
                 "attempt_n": 2,
             },
             payload={
                 "diagnostics": {
-                    "gate_name": "interface_spec_syntax",
+                    "gate_name": GATE_NAME_INTERFACE_SPEC_SYNTAX,
                     "passed": False,
                     "messages": ["bad"],
                     "message": "bad",
@@ -294,12 +295,12 @@ class TestDeriveFailures:
             actor_metadata={
                 "role": "mechanical_gate",
                 "channel": "code",
-                "gate_name": "syntax",
+                "gate_name": GATE_NAME_INTERFACE_SPEC_SYNTAX,
                 "attempt_n": 1,
             },
             payload={
                 "diagnostics": {
-                    "gate_name": "syntax",
+                    "gate_name": GATE_NAME_INTERFACE_SPEC_SYNTAX,
                     "passed": False,
                     "messages": ["bad"],
                     "message": "bad",
@@ -325,12 +326,12 @@ class TestDeriveFailures:
             actor_metadata={
                 "role": "mechanical_gate",
                 "channel": "code",
-                "gate_name": "ac_reference",
+                "gate_name": GATE_NAME_INTERFACE_SPEC_STUB,
                 "attempt_n": 2,
             },
             payload={
                 "diagnostics": {
-                    "gate_name": "ac_reference",
+                    "gate_name": GATE_NAME_INTERFACE_SPEC_STUB,
                     "passed": False,
                     "messages": ["missing AC-02"],
                     "message": "missing AC-02",
@@ -340,9 +341,9 @@ class TestDeriveFailures:
         failures = derive_failures(mock_substrate, wi.work_item_id)
         assert len(failures) == 2
         assert failures[0].attempt_number == 1
-        assert failures[0].gate_name == "syntax"
+        assert failures[0].gate_name == GATE_NAME_INTERFACE_SPEC_SYNTAX
         assert failures[1].attempt_number == 2
-        assert failures[1].gate_name == "ac_reference"
+        assert failures[1].gate_name == GATE_NAME_INTERFACE_SPEC_STUB
 
     def test_non_failure_events_ignored(self, mock_substrate):
         wi, _ = mock_substrate.create_work_item(
