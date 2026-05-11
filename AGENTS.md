@@ -85,3 +85,44 @@ make lint    # ruff check + format (no errors)
 make audit   # vulture dead-code check (no findings)
 make check   # lint + audit + test (full CI gate)
 ```
+
+## Golden runs
+
+The pipeline runs 3 concurrent processes (runner, gate, scheduler) against a PostgreSQL database and a real model channel.
+
+### Prerequisites
+
+- PostgreSQL running: `docker compose -f /projects/substrate/docker-compose.test.yml up -d`
+- Model channel available. For `opencode` channel: `opencode` CLI must be in PATH (installed at `~/.opencode/bin/opencode`). Auth is handled internally by opencode — no `FIREWORKS_API_KEY` env var needed. Verify with `opencode run --dangerously-skip-permissions --model <model> --help`.
+
+### Execution
+
+```bash
+# 1. Create config YAML (copy a prior golden-run-NNN-config.yaml, change project_name and workspace_root)
+# 2. Populate work items from fixture
+make golden-run CONFIG=golden-run-014-config.yaml FIXTURES=tests/fixtures/cert-watch
+# 3. This runs populate, then runner+gate+scheduler in parallel, then telemetry
+```
+
+For manual step-by-step control (recommended for monitoring):
+
+```bash
+.venv/bin/python populate_work_items.py --config golden-run-014-config.yaml --reset --fixtures tests/fixtures/cert-watch
+.venv/bin/python -m factory.runner --config golden-run-014-config.yaml > /tmp/gr014-runner.log 2>&1 &
+.venv/bin/python -m factory.gate_process --config golden-run-014-config.yaml > /tmp/gr014-gate.log 2>&1 &
+.venv/bin/python -m factory.scheduler --config golden-run-014-config.yaml > /tmp/gr014-scheduler.log 2>&1 &
+wait
+.venv/bin/python -m factory.telemetry --config golden-run-014-config.yaml
+.venv/bin/python -m factory.telemetry --verify --config golden-run-014-config.yaml
+```
+
+### Monitoring
+
+Check progress while running:
+```bash
+tail -20 /tmp/gr014-runner.log
+tail -10 /tmp/gr014-scheduler.log
+tail -10 /tmp/gr014-gate.log
+```
+
+Processes are idle when no new log lines appear for >60s. Kill with `kill <PID>` or `kill -9 <PID>` if needed, then run telemetry.

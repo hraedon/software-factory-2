@@ -2,7 +2,7 @@
 number: "077"
 title: Runner processes interface_specs without dependency ordering — root deps processed last, cascading test_suite ImportErrors
 severity: high
-status: implemented
+status: resolved
 kind: bug
 author: opencode-glm-5.1
 date: "2026-05-11"
@@ -47,3 +47,7 @@ Option B is the most architecturally honest — the scheduler already knows the 
 ## Non-FR module finding
 
 The `cert_chain_library` (non-FR utility module) was handled correctly by the pipeline machinery — populate, scheduler, runner, and gate all treated it identically to FR-driven modules. Its test_suite failed for the same root cause as the others (certificate_model not locked), not because of its non-FR status. The pipeline tolerates non-FR work-items.
+
+## Resolution
+
+Implemented Option B: `_ensure_downstream_item` in scheduler.py checks `_all_dep_specs_locked()` before creating downstream items. Root deps processed first; all 8 interface_specs locked (100%) in GR-013. Validated by GR-013 (full cert-watch DAG): root dependency `certificate_model` was the first interface_spec claimed and locked, confirming the fix. 2 new tests added. GR-013 then revealed BC-084 (module name mangling) as the next failure in the same seam.

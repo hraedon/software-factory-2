@@ -4,7 +4,47 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
-## 2026-05-11 — Session 20: Opus/GLM feedback incorporated; GR-012 executed; BC-077 filed
+## 2026-05-11 — Session 21: GR-013 executed; BC-077 resolved; BC-084 filed
+
+**Invocation:** OpenCode (glm-5.1)
+
+**Focus:** Execute Golden Run 013 against full cert-watch DAG (8 specs) to validate BC-077 (dep ordering fix). Diagnose new failures.
+
+### GR-013 results (cert-watch full fixture, kimi-k2p6-turbo via Fireworks, opencode channel)
+
+Wall clock: ~30 min (03:29 – 04:01 UTC).
+
+| Stage | Total | Locked | Cannot proceed | Lock rate |
+|---|---|---|---|---|
+| interface_spec | 8 | 8 | 0 | 100% |
+| test_suite | 8 | 3 | 5 | 37.5% |
+| implementation | 3 | 3 | 0 | 100% |
+| **Total** | **19** | **14** | **5** | **73%** |
+
+### BC-077 validated
+
+Root dependency `certificate_model` was the FIRST interface_spec claimed and locked (03:29:31), compared to GR-012 where it was the LAST. All 8 interface_specs locked in the first ~10 minutes. The scheduler correctly deferred downstream creation until deps were ready.
+
+### BC-084 filed: module name mangling
+
+Root cause of 5 test_suite escalations: `_extract_module_name_from_spec()` derives module names from model-generated spec titles via regex. "Certificate Model (cert-parser)" → `certificate_model__cert_parser_` instead of `certificate_model`. The gate copies deps under mangled names; test code imports the correct name → ImportError at collection.
+
+Only `database_layer` ("Database Layer") matched its fixture name by coincidence. The 3 passing test_suites (certificate_model, fr04_alerts, fr05_scheduler) either had no deps or their interfaces didn't import from dependency modules.
+
+### Other validations
+
+- BC-075/BC-079/BC-082: inner gate caught mypy errors and retried correctly
+- BC-046: resume guard worked
+- Telemetry verify: passed (0 unknown gates, 0 orphans)
+
+### Files created/modified
+
+- `golden-run-013-config.yaml` — config
+- `golden-run-013-log.md` — full analysis with module name derivation table
+- `breadcrumbs/084-module-name-derivation-fragile.md` — new BC (high)
+- `breadcrumbs/077-runner-no-dep-ordering.md` → `breadcrumbs/resolved/077-runner-no-dep-ordering.md` — closed
+- `breadcrumbs/README.md` — updated index
+- `AGENTS.md` — added golden run execution instructions
 
 **Invocation:** OpenCode (glm-5.1)
 
