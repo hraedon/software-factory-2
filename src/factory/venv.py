@@ -44,7 +44,7 @@ def ensure_project_venv(project_dir: Path) -> Path:
         stored_hash = deps_hash_path.read_text().strip()
         if stored_hash == current_hash:
             _clean_stale_project_venv(venv_dir)
-            _ensure_gate_venv(project_dir)
+            ensure_gate_venv(project_dir)
             return venv_dir / "bin" / "python"
 
     has_uv = _which("uv") is not None
@@ -85,7 +85,7 @@ def ensure_project_venv(project_dir: Path) -> Path:
             )
 
     deps_hash_path.write_text(current_hash)
-    _ensure_gate_venv(project_dir)
+    ensure_gate_venv(project_dir)
     return venv_python
 
 
@@ -127,14 +127,22 @@ def _clean_stale_project_venv(venv_dir: Path) -> None:
     marker.write_text("gate tools moved to .venv-gate")
 
 
-def _ensure_gate_venv(project_dir: Path) -> Path:
+def ensure_gate_venv(project_dir: Path) -> Path:
+    """Return the python executable for the gate venv.
+
+    Creates ``<project_dir>/.venv-gate`` with gate tooling (pytest, mypy,
+    ruff) plus project requirements if ``requirements.txt`` exists.  The venv
+    is rebuilt when the gate-tools hash or requirements hash changes.
+    """
     gate_venv_dir = project_dir / ".venv-gate"
     gate_hash_path = gate_venv_dir / ".gate_hash"
     gate_python = gate_venv_dir / "bin" / "python"
+    requirements = project_dir / "requirements.txt"
+    req_hash = _hash_file(requirements) if requirements.exists() else "none"
 
     if gate_venv_dir.exists() and gate_hash_path.exists() and gate_python.exists():
         stored = gate_hash_path.read_text().strip()
-        current_gate_hash = _gate_tools_hash(gate_python)
+        current_gate_hash = _gate_tools_hash(gate_python) + "\n" + req_hash
         if stored == current_gate_hash:
             return gate_python
 
@@ -158,19 +166,23 @@ def _ensure_gate_venv(project_dir: Path) -> Path:
         )
 
     gate_python = gate_venv_dir / "bin" / "python"
+    packages = list(_GATE_TOOLS)
+    if requirements.exists() and requirements.stat().st_size > 0:
+        packages.append(f"-r{requirements}")
+
     if has_uv:
         subprocess.run(
-            ["uv", "pip", "install", "--python", str(gate_python), *_GATE_TOOLS],
+            ["uv", "pip", "install", "--python", str(gate_python), *packages],
             capture_output=True,
             check=True,
         )
     else:
         subprocess.run(
-            [str(gate_python), "-m", "pip", "install", *_GATE_TOOLS],
+            [str(gate_python), "-m", "pip", "install", *packages],
             capture_output=True,
             check=True,
         )
 
-    post_install_hash = _gate_tools_hash(gate_python)
+    post_install_hash = _gate_tools_hash(gate_python) + "\n" + req_hash
     gate_hash_path.write_text(post_install_hash)
     return gate_python

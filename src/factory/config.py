@@ -141,12 +141,12 @@ class FactoryConfig:
         RoleConfig(
             role=ROLE_INTERFACE_ARCHITECT,
             channel=CHANNEL_OPENCODE,
-            model="ollama-cloud/deepseek-v4-pro",
+            model="fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo",
         ),
         RoleConfig(
             role=ROLE_TEST_AUTHOR,
             channel=CHANNEL_OPENCODE,
-            model="fireworks-ai/kimi-k2p6-turbo",
+            model="fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo",
         ),
         RoleConfig(
             role=ROLE_IMPLEMENTER,

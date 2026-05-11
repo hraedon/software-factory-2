@@ -41,7 +41,7 @@ from factory.gate import (
 )
 from factory.router import route
 from factory.runtime import PipelineRuntime
-from factory.venv import ensure_project_venv
+from factory.venv import ensure_gate_venv
 
 log = structlog.get_logger()
 
@@ -153,7 +153,7 @@ def process_gate_item(
     artifact_path = Path(artifact_path_str) if artifact_path_str else None
     python_executable: str | None = None
     if config.use_project_venv:
-        python_executable = str(ensure_project_venv(runtime.workspace_root))
+        python_executable = str(ensure_gate_venv(runtime.workspace_root))
 
     if artifact_path is None or not artifact_path.exists():
         gate_result = GateResult(

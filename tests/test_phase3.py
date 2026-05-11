@@ -39,7 +39,7 @@ class TestPhase3Config:
         config = FactoryConfig.phase3()
         interface_architect = config.get_role_config(ROLE_INTERFACE_ARCHITECT)
         assert interface_architect.model is not None
-        assert "deepseek" in interface_architect.model
+        assert "fireworks" in interface_architect.model
         test_author = config.get_role_config(ROLE_TEST_AUTHOR)
         assert test_author.model is not None
         assert "fireworks" in test_author.model

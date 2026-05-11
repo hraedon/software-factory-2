@@ -47,6 +47,7 @@ Reusable tags:
 | 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | proposed |
 | 108 | GeminiCLIChannel exists but is essentially untested in production | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed |
+| 121 | Gate process and runner use project venv instead of gate venv for gate tooling | critical | implemented |
 
 ### RFCs (awaiting upstream phases)
 
@@ -73,6 +74,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 121 | Gate process and runner use project venv instead of gate venv for gate tooling | critical | `ensure_gate_venv` now installs gate tools + project requirements into `.venv-gate`; `gate_process.py` and `runner.py` both use gate venv python for gate operations |
 | 119 | Venv gate tool hash won't detect version changes — only covers tool name list | low | _gate_tools_hash() now queries pip show for installed versions; hash changes on version drift |
 | 118 | golden_run_nanny.py lacks overall timeout and progress reporting | low | Added --timeout flag (default 60 min) and 30s periodic stdout status with PID/elapsed |
 | 117 | Scheduler pagination has no integration test — requires >100 same-type work items to exercise | medium | Added `test_pagination_walks_all_pages_to_find_existing` with `query_page_size=2`; verifies scheduler walks all pages before creating new downstream item |

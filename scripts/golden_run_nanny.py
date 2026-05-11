@@ -77,8 +77,8 @@ def main() -> None:
     signal.signal(signal.SIGTERM, _signal_handler)
     signal.signal(signal.SIGINT, _signal_handler)
 
-    for name, module in PROCESSES:
-        cmd = [python, module, "--config", config]
+    for name, flag, module in PROCESSES:
+        cmd = [python, flag, module, "--config", config]
         log_path = Path(f"/tmp/gr-nanny-{name}.log")
         log_file = open(log_path, "w")
         log_files.append(log_file)
