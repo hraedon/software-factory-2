@@ -2,7 +2,7 @@
 number: "084"
 title: "_extract_module_name_from_spec derives module names from model-generated spec titles — fragile regex produces mangled names"
 severity: high
-status: proposed
+status: resolved
 kind: bug
 author: opencode-glm-5.1
 date: "2026-05-11"
@@ -31,14 +31,13 @@ The gate copies dependency `.py` files under the mangled name (e.g., `certificat
 
 In GR-013, this caused 5/8 test_suites to escalate on `test_suite_collect` — all 5 had interfaces that imported from dependency modules with mangled names. The 3 that passed either had no deps or their interfaces didn't import from deps.
 
-## Proposed fix
+## Resolution
 
-The canonical module name should come from a source the pipeline controls, not from model-generated content. Options:
+Implemented Option A: canonical module name now comes from a `module_name` custom_field set by `populate_work_items.py` during work item creation. The fixture filename stem (stripping `wi_` prefix) is the single source of truth.
 
-**Option A: Use the fixture label.** `populate_work_items.py` strips the `wi_` prefix from filenames (e.g., `wi_certificate_model.md` → `certificate_model`). Store this as a `module_name` custom_field during populate. `_extract_module_name_from_spec` becomes a fallback only.
-
-**Option B: Use the work item label from custom_fields.** The populate script already sets `label` on work items (though currently `None` for GR-013 — this needs fixing). If label is populated, derive the module name from it.
-
-**Option C: Use the artifact path stem.** The locked interface_spec artifact is `artifact.pyi`. Not useful directly, but the work item directory name could encode the module name.
-
-Option A is the cleanest — the fixture filename is the single source of truth for the module name, and populate is the only place that sets it. The dep resolution code reads `custom_fields["module_name"]` instead of parsing the spec title.
+Changes:
+1. Added `CUSTOM_FIELD_MODULE_NAME = "module_name"` to `constants.py`
+2. `populate_work_items.py` now sets `module_name` custom_field on every work item, derived from `label.removeprefix("wi_")`
+3. `resolve_dep_artifacts()` in `dep_resolution.py` reads `module_name` from custom_fields first; falls back to `_extract_module_name_from_spec()` only if no custom field is present
+4. Added 3 new tests: parenthetical suffix still mangles via regex (documenting fragility), custom_field takes priority over spec title, fallback to spec title works when no custom field
+5. Removed duplicate `import re` in populate_work_items.py

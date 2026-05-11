@@ -6,8 +6,11 @@ from pathlib import Path
 
 from factory.config import FactoryConfig
 from factory.constants import (
+    CUSTOM_FIELD_ARTIFACT_PATH,
     CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_MODULE_NAME,
+    CUSTOM_FIELD_SPEC_SECTION,
 )
 from factory.gate import (
     evaluate_implementation,
@@ -90,6 +93,64 @@ class TestModuleNameResolution:
 
         spec = "## AC-01\nNo title"
         assert _extract_module_name_from_spec(spec) is None
+
+    def test_extract_module_name_from_spec_parenthetical_suffix(self):
+        from factory.dep_resolution import _extract_module_name_from_spec
+
+        spec = "# Interface Specification: Certificate Model (cert-parser)\n\n## AC-01\nFoo"
+        result = _extract_module_name_from_spec(spec)
+        assert result == "certificate_model__cert_parser_"
+
+    def test_resolve_dep_artifacts_uses_module_name_custom_field(self, tmp_path):
+        from unittest.mock import MagicMock
+
+        from factory.dep_resolution import resolve_dep_artifacts
+
+        artifact = tmp_path / "artifact.pyi"
+        artifact.write_text("class Certificate:\n    subject_dn: str\n")
+        dep_wi = MagicMock()
+        dep_wi.work_item_id = "00000000-0000-0000-0000-000000000001"
+        dep_wi.work_item_type = "interface_spec"
+        dep_wi.current_state = "locked"
+        dep_wi.custom_fields = {
+            CUSTOM_FIELD_MODULE_NAME: "certificate_model",
+            CUSTOM_FIELD_SPEC_SECTION: (
+                "# Interface Specification: Certificate Model (cert-parser)\n\n## AC-01\nFoo"
+            ),
+            CUSTOM_FIELD_ARTIFACT_PATH: str(artifact),
+        }
+        sub = MagicMock()
+        sub.get_work_item.return_value = dep_wi
+        sub.query_work_items.return_value = MagicMock(items=[])
+
+        result = resolve_dep_artifacts(sub, ["00000000-0000-0000-0000-000000000001"])
+        assert len(result) == 1
+        assert result[0].module_name == "certificate_model"
+
+    def test_resolve_dep_artifacts_falls_back_to_spec_title(self, tmp_path):
+        from unittest.mock import MagicMock
+
+        from factory.dep_resolution import resolve_dep_artifacts
+
+        artifact = tmp_path / "artifact.pyi"
+        artifact.write_text("class Certificate:\n    subject_dn: str\n")
+        dep_wi = MagicMock()
+        dep_wi.work_item_id = "00000000-0000-0000-0000-000000000001"
+        dep_wi.work_item_type = "interface_spec"
+        dep_wi.current_state = "locked"
+        dep_wi.custom_fields = {
+            CUSTOM_FIELD_SPEC_SECTION: (
+                "# Interface Specification: Certificate Model\n\n## AC-01\nFoo"
+            ),
+            CUSTOM_FIELD_ARTIFACT_PATH: str(artifact),
+        }
+        sub = MagicMock()
+        sub.get_work_item.return_value = dep_wi
+        sub.query_work_items.return_value = MagicMock(items=[])
+
+        result = resolve_dep_artifacts(sub, ["00000000-0000-0000-0000-000000000001"])
+        assert len(result) == 1
+        assert result[0].module_name == "certificate_model"
 
 
 def _write(artifact_dir: Path, name: str, content: str) -> Path:

@@ -44,7 +44,6 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 084 | _extract_module_name_from_spec derives module names from model-generated spec titles — fragile regex produces mangled names | high | proposed |
 | 078 | Benchmark scope systematically excludes cross-module dependencies — Phase 2 exit criteria measured on easy case | high | proposed |
 | 081 | No criteria test for cert-watch full DAG — structural gap in regression detection for multi-module pipelines | medium | proposed |
 | 071 | sub.transition(custom_fields=...) merges into WorkItem but API surface implies per-event storage — telemetry footgun | low | proposed |
@@ -74,6 +73,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 084 | _extract_module_name_from_spec derives module names from model-generated spec titles — fragile regex produces mangled names | high | Added `CUSTOM_FIELD_MODULE_NAME` constant; `populate_work_items.py` derives module name from fixture label (`label.removeprefix("wi_")`) and stores as `module_name` custom_field; `resolve_dep_artifacts()` reads `module_name` from custom_fields first, falls back to spec-title regex; parenthetical suffix case now returns canonical name from custom_field; 3 new tests |
 | 077 | Runner processes interface_specs without dependency ordering — root deps processed last, cascading test_suite ImportErrors | high | Scheduler `_ensure_downstream_item` now checks `_all_dep_specs_locked()` before creating downstream items; defers test_suite/implementation creation until all dependency_refs point to locked interface_specs; validated by GR-013 (8/8 interface_specs locked, root dep processed first) |
 | 083 | Channel base class mutable _family_override survives in invoke() — latent race condition for Phase 4+ parallel invocations | low | Removed `_family_override` instance variable and its mutation from `invoke()`; `family` property now returns `_DEFAULT_FAMILY` unconditionally; per-invocation family carried exclusively in `InvocationResult.family` |
 | 082 | Outer gate (gate.py) and inner gate (pre_gate.py) have divergent tool path resolution, failure handling, and error surfaces | medium | BC-079 fixed tool-not-found and exception handling; added final `ruff check` to inner gate matching outer gate's three-step sequence (fix→format→check); remaining `shutil.which` vs `python -m` divergence is benign; full unification deferred to RFC-011 |

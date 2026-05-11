@@ -7,14 +7,13 @@ import sys
 import uuid as _uuid
 from pathlib import Path
 
-import re
-
 from substrate import Substrate
 
 from factory.constants import (
     CUSTOM_FIELD_AC_IDS,
     CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_MODULE_NAME,
     CUSTOM_FIELD_SPEC_SECTION,
     ROLE_INTERFACE_ARCHITECT,
     WORK_ITEM_TYPE_INTERFACE_SPEC,
@@ -259,16 +258,19 @@ def main():
             print(f"  [{label}] SKIP: {filename} not found")
             continue
         dep_names = _parse_dependency_refs(spec_text)
+        module_name = label.removeprefix("wi_")
+        custom_fields = {
+            CUSTOM_FIELD_SPEC_SECTION: spec_text,
+            CUSTOM_FIELD_AC_IDS: ac_ids,
+            CUSTOM_FIELD_MODULE_NAME: module_name,
+            "shape": shape,
+        }
         try:
             wi, _ = sub.create_work_item(
                 workflow_name=_config.workflow_name,
                 work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
                 actor_id=actor_id,
-                custom_fields={
-                    CUSTOM_FIELD_SPEC_SECTION: spec_text,
-                    CUSTOM_FIELD_AC_IDS: ac_ids,
-                    "shape": shape,
-                },
+                custom_fields=custom_fields,
             )
             created.append((label, shape, str(wi.work_item_id)))
             label_to_id[label] = str(wi.work_item_id)

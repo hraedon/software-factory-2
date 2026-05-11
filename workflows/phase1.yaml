@@ -68,6 +68,10 @@ work_item_types:
         type: json
         required: true
         ui_visible: true
+      - name: module_name
+        type: string
+        required: false
+        ui_visible: true
       - name: shape
         type: string
         required: false

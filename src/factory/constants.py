@@ -43,6 +43,7 @@ CUSTOM_FIELD_SPEC_SECTION = "spec_section"
 CUSTOM_FIELD_AC_IDS = "ac_ids"
 CUSTOM_FIELD_DIAGNOSTICS = "diagnostics"
 CUSTOM_FIELD_DEPENDENCY_REFS = "dependency_refs"
+CUSTOM_FIELD_MODULE_NAME = "module_name"
 
 ACTOR_ID_WORKER_PREFIX = "factory-worker"
 ACTOR_ID_GATE = "factory-gate-code"

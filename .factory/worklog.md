@@ -4,6 +4,45 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-11 — Session 22: BC-084 resolved; GR-014 executed
+
+**Invocation:** OpenCode (glm-5.1)
+
+**Focus:** Resolve BC-084 (module name derivation fragility) and validate with Golden Run 014.
+
+### BC-084 resolved
+
+Root cause: `_extract_module_name_from_spec()` derived module names from model-generated spec titles, producing mangled names like `certificate_model__cert_parser_` from "Certificate Model (cert-parser)".
+
+Fix: Added `CUSTOM_FIELD_MODULE_NAME` constant. `populate_work_items.py` now stores `label.removeprefix("wi_")` as `module_name` on every interface_spec work item. `resolve_dep_artifacts()` reads `module_name` from custom fields first, falling back to the regex. Both workflow YAMLs (phase1.yaml, phase2.yaml) declare the new field. 3 new tests.
+
+### GR-014 results (cert-watch full fixture, kimi-k2p6-turbo via Fireworks, opencode channel)
+
+Wall clock: ~33 min (05:37 – 06:10 UTC).
+
+| Stage | Total | Locked | Cannot proceed | Lock rate |
+|---|---|---|---|---|
+| interface_spec | 8 | 8 | 0 | 100% |
+| test_suite | 8 | 6 | 2 | 75% |
+| implementation | 6 | 6 | 0 | 100% |
+| **Total** | **22** | **20** | **2** | **91%** |
+
+Test suite lock rate doubled from 37.5% (GR-013) to 75%. The 2 remaining escalations are model quality issues (invalid dataclass, ImportError in generated code), not pipeline bugs.
+
+### Telemetry verify: passed (0 unknown gates, 0 orphans)
+
+### Files created/modified
+
+- `src/factory/constants.py` — added `CUSTOM_FIELD_MODULE_NAME`
+- `src/factory/dep_resolution.py` — reads `module_name` custom field first, falls back to spec-title regex
+- `populate_work_items.py` — stores `module_name` on work items; removed duplicate `import re`
+- `tests/test_cross_module_deps.py` — 3 new tests for module_name resolution
+- `workflows/phase1.yaml`, `workflows/phase2.yaml` — declared `module_name` custom field on all work item types
+- `breadcrumbs/084-module-name-derivation-fragile.md` → `breadcrumbs/resolved/` — closed
+- `breadcrumbs/README.md` — updated index
+- `golden-run-014-config.yaml` — GR-014 config
+- `golden-run-014-log.md` — full analysis
+
 ## 2026-05-11 — Session 21: GR-013 executed; BC-077 resolved; BC-084 filed
 
 **Invocation:** OpenCode (glm-5.1)

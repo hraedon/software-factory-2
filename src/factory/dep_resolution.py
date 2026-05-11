@@ -9,6 +9,7 @@ from substrate import Substrate
 from factory.constants import (
     CUSTOM_FIELD_ARTIFACT_PATH,
     CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_MODULE_NAME,
     CUSTOM_FIELD_SPEC_SECTION,
     STATE_LOCKED,
     WORK_ITEM_TYPE_IMPLEMENTATION,
@@ -52,8 +53,10 @@ def resolve_dep_artifacts(
         dep_wi = substrate.get_work_item(ref_uuid)
         if not dep_wi or not dep_wi.custom_fields:
             continue
-        dep_spec = dep_wi.custom_fields.get(CUSTOM_FIELD_SPEC_SECTION, "")
-        module_name = _extract_module_name_from_spec(dep_spec) if dep_spec else None
+        module_name = dep_wi.custom_fields.get(CUSTOM_FIELD_MODULE_NAME) or None
+        if not module_name:
+            dep_spec = dep_wi.custom_fields.get(CUSTOM_FIELD_SPEC_SECTION, "")
+            module_name = _extract_module_name_from_spec(dep_spec) if dep_spec else None
         spec_path_str = dep_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
         if not spec_path_str:
             continue
