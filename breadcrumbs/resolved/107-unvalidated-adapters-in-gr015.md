@@ -9,7 +9,7 @@ description: >
   architecture-shaped, contaminating the role-placement data that is the whole
   point of Phase 3.
 severity: high
-status: proposed
+status: implemented
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"

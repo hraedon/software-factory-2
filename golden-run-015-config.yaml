@@ -24,7 +24,7 @@ roles:
   - role: interface_architect
     channel: opencode
     timeout_seconds: 600
-    model: ollama-cloud/deepseek-v4-pro
+    model: fireworks-ai/kimi-k2p6-turbo
   - role: test_author
     channel: opencode
     timeout_seconds: 600
@@ -32,7 +32,7 @@ roles:
   - role: implementer
     channel: opencode
     timeout_seconds: 600
-    model: zai-coding-plan/glm-5.1
+    model: fireworks-ai/kimi-k2p6-turbo
   - role: mechanical_gate
     channel: code
     timeout_seconds: 120

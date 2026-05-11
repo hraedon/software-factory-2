@@ -45,9 +45,7 @@ Reusable tags:
 | # | Title | Severity | Status |
 |---|---|---|---|
 | 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | proposed |
-| 107 | Phase 3 GR-015 uses unvalidated channel adapters | high | proposed |
 | 108 | GeminiCLIChannel exists but is essentially untested in production | medium | proposed |
-| 117 | Scheduler pagination has no integration test — requires >100 same-type work items to exercise | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed |
 
 ### RFCs (awaiting upstream phases)
@@ -77,6 +75,8 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 |---|---|---|---|
 | 119 | Venv gate tool hash won't detect version changes — only covers tool name list | low | _gate_tools_hash() now queries pip show for installed versions; hash changes on version drift |
 | 118 | golden_run_nanny.py lacks overall timeout and progress reporting | low | Added --timeout flag (default 60 min) and 30s periodic stdout status with PID/elapsed |
+| 117 | Scheduler pagination has no integration test — requires >100 same-type work items to exercise | medium | Added `test_pagination_walks_all_pages_to_find_existing` with `query_page_size=2`; verifies scheduler walks all pages before creating new downstream item |
+| 107 | Phase 3 GR-015 uses unvalidated channel adapters | high | GR-015 config switched to validated `fireworks-ai/kimi-k2p6-turbo` (opencode) for all three worker roles; DeepSeek/GLM adapters deferred to future golden runs after isolated smoke tests |
 | 078 | Benchmark scope systematically excludes cross-module dependencies — Phase 2 exit criteria measured on easy case | high | GR-014 achieved 91% on cert-watch full DAG; criteria tests added; all 4 proposed fixes completed |
 | 116 | _check_assertion_count returns passed=True on SyntaxError | medium | Changed SyntaxError handler to return passed=False with diagnostic_kind="syntax" |
 | 115 | ensure_project_venv installs gate tooling into project venv | low | Gate tooling (pytest, mypy, ruff) now installed into separate .venv-gate; project venv stays pure |

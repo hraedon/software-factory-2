@@ -2,7 +2,7 @@
 number: "117"
 title: "Scheduler pagination has no integration test — requires >100 same-type work items to exercise"
 severity: medium
-status: proposed
+status: implemented
 kind: improvement
 author: glm-5-1
 date: "2026-05-11"

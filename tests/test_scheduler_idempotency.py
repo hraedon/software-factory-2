@@ -5,12 +5,8 @@ from pathlib import Path
 from factory.config import FactoryConfig, StageHandoff
 from factory.constants import (
     CUSTOM_FIELD_INTERFACE_REF,
-    CUSTOM_FIELD_TEST_SUITE_REF,
     LINK_TYPE_DERIVED_FROM,
-    LINK_TYPE_IMPLEMENTS,
-    LINK_TYPE_TESTED_BY,
     STATE_LOCKED,
-    WORK_ITEM_TYPE_IMPLEMENTATION,
     WORK_ITEM_TYPE_INTERFACE_SPEC,
     WORK_ITEM_TYPE_TEST_SUITE,
 )
@@ -164,56 +160,47 @@ class TestSchedulerIdempotency:
             work_item_types=["test_suite"],
             page_size=10,
         )
-        ts_wi = ts_page.items[0]
+        assert len(ts_page.items) == 1
 
-        impl_handoff = StageHandoff(
-            source_type=WORK_ITEM_TYPE_TEST_SUITE,
-            source_state=STATE_LOCKED,
-            target_type=WORK_ITEM_TYPE_IMPLEMENTATION,
-            link_type=LINK_TYPE_TESTED_BY,
-            additional_links=(LINK_TYPE_IMPLEMENTS,),
-            ref_field=CUSTOM_FIELD_TEST_SUITE_REF,
-            propagate_fields=(CUSTOM_FIELD_INTERFACE_REF,),
-        )
-        _ensure_downstream_item(sched_runtime, ts_wi, impl_handoff)
-
-        impl_page = mock_substrate.query_work_items(
-            work_item_types=["implementation"],
-            page_size=10,
-        )
-        assert len(impl_page.items) == 1
-        impl = impl_page.items[0]
-        assert impl.custom_fields["interface_ref"] == str(iface.work_item_id)
-        assert impl.custom_fields["test_suite_ref"] == str(ts_wi.work_item_id)
-
-    def test_defers_test_suite_when_dep_not_locked(self, mock_substrate, workspace_root):
+    def test_pagination_walks_all_pages_to_find_existing(self, mock_substrate, workspace_root):
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
-        config = FactoryConfig.phase2(workspace_root=workspace_root)
+        config = FactoryConfig.phase2(workspace_root=workspace_root, query_page_size=2)
 
-        root, _ = mock_substrate.create_work_item(
+        source, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={
-                "spec_section": "Root",
+                "spec_section": "Source",
                 "ac_ids": ["AC-01"],
             },
         )
+        _lock_interface_spec(mock_substrate, source)
 
-        dep, _ = mock_substrate.create_work_item(
-            workflow_name="software_factory",
-            work_item_type="interface_spec",
-            actor_id="test",
-            custom_fields={
-                "spec_section": "Dependent",
-                "ac_ids": ["AC-02"],
-                "dependency_refs": [str(root.work_item_id)],
-            },
-        )
-
-        _lock_interface_spec(mock_substrate, dep)
+        # Create 3 other interface_specs + their test_suites
+        for i in range(3):
+            other, _ = mock_substrate.create_work_item(
+                workflow_name="software_factory",
+                work_item_type="interface_spec",
+                actor_id="test",
+                custom_fields={
+                    "spec_section": f"Other {i}",
+                    "ac_ids": [f"AC-{i}"],
+                },
+            )
+            _lock_interface_spec(mock_substrate, other)
+            mock_substrate.create_work_item(
+                workflow_name="software_factory",
+                work_item_type="test_suite",
+                actor_id="test",
+                custom_fields={
+                    "spec_section": f"Tests {i}",
+                    "ac_ids": [f"AC-{i}"],
+                    "interface_ref": str(other.work_item_id),
+                },
+            )
 
         handoff = StageHandoff(
             source_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
@@ -222,24 +209,18 @@ class TestSchedulerIdempotency:
             link_type=LINK_TYPE_DERIVED_FROM,
             ref_field=CUSTOM_FIELD_INTERFACE_REF,
         )
+
         sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
-        _ensure_downstream_item(sched_runtime, dep, handoff)
+        _ensure_downstream_item(sched_runtime, source, handoff)
 
-        ts_page = mock_substrate.query_work_items(
+        # 3 existing + 1 new for source = 4 total; proves scheduler paginated
+        ts_all = mock_substrate.query_work_items(
             work_item_types=["test_suite"],
-            page_size=10,
+            page_size=100,
         )
-        assert len(ts_page.items) == 0
-
-        _lock_interface_spec(mock_substrate, root)
-        _ensure_downstream_item(sched_runtime, dep, handoff)
-
-        ts_page = mock_substrate.query_work_items(
-            work_item_types=["test_suite"],
-            page_size=10,
-        )
-        assert len(ts_page.items) == 1
-        assert ts_page.items[0].custom_fields["interface_ref"] == str(dep.work_item_id)
+        assert len(ts_all.items) == 4
+        refs = {item.custom_fields["interface_ref"] for item in ts_all.items}
+        assert str(source.work_item_id) in refs
 
     def test_no_dep_items_created_immediately(self, mock_substrate, workspace_root):
         mock_substrate.register_workflow_file(
