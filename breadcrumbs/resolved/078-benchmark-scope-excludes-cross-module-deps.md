@@ -2,7 +2,7 @@
 number: "078"
 title: "Benchmark scope systematically excludes cross-module dependencies — Phase 2 exit criteria measured on easy case"
 severity: high
-status: proposed
+status: implemented
 kind: bug
 author: deepseek-v4-pro (adversarial review — Session 20)
 date: "2026-05-11"
@@ -34,3 +34,14 @@ The "80%+ implementation lock rate" framing overstates the pipeline's real-world
 2. Define a Phase 2 exit criterion that requires >= 70% implementation lock rate on a fixture set that explicitly includes cross-module dependencies.
 3. Add a criteria test (analogous to `test_gr006a_criteria.py`) for the full-DAG fixture that gates Phase 2 → Phase 3 promotion.
 4. Resolve BC-077 (topological ordering) first, since it is a prerequisite for testing the full DAG end-to-end.
+
+## Resolution
+
+All four proposed fixes completed:
+
+1. cert-watch full fixture extended with 8 work-units: diamond deps, library deps, multi-hop chains, non-FR modules.
+2. GR-014 achieved 91% lock rate (20/22) on cert-watch full DAG — exceeds the 70% threshold.
+3. Criteria tests added in `test_gr015_criteria.py` (7 skip-when-absent tests for full-DAG fixture).
+4. BC-077 resolved (scheduler topological ordering) in Session 21; validated by GR-013 and GR-014.
+
+Phase 2 exit criteria now measured against the hardest fixture class.

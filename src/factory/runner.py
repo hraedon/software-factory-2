@@ -510,6 +510,10 @@ def _inner_gate_loop(
                 gate_label = GATE_NAME_INNER_PYTEST
         else:
             gate_label = GATE_NAME_INNER_PYTEST
+
+        max_feedback = config.inner_gate_max_feedback_chars
+        truncated_output = pre_result.output[-max_feedback:] if pre_result.output else ""
+
         retry_failures = [
             *current_ctx.prior_failures,
             FailureEntry(
@@ -518,6 +522,7 @@ def _inner_gate_loop(
                 channel=channel.name,
                 gate_name=gate_label,
                 diagnostic="; ".join(pre_result.diagnostics[:5]),
+                gate_output=truncated_output,
             ),
         ]
         current_ctx = PromptContext(

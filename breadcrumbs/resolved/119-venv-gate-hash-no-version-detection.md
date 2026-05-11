@@ -2,7 +2,7 @@
 number: "119"
 title: "Venv gate tool hash won't detect version changes — only covers tool name list"
 severity: low
-status: proposed
+status: implemented
 kind: improvement
 author: glm-5-1
 date: "2026-05-11"
@@ -23,3 +23,7 @@ The existing `_clean_stale_project_venv` removes gate tools from the project ven
 ## Proposed fix
 
 Include pinned versions (from requirements or from `pip show` output) in the hash, or use a requirements file for gate tools instead of a hardcoded list.
+
+## Resolution
+
+`_gate_tools_hash()` now accepts an optional `gate_python` path. When the gate venv exists, it queries `pip show` for each tool's installed version and includes version strings in the hash input. On rebuild, the post-install hash is computed from actual installed versions. If any tool is upgraded externally, the hash will differ on next check and trigger a rebuild.

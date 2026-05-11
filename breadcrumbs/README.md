@@ -40,17 +40,15 @@ Reusable tags:
 
 ## Open
 
-| ### Active Bugs & Improvements
+### Active Bugs & Improvements
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 078 | Benchmark scope systematically excludes cross-module dependencies — Phase 2 exit criteria measured on easy case | high | proposed |
 | 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | proposed |
 | 107 | Phase 3 GR-015 uses unvalidated channel adapters | high | proposed |
 | 108 | GeminiCLIChannel exists but is essentially untested in production | medium | proposed |
 | 117 | Scheduler pagination has no integration test — requires >100 same-type work items to exercise | medium | proposed |
-| 118 | golden_run_nanny.py lacks overall timeout and progress reporting | low | proposed |
-| 119 | Venv gate tool hash won't detect version changes — only covers tool name list | low | proposed |
+| 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -69,11 +67,17 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-009 | Interactive debugging inner loop — channel tool-use surface for implementer | high | Phase 5+ (evidence threshold: 3+ golden runs with pytest-in-inner-loop still failing) |
 | RFC-010 | Fixture taxonomy — classify fixtures by architectural complexity class and gate Phase N exit criteria on the hardest exercised class | high | Phase 2 exit criteria |
 | RFC-011 | Unified gate evaluation — extract shared subprocess execution layer to eliminate drift between outer and inner gate implementations | medium | Phase 3 (multi-channel gates) |
+| RFC-012 | Gate subprocess credential stripping and sandboxing — defense-in-depth against model output executing in gate context | medium | Phase 5+ (untrusted specs) |
+| RFC-013 | Expanded inner-gate feedback for implementer retries — richer failure signal without infra overhead | medium | Phase 3 (inner gate loop) |
+| RFC-014 | Staff engineer summarizer — compress outer-path failure history into actionable constraints | medium | Phase 4 (outer retry path) |
 
 ## Resolved
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 119 | Venv gate tool hash won't detect version changes — only covers tool name list | low | _gate_tools_hash() now queries pip show for installed versions; hash changes on version drift |
+| 118 | golden_run_nanny.py lacks overall timeout and progress reporting | low | Added --timeout flag (default 60 min) and 30s periodic stdout status with PID/elapsed |
+| 078 | Benchmark scope systematically excludes cross-module dependencies — Phase 2 exit criteria measured on easy case | high | GR-014 achieved 91% on cert-watch full DAG; criteria tests added; all 4 proposed fixes completed |
 | 116 | _check_assertion_count returns passed=True on SyntaxError | medium | Changed SyntaxError handler to return passed=False with diagnostic_kind="syntax" |
 | 115 | ensure_project_venv installs gate tooling into project venv | low | Gate tooling (pytest, mypy, ruff) now installed into separate .venv-gate; project venv stays pure |
 | 114 | pre_gate _run_ruff_fast mutates artifact file in-place | medium | Both _run_ruff (gate.py) and _run_ruff_fast (pre_gate.py) now copy artifact to tempdir before ruff --fix |

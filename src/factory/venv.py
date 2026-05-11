@@ -90,11 +90,30 @@ def ensure_project_venv(project_dir: Path) -> Path:
 
 
 _GATE_TOOLS = ["pytest", "mypy", "ruff"]
-_GATE_TOOLS_HASH_INPUT = ",".join(_GATE_TOOLS) + "\n"
 
 
-def _gate_tools_hash() -> str:
-    return hashlib.sha256(_GATE_TOOLS_HASH_INPUT.encode()).hexdigest()
+def _installed_versions_string(gate_python: Path) -> str:
+    parts = []
+    for tool in _GATE_TOOLS:
+        result = subprocess.run(
+            [str(gate_python), "-m", "pip", "show", tool],
+            capture_output=True,
+            text=True,
+        )
+        version = "unknown"
+        for line in result.stdout.splitlines():
+            if line.lower().startswith("version:"):
+                version = line.split(":", 1)[1].strip()
+                break
+        parts.append(f"{tool}=={version}")
+    return "\n".join(parts) + "\n"
+
+
+def _gate_tools_hash(gate_python: Path | None = None) -> str:
+    hash_input = ",".join(_GATE_TOOLS) + "\n"
+    if gate_python is not None and gate_python.exists():
+        hash_input += _installed_versions_string(gate_python)
+    return hashlib.sha256(hash_input.encode()).hexdigest()
 
 
 def _clean_stale_project_venv(venv_dir: Path) -> None:
@@ -111,12 +130,13 @@ def _clean_stale_project_venv(venv_dir: Path) -> None:
 def _ensure_gate_venv(project_dir: Path) -> Path:
     gate_venv_dir = project_dir / ".venv-gate"
     gate_hash_path = gate_venv_dir / ".gate_hash"
-    current_gate_hash = _gate_tools_hash()
+    gate_python = gate_venv_dir / "bin" / "python"
 
-    if gate_venv_dir.exists() and gate_hash_path.exists():
+    if gate_venv_dir.exists() and gate_hash_path.exists() and gate_python.exists():
         stored = gate_hash_path.read_text().strip()
+        current_gate_hash = _gate_tools_hash(gate_python)
         if stored == current_gate_hash:
-            return gate_venv_dir / "bin" / "python"
+            return gate_python
 
     has_uv = _which("uv") is not None
     python = sys.executable
@@ -151,5 +171,6 @@ def _ensure_gate_venv(project_dir: Path) -> Path:
             check=True,
         )
 
-    gate_hash_path.write_text(current_gate_hash)
+    post_install_hash = _gate_tools_hash(gate_python)
+    gate_hash_path.write_text(post_install_hash)
     return gate_python

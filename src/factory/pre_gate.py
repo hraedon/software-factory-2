@@ -15,6 +15,7 @@ from factory.constants import (
 )
 
 _PYTEST_DIAGNOSTIC_CHAR_LIMIT = 300
+_RAW_OUTPUT_CHAR_LIMIT = 5000
 
 
 class PreGateDeps(NamedTuple):
@@ -32,6 +33,7 @@ class PreGateResult:
     ruff_passed: bool
     pytest_passed: bool
     diagnostics: list[str]
+    output: str = ""
 
 
 def pre_gate_implementation(
@@ -66,6 +68,7 @@ def pre_gate_implementation(
             ruff_passed=True,
             pytest_passed=True,
             diagnostics=_truncate_diagnostics(all_diagnostics),
+            output=mypy_result.get("raw_output", ""),
         )
 
     ruff_result = _run_ruff_fast(artifact_path, python_executable=python_executable)
@@ -77,6 +80,7 @@ def pre_gate_implementation(
             ruff_passed=False,
             pytest_passed=True,
             diagnostics=_truncate_diagnostics(all_diagnostics),
+            output=ruff_result.get("raw_output", ""),
         )
 
     pytest_result = _run_pytest_fast(
@@ -94,6 +98,7 @@ def pre_gate_implementation(
         ruff_passed=True,
         pytest_passed=pytest_result["passed"],
         diagnostics=_truncate_diagnostics(all_diagnostics),
+        output=pytest_result.get("raw_output", "") if not pytest_result["passed"] else "",
     )
 
 
@@ -119,6 +124,7 @@ def pre_gate_interface_spec(
             ruff_passed=False,
             pytest_passed=True,
             diagnostics=_truncate_diagnostics(ruff_result.get("diagnostics", [])),
+            output=ruff_result.get("raw_output", ""),
         )
 
     import_result = _run_import_check(
@@ -133,6 +139,7 @@ def pre_gate_interface_spec(
             ruff_passed=True,
             pytest_passed=True,
             diagnostics=_truncate_diagnostics(import_result.get("diagnostics", [])),
+            output=import_result.get("raw_output", ""),
         )
 
     return PreGateResult(
@@ -168,6 +175,7 @@ def pre_gate_test_suite(
             ruff_passed=False,
             pytest_passed=True,
             diagnostics=_truncate_diagnostics(ruff_result.get("diagnostics", [])),
+            output=ruff_result.get("raw_output", ""),
         )
 
     collect_result = _run_collect_only(
@@ -184,6 +192,7 @@ def pre_gate_test_suite(
             ruff_passed=True,
             pytest_passed=False,
             diagnostics=_truncate_diagnostics(collect_result.get("diagnostics", [])),
+            output=collect_result.get("raw_output", ""),
         )
 
     return PreGateResult(
@@ -206,6 +215,23 @@ def _truncate_diagnostics(
         else:
             truncated.append(line)
     return truncated
+
+
+def _truncate_raw_output(text: str, limit: int = _RAW_OUTPUT_CHAR_LIMIT) -> str:
+    if len(text) <= limit:
+        return text
+    return text[-limit:]
+
+
+def _fail(
+    diagnostics: list[str],
+    raw_output: str = "",
+) -> dict:
+    return {"passed": False, "diagnostics": diagnostics, "raw_output": raw_output}
+
+
+def _ok() -> dict:
+    return {"passed": True, "diagnostics": [], "raw_output": ""}
 
 
 def copy_dependency_pyis(
@@ -247,10 +273,7 @@ def _run_import_check(
     exe = python_executable or sys.executable
     module_stem = artifact_path.stem
     if not module_stem.isidentifier():
-        return {
-            "passed": False,
-            "diagnostics": [f"Invalid module name '{module_stem}' for import check"],
-        }
+        return _fail([f"Invalid module name '{module_stem}' for import check"])
     try:
         with tempfile.TemporaryDirectory(prefix="sf2_import_") as tmpdir:
             module_copy = Path(tmpdir) / f"{module_stem}.py"
@@ -266,13 +289,13 @@ def _run_import_check(
             )
             if result.returncode != 0:
                 lines = result.stderr.strip().splitlines()
-                diagnostics = lines[:5] if lines else ["import check failed"]
-                return {"passed": False, "diagnostics": diagnostics}
+                diags = lines[:5] if lines else ["import check failed"]
+                return _fail(diags, _truncate_raw_output(result.stderr))
     except subprocess.TimeoutExpired:
-        return {"passed": False, "diagnostics": ["import check timed out after 30s"]}
+        return _fail(["import check timed out after 30s"])
     except Exception as e:
-        return {"passed": False, "diagnostics": [f"import check failed: {e}"]}
-    return {"passed": True, "diagnostics": []}
+        return _fail([f"import check failed: {e}"])
+    return _ok()
 
 
 def _run_collect_only(
@@ -305,17 +328,18 @@ def _run_collect_only(
             )
             if result.returncode != 0:
                 if "No module named pytest" in result.stderr:
-                    return {"passed": False, "diagnostics": ["pytest not installed"]}
+                    return _fail(["pytest not installed"])
                 lines = result.stderr.strip().splitlines()
                 out_lines = result.stdout.strip().splitlines()
                 combined = out_lines + lines
-                diagnostics = combined[:5] if combined else ["pytest collect-only failed"]
-                return {"passed": False, "diagnostics": diagnostics}
+                diags = combined[:5] if combined else ["pytest collect-only failed"]
+                raw = _truncate_raw_output(result.stdout + "\n" + result.stderr)
+                return _fail(diags, raw)
     except subprocess.TimeoutExpired:
-        return {"passed": False, "diagnostics": ["pytest collect-only timed out after 60s"]}
+        return _fail(["pytest collect-only timed out after 60s"])
     except Exception as e:
-        return {"passed": False, "diagnostics": [f"pytest collect-only failed: {e}"]}
-    return {"passed": True, "diagnostics": []}
+        return _fail([f"pytest collect-only failed: {e}"])
+    return _ok()
 
 
 def _run_mypy_fast(
@@ -329,7 +353,7 @@ def _run_mypy_fast(
 
     exe = python_executable or sys.executable
     if interface_pyi_path is None or not interface_pyi_path.exists():
-        return {"passed": True, "diagnostics": []}
+        return _ok()
     try:
         with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_MYPY) as tmpdir:
             impl_copy = Path(tmpdir) / "interface.py"
@@ -347,15 +371,15 @@ def _run_mypy_fast(
             )
             if result.returncode != 0:
                 if "No module named mypy" in result.stderr:
-                    return {"passed": False, "diagnostics": ["mypy not installed"]}
+                    return _fail(["mypy not installed"])
                 lines = result.stdout.strip().splitlines()
-                diagnostics = lines[:10] if lines else ["mypy reported errors"]
-                return {"passed": False, "diagnostics": diagnostics}
+                diags = lines[:10] if lines else ["mypy reported errors"]
+                return _fail(diags, _truncate_raw_output(result.stdout))
     except subprocess.TimeoutExpired:
-        return {"passed": False, "diagnostics": ["mypy timed out after 60s"]}
+        return _fail(["mypy timed out after 60s"])
     except Exception as e:
-        return {"passed": False, "diagnostics": [f"mypy invocation failed: {e}"]}
-    return {"passed": True, "diagnostics": []}
+        return _fail([f"mypy invocation failed: {e}"])
+    return _ok()
 
 
 def _run_ruff_fast(
@@ -377,8 +401,8 @@ def _run_ruff_fast(
             )
             if result.returncode != 0:
                 lines = result.stdout.strip().splitlines()
-                diagnostics = lines[:10] if lines else ["ruff check reported errors"]
-                return {"passed": False, "diagnostics": diagnostics}
+                diags = lines[:10] if lines else ["ruff check reported errors"]
+                return _fail(diags, _truncate_raw_output(result.stdout))
             result2 = subprocess.run(
                 [exe, "-m", "ruff", "format", str(tmp_copy)],
                 capture_output=True,
@@ -387,8 +411,8 @@ def _run_ruff_fast(
             )
             if result2.returncode != 0:
                 lines = result2.stderr.strip().splitlines()
-                diagnostics = lines[:10] if lines else ["ruff format reported errors"]
-                return {"passed": False, "diagnostics": diagnostics}
+                diags = lines[:10] if lines else ["ruff format reported errors"]
+                return _fail(diags, _truncate_raw_output(result2.stderr))
             result3 = subprocess.run(
                 [exe, "-m", "ruff", "check", str(tmp_copy)],
                 capture_output=True,
@@ -397,13 +421,13 @@ def _run_ruff_fast(
             )
             if result3.returncode != 0:
                 lines = result3.stdout.strip().splitlines()
-                diagnostics = lines[:10] if lines else ["ruff check reported errors"]
-                return {"passed": False, "diagnostics": diagnostics}
+                diags = lines[:10] if lines else ["ruff check reported errors"]
+                return _fail(diags, _truncate_raw_output(result3.stdout))
     except subprocess.TimeoutExpired:
-        return {"passed": False, "diagnostics": ["ruff timed out after 30s"]}
+        return _fail(["ruff timed out after 30s"])
     except Exception as e:
-        return {"passed": False, "diagnostics": [f"ruff invocation failed: {e}"]}
-    return {"passed": True, "diagnostics": []}
+        return _fail([f"ruff invocation failed: {e}"])
+    return _ok()
 
 
 def _run_pytest_fast(
@@ -455,14 +479,15 @@ def _run_pytest_fast(
             )
             if result.returncode != 0:
                 if "No module named pytest" in result.stderr:
-                    return {"passed": False, "diagnostics": ["pytest not installed"]}
+                    return _fail(["pytest not installed"])
                 lines = result.stdout.strip().splitlines()
                 err_lines = result.stderr.strip().splitlines()
                 combined = lines + err_lines
-                diagnostics = combined[-3:] if combined else ["pytest reported failures"]
-                return {"passed": False, "diagnostics": diagnostics}
+                diags = combined[-3:] if combined else ["pytest reported failures"]
+                raw = _truncate_raw_output(result.stdout + "\n" + result.stderr)
+                return _fail(diags, raw)
     except subprocess.TimeoutExpired:
-        return {"passed": False, "diagnostics": ["pytest timed out after 120s"]}
+        return _fail(["pytest timed out after 120s"])
     except Exception as e:
-        return {"passed": False, "diagnostics": [f"pytest invocation failed: {e}"]}
-    return {"passed": True, "diagnostics": []}
+        return _fail([f"pytest invocation failed: {e}"])
+    return _ok()

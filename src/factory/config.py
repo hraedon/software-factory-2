@@ -95,6 +95,7 @@ class FactoryConfig:
     per_channel_timeout: dict[str, int] | None = None
     use_project_venv: bool = False
     inner_gate_retries: int = 2
+    inner_gate_max_feedback_chars: int = 2000
     channel_backoff_base_seconds: int = 30
     channel_backoff_max_attempts: int = 3
     credentials_path: Path | None = None

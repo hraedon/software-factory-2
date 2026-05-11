@@ -54,7 +54,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - 14 golden runs executed (GR-001 through GR-014)
   - GR-014: 91% lock rate (20/22) on cert-watch full DAG with K2 via Fireworks
 
-**Known issues:** 4 open breadcrumbs (0 critical, 1 high, 2 medium, 1 low) + 11 RFCs. See `breadcrumbs/README.md`.
+**Known issues:** 5 open breadcrumbs (0 critical, 2 high, 3 medium, 0 low) + 14 RFCs. See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing. All channels have adapter implementations.
 

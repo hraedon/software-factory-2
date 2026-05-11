@@ -226,6 +226,7 @@ def _serialize_bundle(
                 "diagnostic": f.diagnostic,
                 "error_message": f.error_message,
                 "timed_out": f.timed_out,
+                "gate_output": f.gate_output,
             }
             for f in failures
         ],
@@ -267,6 +268,11 @@ def render_prompt(ctx: PromptContext) -> str:
                 f"- attempt {f.attempt_number} ({f.role}/{f.channel}): "
                 f"{f.gate_name} — {f.diagnostic}"
             )
+            if f.gate_output:
+                parts.append("  ```")
+                for line in f.gate_output.splitlines():
+                    parts.append(f"  {line}")
+                parts.append("  ```")
         parts.append("")
     if ctx.extra_artifacts:
         for key, value in sorted(ctx.extra_artifacts.items()):

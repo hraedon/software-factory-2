@@ -26,6 +26,7 @@ class FailureEntry:
     timed_out: bool = False
     exit_code: int | None = None
     actor_metadata: dict | None = None
+    gate_output: str = ""
 
 
 def derive_failures(substrate: Substrate, work_item_id: str) -> list[FailureEntry]:

@@ -3,6 +3,7 @@
 
 Launches runner, gate, and scheduler as subprocesses. If any process exits
 unexpectedly, terminates the remaining processes and reports which one failed.
+Supports an overall timeout and periodic progress reporting.
 """
 from __future__ import annotations
 
@@ -19,12 +20,26 @@ PROCESSES = [
     ("scheduler", "-m", "factory.scheduler"),
 ]
 
+PROGRESS_INTERVAL_SECONDS = 30
+DEFAULT_TIMEOUT_SECONDS = 3600
+
+
+def _fmt_elapsed(seconds: float) -> str:
+    m, s = divmod(int(seconds), 60)
+    return f"{m}m{s}s" if m >= 1 else f"{s}s"
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Golden-run process nanny")
     parser.add_argument("--config", required=True, help="Path to factory config YAML")
     parser.add_argument("--populate", action="store_true", help="Run populate_work_items first")
     parser.add_argument("--fixtures", default=None, help="Fixtures directory for populate")
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_TIMEOUT_SECONDS,
+        help=f"Overall timeout in seconds (default: {DEFAULT_TIMEOUT_SECONDS})",
+    )
     args = parser.parse_args()
 
     python = sys.executable
@@ -71,8 +86,36 @@ def main() -> None:
         proc = subprocess.Popen(cmd, stdout=log_file, stderr=log_file)
         procs.append((name, proc))
 
+    start_time = time.monotonic()
+    last_progress = start_time
+
     try:
         while not shutting_down:
+            elapsed = time.monotonic() - start_time
+
+            if elapsed >= args.timeout:
+                print(f"[nanny] Timeout ({_fmt_elapsed(elapsed)}), killing all processes")
+                for name, proc in procs:
+                    if proc.poll() is None:
+                        proc.terminate()
+                for name, proc in procs:
+                    try:
+                        proc.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                for fh in log_files:
+                    fh.close()
+                sys.exit(2)
+
+            now = time.monotonic()
+            if now - last_progress >= PROGRESS_INTERVAL_SECONDS:
+                last_progress = now
+                statuses = []
+                for name, proc in procs:
+                    status = f"pid={proc.pid}" if proc.poll() is None else f"exit={proc.returncode}"
+                    statuses.append(f"{name}({status})")
+                print(f"[nanny] {_fmt_elapsed(elapsed)} elapsed — {', '.join(statuses)}")
+
             for name, proc in procs:
                 ret = proc.poll()
                 if ret is not None:
