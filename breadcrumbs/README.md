@@ -47,7 +47,6 @@ Reusable tags:
 | 078 | Benchmark scope systematically excludes cross-module dependencies — Phase 2 exit criteria measured on easy case | high | proposed |
 | 081 | No criteria test for cert-watch full DAG — structural gap in regression detection for multi-module pipelines | medium | proposed |
 | 071 | sub.transition(custom_fields=...) merges into WorkItem but API surface implies per-event storage — telemetry footgun | low | proposed |
-| 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | proposed |
 | 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | proposed |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
 
@@ -73,6 +72,9 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 086 | Test suite inner gate — pytest --collect-only before outer submission | medium | Added `pre_gate_test_suite()` to `pre_gate.py` running ruff + `pytest --collect-only`; inner gate loop now runs for all three worker roles; gate labels use `GATE_NAME_INNER_*` constants; 7 new tests |
+| 085 | Interface spec inner gate — import smoke check before outer submission | medium | Added `pre_gate_interface_spec()` to `pre_gate.py` running ruff + `python -c "import <module>"` smoke check; prevents locked interface_specs with invalid Python from blocking downstream; 7 new tests |
+| 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | Added `StageHandoff` dataclass and `stage_topology` to `FactoryConfig`; scheduler derives `next_role` from `type_to_role` instead of hardcoded dict; removed `_STAGE_HANDOFF` module-level dict; added `role_for_type()` and `stage_handoff_for()` methods to config; tests updated to use `FactoryConfig.phase2()` and `StageHandoff` objects |
 | 084 | _extract_module_name_from_spec derives module names from model-generated spec titles — fragile regex produces mangled names | high | Added `CUSTOM_FIELD_MODULE_NAME` constant; `populate_work_items.py` derives module name from fixture label (`label.removeprefix("wi_")`) and stores as `module_name` custom_field; `resolve_dep_artifacts()` reads `module_name` from custom_fields first, falls back to spec-title regex; parenthetical suffix case now returns canonical name from custom_field; 3 new tests |
 | 077 | Runner processes interface_specs without dependency ordering — root deps processed last, cascading test_suite ImportErrors | high | Scheduler `_ensure_downstream_item` now checks `_all_dep_specs_locked()` before creating downstream items; defers test_suite/implementation creation until all dependency_refs point to locked interface_specs; validated by GR-013 (8/8 interface_specs locked, root dep processed first) |
 | 083 | Channel base class mutable _family_override survives in invoke() — latent race condition for Phase 4+ parallel invocations | low | Removed `_family_override` instance variable and its mutation from `invoke()`; `family` property now returns `_DEFAULT_FAMILY` unconditionally; per-invocation family carried exclusively in `InvocationResult.family` |

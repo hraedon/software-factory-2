@@ -52,6 +52,7 @@ class SubprocessChannel:
         prompt: str,
         outputs_dir: Path,
         timeout: int,
+        extra_env: dict[str, str] | None = None,
     ) -> InvocationResult:
         outputs_dir.mkdir(parents=True, exist_ok=True)
         role_config = self._config.get_role_config(role)
@@ -61,6 +62,7 @@ class SubprocessChannel:
         cmd = self._build_cmd(role_config)
         if role_config and role_config.model:
             cmd.extend(["--model", role_config.model])
+        env_override = extra_env
         try:
             result = subprocess.run(
                 cmd,
@@ -69,6 +71,7 @@ class SubprocessChannel:
                 text=True,
                 timeout=effective_timeout,
                 cwd=str(outputs_dir),
+                env=env_override,
             )
         except subprocess.TimeoutExpired:
             return InvocationResult(

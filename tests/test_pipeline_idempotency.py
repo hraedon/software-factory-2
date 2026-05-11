@@ -3,7 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from factory.channel import InvocationResult
-from factory.config import FactoryConfig
+from factory.config import FactoryConfig, StageHandoff
+from factory.constants import (
+    LINK_TYPE_DERIVED_FROM,
+    LINK_TYPE_TESTED_BY,
+    WORK_ITEM_TYPE_IMPLEMENTATION,
+    WORK_ITEM_TYPE_INTERFACE_SPEC,
+    WORK_ITEM_TYPE_TEST_SUITE,
+)
 from factory.gate_process import process_gate_item
 from factory.runner import _resume_and_submit, process_work_item
 from factory.runtime import PipelineRuntime
@@ -14,6 +21,21 @@ from factory.workspace import (
     compute_sha256,
     find_resumable_artifact,
     write_artifact,
+)
+
+_IFACE_TO_TEST_SUITE = StageHandoff(
+    source_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+    source_state="locked",
+    target_type=WORK_ITEM_TYPE_TEST_SUITE,
+    link_type=LINK_TYPE_DERIVED_FROM,
+)
+
+_TEST_SUITE_TO_IMPL = StageHandoff(
+    source_type=WORK_ITEM_TYPE_TEST_SUITE,
+    source_state="locked",
+    target_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+    link_type=LINK_TYPE_TESTED_BY,
+    additional_links=("implements",),
 )
 
 
@@ -42,7 +64,7 @@ class _IdempotencyChannel:
     ) -> None:
         self._fail_at[(role, attempt_number)] = error
 
-    def invoke(self, role, prompt, outputs_dir, timeout):
+    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None):
         n = self._role_attempt_counts.get(role, 0) + 1
         self._role_attempt_counts[role] = n
         self._invocations.append((role, n))
@@ -88,13 +110,7 @@ class _IdempotencyChannel:
 
 
 def _make_phase2_config(workspace_root: Path) -> FactoryConfig:
-    return FactoryConfig(
-        workspace_root=workspace_root,
-        workflow_version=2,
-        worker_roles=FactoryConfig.PHASE2_WORKER_ROLES,
-        type_to_role=FactoryConfig.PHASE2_TYPE_TO_ROLE,
-        roles=FactoryConfig.PHASE2_ROLES,
-    )
+    return FactoryConfig.phase2(workspace_root=workspace_root)
 
 
 def _register_roles(sub):
@@ -315,7 +331,7 @@ class TestPipelineIdempotencyTestAuthor:
         _ensure_downstream_item(
             sched_runtime,
             wi,
-            {"next_type": "test_suite", "link_type": "derived_from", "next_role": "test_author"},
+            _IFACE_TO_TEST_SUITE,
         )
         ts_wis = [
             w
@@ -382,7 +398,7 @@ class TestPipelineIdempotencyImplementer:
         _ensure_downstream_item(
             sched_runtime,
             wi,
-            {"next_type": "test_suite", "link_type": "derived_from", "next_role": "test_author"},
+            _IFACE_TO_TEST_SUITE,
         )
         ts_wis = [
             w
@@ -407,12 +423,7 @@ class TestPipelineIdempotencyImplementer:
         _ensure_downstream_item(
             sched_runtime,
             wi,
-            {
-                "next_type": "implementation",
-                "link_type": "tested_by",
-                "additional_links": ["implements"],
-                "next_role": "implementer",
-            },
+            _TEST_SUITE_TO_IMPL,
         )
         impl_wis = [
             w
@@ -506,7 +517,7 @@ class TestPipelineIdempotencyGateProcess:
         _ensure_downstream_item(
             sched_runtime,
             wi,
-            {"next_type": "test_suite", "link_type": "derived_from", "next_role": "test_author"},
+            _IFACE_TO_TEST_SUITE,
         )
         ts_wis = [
             w
@@ -571,7 +582,7 @@ class TestPipelineIdempotencyMultiRole:
         _ensure_downstream_item(
             sched_runtime,
             wi,
-            {"next_type": "test_suite", "link_type": "derived_from", "next_role": "test_author"},
+            _IFACE_TO_TEST_SUITE,
         )
         ts_wis = [
             w
@@ -609,12 +620,7 @@ class TestPipelineIdempotencyMultiRole:
         _ensure_downstream_item(
             sched_runtime,
             wi,
-            {
-                "next_type": "implementation",
-                "link_type": "tested_by",
-                "additional_links": ["implements"],
-                "next_role": "implementer",
-            },
+            _TEST_SUITE_TO_IMPL,
         )
         impl_wis = [
             w

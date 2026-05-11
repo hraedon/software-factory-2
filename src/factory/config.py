@@ -11,14 +11,20 @@ from factory.constants import (
     ACTOR_ID_WORKER_PREFIX,
     CHANNEL_CLAUDE_CODE,
     CHANNEL_CODE,
+    CHANNEL_GEMINI_CLI,
     CHANNEL_OPENCODE,
     FAMILY_ANTHROPIC,
     FAMILY_CODE,
+    FAMILY_GEMINI,
     FAMILY_OPENCODE,
+    LINK_TYPE_DERIVED_FROM,
+    LINK_TYPE_IMPLEMENTS,
+    LINK_TYPE_TESTED_BY,
     ROLE_IMPLEMENTER,
     ROLE_INTERFACE_ARCHITECT,
     ROLE_MECHANICAL_GATE,
     ROLE_TEST_AUTHOR,
+    STATE_LOCKED,
     WORK_ITEM_TYPE_IMPLEMENTATION,
     WORK_ITEM_TYPE_INTERFACE_SPEC,
     WORK_ITEM_TYPE_TEST_SUITE,
@@ -27,11 +33,21 @@ from factory.workspace import WORK_DIR_NAME, WORK_SUBDIR
 
 
 @dataclass(frozen=True)
+class StageHandoff:
+    source_type: str
+    source_state: str
+    target_type: str
+    link_type: str
+    additional_links: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class RoleConfig:
     role: str
     channel: str
     timeout_seconds: int = 600
     model: str | None = None
+    provider: str | None = None
 
     @property
     def family(self) -> str:
@@ -41,6 +57,8 @@ class RoleConfig:
             return FAMILY_OPENCODE
         if self.channel == CHANNEL_CODE:
             return FAMILY_CODE
+        if self.channel == CHANNEL_GEMINI_CLI:
+            return FAMILY_GEMINI
         return FAMILY_ANTHROPIC
 
 
@@ -73,6 +91,22 @@ class FactoryConfig:
     per_channel_timeout: dict[str, int] | None = None
     use_project_venv: bool = False
     inner_gate_retries: int = 2
+    credentials_path: Path | None = None
+    stage_topology: tuple[StageHandoff, ...] = (
+        StageHandoff(
+            source_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            source_state=STATE_LOCKED,
+            target_type=WORK_ITEM_TYPE_TEST_SUITE,
+            link_type=LINK_TYPE_DERIVED_FROM,
+        ),
+        StageHandoff(
+            source_type=WORK_ITEM_TYPE_TEST_SUITE,
+            source_state=STATE_LOCKED,
+            target_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+            link_type=LINK_TYPE_TESTED_BY,
+            additional_links=(LINK_TYPE_IMPLEMENTS,),
+        ),
+    )
 
     PHASE2_WORKER_ROLES: tuple[str, ...] = (
         ROLE_INTERFACE_ARCHITECT,
@@ -91,6 +125,23 @@ class FactoryConfig:
         RoleConfig(role=ROLE_MECHANICAL_GATE, channel=CHANNEL_CODE),
     )
 
+    PHASE3_WORKER_ROLES: tuple[str, ...] = PHASE2_WORKER_ROLES
+    PHASE3_TYPE_TO_ROLE: tuple[tuple[str, str], ...] = PHASE2_TYPE_TO_ROLE
+    PHASE3_ROLES: tuple[RoleConfig, ...] = (
+        RoleConfig(role=ROLE_INTERFACE_ARCHITECT, channel=CHANNEL_CLAUDE_CODE),
+        RoleConfig(
+            role=ROLE_TEST_AUTHOR,
+            channel=CHANNEL_OPENCODE,
+            model="fireworks-ai/kimi-k2p6-turbo",
+        ),
+        RoleConfig(
+            role=ROLE_IMPLEMENTER,
+            channel=CHANNEL_OPENCODE,
+            model="zai-coding-plan/glm-5.1",
+        ),
+        RoleConfig(role=ROLE_MECHANICAL_GATE, channel=CHANNEL_CODE),
+    )
+
     @classmethod
     def phase2(cls, **overrides) -> FactoryConfig:
         return cls(
@@ -98,6 +149,16 @@ class FactoryConfig:
             worker_roles=cls.PHASE2_WORKER_ROLES,
             type_to_role=cls.PHASE2_TYPE_TO_ROLE,
             roles=cls.PHASE2_ROLES,
+            **overrides,
+        )
+
+    @classmethod
+    def phase3(cls, **overrides) -> FactoryConfig:
+        return cls(
+            workflow_version=3,
+            worker_roles=cls.PHASE3_WORKER_ROLES,
+            type_to_role=cls.PHASE3_TYPE_TO_ROLE,
+            roles=cls.PHASE3_ROLES,
             **overrides,
         )
 
@@ -118,6 +179,18 @@ class FactoryConfig:
                 return rc
         return None
 
+    def role_for_type(self, work_item_type: str) -> str | None:
+        for type_name, role_name in self.type_to_role:
+            if type_name == work_item_type:
+                return role_name
+        return None
+
+    def stage_handoff_for(self, source_type: str, source_state: str) -> StageHandoff | None:
+        for handoff in self.stage_topology:
+            if handoff.source_type == source_type and handoff.source_state == source_state:
+                return handoff
+        return None
+
     @classmethod
     def from_yaml(cls, path: str | Path) -> FactoryConfig:
         raw = yaml.safe_load(Path(path).read_text())
@@ -126,6 +199,8 @@ class FactoryConfig:
             kwargs["workspace_root"] = Path(kwargs["workspace_root"])
         if "spec_file" in kwargs and isinstance(kwargs["spec_file"], str):
             kwargs["spec_file"] = Path(kwargs["spec_file"])
+        if "credentials_path" in kwargs and isinstance(kwargs["credentials_path"], str):
+            kwargs["credentials_path"] = Path(kwargs["credentials_path"])
         if "roles" in kwargs:
             if isinstance(kwargs["roles"], dict):
                 raise TypeError("'roles' must be a list, got dict")

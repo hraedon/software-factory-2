@@ -3,7 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from factory.channel import InvocationResult
-from factory.config import FactoryConfig
+from factory.config import FactoryConfig, StageHandoff
+from factory.constants import (
+    LINK_TYPE_DERIVED_FROM,
+    LINK_TYPE_TESTED_BY,
+    WORK_ITEM_TYPE_IMPLEMENTATION,
+    WORK_ITEM_TYPE_INTERFACE_SPEC,
+    WORK_ITEM_TYPE_TEST_SUITE,
+)
 from factory.gate_process import process_gate_item
 from factory.runner import process_work_item
 from factory.runtime import PipelineRuntime
@@ -36,7 +43,7 @@ class _IntegrationChannel:
     ) -> None:
         self._fail_at[(role, attempt_number)] = error
 
-    def invoke(self, role, prompt, outputs_dir, timeout):
+    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None):
         n = self._role_attempt_counts.get(role, 0) + 1
         self._role_attempt_counts[role] = n
         self._invocations.append((role, n))
@@ -87,13 +94,7 @@ class _IntegrationChannel:
 
 
 def _make_phase2_config(workspace_root: Path) -> FactoryConfig:
-    return FactoryConfig(
-        workspace_root=workspace_root,
-        workflow_version=2,
-        worker_roles=FactoryConfig.PHASE2_WORKER_ROLES,
-        type_to_role=FactoryConfig.PHASE2_TYPE_TO_ROLE,
-        roles=FactoryConfig.PHASE2_ROLES,
-    )
+    return FactoryConfig.phase2(workspace_root=workspace_root)
 
 
 def _register_roles(sub):
@@ -134,21 +135,25 @@ def _run_gate(runtime, wi, actor_id="factory-gate"):
     return runtime.sub.get_work_item(wi.work_item_id)
 
 
+_HANDOFF_MAP = {
+    ("interface_spec", "locked"): StageHandoff(
+        source_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+        source_state="locked",
+        target_type=WORK_ITEM_TYPE_TEST_SUITE,
+        link_type=LINK_TYPE_DERIVED_FROM,
+    ),
+    ("test_suite", "locked"): StageHandoff(
+        source_type=WORK_ITEM_TYPE_TEST_SUITE,
+        source_state="locked",
+        target_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+        link_type=LINK_TYPE_TESTED_BY,
+        additional_links=("implements",),
+    ),
+}
+
+
 def _create_downstream(runtime, source_wi, source_type, source_state):
-    handoff_map = {
-        ("interface_spec", "locked"): {
-            "next_type": "test_suite",
-            "link_type": "derived_from",
-            "next_role": "test_author",
-        },
-        ("test_suite", "locked"): {
-            "next_type": "implementation",
-            "link_type": "tested_by",
-            "additional_links": ["implements"],
-            "next_role": "implementer",
-        },
-    }
-    handoff = handoff_map.get((source_type, source_state))
+    handoff = _HANDOFF_MAP.get((source_type, source_state))
     if handoff is None:
         return None
     sched_runtime = PipelineRuntime(sub=runtime.sub, config=runtime.config)
@@ -156,10 +161,8 @@ def _create_downstream(runtime, source_wi, source_type, source_state):
 
     downstream = None
     for wi in runtime.sub.query_work_items(current_states=["new"], page_size=50).items:
-        if wi.work_item_type == handoff["next_type"]:
-            ref_field = (
-                "interface_ref" if handoff["next_type"] == "test_suite" else "test_suite_ref"
-            )
+        if wi.work_item_type == handoff.target_type:
+            ref_field = "interface_ref" if handoff.target_type == "test_suite" else "test_suite_ref"
             cf = wi.custom_fields or {}
             if cf.get(ref_field) == str(source_wi.work_item_id):
                 downstream = wi
@@ -232,7 +235,7 @@ class _BadImplIntegrationChannel(_IntegrationChannel):
     """Produces implementation artifacts that trigger impl_lint gate failures
     (bare except, which ruff cannot auto-fix) for escalation testing."""
 
-    def invoke(self, role, prompt, outputs_dir, timeout):
+    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None):
         result = super().invoke(role, prompt, outputs_dir, timeout)
         if role == "implementer" and result.success:
             name = result.artifact_name

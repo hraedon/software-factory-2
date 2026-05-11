@@ -31,7 +31,7 @@ class _RealSmokeChannel:
     def family(self) -> str:
         return self._family
 
-    def invoke(self, role, prompt, outputs_dir, timeout):
+    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None):
         outputs_dir.mkdir(parents=True, exist_ok=True)
         content = (
             "from dataclasses import dataclass\n"

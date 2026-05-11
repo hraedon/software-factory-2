@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from factory.pre_gate import PreGateDeps, copy_dependency_pyis, pre_gate_implementation
+from factory.pre_gate import (
+    PreGateDeps,
+    copy_dependency_pyis,
+    pre_gate_implementation,
+    pre_gate_interface_spec,
+    pre_gate_test_suite,
+)
 
 
 class TestPreGateImplementation:
@@ -240,3 +246,175 @@ class TestCopyDependencyPyis:
             copy_dependency_pyis(tmpdir, [("my_module", dep_pyi)])
             assert (Path(tmpdir) / "my_module.py").exists()
             assert (Path(tmpdir) / "my_module.pyi").exists()
+
+
+class TestPreGateInterfaceSpec:
+    def test_passes_on_clean_artifact(self, tmp_path):
+        artifact = tmp_path / "artifact.pyi"
+        artifact.write_text(
+            "class Certificate:\n"
+            "    subject: str\n"
+            "    issuer: str\n"
+            "    def days_until_expiry(self) -> int: ...\n"
+        )
+        result = pre_gate_interface_spec(artifact)
+        assert result.passed
+        assert result.ruff_passed
+        assert result.diagnostics == []
+
+    def test_fails_on_ruff_error(self, tmp_path):
+        artifact = tmp_path / "artifact.pyi"
+        artifact.write_text("def hello() -> str:\n    x=1+2\n    return 'hello'\n")
+        result = pre_gate_interface_spec(artifact)
+        assert not result.passed
+        assert not result.ruff_passed
+
+    def test_fails_on_import_error(self, tmp_path):
+        artifact = tmp_path / "artifact.pyi"
+        artifact.write_text("from nonexistent_module import Foo\nclass Bar:\n    foo: Foo\n")
+        result = pre_gate_interface_spec(artifact)
+        assert not result.passed
+        assert any("import" in d.lower() or "ModuleNotFoundError" in d for d in result.diagnostics)
+
+    def test_passes_with_valid_dependency(self, tmp_path):
+        artifact = tmp_path / "artifact.pyi"
+        artifact.write_text(
+            "from certificate_model import Certificate\nclass Scanner:\n    cert: Certificate\n"
+        )
+        dep_pyi = tmp_path / "dep.pyi"
+        dep_pyi.write_text("class Certificate:\n    subject: str\n")
+        result = pre_gate_interface_spec(
+            artifact,
+            dependency_pyi_paths=[("certificate_model", dep_pyi)],
+        )
+        assert result.passed
+
+    def test_missing_artifact_fails(self, tmp_path):
+        artifact = tmp_path / "nonexistent.pyi"
+        result = pre_gate_interface_spec(artifact)
+        assert not result.passed
+        assert any("not found" in d.lower() for d in result.diagnostics)
+
+    def test_import_check_catches_syntax_error(self, tmp_path):
+        artifact = tmp_path / "artifact.pyi"
+        artifact.write_text("class Foo(:\n    bar: str\n")
+        result = pre_gate_interface_spec(artifact)
+        assert not result.passed
+
+    def test_ruff_auto_fix_before_import_check(self, tmp_path):
+        artifact = tmp_path / "artifact.pyi"
+        artifact.write_text("def hello() ->str:\n    return 'hello'\n")
+        result = pre_gate_interface_spec(artifact)
+        assert result.ruff_passed or not result.passed
+
+
+class TestPreGateTestSuite:
+    def test_passes_on_collectible_tests(self, tmp_path):
+        artifact = tmp_path / "test_hello.py"
+        artifact.write_text("def test_hello():\n    assert True\n")
+        result = pre_gate_test_suite(artifact)
+        assert result.passed
+        assert result.diagnostics == []
+
+    def test_fails_on_ruff_error(self, tmp_path):
+        artifact = tmp_path / "test_hello.py"
+        artifact.write_text("def hello() -> str:\n    x=1+2\n    return 'hello'\n")
+        result = pre_gate_test_suite(artifact)
+        assert not result.passed
+        assert not result.ruff_passed
+
+    def test_fails_on_collection_error(self, tmp_path):
+        artifact = tmp_path / "test_bad.py"
+        artifact.write_text(
+            "from nonexistent_module import foo\ndef test_foo():\n    assert foo() == 1\n"
+        )
+        result = pre_gate_test_suite(artifact)
+        assert not result.passed
+        assert not result.pytest_passed
+
+    def test_passes_with_interface_import(self, tmp_path):
+        artifact = tmp_path / "test_iface.py"
+        artifact.write_text(
+            "from interface import add\ndef test_add():\n    assert add(1, 2) == 3\n"
+        )
+        interface_pyi = tmp_path / "interface.pyi"
+        interface_pyi.write_text("def add(a: int, b: int) -> int: ...\n")
+        result = pre_gate_test_suite(
+            artifact,
+            interface_pyi_path=interface_pyi,
+        )
+        assert result.passed
+
+    def test_passes_with_dependency(self, tmp_path):
+        artifact = tmp_path / "test_cert.py"
+        artifact.write_text(
+            "from certificate_model import Certificate\n"
+            "def test_cert():\n"
+            "    c = Certificate(subject='test')\n"
+            "    assert c.subject == 'test'\n"
+        )
+        dep_pyi = tmp_path / "dep.pyi"
+        dep_pyi.write_text("class Certificate:\n    subject: str\n")
+        result = pre_gate_test_suite(
+            artifact,
+            dependency_pyi_paths=[("certificate_model", dep_pyi)],
+        )
+        assert result.passed
+
+    def test_missing_artifact_fails(self, tmp_path):
+        artifact = tmp_path / "nonexistent.py"
+        result = pre_gate_test_suite(artifact)
+        assert not result.passed
+        assert any("not found" in d.lower() for d in result.diagnostics)
+
+    def test_collect_only_does_not_run_tests(self, tmp_path):
+        artifact = tmp_path / "test_fail.py"
+        artifact.write_text("def test_always_fails():\n    assert False\n")
+        result = pre_gate_test_suite(artifact)
+        assert result.passed
+
+
+class TestPreGateDispatch:
+    def test_interface_architect_uses_import_check(self, tmp_path):
+        from factory.runner import _run_pre_gate
+
+        artifact = tmp_path / "artifact.pyi"
+        artifact.write_text("class Foo:\n    bar: str\n")
+        deps = PreGateDeps(
+            interface_pyi_path=None,
+            dep_paths=None,
+            python_executable=None,
+            test_suite_path=None,
+        )
+        result = _run_pre_gate("interface_architect", artifact, deps)
+        assert result.passed
+
+    def test_test_author_uses_collect_only(self, tmp_path):
+        from factory.runner import _run_pre_gate
+
+        artifact = tmp_path / "test_hello.py"
+        artifact.write_text("def test_hello():\n    assert True\n")
+        deps = PreGateDeps(
+            interface_pyi_path=None,
+            dep_paths=None,
+            python_executable=None,
+            test_suite_path=None,
+        )
+        result = _run_pre_gate("test_author", artifact, deps)
+        assert result.passed
+
+    def test_implementer_uses_full_gate(self, tmp_path):
+        from factory.runner import _run_pre_gate
+
+        artifact = tmp_path / "interface.py"
+        artifact.write_text("def hello() -> str:\n    return 'hello'\n")
+        interface_pyi = tmp_path / "interface.pyi"
+        interface_pyi.write_text("def hello() -> str: ...\n")
+        deps = PreGateDeps(
+            interface_pyi_path=interface_pyi,
+            dep_paths=None,
+            python_executable=None,
+            test_suite_path=None,
+        )
+        result = _run_pre_gate("implementer", artifact, deps)
+        assert result.passed

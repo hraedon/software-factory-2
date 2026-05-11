@@ -14,12 +14,19 @@ from factory.constants import (
     ARTIFACT_FILENAME_CANNOT_PROCEED,
     CHANNEL_CLAUDE_CODE,
     CHANNEL_CODE,
+    CHANNEL_GEMINI_CLI,
     CHANNEL_OPENCODE,
     CUSTOM_FIELD_ARTIFACT_HASH,
     CUSTOM_FIELD_ARTIFACT_PATH,
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_TEST_SUITE_REF,
+    GATE_NAME_INNER_COLLECT,
+    GATE_NAME_INNER_IMPORT,
+    GATE_NAME_INNER_MYPY,
+    GATE_NAME_INNER_PYTEST,
+    GATE_NAME_INNER_RUFF,
     ROLE_IMPLEMENTER,
+    ROLE_INTERFACE_ARCHITECT,
     ROLE_TEST_AUTHOR,
     STATE_NEW,
     TRANSITION_CHANNEL_FAIL,
@@ -36,7 +43,7 @@ from factory.context import (
     render_prompt,
 )
 from factory.event_schemas import ChannelFailPayload, SubmitPayload
-from factory.pre_gate import PreGateDeps, pre_gate_implementation
+from factory.pre_gate import PreGateDeps, PreGateResult
 from factory.runtime import PipelineRuntime
 from factory.workspace import (
     ArtifactManifest,
@@ -47,6 +54,14 @@ from factory.workspace import (
 )
 
 log = structlog.get_logger()
+
+_INNER_GATE_ROLES = frozenset(
+    {
+        ROLE_INTERFACE_ARCHITECT,
+        ROLE_TEST_AUTHOR,
+        ROLE_IMPLEMENTER,
+    }
+)
 
 
 def _role_for_type(work_item_type: str, config: FactoryConfig) -> str | None:
@@ -69,10 +84,20 @@ def _derive_role_context(
     return derive_context(runtime.sub, work_item_id, role_name, spec_content=spec)
 
 
-def run_worker(config: FactoryConfig, channel: Channel) -> None:
+def run_worker(
+    config: FactoryConfig,
+    channel: Channel | None = None,
+    channels: dict[str, Channel] | None = None,
+) -> None:
     sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
     spec_content = _load_spec(config)
-    runtime = PipelineRuntime(sub=sub, config=config, spec_content=spec_content, channel=channel)
+    runtime = PipelineRuntime(
+        sub=sub,
+        config=config,
+        spec_content=spec_content,
+        channel=channel,
+        channels=channels,
+    )
     try:
         worker_loop(runtime)
     finally:
@@ -88,8 +113,9 @@ def _load_spec(config: FactoryConfig) -> str | None:
 def worker_loop(runtime: PipelineRuntime) -> None:
     sub = runtime.sub
     config = runtime.config
-    channel = runtime.channel
-    actor_id = config.worker_actor_id(channel.name)
+    first_role = config.worker_roles[0] if config.worker_roles else ""
+    default_channel = runtime.channel_for_role(first_role)
+    actor_id = config.worker_actor_id(default_channel.name)
     for role_name in config.worker_roles:
         sub.register_actor_role(actor_id, role_name)
     poll_interval = config.poll_interval_seconds
@@ -118,6 +144,7 @@ def worker_loop(runtime: PipelineRuntime) -> None:
             role_name = _role_for_type(wi.work_item_type, config)
             if role_name is None:
                 continue
+            channel = runtime.channel_for_role(role_name)
             claim = sub.acquire_claim(wi.work_item_id, actor_id, config.claim_ttl_seconds)
             if claim.attempt_number >= config.attempt_threshold:
                 log.warning(
@@ -159,6 +186,20 @@ def _has_prior_gate_fail(sub: Substrate, work_item_id: str) -> bool:
     return any(e.transition in (TRANSITION_GATE_FAIL, TRANSITION_CHANNEL_FAIL) for e in events)
 
 
+def _resolve_extra_env(config: FactoryConfig, role_name: str) -> dict[str, str] | None:
+    role_config = config.get_role_config(role_name)
+    if not role_config or not role_config.provider:
+        return None
+    from factory.credentials import inject_credentials_into_env, load_credentials
+
+    credentials = load_credentials(
+        config.credentials_path if hasattr(config, "credentials_path") else None
+    )
+    if not credentials:
+        return None
+    return inject_credentials_into_env(credentials, role_config.provider)
+
+
 def _resolve_pre_gate_deps(sub: Substrate, wi, config: FactoryConfig) -> PreGateDeps:
     from factory.gate_process import _resolve_dependency_refs, _resolve_ref_artifact
 
@@ -194,7 +235,7 @@ def process_work_item(
 ) -> None:
     sub = runtime.sub
     config = runtime.config
-    channel = runtime.channel
+    channel = runtime.channel_for_role(role_name)
     work_item_id = str(wi.work_item_id)
     attempt_number = claim.attempt_number
     wr = runtime.workspace_root
@@ -234,7 +275,8 @@ def process_work_item(
     ad = attempt_dir(wr, work_item_id, attempt_number)
     prompt = render_prompt(ctx)
     invocation_start = time.monotonic()
-    invoke_result = channel.invoke(role_name, prompt, ad, timeout)
+    extra_env = _resolve_extra_env(config, role_name)
+    invoke_result = channel.invoke(role_name, prompt, ad, timeout, extra_env=extra_env)
     invocation_end = time.monotonic()
     duration_seconds = round(invocation_end - invocation_start, 3)
     effective_family = invoke_result.family or channel.family
@@ -257,7 +299,7 @@ def process_work_item(
 
     artifact_path = ad / invoke_result.artifact_name
 
-    if role_name == ROLE_IMPLEMENTER and config.inner_gate_retries > 0:
+    if role_name in _INNER_GATE_ROLES and config.inner_gate_retries > 0:
         artifact_path, ctx, duration_seconds = _inner_gate_loop(
             runtime,
             wi,
@@ -273,6 +315,7 @@ def process_work_item(
             invocation_start,
             effective_family,
             config,
+            extra_env=extra_env,
         )
         if artifact_path is None:
             return
@@ -313,6 +356,41 @@ def process_work_item(
     )
 
 
+def _run_pre_gate(
+    role_name: str,
+    artifact_path: Path,
+    deps: PreGateDeps,
+) -> PreGateResult:
+    from factory.pre_gate import (
+        pre_gate_implementation,
+        pre_gate_interface_spec,
+        pre_gate_test_suite,
+    )
+
+    if role_name == ROLE_INTERFACE_ARCHITECT:
+        return pre_gate_interface_spec(
+            artifact_path,
+            dependency_pyi_paths=deps.dep_paths,
+            python_executable=deps.python_executable,
+        )
+    if role_name == ROLE_TEST_AUTHOR:
+        return pre_gate_test_suite(
+            artifact_path,
+            interface_pyi_path=deps.interface_pyi_path,
+            dependency_pyi_paths=deps.dep_paths,
+            dependency_spec_paths=deps.dep_spec_paths,
+            python_executable=deps.python_executable,
+        )
+    return pre_gate_implementation(
+        artifact_path,
+        interface_pyi_path=deps.interface_pyi_path,
+        dependency_pyi_paths=deps.dep_paths,
+        dependency_spec_paths=deps.dep_spec_paths,
+        python_executable=deps.python_executable,
+        test_suite_path=deps.test_suite_path,
+    )
+
+
 def _inner_gate_loop(
     runtime: PipelineRuntime,
     wi,
@@ -328,6 +406,7 @@ def _inner_gate_loop(
     invocation_start: float,
     effective_family: str,
     config: FactoryConfig,
+    extra_env: dict[str, str] | None = None,
 ) -> tuple[Path | None, PromptContext, float]:
     sub = runtime.sub
     work_item_id = str(wi.work_item_id)
@@ -342,13 +421,10 @@ def _inner_gate_loop(
             log.warning("inner_gate_artifact_missing", work_item_id=work_item_id)
             return current_artifact, current_ctx, duration_seconds
 
-        pre_result = pre_gate_implementation(
+        pre_result = _run_pre_gate(
+            role_name,
             current_artifact,
-            interface_pyi_path=pre_gate_deps.interface_pyi_path,
-            dependency_pyi_paths=pre_gate_deps.dep_paths,
-            dependency_spec_paths=pre_gate_deps.dep_spec_paths,
-            python_executable=pre_gate_deps.python_executable,
-            test_suite_path=pre_gate_deps.test_suite_path,
+            pre_gate_deps,
         )
         if pre_result.passed:
             log.info(
@@ -371,11 +447,18 @@ def _inner_gate_loop(
         from factory.failure_summary import FailureEntry
 
         if not pre_result.mypy_passed:
-            gate_label = "inner_mypy"
+            gate_label = GATE_NAME_INNER_MYPY
         elif not pre_result.ruff_passed:
-            gate_label = "inner_ruff"
+            gate_label = GATE_NAME_INNER_RUFF
+        elif not pre_result.pytest_passed:
+            if role_name == ROLE_INTERFACE_ARCHITECT:
+                gate_label = GATE_NAME_INNER_IMPORT
+            elif role_name == ROLE_TEST_AUTHOR:
+                gate_label = GATE_NAME_INNER_COLLECT
+            else:
+                gate_label = GATE_NAME_INNER_PYTEST
         else:
-            gate_label = "inner_pytest"
+            gate_label = GATE_NAME_INNER_PYTEST
         retry_failures = [
             *current_ctx.prior_failures,
             FailureEntry(
@@ -402,7 +485,9 @@ def _inner_gate_loop(
         retry_prompt = render_prompt(current_ctx)
         retry_ad = attempt_dir(runtime.workspace_root, work_item_id, attempt_number)
         retry_start = time.monotonic()
-        retry_result = channel.invoke(role_name, retry_prompt, retry_ad, timeout)
+        retry_result = channel.invoke(
+            role_name, retry_prompt, retry_ad, timeout, extra_env=extra_env
+        )
         duration_seconds += round(time.monotonic() - retry_start, 3)
 
         if not retry_result.success:
@@ -543,22 +628,37 @@ def _resume_and_submit(
     )
 
 
-def _create_channel(config: FactoryConfig) -> Channel:
-    channels = set(rc.channel for rc in config.roles if rc.channel != CHANNEL_CODE)
-    if len(channels) == 1:
-        ch = channels.pop()
-        if ch == CHANNEL_OPENCODE:
+def _create_channels(config: FactoryConfig) -> dict[str, Channel]:
+    channel_names = set(rc.channel for rc in config.roles if rc.channel != CHANNEL_CODE)
+    channels: dict[str, Channel] = {}
+    for ch_name in channel_names:
+        if ch_name == CHANNEL_OPENCODE:
             from factory.opencode_channel import OpenCodeChannel
 
-            return OpenCodeChannel(config)
-        if ch == CHANNEL_CLAUDE_CODE:
+            channels[ch_name] = OpenCodeChannel(config)
+        elif ch_name == CHANNEL_CLAUDE_CODE:
             from factory.claude_code_channel import ClaudeCodeChannel
 
-            return ClaudeCodeChannel(config)
-        raise ValueError(
-            f"Unknown channel: {ch}. Supported: {CHANNEL_CLAUDE_CODE}, {CHANNEL_OPENCODE}"
-        )
-    raise NotImplementedError("Multi-channel dispatch not yet implemented")
+            channels[ch_name] = ClaudeCodeChannel(config)
+        elif ch_name == CHANNEL_GEMINI_CLI:
+            from factory.gemini_channel import GeminiCLIChannel
+
+            channels[ch_name] = GeminiCLIChannel(config)
+        else:
+            raise ValueError(
+                f"Unknown channel: {ch_name}. "
+                f"Supported: {CHANNEL_CLAUDE_CODE}, {CHANNEL_OPENCODE}, {CHANNEL_GEMINI_CLI}"
+            )
+    if not channels:
+        raise ValueError("No model channels configured")
+    return channels
+
+
+def _create_channel(config: FactoryConfig) -> Channel:
+    channels = _create_channels(config)
+    if len(channels) == 1:
+        return next(iter(channels.values()))
+    raise NotImplementedError("Multi-channel dispatch requires run_worker with channels dict")
 
 
 def _main(argv: list[str] | None = None) -> None:
@@ -571,8 +671,8 @@ def _main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
     config = load_config(args.config)
-    channel = _create_channel(config)
-    run_worker(config, channel)
+    channels = _create_channels(config)
+    run_worker(config, channels=channels)
 
 
 def main() -> None:

@@ -2,7 +2,7 @@
 number: "058"
 title: "Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig"
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: session
 date: "2026-05-08"

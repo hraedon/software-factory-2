@@ -40,6 +40,7 @@ class FakeChannel:
         prompt: str,
         outputs_dir: Path,
         timeout: int,
+        extra_env=None,
     ) -> InvocationResult:
         self._invocations.append((role, prompt, outputs_dir))
         outputs_dir.mkdir(parents=True, exist_ok=True)

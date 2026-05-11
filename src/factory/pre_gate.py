@@ -9,6 +9,7 @@ from typing import NamedTuple
 
 from factory.constants import (
     ARTIFACT_FILENAME_INTERFACE,
+    TEMPFILE_PREFIX_COLLECT,
     TEMPFILE_PREFIX_MYPY,
     TEMPFILE_PREFIX_PYTEST,
 )
@@ -96,6 +97,104 @@ def pre_gate_implementation(
     )
 
 
+def pre_gate_interface_spec(
+    artifact_path: Path,
+    dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    python_executable: str | None = None,
+) -> PreGateResult:
+    if not artifact_path.exists():
+        return PreGateResult(
+            passed=False,
+            mypy_passed=True,
+            ruff_passed=True,
+            pytest_passed=True,
+            diagnostics=[f"Artifact not found: {artifact_path}"],
+        )
+
+    ruff_result = _run_ruff_fast(artifact_path, python_executable=python_executable)
+    if not ruff_result["passed"]:
+        return PreGateResult(
+            passed=False,
+            mypy_passed=True,
+            ruff_passed=False,
+            pytest_passed=True,
+            diagnostics=_truncate_diagnostics(ruff_result.get("diagnostics", [])),
+        )
+
+    import_result = _run_import_check(
+        artifact_path,
+        dependency_pyi_paths=dependency_pyi_paths,
+        python_executable=python_executable,
+    )
+    if not import_result["passed"]:
+        return PreGateResult(
+            passed=False,
+            mypy_passed=True,
+            ruff_passed=True,
+            pytest_passed=True,
+            diagnostics=_truncate_diagnostics(import_result.get("diagnostics", [])),
+        )
+
+    return PreGateResult(
+        passed=True,
+        mypy_passed=True,
+        ruff_passed=True,
+        pytest_passed=True,
+        diagnostics=[],
+    )
+
+
+def pre_gate_test_suite(
+    artifact_path: Path,
+    interface_pyi_path: Path | None = None,
+    dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    dependency_spec_paths: list[tuple[str, Path]] | None = None,
+    python_executable: str | None = None,
+) -> PreGateResult:
+    if not artifact_path.exists():
+        return PreGateResult(
+            passed=False,
+            mypy_passed=True,
+            ruff_passed=True,
+            pytest_passed=True,
+            diagnostics=[f"Artifact not found: {artifact_path}"],
+        )
+
+    ruff_result = _run_ruff_fast(artifact_path, python_executable=python_executable)
+    if not ruff_result["passed"]:
+        return PreGateResult(
+            passed=False,
+            mypy_passed=True,
+            ruff_passed=False,
+            pytest_passed=True,
+            diagnostics=_truncate_diagnostics(ruff_result.get("diagnostics", [])),
+        )
+
+    collect_result = _run_collect_only(
+        artifact_path,
+        interface_pyi_path=interface_pyi_path,
+        dependency_pyi_paths=dependency_pyi_paths,
+        dependency_spec_paths=dependency_spec_paths,
+        python_executable=python_executable,
+    )
+    if not collect_result["passed"]:
+        return PreGateResult(
+            passed=False,
+            mypy_passed=True,
+            ruff_passed=True,
+            pytest_passed=False,
+            diagnostics=_truncate_diagnostics(collect_result.get("diagnostics", [])),
+        )
+
+    return PreGateResult(
+        passed=True,
+        mypy_passed=True,
+        ruff_passed=True,
+        pytest_passed=True,
+        diagnostics=[],
+    )
+
+
 def _truncate_diagnostics(
     diagnostics: list[str],
     char_limit: int = _PYTEST_DIAGNOSTIC_CHAR_LIMIT,
@@ -136,6 +235,82 @@ def copy_dependency_pyis(
         else:
             dep_pyi = tmpdir_path / f"{module_name}.pyi"
             dep_pyi.write_text(content)
+
+
+def _run_import_check(
+    artifact_path: Path,
+    dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    python_executable: str | None = None,
+) -> dict:
+    import tempfile
+
+    exe = python_executable or sys.executable
+    module_stem = artifact_path.stem
+    try:
+        with tempfile.TemporaryDirectory(prefix="sf2_import_") as tmpdir:
+            module_copy = Path(tmpdir) / f"{module_stem}.py"
+            module_copy.write_text(artifact_path.read_text())
+            copy_dependency_pyis(tmpdir, dependency_pyi_paths)
+            result = subprocess.run(
+                [exe, "-c", f"import {module_stem}"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=tmpdir,
+                env={**os.environ, "PYTHONPATH": tmpdir},
+            )
+            if result.returncode != 0:
+                lines = result.stderr.strip().splitlines()
+                diagnostics = lines[:5] if lines else ["import check failed"]
+                return {"passed": False, "diagnostics": diagnostics}
+    except subprocess.TimeoutExpired:
+        return {"passed": False, "diagnostics": ["import check timed out after 30s"]}
+    except Exception as e:
+        return {"passed": False, "diagnostics": [f"import check failed: {e}"]}
+    return {"passed": True, "diagnostics": []}
+
+
+def _run_collect_only(
+    artifact_path: Path,
+    interface_pyi_path: Path | None = None,
+    dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    dependency_spec_paths: list[tuple[str, Path]] | None = None,
+    python_executable: str | None = None,
+) -> dict:
+    import tempfile
+
+    exe = python_executable or sys.executable
+    try:
+        with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_COLLECT) as tmpdir:
+            test_copy = Path(tmpdir) / artifact_path.name
+            test_copy.write_text(artifact_path.read_text())
+            if interface_pyi_path is not None and interface_pyi_path.exists():
+                stub_copy = Path(tmpdir) / "interface.pyi"
+                stub_copy.write_text(interface_pyi_path.read_text())
+                iface_py = Path(tmpdir) / "interface.py"
+                iface_py.write_text(interface_pyi_path.read_text())
+            copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
+            result = subprocess.run(
+                [exe, "-m", "pytest", "--collect-only", "-q", str(test_copy)],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=tmpdir,
+                env={**os.environ, "PYTHONPATH": tmpdir},
+            )
+            if result.returncode != 0:
+                if "No module named pytest" in result.stderr:
+                    return {"passed": False, "diagnostics": ["pytest not installed"]}
+                lines = result.stderr.strip().splitlines()
+                out_lines = result.stdout.strip().splitlines()
+                combined = out_lines + lines
+                diagnostics = combined[:5] if combined else ["pytest collect-only failed"]
+                return {"passed": False, "diagnostics": diagnostics}
+    except subprocess.TimeoutExpired:
+        return {"passed": False, "diagnostics": ["pytest collect-only timed out after 60s"]}
+    except Exception as e:
+        return {"passed": False, "diagnostics": [f"pytest collect-only failed: {e}"]}
+    return {"passed": True, "diagnostics": []}
 
 
 def _run_mypy_fast(

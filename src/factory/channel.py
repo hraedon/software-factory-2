@@ -26,4 +26,5 @@ class Channel(Protocol):
         prompt: str,
         outputs_dir: Path,
         timeout: int,
+        extra_env: dict[str, str] | None = None,
     ) -> InvocationResult: ...

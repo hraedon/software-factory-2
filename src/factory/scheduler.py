@@ -13,33 +13,14 @@ from factory.constants import (
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_SPEC_SECTION,
     CUSTOM_FIELD_TEST_SUITE_REF,
-    LINK_TYPE_DERIVED_FROM,
     LINK_TYPE_IMPLEMENTS,
-    LINK_TYPE_TESTED_BY,
-    ROLE_IMPLEMENTER,
-    ROLE_TEST_AUTHOR,
     STATE_LOCKED,
     WORK_ITEM_TYPE_IMPLEMENTATION,
-    WORK_ITEM_TYPE_INTERFACE_SPEC,
     WORK_ITEM_TYPE_TEST_SUITE,
 )
 from factory.runtime import PipelineRuntime
 
 log = structlog.get_logger()
-
-_STAGE_HANDOFF = {
-    (WORK_ITEM_TYPE_INTERFACE_SPEC, STATE_LOCKED): {
-        "next_type": WORK_ITEM_TYPE_TEST_SUITE,
-        "link_type": LINK_TYPE_DERIVED_FROM,
-        "next_role": ROLE_TEST_AUTHOR,
-    },
-    (WORK_ITEM_TYPE_TEST_SUITE, STATE_LOCKED): {
-        "next_type": WORK_ITEM_TYPE_IMPLEMENTATION,
-        "link_type": LINK_TYPE_TESTED_BY,
-        "additional_links": [LINK_TYPE_IMPLEMENTS],
-        "next_role": ROLE_IMPLEMENTER,
-    },
-}
 
 
 def run_scheduler(config: FactoryConfig) -> None:
@@ -70,15 +51,15 @@ def scheduler_loop(runtime: PipelineRuntime) -> None:
     signal_mod.signal(signal_mod.SIGINT, _handle_signal)
 
     while not shutting_down:
-        for (source_type, source_state), handoff in _STAGE_HANDOFF.items():
+        for handoff in config.stage_topology:
             page = sub.query_work_items(
                 workflow_name=config.workflow_name,
                 workflow_version=config.workflow_version,
-                current_states=[source_state],
+                current_states=[handoff.source_state],
                 page_size=config.query_page_size,
             )
             for wi in page.items:
-                if wi.work_item_type != source_type:
+                if wi.work_item_type != handoff.source_type:
                     continue
                 _ensure_downstream_item(runtime, wi, handoff)
 
@@ -90,14 +71,20 @@ def scheduler_loop(runtime: PipelineRuntime) -> None:
 def _ensure_downstream_item(
     runtime: PipelineRuntime,
     source_wi,
-    handoff: dict,
+    handoff,
 ) -> None:
     sub = runtime.sub
     config = runtime.config
-    next_type = handoff["next_type"]
-    link_type = handoff["link_type"]
-    next_role = handoff["next_role"]
-    additional_links = handoff.get("additional_links", [])
+    next_type = handoff.target_type
+    link_type = handoff.link_type
+    next_role = config.role_for_type(next_type)
+    if next_role is None:
+        log.warning(
+            "no_role_for_type",
+            work_item_type=next_type,
+        )
+        return
+    additional_links = handoff.additional_links
 
     ref_field = _ref_field_for(next_type)
     if ref_field:
@@ -114,10 +101,10 @@ def _ensure_downstream_item(
 
     custom = source_wi.custom_fields or {}
     ref_field = _ref_field_for(next_type)
-    extra = {}
+    extra: dict = {}
     if ref_field:
         extra[ref_field] = str(source_wi.work_item_id)
-    if next_type == WORK_ITEM_TYPE_IMPLEMENTATION:
+    if next_type == "implementation":
         iface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
         if iface_ref:
             extra[CUSTOM_FIELD_INTERFACE_REF] = iface_ref

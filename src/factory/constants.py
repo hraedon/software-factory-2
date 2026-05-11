@@ -12,10 +12,15 @@ ROLE_MECHANICAL_GATE = "mechanical_gate"
 CHANNEL_CLAUDE_CODE = "claude-code"
 CHANNEL_OPENCODE = "opencode"
 CHANNEL_CODE = "code"
+CHANNEL_GEMINI_CLI = "gemini-cli"
 
 FAMILY_ANTHROPIC = "anthropic"
 FAMILY_OPENCODE = "opencode"
 FAMILY_CODE = "code"
+FAMILY_GEMINI = "google"
+FAMILY_ZAI = "zai"
+FAMILY_FIREWORKS = "fireworks"
+FAMILY_OLLAMA = "ollama"
 
 STATE_NEW = "new"
 STATE_IN_PROGRESS = "in_progress"
@@ -85,15 +90,19 @@ GATE_NAME_IMPLEMENTATION_PYTEST = "implementation_pytest"
 GATE_NAME_IMPLEMENTATION_LINT = "implementation_lint"
 GATE_NAME_IMPLEMENTATION_DEPENDENCY = "implementation_dependency"
 GATE_NAME_INNER_PYTEST = "inner_pytest"
+GATE_NAME_INNER_IMPORT = "inner_import"
+GATE_NAME_INNER_COLLECT = "inner_test_collect"
+GATE_NAME_INNER_MYPY = "inner_mypy"
+GATE_NAME_INNER_RUFF = "inner_ruff"
 
 GATE_NAME_UNKNOWN_TYPE = "unknown_type"
 GATE_NAME_BEHAVIORAL = "behavioral"
 GATE_NAME_UNKNOWN = "unknown"
 
 FAMILY_BY_PROVIDER = {
-    "zai-coding-plan": "zai",
-    "ollama-cloud": "ollama",
-    "fireworks-ai": "fireworks",
+    "zai-coding-plan": FAMILY_ZAI,
+    "ollama-cloud": FAMILY_OLLAMA,
+    "fireworks-ai": FAMILY_FIREWORKS,
     "opencode": "opencode-free",
     "mac-studio-lms": "local-lms",
 }

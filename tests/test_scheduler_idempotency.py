@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from factory.config import FactoryConfig
+from factory.config import FactoryConfig, StageHandoff
+from factory.constants import (
+    LINK_TYPE_DERIVED_FROM,
+    LINK_TYPE_IMPLEMENTS,
+    LINK_TYPE_TESTED_BY,
+    STATE_LOCKED,
+    WORK_ITEM_TYPE_IMPLEMENTATION,
+    WORK_ITEM_TYPE_INTERFACE_SPEC,
+    WORK_ITEM_TYPE_TEST_SUITE,
+)
 from factory.runtime import PipelineRuntime
 from factory.scheduler import _ensure_downstream_item
 
@@ -36,10 +45,7 @@ class TestSchedulerIdempotency:
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
-        config = FactoryConfig(
-            workspace_root=workspace_root,
-            workflow_version=2,
-        )
+        config = FactoryConfig.phase2(workspace_root=workspace_root)
 
         source_a, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
@@ -60,11 +66,12 @@ class TestSchedulerIdempotency:
             },
         )
 
-        handoff = {
-            "next_type": "test_suite",
-            "link_type": "derived_from",
-            "next_role": "test_author",
-        }
+        handoff = StageHandoff(
+            source_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            source_state=STATE_LOCKED,
+            target_type=WORK_ITEM_TYPE_TEST_SUITE,
+            link_type=LINK_TYPE_DERIVED_FROM,
+        )
 
         sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
         _ensure_downstream_item(sched_runtime, source_a, handoff)
@@ -91,10 +98,7 @@ class TestSchedulerIdempotency:
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
-        config = FactoryConfig(
-            workspace_root=workspace_root,
-            workflow_version=2,
-        )
+        config = FactoryConfig.phase2(workspace_root=workspace_root)
 
         source, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
@@ -106,11 +110,12 @@ class TestSchedulerIdempotency:
             },
         )
 
-        handoff = {
-            "next_type": "test_suite",
-            "link_type": "derived_from",
-            "next_role": "test_author",
-        }
+        handoff = StageHandoff(
+            source_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            source_state=STATE_LOCKED,
+            target_type=WORK_ITEM_TYPE_TEST_SUITE,
+            link_type=LINK_TYPE_DERIVED_FROM,
+        )
 
         sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
         _ensure_downstream_item(sched_runtime, source, handoff)
@@ -129,10 +134,7 @@ class TestSchedulerIdempotency:
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
-        config = FactoryConfig(
-            workspace_root=workspace_root,
-            workflow_version=2,
-        )
+        config = FactoryConfig.phase2(workspace_root=workspace_root)
 
         iface, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
@@ -145,11 +147,12 @@ class TestSchedulerIdempotency:
         )
 
         sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
-        iface_handoff = {
-            "next_type": "test_suite",
-            "link_type": "derived_from",
-            "next_role": "test_author",
-        }
+        iface_handoff = StageHandoff(
+            source_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            source_state=STATE_LOCKED,
+            target_type=WORK_ITEM_TYPE_TEST_SUITE,
+            link_type=LINK_TYPE_DERIVED_FROM,
+        )
         _ensure_downstream_item(sched_runtime, iface, iface_handoff)
 
         ts_page = mock_substrate.query_work_items(
@@ -158,12 +161,13 @@ class TestSchedulerIdempotency:
         )
         ts_wi = ts_page.items[0]
 
-        impl_handoff = {
-            "next_type": "implementation",
-            "link_type": "tested_by",
-            "additional_links": ["implements"],
-            "next_role": "implementer",
-        }
+        impl_handoff = StageHandoff(
+            source_type=WORK_ITEM_TYPE_TEST_SUITE,
+            source_state=STATE_LOCKED,
+            target_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+            link_type=LINK_TYPE_TESTED_BY,
+            additional_links=(LINK_TYPE_IMPLEMENTS,),
+        )
         _ensure_downstream_item(sched_runtime, ts_wi, impl_handoff)
 
         impl_page = mock_substrate.query_work_items(
@@ -179,10 +183,7 @@ class TestSchedulerIdempotency:
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
-        config = FactoryConfig(
-            workspace_root=workspace_root,
-            workflow_version=2,
-        )
+        config = FactoryConfig.phase2(workspace_root=workspace_root)
 
         root, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
@@ -207,11 +208,12 @@ class TestSchedulerIdempotency:
 
         _lock_interface_spec(mock_substrate, dep)
 
-        handoff = {
-            "next_type": "test_suite",
-            "link_type": "derived_from",
-            "next_role": "test_author",
-        }
+        handoff = StageHandoff(
+            source_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            source_state=STATE_LOCKED,
+            target_type=WORK_ITEM_TYPE_TEST_SUITE,
+            link_type=LINK_TYPE_DERIVED_FROM,
+        )
         sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
         _ensure_downstream_item(sched_runtime, dep, handoff)
 
@@ -235,10 +237,7 @@ class TestSchedulerIdempotency:
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
-        config = FactoryConfig(
-            workspace_root=workspace_root,
-            workflow_version=2,
-        )
+        config = FactoryConfig.phase2(workspace_root=workspace_root)
 
         iface, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
@@ -251,11 +250,12 @@ class TestSchedulerIdempotency:
         )
         _lock_interface_spec(mock_substrate, iface)
 
-        handoff = {
-            "next_type": "test_suite",
-            "link_type": "derived_from",
-            "next_role": "test_author",
-        }
+        handoff = StageHandoff(
+            source_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            source_state=STATE_LOCKED,
+            target_type=WORK_ITEM_TYPE_TEST_SUITE,
+            link_type=LINK_TYPE_DERIVED_FROM,
+        )
         sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
         _ensure_downstream_item(sched_runtime, iface, handoff)
 

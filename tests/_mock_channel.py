@@ -31,6 +31,7 @@ class MockChannel:
         prompt: str,
         outputs_dir: Path,
         timeout: int,
+        extra_env=None,
     ) -> InvocationResult:
         self._call_log.append((role, prompt, outputs_dir))
 

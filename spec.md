@@ -1,6 +1,6 @@
 # Software Factory v2 — Design Spec
 
-**Status:** Phase 2 (sequential single-channel pipeline validation). Spec §10 phasing governs what is implemented vs. deferred.
+**Status:** Phase 3 (fleet integration). Spec §10 phasing governs what is implemented vs. deferred.
 **Authoritative:** this file. Machine-readable sidecar (`spec.yaml`) deferred until Phase 1.
 
 ---
@@ -262,7 +262,7 @@ If the work-item is still in `in_progress` because the prior claim's TTL has not
 - Substrate workflow with one role (interface_architect) validated.
 - Exit criteria met: 12/15 interface_specs locked (>90% first-attempt pass rate on curated set).
 
-**Phase 2 — Sequential single-channel pipeline. ← CURRENT**
+**Phase 2 — Sequential single-channel pipeline. ✓ COMPLETE**
 - test_author and implementer roles added, in pipeline order: interface → tests → impl → gates.
 - Scheduler drives handoffs between stages (interface_spec locked → test_suite creation, test_suite locked → implementation creation).
 - Single channel (`claude-code` or single `opencode`) to validate pipeline shape before adding fleet complexity.
@@ -270,13 +270,17 @@ If the work-item is still in `in_progress` because the prior claim's TTL has not
 - Telemetry shape established end-to-end (actor metadata with role/channel/family/attempt_n).
 - Mechanical gates: syntax, stub, structural-semantics, import, mypy, pytest, ruff, pytest-collect.
 - Cross-stage escalation routing functional (gate_escalation → cannot_proceed after attempt_threshold).
-- 259 tests, 0 lint errors, 3 golden runs executed (001, 002, 003).
-- Unresolved: BC-043 (truncated prompt), BC-046 (resume-on-gate-fail). See breadcrumbs for full list.
+- 383 tests, 0 lint errors, 14 golden runs executed (GR-001 through GR-014).
+- Best result: GR-014, 91% lock rate (20/22 items) on cert-watch full DAG.
 
-**Phase 3 — Fleet integration.**
-- Add channel adapters for K2, GLM, DeepSeek, Gemini.
+**Phase 3 — Fleet integration. ← CURRENT**
+- Multi-channel dispatch: runner creates channel per role based on config binding.
+- Channel adapters: ClaudeCodeChannel, OpenCodeChannel (K2/GLM/DeepSeek via model selection), GeminiCLIChannel.
 - Per-role per-channel telemetry collected on the same workload as Phase 2.
+- Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys.
+- Phase 3 config: interface_architect→Claude, test_author→K2 (Fireworks), implementer→GLM (z.ai).
 - Begin role promotion based on data (not vibes, not cost).
+- 405 tests, 0 lint errors.
 
 **Phase 4 — Jury and race.**
 - Add multi-channel judge gates.

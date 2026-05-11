@@ -25,7 +25,7 @@ class FakeChannel:
     def family(self) -> str:
         return self._family
 
-    def invoke(self, role, prompt, outputs_dir, timeout):
+    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None):
         self._invocations.append((role, prompt, outputs_dir))
         outputs_dir.mkdir(parents=True, exist_ok=True)
         ac_doc = ", ".join(self._ac_ids) if self._ac_ids else "AC-01"
@@ -47,7 +47,7 @@ class CannotProceedChannel:
     def family(self) -> str:
         return self._family
 
-    def invoke(self, role, prompt, outputs_dir, timeout):
+    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None):
         outputs_dir.mkdir(parents=True, exist_ok=True)
         cp = {
             "status": "cannot_proceed",

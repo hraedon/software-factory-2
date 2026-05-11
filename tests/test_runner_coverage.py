@@ -89,7 +89,7 @@ class TestCannotProceedWithoutJson:
             def family(self) -> str:
                 return self._family
 
-            def invoke(self, role, prompt, outputs_dir, timeout):
+            def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None):
                 return InvocationResult(
                     success=False, artifact_name=None, error_message="cannot_proceed"
                 )

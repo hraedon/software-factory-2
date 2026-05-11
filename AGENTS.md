@@ -42,32 +42,31 @@ The principal of this project is a **systems architect, not a developer**. Archi
 
 ## Status
 
-**Phase 2 (current).** Sequential single-channel pipeline validation. Phase 1 (single-role end-to-end) exit criteria met (>90% pass rate on interface_spec). Phase 2 adds test_author and implementer roles with scheduler-driven handoffs.
+**Phase 3 (current).** Fleet integration. Phase 2 (sequential single-channel pipeline) exit criteria met (GR-014: 91% lock rate on cert-watch full DAG, 20/22 items). Phase 3 adds multi-channel dispatch, per-role channel binding, Gemini adapter, and credential infrastructure.
 
 **What exists:**
 - 7-module runner: runner, gate, gate_process, router, scheduler, config, workspace
-- 2 channel adapters: ClaudeCodeChannel (stable), OpenCodeChannel (stub, BC-040)
+- 3 channel adapters: ClaudeCodeChannel, OpenCodeChannel (K2/GLM/DeepSeek via model selection), GeminiCLIChannel
+- Multi-channel dispatch: runner selects channel per-role based on config binding
+- Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys
 - 2 workflow YAMLs: phase1.yaml (single-role), phase2.yaml (3-stage pipeline)
-- 260 passing tests, 0 lint errors
-- 3 golden runs executed against curated spec fixtures
-  - 001: 12/15 interface_specs locked (Phase 1)
-  - 002: 15/15 interface_specs + 15/15 test_suites, 0/15 implementations (module resolution bug, fixed)
-  - 003: 15/15 interface_specs + 12/15 test_suites, 2/12 implementations locked, 10 escalated (lint prompt quality issue, BC-039/040 applied since)
+- 405 passing tests, 0 lint errors
+- 14 golden runs executed (GR-001 through GR-014)
+  - GR-014: 91% lock rate (20/22) on cert-watch full DAG with K2 via Fireworks
 
-**Known issues:** 2 open breadcrumbs (0 critical, 0 high, 2 medium, 0 low) + 5 RFCs. See `breadcrumbs/README.md`.
+**Known issues:** 4 open breadcrumbs (0 critical, 1 high, 2 medium, 1 low) + 11 RFCs. See `breadcrumbs/README.md`.
 
-**Blocking on:** nothing. Substrate is stable enough for sequential single-channel mode.
+**Blocking on:** nothing. All channels have adapter implementations.
 
-**Next concrete step:** execute Golden Run 004 to validate prompt fixes, telemetry reporter, and family-per-invocation telemetry.
+**Next concrete step:** execute Golden Run 015 with Phase 3 multi-channel config (interface_architect→Claude, test_author→K2, implementer→GLM) to validate fleet integration end-to-end.
 
 ## What not to build yet
 
 The phasing in `spec.md` §10 exists to prevent the v1 mistake of building the whole architecture at once. Current constraints:
-- Single channel only (`claude-code` or single `opencode`). Multi-channel dispatch raises `NotImplementedError`.
 - Three-role pipeline only (interface_architect, test_author, implementer). Roles beyond these have no implementation.
 - Mechanical gates only. Cross-family review, frontier jury, and coherence review are Phase 3-4.
 - No jury gates or race patterns until Phase 4.
-- Channel adapters for K2, GLM, DeepSeek, Gemini deferred until Phase 3.
+- Channel adapters for DeepSeek (standalone Ollama adapter) and Gemini (CLI has Node.js version issue on current host) exist but are not yet validated in golden runs.
 
 If you find yourself wanting to skip ahead, file a breadcrumb explaining why and let the principal decide.
 
@@ -80,7 +79,7 @@ If you find yourself wanting to skip ahead, file a breadcrumb explaining why and
 ## Testing
 
 ```bash
-make test    # 282 tests, ~14s
+make test    # 405 tests, ~52s
 make lint    # ruff check + format (no errors)
 make audit   # vulture dead-code check (no findings)
 make check   # lint + audit + test (full CI gate)

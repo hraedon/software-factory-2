@@ -24,7 +24,7 @@ class _FailingChannel:
     def family(self) -> str:
         return self._family
 
-    def invoke(self, role, prompt, outputs_dir, timeout):
+    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None):
         self._invocations.append((role, prompt, outputs_dir))
         return self._result
 
@@ -245,7 +245,7 @@ class TestChannelFailureModes:
             def family(self) -> str:
                 return self._family
 
-            def invoke(self, role, prompt, outputs_dir, timeout):
+            def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None):
                 outputs_dir.mkdir(parents=True, exist_ok=True)
                 cp = {"status": "cannot_proceed", "reason": "ambiguous", "gaps": ["AC conflict"]}
                 (outputs_dir / "cannot_proceed.json").write_text(json.dumps(cp))

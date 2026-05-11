@@ -3,16 +3,25 @@ from __future__ import annotations
 from pathlib import Path
 
 from factory.channel import InvocationResult
+from factory.config import FactoryConfig, StageHandoff
+from factory.constants import (
+    LINK_TYPE_DERIVED_FROM,
+    LINK_TYPE_TESTED_BY,
+    WORK_ITEM_TYPE_IMPLEMENTATION,
+    WORK_ITEM_TYPE_INTERFACE_SPEC,
+    WORK_ITEM_TYPE_TEST_SUITE,
+)
 from factory.gate_process import process_gate_item
 from factory.runner import process_work_item
 from factory.runtime import PipelineRuntime
 from factory.scheduler import _ensure_downstream_item
 
-_STAGE_HANDOFF_TEST = {
-    "next_type": "test_suite",
-    "link_type": "derived_from",
-    "next_role": "test_author",
-}
+_STAGE_HANDOFF_TEST = StageHandoff(
+    source_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+    source_state="locked",
+    target_type=WORK_ITEM_TYPE_TEST_SUITE,
+    link_type=LINK_TYPE_DERIVED_FROM,
+)
 
 
 class _MultiStageChannel:
@@ -29,7 +38,7 @@ class _MultiStageChannel:
     def family(self) -> str:
         return self._family
 
-    def invoke(self, role, prompt, outputs_dir, timeout):
+    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None):
         self._invocations.append(role)
         outputs_dir.mkdir(parents=True, exist_ok=True)
         if role == "interface_architect":
@@ -62,18 +71,10 @@ class _MultiStageChannel:
 
 class TestPipelineSmoke:
     def test_three_stage_pipeline_with_mock(self, mock_substrate, workspace_root):
-        from factory.config import FactoryConfig
-
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
-        config = FactoryConfig(
-            workspace_root=workspace_root,
-            workflow_version=2,
-            worker_roles=FactoryConfig.PHASE2_WORKER_ROLES,
-            type_to_role=FactoryConfig.PHASE2_TYPE_TO_ROLE,
-            roles=FactoryConfig.PHASE2_ROLES,
-        )
+        config = FactoryConfig.phase2(workspace_root=workspace_root)
         channel = _MultiStageChannel()
 
         mock_substrate.register_actor_role("factory-arch", "interface_architect")
@@ -162,12 +163,13 @@ class TestPipelineSmoke:
         assert ts_wi.current_state == "locked"
 
         # Scheduler creates implementation (using test_suite -> implementation handoff)
-        ts_handoff = {
-            "next_type": "implementation",
-            "link_type": "tested_by",
-            "additional_links": ["implements"],
-            "next_role": "implementer",
-        }
+        ts_handoff = StageHandoff(
+            source_type=WORK_ITEM_TYPE_TEST_SUITE,
+            source_state="locked",
+            target_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+            link_type=LINK_TYPE_TESTED_BY,
+            additional_links=("implements",),
+        )
         _ensure_downstream_item(sched_runtime, ts_wi, ts_handoff)
 
         impl_page = mock_substrate.query_work_items(current_states=["new"], page_size=10)
@@ -208,18 +210,10 @@ class TestPipelineSmoke:
         assert len(channel._invocations) == 3
 
     def test_gate_fail_routing_returns_to_correct_role(self, mock_substrate, workspace_root):
-        from factory.config import FactoryConfig
-
         mock_substrate.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
-        config = FactoryConfig(
-            workspace_root=workspace_root,
-            workflow_version=2,
-            worker_roles=FactoryConfig.PHASE2_WORKER_ROLES,
-            type_to_role=FactoryConfig.PHASE2_TYPE_TO_ROLE,
-            roles=FactoryConfig.PHASE2_ROLES,
-        )
+        config = FactoryConfig.phase2(workspace_root=workspace_root)
 
         mock_substrate.register_actor_role("factory-arch", "interface_architect")
         mock_substrate.register_actor_role("factory-gate", "mechanical_gate")
