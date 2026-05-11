@@ -47,14 +47,20 @@ Opus noted that impl work-items have a real ordering constraint on each other. T
 
 ### 5. Cert-watch full fixture
 
-Created `/tests/fixtures/cert-watch/` with 7 work-units and a proper dependency graph:
+Created `/tests/fixtures/cert-watch/` with 8 work-units and a proper dependency graph:
 - certificate_model (no deps) — foundation
+- cert_chain_library ← certificate_model (shared utility, no FR mapping)
 - database_layer ← certificate_model
 - fr01_dashboard ← database_layer
-- fr02_tls_scan ← certificate_model, database_layer (diamond)
-- fr03_upload ← certificate_model, database_layer (diamond)
-- fr04_alerts ← database_layer
+- fr02_tls_scan ← certificate_model, database_layer, cert_chain_library (diamond)
+- fr03_upload ← certificate_model, database_layer, cert_chain_library (diamond)
+- fr04_alerts ← certificate_model, database_layer (diamond — 3rd diamond consumer of certificate_model)
 - fr05_scheduler ← fr02_tls_scan, fr04_alerts (multi-hop chain)
+
+Downstream ACs enforce runtime dep calls (not just type imports):
+- fr02 AC-04: leaf must equal `parse_certificate(handshake_der)`
+- fr04 AC-02: thresholds computed against `Certificate.days_until_expiry()`
+- database_layer AC-02: `add(cert)` persists `cert.fingerprint_sha256`
 
 ## Scheduler implication (not yet implemented)
 

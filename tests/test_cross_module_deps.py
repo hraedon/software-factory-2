@@ -18,6 +18,30 @@ from factory.runtime import PipelineRuntime
 from factory.scheduler import _ensure_downstream_item
 
 
+def _lock_spec(sub, wi):
+    sub.transition(
+        wi.work_item_id,
+        "claim",
+        "test",
+        actor_kind="agent",
+        actor_metadata={"role": "interface_architect"},
+    )
+    sub.transition(
+        wi.work_item_id,
+        "submit",
+        "test",
+        actor_kind="agent",
+        actor_metadata={"role": "interface_architect"},
+    )
+    sub.transition(
+        wi.work_item_id,
+        "gate_pass",
+        "mechanical_gate",
+        actor_kind="agent",
+        actor_metadata={"role": "mechanical_gate"},
+    )
+
+
 class TestModuleNameResolution:
     def test_dependency_pyi_named_artifact_gets_correct_module_name(self, tmp_path):
         artifact_pyi = tmp_path / "artifact.pyi"
@@ -365,14 +389,38 @@ class TestSchedulerDependencyPropagation:
         )
         config = FactoryConfig(workspace_root=workspace_root, workflow_version=2)
 
+        dep_a, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="test",
+            custom_fields={
+                "spec_section": "Dep A",
+                "ac_ids": ["AC-01"],
+            },
+        )
+        dep_b, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="test",
+            custom_fields={
+                "spec_section": "Dep B",
+                "ac_ids": ["AC-02"],
+            },
+        )
+        _lock_spec(mock_substrate, dep_a)
+        _lock_spec(mock_substrate, dep_b)
+
         source, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={
                 "spec_section": "Section",
-                "ac_ids": ["AC-01"],
-                CUSTOM_FIELD_DEPENDENCY_REFS: ["dep-uuid-1", "dep-uuid-2"],
+                "ac_ids": ["AC-03"],
+                CUSTOM_FIELD_DEPENDENCY_REFS: [
+                    str(dep_a.work_item_id),
+                    str(dep_b.work_item_id),
+                ],
             },
         )
 
@@ -392,8 +440,8 @@ class TestSchedulerDependencyPropagation:
         assert len(ts_page.items) == 1
         ts = ts_page.items[0]
         assert ts.custom_fields.get(CUSTOM_FIELD_DEPENDENCY_REFS) == [
-            "dep-uuid-1",
-            "dep-uuid-2",
+            str(dep_a.work_item_id),
+            str(dep_b.work_item_id),
         ]
 
     def test_dependency_refs_propagated_to_implementation(self, mock_substrate, workspace_root):
@@ -402,13 +450,24 @@ class TestSchedulerDependencyPropagation:
         )
         config = FactoryConfig(workspace_root=workspace_root, workflow_version=2)
 
+        dep_a, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="test",
+            custom_fields={
+                "spec_section": "Dep A",
+                "ac_ids": ["AC-01"],
+            },
+        )
+        _lock_spec(mock_substrate, dep_a)
+
         iface, _ = mock_substrate.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={
                 "spec_section": "Section",
-                "ac_ids": ["AC-01"],
+                "ac_ids": ["AC-02"],
             },
         )
         iface_id = str(iface.work_item_id)
@@ -419,9 +478,9 @@ class TestSchedulerDependencyPropagation:
             actor_id="test",
             custom_fields={
                 "spec_section": "Section",
-                "ac_ids": ["AC-01"],
+                "ac_ids": ["AC-02"],
                 CUSTOM_FIELD_INTERFACE_REF: iface_id,
-                CUSTOM_FIELD_DEPENDENCY_REFS: ["dep-uuid-1"],
+                CUSTOM_FIELD_DEPENDENCY_REFS: [str(dep_a.work_item_id)],
             },
         )
 
@@ -441,7 +500,7 @@ class TestSchedulerDependencyPropagation:
         assert len(impl_page.items) == 1
         impl = impl_page.items[0]
         deps = impl.custom_fields.get(CUSTOM_FIELD_DEPENDENCY_REFS)
-        assert deps == ["dep-uuid-1"]
+        assert deps == [str(dep_a.work_item_id)]
 
     def test_no_dependency_refs_propagated_when_empty(self, mock_substrate, workspace_root):
         mock_substrate.register_workflow_file(

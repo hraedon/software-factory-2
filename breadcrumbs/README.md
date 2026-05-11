@@ -44,7 +44,6 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 076 | Dependency .pyi stub bodies are Ellipsis — gate copies stub as runtime dep, causing pytest failures | high | implemented |
 | 073 | ensure_project_venv not invoked when workspace has no requirements.txt — mypy gate fails on project dependencies | medium | proposed |
 | 071 | sub.transition(custom_fields=...) merges into WorkItem but API surface implies per-event storage — telemetry footgun | low | proposed |
 | 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | proposed |
@@ -71,6 +70,8 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 077 | Runner processes interface_specs without dependency ordering — root deps processed last, cascading test_suite ImportErrors | high | Scheduler `_ensure_downstream_item` now checks `_all_dep_specs_locked()` before creating downstream items; defers test_suite/implementation creation until all dependency_refs point to locked interface_specs; 2 new tests, 2 existing tests updated; validated by GR-012 root cause analysis |
+| 076 | Dependency .pyi stub bodies are Ellipsis — gate copies stub as runtime dep, causing pytest failures | high | dep_resolution.py resolves locked implementations over stubs; pre_gate.py copies impl .py + spec .pyi separately; stub_only_deps surfaced in prompt; cert-watch full fixture updated with 8 work-units, AC enforcement for runtime dep calls, non-FR library module, 3 diamond consumers |
 | 075 | Inner gate loop — pre-submission mypy+ruff+pytest validation for implementer role | medium | Created pre_gate.py with pre_gate_implementation() running mypy+ruff+pytest (short-circuit order) before submit; added _inner_gate_loop() in runner.py with PreGateDeps NamedTuple and configurable inner_gate_retries (default 2); PreGateResult.gate_name now inner_mypy/inner_ruff/inner_pytest; _copy_dependency_pyis promoted to public copy_dependency_pyis; 7 new tests; RFC-009 filed for option #3 |
 | 074 | Cross-module dependency types invisible to implementer and test_author | high | context.py now resolves CUSTOM_FIELD_DEPENDENCY_REFS and injects locked_dependency_<module> into extra_artifacts for both roles; gate.py _copy_dependency_pyis writes both .py and .pyi files; prompt templates updated; GR009 validated: impl lock rate 33%→67%, mypy empty-body eliminated; 3 context tests |
 | 072 | Cross-module imports fail in gate temp directory | high | Module name derived from spec title via `_extract_module_name_from_spec()`; dependency refs now carry `(module_name, path)` tuples; `_copy_dependency_pyis` uses correct module names; populate_work_items fixes role-based transitions and requirements.txt copy; GR007 validated end-to-end (8/9 locked); 17 tests; 359 pass |

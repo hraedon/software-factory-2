@@ -4,6 +4,7 @@
 
 - `interface_ref`: `certificate_model`
 - `interface_ref`: `database_layer`
+- `interface_ref`: `cert_chain_library`
 
 ## AC-01: Scan Host Function
 A function `scan_host(hostname: str, port: int = 443) -> ScannedEntry | ScanError` must accept a hostname and optional port.
@@ -21,6 +22,8 @@ The function must return a `ScannedEntry` dataclass containing:
 - `leaf: Certificate` (from the locked `certificate_model` interface)
 - `chain: list[Certificate]`
 - `scanned_at: datetime`
+
+The returned `ScannedEntry.leaf` must equal `parse_certificate(handshake_der)` from the `certificate_model` module — the test must call `parse_certificate` on the raw handshake DER bytes and assert equality, not construct a `Certificate` from literals.
 
 ## AC-05: Connection Failure
 If the TLS connection fails or no certificate is presented, the function must return `ScanError` with `error_message: str`.

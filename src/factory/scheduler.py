@@ -125,6 +125,10 @@ def _ensure_downstream_item(
     dep_refs = custom.get(CUSTOM_FIELD_DEPENDENCY_REFS) or []
     if isinstance(dep_refs, str):
         dep_refs = [dep_refs]
+
+    if dep_refs and not _all_dep_specs_locked(sub, dep_refs):
+        return
+
     if dep_refs:
         extra[CUSTOM_FIELD_DEPENDENCY_REFS] = dep_refs
 
@@ -176,6 +180,17 @@ def _ref_field_for(next_type: str) -> str | None:
     if next_type == WORK_ITEM_TYPE_IMPLEMENTATION:
         return CUSTOM_FIELD_TEST_SUITE_REF
     return None
+
+
+def _all_dep_specs_locked(sub, dep_refs: list[str]) -> bool:
+    for ref in dep_refs:
+        try:
+            dep_wi = sub.get_work_item(_uuid.UUID(ref))
+        except Exception:
+            return False
+        if not dep_wi or dep_wi.current_state != STATE_LOCKED:
+            return False
+    return True
 
 
 def _main(argv: list[str] | None = None) -> None:

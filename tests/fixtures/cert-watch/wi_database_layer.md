@@ -16,6 +16,8 @@ A `CertificateRepository` abstract base class must define:
 ## AC-02: SQLite Implementation
 A `SqliteCertificateRepository(CertificateRepository)` must implement all methods using SQLite with a `certificates` table storing: id, subject, issuer, not_before, not_after, san_dns_names (JSON), fingerprint_sha256, raw_der (blob), source, hostname, port, created_at, updated_at.
 
+The `add(cert)` method must persist `cert.fingerprint_sha256` from the `certificate_model` `Certificate` instance — the test must create a `Certificate` via `parse_certificate(der_bytes)` and verify that `repo.get_by_id(cert_id).fingerprint_sha256` matches `cert.fingerprint_sha256`. This ensures the implementation exercises a non-trivial dep field rather than storing only literal test data.
+
 ## AC-03: Alert Repository ABC
 An `AlertRepository` abstract base class must define:
 - `create(alert: Alert) -> str` — insert an alert, return its ID

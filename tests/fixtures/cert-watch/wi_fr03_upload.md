@@ -4,6 +4,7 @@
 
 - `interface_ref`: `certificate_model`
 - `interface_ref`: `database_layer`
+- `interface_ref`: `cert_chain_library`
 
 ## AC-01: Supported Formats
 A function `upload_certificate(file_path: Path) -> UploadedEntry | ParseError` must accept `.pem`, `.cer`, and `.crt` files.

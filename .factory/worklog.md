@@ -4,6 +4,51 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-11 — Session 20: Opus/GLM feedback incorporated; GR-012 executed; BC-077 filed
+
+**Invocation:** OpenCode (glm-5.1)
+
+**Focus:** Incorporate Opus/GLM feedback for cert-watch fixture; execute Golden Run 012 against updated fixture.
+
+### Fixture changes (cert-watch)
+
+1. **AC enforcement for runtime dep calls:**
+   - `wi_fr02_tls_scan.md` AC-04: `ScannedEntry.leaf` must equal `parse_certificate(handshake_der)` — forces calling parse, not literal construction
+   - `wi_fr04_alerts.md` AC-02: thresholds computed against `Certificate.days_until_expiry()` on a real instance — forces loading certificate_model
+   - `wi_database_layer.md` AC-02: `add(cert)` must persist `cert.fingerprint_sha256` from a `parse_certificate`-created instance
+
+2. **New `wi_cert_chain_library.md`** — non-FR utility module with 4 ACs (`extract_chain`, `validate_chain_order`, `split_leaf_intermediates`, `deduplicate_chain`). No FR mapping. Validates pipeline tolerance for non-FR work-items.
+
+3. **fr04_alerts wired to `certificate_model` + `database_layer`** — 3rd diamond consumer of certificate_model root.
+
+4. **fr02/fr03 also depend on `cert_chain_library`** — adds library dep chain.
+
+5. **BC-076 breadcrumb updated** to reflect new dependency graph (8 work-units, 3 diamond consumers, non-FR module, AC enforcement).
+
+### GR-012 results (cert-watch full fixture, Kimi via Fireworks, opencode channel)
+
+Wall clock: 26.3 min.
+
+| Stage | Total | Locked | Cannot proceed |
+|---|---|---|---|
+| interface_spec | 8 | 8 (100%) | 0 |
+| test_suite | 8 | 3 (37.5%) | 5 (62.5%) |
+| implementation | 3 | 3 (100%) | 0 |
+| **Total** | **19** | **14 (73%)** | **5 (26%)** |
+
+**5 escalated test_suites (all `test_suite_collect` ImportError):**
+- cert_chain_library, database_layer, fr02_tls_scan, fr04_alerts, fr01_dashboard
+
+**Root cause:** `certificate_model` (root dependency) was the last interface_spec to be processed. All downstream test_suites failed because their dependency's interface spec wasn't locked when the gate tried to resolve imports. The runner claims items in database query order without respecting dependency topology.
+
+**BC-077 filed:** Runner processes interface_specs without dependency ordering. Proposed fix: scheduler should defer test_suite creation until all dependency interface_specs are locked (Option B).
+
+**Non-FR module finding:** `cert_chain_library` was handled correctly by all pipeline components. Failed for the same root cause as other modules (missing certificate_model), not because of its non-FR status.
+
+**AC enforcement:** Could not be validated — tests failed at collection before assertions could run. Requires BC-077 fix first.
+
+---
+
 ## 2026-05-10 — Session 19: BC-076 implemented — dep resolution prefers locked implementations
 
 **Invocation:** OpenCode (glm-5.1)

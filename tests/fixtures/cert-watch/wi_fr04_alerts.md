@@ -2,6 +2,7 @@
 
 ## Dependencies
 
+- `interface_ref`: `certificate_model`
 - `interface_ref`: `database_layer`
 
 ## AC-01: Alert Configuration
@@ -18,6 +19,7 @@ A function `evaluate_thresholds(cert: Certificate, alert_repo: AlertRepository) 
 - Leaf certificates: 14, 7, 3, 1 days before expiry
 - Chain certificates: 30, 14, 7 days before expiry
 - Must not create duplicate alerts for the same threshold on the same certificate.
+- Alert thresholds must be computed against `Certificate.days_until_expiry()` from the `certificate_model` module — the test must call `days_until_expiry()` on a real `Certificate` instance obtained from `parse_certificate`, not construct a `Certificate` with literal `not_after` values. This ensures the implementation loads the real `certificate_model` module, not a stub.
 
 ## AC-03: Send Alert
 A function `send_alert(alert: Alert, config: AlertConfig) -> bool` must send an email via SMTP and return `True` on success, `False` on failure.

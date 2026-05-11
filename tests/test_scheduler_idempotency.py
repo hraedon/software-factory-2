@@ -7,6 +7,30 @@ from factory.runtime import PipelineRuntime
 from factory.scheduler import _ensure_downstream_item
 
 
+def _lock_interface_spec(sub, wi):
+    sub.transition(
+        wi.work_item_id,
+        "claim",
+        "test",
+        actor_kind="agent",
+        actor_metadata={"role": "interface_architect"},
+    )
+    sub.transition(
+        wi.work_item_id,
+        "submit",
+        "test",
+        actor_kind="agent",
+        actor_metadata={"role": "interface_architect"},
+    )
+    sub.transition(
+        wi.work_item_id,
+        "gate_pass",
+        "mechanical_gate",
+        actor_kind="agent",
+        actor_metadata={"role": "mechanical_gate"},
+    )
+
+
 class TestSchedulerIdempotency:
     def test_second_source_still_gets_downstream(self, mock_substrate, workspace_root):
         mock_substrate.register_workflow_file(
@@ -150,3 +174,93 @@ class TestSchedulerIdempotency:
         impl = impl_page.items[0]
         assert impl.custom_fields["interface_ref"] == str(iface.work_item_id)
         assert impl.custom_fields["test_suite_ref"] == str(ts_wi.work_item_id)
+
+    def test_defers_test_suite_when_dep_not_locked(self, mock_substrate, workspace_root):
+        mock_substrate.register_workflow_file(
+            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
+        )
+        config = FactoryConfig(
+            workspace_root=workspace_root,
+            workflow_version=2,
+        )
+
+        root, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="test",
+            custom_fields={
+                "spec_section": "Root",
+                "ac_ids": ["AC-01"],
+            },
+        )
+
+        dep, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="test",
+            custom_fields={
+                "spec_section": "Dependent",
+                "ac_ids": ["AC-02"],
+                "dependency_refs": [str(root.work_item_id)],
+            },
+        )
+
+        _lock_interface_spec(mock_substrate, dep)
+
+        handoff = {
+            "next_type": "test_suite",
+            "link_type": "derived_from",
+            "next_role": "test_author",
+        }
+        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        _ensure_downstream_item(sched_runtime, dep, handoff)
+
+        ts_page = mock_substrate.query_work_items(
+            work_item_types=["test_suite"],
+            page_size=10,
+        )
+        assert len(ts_page.items) == 0
+
+        _lock_interface_spec(mock_substrate, root)
+        _ensure_downstream_item(sched_runtime, dep, handoff)
+
+        ts_page = mock_substrate.query_work_items(
+            work_item_types=["test_suite"],
+            page_size=10,
+        )
+        assert len(ts_page.items) == 1
+        assert ts_page.items[0].custom_fields["interface_ref"] == str(dep.work_item_id)
+
+    def test_no_dep_items_created_immediately(self, mock_substrate, workspace_root):
+        mock_substrate.register_workflow_file(
+            str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
+        )
+        config = FactoryConfig(
+            workspace_root=workspace_root,
+            workflow_version=2,
+        )
+
+        iface, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="test",
+            custom_fields={
+                "spec_section": "No deps",
+                "ac_ids": ["AC-01"],
+            },
+        )
+        _lock_interface_spec(mock_substrate, iface)
+
+        handoff = {
+            "next_type": "test_suite",
+            "link_type": "derived_from",
+            "next_role": "test_author",
+        }
+        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        _ensure_downstream_item(sched_runtime, iface, handoff)
+
+        ts_page = mock_substrate.query_work_items(
+            work_item_types=["test_suite"],
+            page_size=10,
+        )
+        assert len(ts_page.items) == 1
