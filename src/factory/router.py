@@ -4,9 +4,6 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from factory.constants import (
-    ROLE_IMPLEMENTER,
-    ROLE_INTERFACE_ARCHITECT,
-    ROLE_TEST_AUTHOR,
     STATE_CANNOT_PROCEED,
     STATE_GATING,
     STATE_LOCKED,
@@ -70,7 +67,6 @@ def _classify_diagnostic(gate_result: GateResult) -> DiagnosticKind:
 @dataclass(frozen=True)
 class Route:
     target_state: str
-    target_role: str | None = None
     diagnostics: list[str] = field(default_factory=list)
     custom_fields_update: dict = field(default_factory=dict)
     diagnostic_kind: DiagnosticKind = DiagnosticKind.GENERIC
@@ -79,87 +75,66 @@ class Route:
 _PHASE2_DISPATCH = {
     DiagnosticKind.SYNTAX: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.STUB: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.STRUCTURAL_SEMANTICS: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.FILE_EXISTS: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.NOT_EMPTY: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.CHANNEL_FAIL: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.CANNOT_PROCEED: Route(
         target_state=STATE_CANNOT_PROCEED,
-        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.UNKNOWN_TYPE: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.GENERIC: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.TEST_AC_BINDING: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_TEST_AUTHOR,
     ),
     DiagnosticKind.TEST_COLLECT: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_TEST_AUTHOR,
     ),
     DiagnosticKind.TEST_IMPORT_FORBIDDEN: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_TEST_AUTHOR,
     ),
     DiagnosticKind.TEST_NO_ASSERTIONS: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_TEST_AUTHOR,
     ),
     DiagnosticKind.IMPL_MYPY: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_IMPLEMENTER,
     ),
     DiagnosticKind.IMPL_PYTEST: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_IMPLEMENTER,
     ),
     DiagnosticKind.IMPL_LINT: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_IMPLEMENTER,
     ),
     DiagnosticKind.IMPL_IMPORT: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_IMPLEMENTER,
     ),
     DiagnosticKind.CANNOT_PROCEED_SEAM: Route(
         target_state=STATE_CANNOT_PROCEED,
-        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.MISSING_DEPENDENCY: Route(
         target_state=STATE_CANNOT_PROCEED,
-        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.MISSING_ARTIFACT: Route(
         target_state=STATE_NEW,
-        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
     DiagnosticKind.TOOL_NOT_FOUND: Route(
         target_state=STATE_CANNOT_PROCEED,
-        target_role=ROLE_INTERFACE_ARCHITECT,
     ),
 }
 
@@ -200,7 +175,6 @@ def route(
                 escalation = _PHASE2_DISPATCH[DiagnosticKind.CANNOT_PROCEED_SEAM]
                 return Route(
                     target_state=escalation.target_state,
-                    target_role=escalation.target_role,
                     diagnostics=gate_result.diagnostics,
                     diagnostic_kind=DiagnosticKind.CANNOT_PROCEED_SEAM,
                     custom_fields_update={
@@ -210,7 +184,6 @@ def route(
                             "messages": gate_result.diagnostics,
                             "message": "; ".join(gate_result.diagnostics),
                             "diagnostic_kind": DiagnosticKind.CANNOT_PROCEED_SEAM.value,
-                            "target_role": escalation.target_role,
                             "escalated_from_kind": kind.value,
                             "escalated_after_attempts": attempt_number,
                         }
@@ -219,7 +192,6 @@ def route(
 
             return Route(
                 target_state=base.target_state,
-                target_role=base.target_role,
                 diagnostics=gate_result.diagnostics,
                 diagnostic_kind=kind,
                 custom_fields_update={
@@ -229,7 +201,6 @@ def route(
                         "messages": gate_result.diagnostics,
                         "message": "; ".join(gate_result.diagnostics),
                         "diagnostic_kind": kind.value,
-                        "target_role": base.target_role,
                     }
                 },
             )
@@ -238,7 +209,6 @@ def route(
     if current_state == STATE_NEW and transition == TRANSITION_CHANNEL_FAIL:
         return Route(
             target_state=STATE_NEW,
-            target_role=ROLE_INTERFACE_ARCHITECT,
             diagnostic_kind=DiagnosticKind.CHANNEL_FAIL,
         )
 

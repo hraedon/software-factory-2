@@ -22,7 +22,7 @@ class TestPhase2Dispatch:
             diagnostic_kind="test_ac_binding",
         )
         result = route("gating", "gate_fail", gate_result=gate)
-        assert result.target_role == "test_author"
+        assert result.target_state == "new"
         assert result.diagnostic_kind == DiagnosticKind.TEST_AC_BINDING
 
     def test_test_collect_routes_to_test_author(self):
@@ -33,7 +33,7 @@ class TestPhase2Dispatch:
             diagnostic_kind="test_collect",
         )
         result = route("gating", "gate_fail", gate_result=gate)
-        assert result.target_role == "test_author"
+        assert result.target_state == "new"
         assert result.diagnostic_kind == DiagnosticKind.TEST_COLLECT
 
     def test_test_import_forbidden_routes_to_test_author(self):
@@ -44,7 +44,7 @@ class TestPhase2Dispatch:
             diagnostic_kind="test_import_forbidden",
         )
         result = route("gating", "gate_fail", gate_result=gate)
-        assert result.target_role == "test_author"
+        assert result.target_state == "new"
         assert result.diagnostic_kind == DiagnosticKind.TEST_IMPORT_FORBIDDEN
 
     def test_impl_mypy_routes_to_implementer(self):
@@ -55,7 +55,7 @@ class TestPhase2Dispatch:
             diagnostic_kind="impl_mypy",
         )
         result = route("gating", "gate_fail", gate_result=gate)
-        assert result.target_role == "implementer"
+        assert result.target_state == "new"
         assert result.diagnostic_kind == DiagnosticKind.IMPL_MYPY
 
     def test_impl_pytest_routes_to_implementer(self):
@@ -66,7 +66,7 @@ class TestPhase2Dispatch:
             diagnostic_kind="impl_pytest",
         )
         result = route("gating", "gate_fail", gate_result=gate)
-        assert result.target_role == "implementer"
+        assert result.target_state == "new"
         assert result.diagnostic_kind == DiagnosticKind.IMPL_PYTEST
 
     def test_impl_lint_routes_to_implementer(self):
@@ -77,7 +77,7 @@ class TestPhase2Dispatch:
             diagnostic_kind="impl_lint",
         )
         result = route("gating", "gate_fail", gate_result=gate)
-        assert result.target_role == "implementer"
+        assert result.target_state == "new"
         assert result.diagnostic_kind == DiagnosticKind.IMPL_LINT
 
     def test_impl_import_routes_to_implementer(self):
@@ -88,7 +88,7 @@ class TestPhase2Dispatch:
             diagnostic_kind="impl_import",
         )
         result = route("gating", "gate_fail", gate_result=gate)
-        assert result.target_role == "implementer"
+        assert result.target_state == "new"
         assert result.diagnostic_kind == DiagnosticKind.IMPL_IMPORT
 
 
@@ -107,7 +107,7 @@ class TestCrossStageEscalation:
             attempt_number=1,
             attempt_threshold=3,
         )
-        assert result.target_role == "implementer"
+        assert result.target_state == "new"
         assert result.diagnostic_kind == DiagnosticKind.IMPL_PYTEST
 
     def test_impl_failure_at_threshold_escalates_to_interface_architect(self):
@@ -124,7 +124,7 @@ class TestCrossStageEscalation:
             attempt_number=3,
             attempt_threshold=3,
         )
-        assert result.target_role == "interface_architect"
+        assert result.target_state == "cannot_proceed"
         assert result.diagnostic_kind == DiagnosticKind.CANNOT_PROCEED_SEAM
         diag = result.custom_fields_update["diagnostics"]
         assert diag["escalated_from_kind"] == "impl_pytest"
@@ -144,7 +144,7 @@ class TestCrossStageEscalation:
             attempt_number=3,
             attempt_threshold=3,
         )
-        assert result.target_role == "interface_architect"
+        assert result.target_state == "cannot_proceed"
         assert result.diagnostic_kind == DiagnosticKind.CANNOT_PROCEED_SEAM
         diag = result.custom_fields_update["diagnostics"]
         assert diag["escalated_from_kind"] == "test_collect"
@@ -163,7 +163,7 @@ class TestCrossStageEscalation:
             attempt_number=5,
             attempt_threshold=3,
         )
-        assert result.target_role == "interface_architect"
+        assert result.target_state == "new"
         assert result.diagnostic_kind == DiagnosticKind.SYNTAX
 
     def test_escalation_preserves_original_diagnostics(self):
@@ -198,7 +198,7 @@ class TestCrossStageEscalation:
             attempt_number=5,
             attempt_threshold=3,
         )
-        assert result.target_role == "interface_architect"
+        assert result.target_state == "cannot_proceed"
         assert result.diagnostic_kind == DiagnosticKind.CANNOT_PROCEED_SEAM
 
 
@@ -206,3 +206,11 @@ class TestDispatchCompleteness:
     def test_all_diagnostic_kinds_have_dispatch_entries(self):
         for kind in DiagnosticKind:
             assert kind in _PHASE2_DISPATCH, f"Missing dispatch for {kind}"
+
+    def test_route_has_no_target_role_field(self):
+        import dataclasses
+
+        from factory.router import Route
+
+        field_names = {f.name for f in dataclasses.fields(Route)}
+        assert "target_role" not in field_names

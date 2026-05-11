@@ -167,7 +167,7 @@ def _run_mypy_fast(
             )
             if result.returncode != 0:
                 if "No module named mypy" in result.stderr:
-                    return {"passed": True, "diagnostics": []}
+                    return {"passed": False, "diagnostics": ["mypy not installed"]}
                 lines = result.stdout.strip().splitlines()
                 diagnostics = lines[:10] if lines else ["mypy reported errors"]
                 return {"passed": False, "diagnostics": diagnostics}
@@ -204,10 +204,20 @@ def _run_ruff_fast(
             lines = result2.stderr.strip().splitlines()
             diagnostics = lines[:10] if lines else ["ruff format reported errors"]
             return {"passed": False, "diagnostics": diagnostics}
+        result3 = subprocess.run(
+            [exe, "-m", "ruff", "check", str(artifact_path)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result3.returncode != 0:
+            lines = result3.stdout.strip().splitlines()
+            diagnostics = lines[:10] if lines else ["ruff check reported errors"]
+            return {"passed": False, "diagnostics": diagnostics}
     except subprocess.TimeoutExpired:
-        return {"passed": True, "diagnostics": []}
-    except Exception:
-        return {"passed": True, "diagnostics": []}
+        return {"passed": False, "diagnostics": ["ruff timed out after 30s"]}
+    except Exception as e:
+        return {"passed": False, "diagnostics": [f"ruff invocation failed: {e}"]}
     return {"passed": True, "diagnostics": []}
 
 
@@ -260,7 +270,7 @@ def _run_pytest_fast(
             )
             if result.returncode != 0:
                 if "No module named pytest" in result.stderr:
-                    return {"passed": True, "diagnostics": []}
+                    return {"passed": False, "diagnostics": ["pytest not installed"]}
                 lines = result.stdout.strip().splitlines()
                 err_lines = result.stderr.strip().splitlines()
                 combined = lines + err_lines

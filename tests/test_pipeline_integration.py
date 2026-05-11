@@ -372,7 +372,6 @@ class TestPipelineIntegration:
         assert wi.current_state == "cannot_proceed"
         diags = (wi.custom_fields or {}).get("diagnostics", {})
         assert diags.get("diagnostic_kind") == "cannot_proceed_seam"
-        assert diags.get("target_role") == "interface_architect"
         assert diags.get("escalated_from_kind") == "impl_lint"
         assert diags.get("escalated_after_attempts") == 4
 

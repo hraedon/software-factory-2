@@ -44,7 +44,8 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 073 | ensure_project_venv not invoked when workspace has no requirements.txt — mypy gate fails on project dependencies | medium | proposed |
+| 078 | Benchmark scope systematically excludes cross-module dependencies — Phase 2 exit criteria measured on easy case | high | proposed |
+| 081 | No criteria test for cert-watch full DAG — structural gap in regression detection for multi-module pipelines | medium | proposed |
 | 071 | sub.transition(custom_fields=...) merges into WorkItem but API surface implies per-event storage — telemetry footgun | low | proposed |
 | 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | proposed |
 | 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | proposed |
@@ -65,11 +66,18 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-007 | Test efficacy scoring via mutation testing gates — v1 BC-107/186, mechanical antidote to test theater | high | Phase 4–5 (jury / real workload) |
 | RFC-008 | Pipeline checkpoint and surgical resume system — v1 BC-122, preserve progress across 30–50 min runs | medium | Phase 3–5 (fleet / real workload) |
 | RFC-009 | Interactive debugging inner loop — channel tool-use surface for implementer | high | Phase 5+ (evidence threshold: 3+ golden runs with pytest-in-inner-loop still failing) |
+| RFC-010 | Fixture taxonomy — classify fixtures by architectural complexity class and gate Phase N exit criteria on the hardest exercised class | high | Phase 2 exit criteria |
+| RFC-011 | Unified gate evaluation — extract shared subprocess execution layer to eliminate drift between outer and inner gate implementations | medium | Phase 3 (multi-channel gates) |
 
 ## Resolved
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 083 | Channel base class mutable _family_override survives in invoke() — latent race condition for Phase 4+ parallel invocations | low | Removed `_family_override` instance variable and its mutation from `invoke()`; `family` property now returns `_DEFAULT_FAMILY` unconditionally; per-invocation family carried exclusively in `InvocationResult.family` |
+| 082 | Outer gate (gate.py) and inner gate (pre_gate.py) have divergent tool path resolution, failure handling, and error surfaces | medium | BC-079 fixed tool-not-found and exception handling; added final `ruff check` to inner gate matching outer gate's three-step sequence (fix→format→check); remaining `shutil.which` vs `python -m` divergence is benign; full unification deferred to RFC-011 |
+| 080 | Router target_role is dead output — architecture suggests capability that doesn't exist, ignored by every consumer | medium | Removed `target_role` from `Route` dataclass, `_PHASE2_DISPATCH`, `route()`, and `custom_fields_update` diagnostics; role dispatch is type-driven via `_role_for_type()`; added introspection test |
+| 079 | Inner gate (pre_gate.py) silently passes on tool-not-found and exceptions — contradicts BC-059 fix scope, wastes model budget | high | Aligned inner gate tool-not-found handling with outer gate (BC-059): `_run_mypy_fast`, `_run_pytest_fast` return `passed=False` when tools missing; `_run_ruff_fast` bare exceptions replaced with explicit failure propagation; 4 new tests |
+| 073 | ensure_project_venv not invoked when workspace has no requirements.txt — mypy gate fails on project dependencies | medium | `populate_work_items.py --fixtures` copies `requirements.txt` to workspace root; general fix for work-item directory propagation deferred to RFC-006 (Phase 5) |
 | 077 | Runner processes interface_specs without dependency ordering — root deps processed last, cascading test_suite ImportErrors | high | Scheduler `_ensure_downstream_item` now checks `_all_dep_specs_locked()` before creating downstream items; defers test_suite/implementation creation until all dependency_refs point to locked interface_specs; 2 new tests, 2 existing tests updated; validated by GR-012 root cause analysis |
 | 076 | Dependency .pyi stub bodies are Ellipsis — gate copies stub as runtime dep, causing pytest failures | high | dep_resolution.py resolves locked implementations over stubs; pre_gate.py copies impl .py + spec .pyi separately; stub_only_deps surfaced in prompt; cert-watch full fixture updated with 8 work-units, AC enforcement for runtime dep calls, non-FR library module, 3 diamond consumers |
 | 075 | Inner gate loop — pre-submission mypy+ruff+pytest validation for implementer role | medium | Created pre_gate.py with pre_gate_implementation() running mypy+ruff+pytest (short-circuit order) before submit; added _inner_gate_loop() in runner.py with PreGateDeps NamedTuple and configurable inner_gate_retries (default 2); PreGateResult.gate_name now inner_mypy/inner_ruff/inner_pytest; _copy_dependency_pyis promoted to public copy_dependency_pyis; 7 new tests; RFC-009 filed for option #3 |

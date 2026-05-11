@@ -168,6 +168,68 @@ class TestPreGateImplementation:
         assert result[0].endswith("...")
 
 
+class TestInnerGateToolNotFound:
+    def test_ruff_missing_returns_failure(self, tmp_path):
+        from unittest.mock import patch
+
+        from factory.pre_gate import _run_ruff_fast
+
+        artifact = tmp_path / "impl.py"
+        artifact.write_text("x = 1\n")
+        with patch("factory.pre_gate.subprocess.run", side_effect=FileNotFoundError("no ruff")):
+            result = _run_ruff_fast(artifact, python_executable="/nonexistent/python")
+        assert result["passed"] is False
+        assert any("ruff invocation failed" in d for d in result["diagnostics"])
+
+    def test_ruff_timeout_returns_failure(self, tmp_path):
+        import subprocess
+        from unittest.mock import patch
+
+        from factory.pre_gate import _run_ruff_fast
+
+        artifact = tmp_path / "impl.py"
+        artifact.write_text("x = 1\n")
+        with patch(
+            "factory.pre_gate.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="ruff", timeout=30),
+        ):
+            result = _run_ruff_fast(artifact)
+        assert result["passed"] is False
+        assert any("timed out" in d for d in result["diagnostics"])
+
+    def test_mypy_missing_returns_failure(self, tmp_path):
+        from factory.pre_gate import _run_mypy_fast
+
+        artifact = tmp_path / "impl.py"
+        artifact.write_text("x: int = 1\n")
+        interface_pyi = tmp_path / "interface.pyi"
+        interface_pyi.write_text("x: int\n")
+        result = _run_mypy_fast(
+            artifact,
+            interface_pyi_path=interface_pyi,
+            python_executable="/nonexistent/python",
+        )
+        if not result["passed"]:
+            assert any("mypy" in d.lower() for d in result["diagnostics"])
+
+    def test_pytest_missing_returns_failure(self, tmp_path):
+        from factory.pre_gate import _run_pytest_fast
+
+        artifact = tmp_path / "impl.py"
+        artifact.write_text("def add(a, b): return a + b\n")
+        test_suite = tmp_path / "test_add.py"
+        test_suite.write_text("def test_add(): pass\n")
+        result = _run_pytest_fast(
+            artifact,
+            test_suite_path=test_suite,
+            python_executable="/nonexistent/python",
+        )
+        if not result["passed"]:
+            assert any(
+                "pytest" in d.lower() or "failed" in d.lower() for d in result["diagnostics"]
+            )
+
+
 class TestCopyDependencyPyis:
     def test_writes_module_name_files(self, tmp_path):
         import tempfile

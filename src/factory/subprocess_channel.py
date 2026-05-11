@@ -25,7 +25,6 @@ class SubprocessChannel:
 
     def __init__(self, config: FactoryConfig):
         self._config = config
-        self._family_override: str | None = None
 
     @property
     def name(self) -> str:
@@ -33,8 +32,6 @@ class SubprocessChannel:
 
     @property
     def family(self) -> str:
-        if self._family_override is not None:
-            return self._family_override
         return self._DEFAULT_FAMILY
 
     def _derive_invocation_family(self, role_config) -> str:
@@ -60,7 +57,6 @@ class SubprocessChannel:
         role_config = self._config.get_role_config(role)
         effective_timeout = role_config.timeout_seconds if role_config else timeout
         invocation_family = self._derive_invocation_family(role_config)
-        self._family_override = invocation_family
 
         cmd = self._build_cmd(role_config)
         if role_config and role_config.model:

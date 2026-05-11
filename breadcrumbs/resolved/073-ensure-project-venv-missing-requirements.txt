@@ -2,7 +2,7 @@
 number: "073"
 title: ensure_project_venv not invoked when workspace has no requirements.txt — implementation mypy gate fails on project dependencies
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: glm-5.1
 date: "2026-05-10"
@@ -27,4 +27,8 @@ GR007 saw 2/3 implementations fail `implementation_mypy` because `mypy` could no
 
 ## Remaining gap
 
-A more robust fix would be for `ensure_project_venv()` to also check `<workspace_root>/<work_item_dir>/requirements.txt` or for the scheduler to propagate `requirements.txt` paths through custom_fields.
+A more robust fix would be for `ensure_project_venv()` to also check `<workspace_root>/<work_item_dir>/requirements.txt` or for the scheduler to propagate `requirements.txt` paths through custom_fields. Deferred to RFC-006 (Phase 5 per-project venv isolation).
+
+## Resolution
+
+`populate_work_items.py --fixtures` copies `requirements.txt` from the fixture directory to the workspace root. This is sufficient for all current fixture-driven golden runs. The remaining general fix (propagating requirements paths through custom_fields or work-item directories) is deferred to RFC-006.

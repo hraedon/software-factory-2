@@ -27,7 +27,6 @@ class TestRouterPhase1:
         )
         result = route("gating", "gate_fail", gate_result=gate)
         assert result.target_state == "new"
-        assert result.target_role == "interface_architect"
         assert result.diagnostic_kind == DiagnosticKind.SYNTAX
         assert "syntax" in result.custom_fields_update["diagnostics"]["diagnostic_kind"]
 
@@ -40,7 +39,6 @@ class TestRouterPhase1:
         )
         result = route("gating", "gate_fail", gate_result=gate)
         assert result.target_state == "new"
-        assert result.target_role == "interface_architect"
         assert result.diagnostic_kind == DiagnosticKind.STRUCTURAL_SEMANTICS
 
     def test_gate_fail_with_diagnostics_in_custom_fields(self):
@@ -58,7 +56,6 @@ class TestRouterPhase1:
         )
         assert result.custom_fields_update["diagnostics"]["messages"] == ["SyntaxError at line 5"]
         assert result.custom_fields_update["diagnostics"]["message"] == "SyntaxError at line 5"
-        assert result.custom_fields_update["diagnostics"]["target_role"] == "interface_architect"
 
     def test_gate_fail_without_gate_result(self):
         result = route("gating", "gate_fail")
@@ -71,7 +68,6 @@ class TestRouterPhase1:
     def test_channel_fail_route(self):
         result = route("new", "channel_fail")
         assert result.target_state == "new"
-        assert result.target_role == "interface_architect"
         assert result.diagnostic_kind == DiagnosticKind.CHANNEL_FAIL
 
 
