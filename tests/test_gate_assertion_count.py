@@ -5,12 +5,12 @@ from pathlib import Path
 from factory.gate import evaluate_test_suite
 
 
-def test_zero_assertion_fails() -> None:
+def test_zero_assertion_fails(tmp_path: Path) -> None:
     content = """
 def test_nothing():
     x = 1
 """
-    path = Path("/tmp/test_zero_assert.py")
+    path = tmp_path / "test_zero_assert.py"
     path.write_text(content)
     result = evaluate_test_suite(path)
     assert not result.passed
@@ -18,18 +18,18 @@ def test_nothing():
     assert "zero assertions" in result.diagnostics[0].lower()
 
 
-def test_one_assertion_passes() -> None:
+def test_one_assertion_passes(tmp_path: Path) -> None:
     content = """
 def test_something():
     assert 1 == 1
 """
-    path = Path("/tmp/test_one_assert.py")
+    path = tmp_path / "test_one_assert.py"
     path.write_text(content)
     result = evaluate_test_suite(path)
     assert result.passed is True
 
 
-def test_mixed_assertions_fails() -> None:
+def test_mixed_assertions_fails(tmp_path: Path) -> None:
     content = """
 def test_has_assert():
     assert 1 == 1
@@ -37,14 +37,14 @@ def test_has_assert():
 def test_no_assert():
     x = 2
 """
-    path = Path("/tmp/test_mixed_assert.py")
+    path = tmp_path / "test_mixed_assert.py"
     path.write_text(content)
     result = evaluate_test_suite(path)
     assert not result.passed
     assert "test_no_assert" in result.diagnostics[0]
 
 
-def test_total_assertions_below_function_count_fails() -> None:
+def test_total_assertions_below_function_count_fails(tmp_path: Path) -> None:
     content = """
 def test_a():
     assert 1 == 1
@@ -55,7 +55,7 @@ def test_b():
 def test_c():
     pass
 """
-    path = Path("/tmp/test_below_count.py")
+    path = tmp_path / "test_below_count.py"
     path.write_text(content)
     result = evaluate_test_suite(path)
     # This should be caught by zero-assert check first
@@ -63,7 +63,7 @@ def test_c():
     assert "zero assertions" in result.diagnostics[0].lower()
 
 
-def test_no_test_functions_skips_assertion_check() -> None:
+def test_no_test_functions_skips_assertion_check(tmp_path: Path) -> None:
     content = """
 def helper():
     assert 1 == 1
@@ -71,7 +71,7 @@ def helper():
 def test_dummy():
     assert True
 """
-    path = Path("/tmp/test_no_test_funcs.py")
+    path = tmp_path / "test_no_test_funcs.py"
     path.write_text(content)
     result = evaluate_test_suite(path)
     assert result.passed is True

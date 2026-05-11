@@ -246,6 +246,11 @@ def _run_import_check(
 
     exe = python_executable or sys.executable
     module_stem = artifact_path.stem
+    if not module_stem.isidentifier():
+        return {
+            "passed": False,
+            "diagnostics": [f"Invalid module name '{module_stem}' for import check"],
+        }
     try:
         with tempfile.TemporaryDirectory(prefix="sf2_import_") as tmpdir:
             module_copy = Path(tmpdir) / f"{module_stem}.py"

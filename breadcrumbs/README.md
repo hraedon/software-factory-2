@@ -47,6 +47,27 @@ Reusable tags:
 | 078 | Benchmark scope systematically excludes cross-module dependencies — Phase 2 exit criteria measured on easy case | high | proposed |
 | 081 | No criteria test for cert-watch full DAG — structural gap in regression detection for multi-module pipelines | medium | implemented |
 | 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | proposed |
+| 096 | populate_work_items --reset permits arbitrary directory deletion | high | proposed |
+| 102 | Scheduler idempotency is pagination-unsafe O(N) | high | proposed |
+| 107 | Phase 3 GR-015 uses unvalidated channel adapters | high | proposed |
+| 097 | credentials.py redaction logic is buggy for short values | medium | proposed |
+| 099 | SubprocessChannel.invoke replaces entire child environment | medium | proposed |
+| 100 | Output extraction regex is fragile and easily gamed | medium | proposed |
+| 101 | JSON extraction regex matches invalid nested braces | medium | proposed |
+| 104 | Gate layer reads artifacts without size limits | medium | proposed |
+| 105 | ast.parse on arbitrary user code is a DoS vector | medium | proposed |
+| 106 | make golden-run lacks process supervision | medium | proposed |
+| 108 | GeminiCLIChannel exists but is essentially untested in production | medium | proposed |
+| 109 | No circuit breaker or backoff for failing channels | medium | proposed |
+| 110 | Missing adversarial/fuzz tests for channel output parsing | medium | proposed |
+| 111 | No path traversal tests for custom_fields | medium | proposed |
+| 112 | Missing DeepSeek standalone channel adapter | medium | proposed |
+| 114 | pre_gate _run_ruff_fast mutates artifact file in-place | medium | proposed |
+| 116 | _check_assertion_count returns passed=True on SyntaxError | medium | proposed |
+| 098 | inject_credentials_into_env copies full os.environ when passed empty dict | low | proposed |
+| 103 | quarantine_attempt uses os.replace which can clobber | low | proposed |
+| 113 | _resolve_extra_env uses unnecessary hasattr | low | proposed |
+| 115 | ensure_project_venv installs gate tooling into project venv | low | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -74,6 +95,14 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | 071 | sub.transition(custom_fields=...) merges into WorkItem but API surface implies per-event storage — telemetry footgun | low | Added `test_substrate_event_contract.py` asserting Event has no `custom_fields` attribute; prevents future consumers from assuming per-event storage (Option c) |
 | 081 | No criteria test for cert-watch full DAG — structural gap in regression detection for multi-module pipelines | medium | Created `test_gr015_criteria.py` with 7 skip-when-absent criteria tests for cert-watch full DAG golden run (interface_spec lock rate, no ModuleNotFoundError, cross-module imports, work item count, unknown gates, telemetry verify, multi-channel config) |
 | 087 | Phase 3 workflow YAML missing — FactoryConfig.phase3() sets version=3 but no matching workflow file exists | high | Created `workflows/phase3.yaml` (v3, same shape as phase2); added "phase3" to `populate_work_items.py` --workflow choices; added `workflow_version` ternary; created `golden-run-015-config.yaml` with multi-channel bindings |
+| 088 | Inner gate retry overwrites original artifact in-place | critical | Changed `_inner_gate_loop` to invoke retries into `ad/retry-{N}` subdirectory; original artifact preserved |
+| 089 | .pyi stub gate allows docstring-only bodies | high | Rewrote `_check_pyi_stub` to require `ast.Constant(value=...)` or `ast.Pass`; docstring-only stubs now fail |
+| 090 | Structural semantics gate ignores keyword-only arguments | high | Added `node.args.kwonlyargs` to `non_self_params` in `_check_structural_semantics` |
+| 091 | Relative imports bypass forbidden-module checks | high | `_import_module_name` now falls back to alias name for relative imports without explicit module |
+| 092 | SyntaxError swallowed in gate import checks | high | Replaced `except SyntaxError: pass` with explicit failure GateResults in both test-suite and implementation import gates |
+| 093 | Command injection in pre_gate import smoke check | high | Added `str.isidentifier()` validation in `_run_import_check` before constructing import statement |
+| 094 | Tests write to hardcoded /tmp paths | medium | Replaced hardcoded `/tmp` with `tmp_path` pytest fixture in `test_gate_assertion_count.py` |
+| 095 | No artifact size limits anywhere | high | Added `MAX_ARTIFACT_SIZE_BYTES = 1_000_000` and size checks in runner and subprocess_channel |
 | 086 | Test suite inner gate — pytest --collect-only before outer submission | medium | Added `pre_gate_test_suite()` to `pre_gate.py` running ruff + `pytest --collect-only`; inner gate loop now runs for all three worker roles; gate labels use `GATE_NAME_INNER_*` constants; 7 new tests |
 | 085 | Interface spec inner gate — import smoke check before outer submission | medium | Added `pre_gate_interface_spec()` to `pre_gate.py` running ruff + `python -c "import <module>"` smoke check; prevents locked interface_specs with invalid Python from blocking downstream; 7 new tests |
 | 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | Added `StageHandoff` dataclass and `stage_topology` to `FactoryConfig`; scheduler derives `next_role` from `type_to_role` instead of hardcoded dict; removed `_STAGE_HANDOFF` module-level dict; added `role_for_type()` and `stage_handoff_for()` methods to config; tests updated to use `FactoryConfig.phase2()` and `StageHandoff` objects |

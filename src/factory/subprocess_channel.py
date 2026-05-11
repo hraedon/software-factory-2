@@ -11,6 +11,7 @@ from factory.config import FactoryConfig
 from factory.constants import (
     ARTIFACT_FILENAME_CANNOT_PROCEED,
     ARTIFACT_FILENAME_RAW_STDOUT,
+    MAX_ARTIFACT_SIZE_BYTES,
     ROLE_INTERFACE_ARCHITECT,
 )
 from factory.output_extraction import extract_artifact_from_output, extract_json_from_output
@@ -98,6 +99,16 @@ class SubprocessChannel:
             )
 
         output_text = result.stdout
+        if len(output_text.encode("utf-8")) > MAX_ARTIFACT_SIZE_BYTES:
+            return InvocationResult(
+                success=False,
+                error_message=(
+                    f"Channel output size ({len(output_text.encode('utf-8'))} bytes) "
+                    f"exceeds limit {MAX_ARTIFACT_SIZE_BYTES} bytes"
+                ),
+                exit_code=result.returncode,
+                family=invocation_family,
+            )
         raw_path = outputs_dir / ARTIFACT_FILENAME_RAW_STDOUT
         raw_path.write_text(output_text)
 

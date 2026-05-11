@@ -63,6 +63,8 @@ TEMPFILE_PREFIX_COLLECT = "sf2_collect_"
 TEMPFILE_PREFIX_MYPY = "sf2_mypy_"
 TEMPFILE_PREFIX_PYTEST = "sf2_pytest_"
 
+MAX_ARTIFACT_SIZE_BYTES = 1_000_000  # 1 MB
+
 GATE_NAME_INTERFACE_SPEC = "interface_spec"
 GATE_NAME_INTERFACE_SPEC_FILE_EXISTS = "interface_spec_file_exists"
 GATE_NAME_INTERFACE_SPEC_NOT_EMPTY = "interface_spec_not_empty"

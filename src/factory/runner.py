@@ -25,6 +25,7 @@ from factory.constants import (
     GATE_NAME_INNER_MYPY,
     GATE_NAME_INNER_PYTEST,
     GATE_NAME_INNER_RUFF,
+    MAX_ARTIFACT_SIZE_BYTES,
     ROLE_IMPLEMENTER,
     ROLE_INTERFACE_ARCHITECT,
     ROLE_TEST_AUTHOR,
@@ -320,6 +321,39 @@ def process_work_item(
         if artifact_path is None:
             return
 
+    artifact_stat = artifact_path.stat()
+    if artifact_stat.st_size > MAX_ARTIFACT_SIZE_BYTES:
+        log.error(
+            "artifact_oversized",
+            work_item_id=work_item_id,
+            path=str(artifact_path),
+            size=artifact_stat.st_size,
+            limit=MAX_ARTIFACT_SIZE_BYTES,
+        )
+        sub.transition(
+            work_item_id,
+            TRANSITION_CHANNEL_FAIL,
+            actor_id,
+            actor_metadata=ActorMetadata(
+                role=role_name,
+                channel=channel.name,
+                family=effective_family,
+                attempt_n=attempt_number,
+                context_hash=ctx.context_hash,
+                prompt_template_hash=ctx.prompt_template_hash,
+            ).to_dict(),
+            payload=ChannelFailPayload(
+                diagnostics={
+                    "error_message": (
+                        f"Artifact size {artifact_stat.st_size} bytes exceeds "
+                        f"limit {MAX_ARTIFACT_SIZE_BYTES} bytes"
+                    ),
+                    "duration_seconds": duration_seconds,
+                }
+            ).to_dict(),
+        )
+        return
+
     artifact_data = artifact_path.read_bytes()
     sha = compute_sha256(artifact_data)
     manifest = ArtifactManifest(
@@ -483,7 +517,8 @@ def _inner_gate_loop(
             stub_only_deps=current_ctx.stub_only_deps,
         )
         retry_prompt = render_prompt(current_ctx)
-        retry_ad = attempt_dir(runtime.workspace_root, work_item_id, attempt_number)
+        retry_ad = ad / f"retry-{retry}"
+        retry_ad.mkdir(parents=True, exist_ok=True)
         retry_start = time.monotonic()
         retry_result = channel.invoke(
             role_name, retry_prompt, retry_ad, timeout, extra_env=extra_env

@@ -101,14 +101,14 @@ def _check_pyi_stub(content: str, artifact_path: Path) -> GateResult:
     tree = ast.parse(content)
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            has_body = any(
-                isinstance(stmt, (ast.Assign, ast.AugAssign, ast.Expr, ast.Return))
-                for stmt in node.body
-            )
-            if has_body and not any(
-                isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant)
-                for stmt in node.body
-            ):
+            for stmt in node.body:
+                if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant):
+                    if stmt.value.value is ...:
+                        continue
+                    if isinstance(stmt.value.value, str):
+                        continue  # docstring
+                if isinstance(stmt, ast.Pass):
+                    continue
                 return GateResult(
                     passed=False,
                     gate_name=GATE_NAME_INTERFACE_SPEC_STUB,
@@ -146,7 +146,11 @@ def _check_structural_semantics(content: str, ac_ids: list[str] | None) -> GateR
                     ],
                     diagnostic_kind="structural_semantics",
                 )
-            non_self_params = [a for a in node.args.args + node.args.posonlyargs if a.arg != "self"]
+            non_self_params = [
+                a
+                for a in node.args.args + node.args.posonlyargs + node.args.kwonlyargs
+                if a.arg != "self"
+            ]
             if not non_self_params and not node.args.vararg and not node.args.kwarg:
                 doc = ast.get_docstring(node, clean=False) or ""
                 if not _has_ac_ref(doc):
@@ -233,22 +237,28 @@ def evaluate_test_suite(
     if interface_ref_pyi_path is not None:
         try:
             tree = ast.parse(content)
-            for node in ast.walk(tree):
-                if isinstance(node, (ast.Import, ast.ImportFrom)):
-                    mod = _import_module_name(node)
-                    if _is_non_interface_module(mod):
-                        return GateResult(
-                            passed=False,
-                            gate_name=GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
-                            diagnostics=[
-                                f"Test imports forbidden module '{mod}' — must only reference "
-                                f"the locked interface"
-                            ],
-                            artifact_valid=False,
-                            diagnostic_kind="test_import_forbidden",
-                        )
-        except SyntaxError:
-            pass
+        except SyntaxError as e:
+            return GateResult(
+                passed=False,
+                gate_name=GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
+                diagnostics=[f"SyntaxError at line {e.lineno}: {e.msg}"],
+                artifact_valid=False,
+                diagnostic_kind="syntax",
+            )
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                mod = _import_module_name(node)
+                if _is_non_interface_module(mod):
+                    return GateResult(
+                        passed=False,
+                        gate_name=GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
+                        diagnostics=[
+                            f"Test imports forbidden module '{mod}' — must only reference "
+                            f"the locked interface"
+                        ],
+                        artifact_valid=False,
+                        diagnostic_kind="test_import_forbidden",
+                    )
 
     collect_result = _run_pytest_collect(
         artifact_path,
@@ -328,7 +338,12 @@ def _import_module_name(node: ast.Import | ast.ImportFrom) -> str:
     if isinstance(node, ast.Import):
         return node.names[0].name.split(".")[0]
     module = node.module or ""
-    return module.split(".")[0]
+    if module:
+        return module.split(".")[0]
+    # Relative import without module: from . import name
+    if node.names:
+        return node.names[0].name.split(".")[0]
+    return ""
 
 
 def _is_non_interface_module(module: str) -> bool:
@@ -414,19 +429,25 @@ def evaluate_implementation(
 def _check_impl_imports(content: str) -> GateResult:
     try:
         tree = ast.parse(content)
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.Import, ast.ImportFrom)):
-                mod = _import_module_name(node)
-                if _is_forbidden_impl_import(mod):
-                    return GateResult(
-                        passed=False,
-                        gate_name=GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN,
-                        diagnostics=[f"Implementation imports forbidden module '{mod}'"],
-                        artifact_valid=False,
-                        diagnostic_kind="impl_import",
-                    )
-    except SyntaxError:
-        pass
+    except SyntaxError as e:
+        return GateResult(
+            passed=False,
+            gate_name=GATE_NAME_IMPLEMENTATION_IMPORTS,
+            diagnostics=[f"SyntaxError at line {e.lineno}: {e.msg}"],
+            artifact_valid=False,
+            diagnostic_kind="syntax",
+        )
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            mod = _import_module_name(node)
+            if _is_forbidden_impl_import(mod):
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN,
+                    diagnostics=[f"Implementation imports forbidden module '{mod}'"],
+                    artifact_valid=False,
+                    diagnostic_kind="impl_import",
+                )
     return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_IMPORTS)
 
 
