@@ -172,7 +172,7 @@ def main():
         "--workflow",
         type=str,
         default="phase2",
-        choices=["phase1", "phase2"],
+        choices=["phase1", "phase2", "phase3"],
         help="Workflow version to register (default: phase2)",
     )
     parser.add_argument(
@@ -205,7 +205,12 @@ def main():
         workspace_root = str(config.workspace_root)
 
     workflow_path = ROOT_DIR / "workflows" / f"{args.workflow}.yaml"
-    workflow_version = 1 if args.workflow == "phase1" else 2
+    if args.workflow == "phase1":
+        workflow_version = 1
+    elif args.workflow == "phase3":
+        workflow_version = 3
+    else:
+        workflow_version = 2
 
     if args.fixtures:
         fixtures_dir = Path(args.fixtures)

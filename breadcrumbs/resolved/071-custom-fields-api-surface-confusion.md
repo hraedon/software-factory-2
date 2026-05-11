@@ -2,7 +2,7 @@
 number: "071"
 title: "sub.transition(custom_fields=...) merges into WorkItem but API surface implies per-event storage — telemetry footgun"
 severity: low
-status: proposed
+status: implemented
 kind: design
 author: opencode
 date: "2026-05-09"

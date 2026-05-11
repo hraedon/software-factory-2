@@ -13,6 +13,8 @@ from factory.constants import (
     CHANNEL_CODE,
     CHANNEL_GEMINI_CLI,
     CHANNEL_OPENCODE,
+    CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_TEST_SUITE_REF,
     FAMILY_ANTHROPIC,
     FAMILY_CODE,
     FAMILY_GEMINI,
@@ -39,6 +41,8 @@ class StageHandoff:
     target_type: str
     link_type: str
     additional_links: tuple[str, ...] = ()
+    ref_field: str | None = None
+    propagate_fields: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -98,6 +102,7 @@ class FactoryConfig:
             source_state=STATE_LOCKED,
             target_type=WORK_ITEM_TYPE_TEST_SUITE,
             link_type=LINK_TYPE_DERIVED_FROM,
+            ref_field=CUSTOM_FIELD_INTERFACE_REF,
         ),
         StageHandoff(
             source_type=WORK_ITEM_TYPE_TEST_SUITE,
@@ -105,6 +110,8 @@ class FactoryConfig:
             target_type=WORK_ITEM_TYPE_IMPLEMENTATION,
             link_type=LINK_TYPE_TESTED_BY,
             additional_links=(LINK_TYPE_IMPLEMENTS,),
+            ref_field=CUSTOM_FIELD_TEST_SUITE_REF,
+            propagate_fields=(CUSTOM_FIELD_INTERFACE_REF,),
         ),
     )
 
@@ -128,7 +135,11 @@ class FactoryConfig:
     PHASE3_WORKER_ROLES: tuple[str, ...] = PHASE2_WORKER_ROLES
     PHASE3_TYPE_TO_ROLE: tuple[tuple[str, str], ...] = PHASE2_TYPE_TO_ROLE
     PHASE3_ROLES: tuple[RoleConfig, ...] = (
-        RoleConfig(role=ROLE_INTERFACE_ARCHITECT, channel=CHANNEL_CLAUDE_CODE),
+        RoleConfig(
+            role=ROLE_INTERFACE_ARCHITECT,
+            channel=CHANNEL_OPENCODE,
+            model="ollama-cloud/deepseek-v4-pro",
+        ),
         RoleConfig(
             role=ROLE_TEST_AUTHOR,
             channel=CHANNEL_OPENCODE,

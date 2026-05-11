@@ -11,6 +11,7 @@ from factory.constants import (
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_MODULE_NAME,
     CUSTOM_FIELD_SPEC_SECTION,
+    CUSTOM_FIELD_TEST_SUITE_REF,
     LINK_TYPE_DERIVED_FROM,
     LINK_TYPE_TESTED_BY,
     WORK_ITEM_TYPE_IMPLEMENTATION,
@@ -495,6 +496,7 @@ class TestSchedulerDependencyPropagation:
             source_state="locked",
             target_type=WORK_ITEM_TYPE_TEST_SUITE,
             link_type=LINK_TYPE_DERIVED_FROM,
+            ref_field=CUSTOM_FIELD_INTERFACE_REF,
         )
 
         sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
@@ -557,6 +559,8 @@ class TestSchedulerDependencyPropagation:
             target_type=WORK_ITEM_TYPE_IMPLEMENTATION,
             link_type=LINK_TYPE_TESTED_BY,
             additional_links=("implements",),
+            ref_field=CUSTOM_FIELD_TEST_SUITE_REF,
+            propagate_fields=(CUSTOM_FIELD_INTERFACE_REF,),
         )
         sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
         _ensure_downstream_item(sched_runtime, ts, impl_handoff)
@@ -591,6 +595,7 @@ class TestSchedulerDependencyPropagation:
             source_state="locked",
             target_type=WORK_ITEM_TYPE_TEST_SUITE,
             link_type=LINK_TYPE_DERIVED_FROM,
+            ref_field=CUSTOM_FIELD_INTERFACE_REF,
         )
 
         sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)

@@ -45,10 +45,8 @@ Reusable tags:
 | # | Title | Severity | Status |
 |---|---|---|---|
 | 078 | Benchmark scope systematically excludes cross-module dependencies — Phase 2 exit criteria measured on easy case | high | proposed |
-| 081 | No criteria test for cert-watch full DAG — structural gap in regression detection for multi-module pipelines | medium | proposed |
-| 071 | sub.transition(custom_fields=...) merges into WorkItem but API surface implies per-event storage — telemetry footgun | low | proposed |
+| 081 | No criteria test for cert-watch full DAG — structural gap in regression detection for multi-module pipelines | medium | implemented |
 | 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | proposed |
-| 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -72,6 +70,10 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | Added `ref_field` and `propagate_fields` to `StageHandoff`; removed `_ref_field_for` hardcoded if/elif; scheduler derives ref fields from `stage_topology`; removed `if next_type == "implementation"` hardcoded type check; O(n) idempotency accepted for Phase 3 single-runner mode |
+| 071 | sub.transition(custom_fields=...) merges into WorkItem but API surface implies per-event storage — telemetry footgun | low | Added `test_substrate_event_contract.py` asserting Event has no `custom_fields` attribute; prevents future consumers from assuming per-event storage (Option c) |
+| 081 | No criteria test for cert-watch full DAG — structural gap in regression detection for multi-module pipelines | medium | Created `test_gr015_criteria.py` with 7 skip-when-absent criteria tests for cert-watch full DAG golden run (interface_spec lock rate, no ModuleNotFoundError, cross-module imports, work item count, unknown gates, telemetry verify, multi-channel config) |
+| 087 | Phase 3 workflow YAML missing — FactoryConfig.phase3() sets version=3 but no matching workflow file exists | high | Created `workflows/phase3.yaml` (v3, same shape as phase2); added "phase3" to `populate_work_items.py` --workflow choices; added `workflow_version` ternary; created `golden-run-015-config.yaml` with multi-channel bindings |
 | 086 | Test suite inner gate — pytest --collect-only before outer submission | medium | Added `pre_gate_test_suite()` to `pre_gate.py` running ruff + `pytest --collect-only`; inner gate loop now runs for all three worker roles; gate labels use `GATE_NAME_INNER_*` constants; 7 new tests |
 | 085 | Interface spec inner gate — import smoke check before outer submission | medium | Added `pre_gate_interface_spec()` to `pre_gate.py` running ruff + `python -c "import <module>"` smoke check; prevents locked interface_specs with invalid Python from blocking downstream; 7 new tests |
 | 058 | Stage handoff and diagnostic dispatch are parallel truth to FactoryConfig | medium | Added `StageHandoff` dataclass and `stage_topology` to `FactoryConfig`; scheduler derives `next_role` from `type_to_role` instead of hardcoded dict; removed `_STAGE_HANDOFF` module-level dict; added `role_for_type()` and `stage_handoff_for()` methods to config; tests updated to use `FactoryConfig.phase2()` and `StageHandoff` objects |

@@ -7,7 +7,6 @@ from factory.constants import (
     CHANNEL_CLAUDE_CODE,
     CHANNEL_GEMINI_CLI,
     CHANNEL_OPENCODE,
-    FAMILY_ANTHROPIC,
     FAMILY_GEMINI,
     FAMILY_OPENCODE,
     ROLE_IMPLEMENTER,
@@ -23,7 +22,7 @@ class TestPhase3Config:
     def test_phase3_config_has_three_model_channels(self):
         config = FactoryConfig.phase3()
         model_channels = set(rc.channel for rc in config.roles if rc.channel != "code")
-        assert model_channels == {CHANNEL_CLAUDE_CODE, CHANNEL_OPENCODE}
+        assert model_channels == {CHANNEL_OPENCODE}
 
     def test_phase3_config_workflow_version(self):
         config = FactoryConfig.phase3()
@@ -31,13 +30,16 @@ class TestPhase3Config:
 
     def test_phase3_role_channel_binding(self):
         config = FactoryConfig.phase3()
-        assert config.get_role_config(ROLE_INTERFACE_ARCHITECT).channel == CHANNEL_CLAUDE_CODE
+        assert config.get_role_config(ROLE_INTERFACE_ARCHITECT).channel == CHANNEL_OPENCODE
         assert config.get_role_config(ROLE_TEST_AUTHOR).channel == CHANNEL_OPENCODE
         assert config.get_role_config(ROLE_IMPLEMENTER).channel == CHANNEL_OPENCODE
         assert config.get_role_config(ROLE_MECHANICAL_GATE).channel == "code"
 
     def test_phase3_model_assignment(self):
         config = FactoryConfig.phase3()
+        interface_architect = config.get_role_config(ROLE_INTERFACE_ARCHITECT)
+        assert interface_architect.model is not None
+        assert "deepseek" in interface_architect.model
         test_author = config.get_role_config(ROLE_TEST_AUTHOR)
         assert test_author.model is not None
         assert "fireworks" in test_author.model
@@ -47,7 +49,7 @@ class TestPhase3Config:
 
     def test_phase3_family_derivation(self):
         config = FactoryConfig.phase3()
-        assert config.get_role_config(ROLE_INTERFACE_ARCHITECT).family == FAMILY_ANTHROPIC
+        assert config.get_role_config(ROLE_INTERFACE_ARCHITECT).family == FAMILY_OPENCODE
         assert config.get_role_config(ROLE_TEST_AUTHOR).family == FAMILY_OPENCODE
         assert config.get_role_config(ROLE_IMPLEMENTER).family == FAMILY_OPENCODE
 
@@ -62,8 +64,7 @@ class TestCreateChannels:
     def test_multi_channel_creates_dict(self):
         config = FactoryConfig.phase3()
         channels = _create_channels(config)
-        assert len(channels) == 2
-        assert CHANNEL_CLAUDE_CODE in channels
+        assert len(channels) == 1
         assert CHANNEL_OPENCODE in channels
 
     def test_unknown_channel_raises(self):
@@ -149,16 +150,15 @@ class TestChannelForRole:
             def family(self):
                 return self._family
 
-        claude_ch = FakeChannel(CHANNEL_CLAUDE_CODE, FAMILY_ANTHROPIC)
         opencode_ch = FakeChannel(CHANNEL_OPENCODE, FAMILY_OPENCODE)
         sub_mock = object()
         config = FactoryConfig.phase3()
         runtime = PipelineRuntime(
             sub=sub_mock,
             config=config,
-            channels={CHANNEL_CLAUDE_CODE: claude_ch, CHANNEL_OPENCODE: opencode_ch},
+            channels={CHANNEL_OPENCODE: opencode_ch},
         )
-        assert runtime.channel_for_role(ROLE_INTERFACE_ARCHITECT) is claude_ch
+        assert runtime.channel_for_role(ROLE_INTERFACE_ARCHITECT) is opencode_ch
         assert runtime.channel_for_role(ROLE_TEST_AUTHOR) is opencode_ch
         assert runtime.channel_for_role(ROLE_IMPLEMENTER) is opencode_ch
 

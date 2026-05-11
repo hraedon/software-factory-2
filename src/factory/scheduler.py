@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import time
-import uuid as _uuid
 
 import structlog
 
@@ -10,13 +9,9 @@ from factory.constants import (
     ACTOR_KIND_AGENT,
     CUSTOM_FIELD_AC_IDS,
     CUSTOM_FIELD_DEPENDENCY_REFS,
-    CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_SPEC_SECTION,
-    CUSTOM_FIELD_TEST_SUITE_REF,
     LINK_TYPE_IMPLEMENTS,
     STATE_LOCKED,
-    WORK_ITEM_TYPE_IMPLEMENTATION,
-    WORK_ITEM_TYPE_TEST_SUITE,
 )
 from factory.runtime import PipelineRuntime
 
@@ -85,8 +80,8 @@ def _ensure_downstream_item(
         )
         return
     additional_links = handoff.additional_links
+    ref_field = handoff.ref_field
 
-    ref_field = _ref_field_for(next_type)
     if ref_field:
         existing = sub.query_work_items(
             workflow_name=config.workflow_name,
@@ -100,14 +95,14 @@ def _ensure_downstream_item(
                 return
 
     custom = source_wi.custom_fields or {}
-    ref_field = _ref_field_for(next_type)
     extra: dict = {}
     if ref_field:
         extra[ref_field] = str(source_wi.work_item_id)
-    if next_type == "implementation":
-        iface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
-        if iface_ref:
-            extra[CUSTOM_FIELD_INTERFACE_REF] = iface_ref
+
+    for field_name in handoff.propagate_fields:
+        field_val = custom.get(field_name)
+        if field_val:
+            extra[field_name] = field_val
 
     dep_refs = custom.get(CUSTOM_FIELD_DEPENDENCY_REFS) or []
     if isinstance(dep_refs, str):
@@ -142,8 +137,11 @@ def _ensure_downstream_item(
 
     for extra_link_type in additional_links:
         if extra_link_type == LINK_TYPE_IMPLEMENTS:
-            interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
+            pf = handoff.propagate_fields
+            interface_ref = custom.get(pf[0]) if pf else None
             if interface_ref:
+                import uuid as _uuid
+
                 sub.create_link(
                     from_work_item_id=downstream.work_item_id,
                     to_work_item_id=_uuid.UUID(interface_ref),
@@ -161,15 +159,9 @@ def _ensure_downstream_item(
     )
 
 
-def _ref_field_for(next_type: str) -> str | None:
-    if next_type == WORK_ITEM_TYPE_TEST_SUITE:
-        return CUSTOM_FIELD_INTERFACE_REF
-    if next_type == WORK_ITEM_TYPE_IMPLEMENTATION:
-        return CUSTOM_FIELD_TEST_SUITE_REF
-    return None
-
-
 def _all_dep_specs_locked(sub, dep_refs: list[str]) -> bool:
+    import uuid as _uuid
+
     for ref in dep_refs:
         try:
             dep_wi = sub.get_work_item(_uuid.UUID(ref))

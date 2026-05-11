@@ -4,6 +4,8 @@ from pathlib import Path
 
 from factory.config import FactoryConfig, StageHandoff
 from factory.constants import (
+    CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_TEST_SUITE_REF,
     LINK_TYPE_DERIVED_FROM,
     LINK_TYPE_IMPLEMENTS,
     LINK_TYPE_TESTED_BY,
@@ -71,6 +73,7 @@ class TestSchedulerIdempotency:
             source_state=STATE_LOCKED,
             target_type=WORK_ITEM_TYPE_TEST_SUITE,
             link_type=LINK_TYPE_DERIVED_FROM,
+            ref_field=CUSTOM_FIELD_INTERFACE_REF,
         )
 
         sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
@@ -115,6 +118,7 @@ class TestSchedulerIdempotency:
             source_state=STATE_LOCKED,
             target_type=WORK_ITEM_TYPE_TEST_SUITE,
             link_type=LINK_TYPE_DERIVED_FROM,
+            ref_field=CUSTOM_FIELD_INTERFACE_REF,
         )
 
         sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
@@ -152,6 +156,7 @@ class TestSchedulerIdempotency:
             source_state=STATE_LOCKED,
             target_type=WORK_ITEM_TYPE_TEST_SUITE,
             link_type=LINK_TYPE_DERIVED_FROM,
+            ref_field=CUSTOM_FIELD_INTERFACE_REF,
         )
         _ensure_downstream_item(sched_runtime, iface, iface_handoff)
 
@@ -167,6 +172,8 @@ class TestSchedulerIdempotency:
             target_type=WORK_ITEM_TYPE_IMPLEMENTATION,
             link_type=LINK_TYPE_TESTED_BY,
             additional_links=(LINK_TYPE_IMPLEMENTS,),
+            ref_field=CUSTOM_FIELD_TEST_SUITE_REF,
+            propagate_fields=(CUSTOM_FIELD_INTERFACE_REF,),
         )
         _ensure_downstream_item(sched_runtime, ts_wi, impl_handoff)
 
@@ -213,6 +220,7 @@ class TestSchedulerIdempotency:
             source_state=STATE_LOCKED,
             target_type=WORK_ITEM_TYPE_TEST_SUITE,
             link_type=LINK_TYPE_DERIVED_FROM,
+            ref_field=CUSTOM_FIELD_INTERFACE_REF,
         )
         sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
         _ensure_downstream_item(sched_runtime, dep, handoff)
@@ -255,6 +263,7 @@ class TestSchedulerIdempotency:
             source_state=STATE_LOCKED,
             target_type=WORK_ITEM_TYPE_TEST_SUITE,
             link_type=LINK_TYPE_DERIVED_FROM,
+            ref_field=CUSTOM_FIELD_INTERFACE_REF,
         )
         sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
         _ensure_downstream_item(sched_runtime, iface, handoff)

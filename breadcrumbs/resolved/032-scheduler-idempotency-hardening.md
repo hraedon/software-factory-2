@@ -2,7 +2,7 @@
 number: "032"
 title: "Scheduler O(n) idempotency and hardcoded dispatch need hardening"
 severity: medium
-status: proposed
+status: implemented
 kind: improvement
 author: opencode
 date: "2026-05-07"

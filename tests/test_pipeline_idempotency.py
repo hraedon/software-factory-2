@@ -5,6 +5,8 @@ from pathlib import Path
 from factory.channel import InvocationResult
 from factory.config import FactoryConfig, StageHandoff
 from factory.constants import (
+    CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_TEST_SUITE_REF,
     LINK_TYPE_DERIVED_FROM,
     LINK_TYPE_TESTED_BY,
     WORK_ITEM_TYPE_IMPLEMENTATION,
@@ -28,6 +30,7 @@ _IFACE_TO_TEST_SUITE = StageHandoff(
     source_state="locked",
     target_type=WORK_ITEM_TYPE_TEST_SUITE,
     link_type=LINK_TYPE_DERIVED_FROM,
+    ref_field=CUSTOM_FIELD_INTERFACE_REF,
 )
 
 _TEST_SUITE_TO_IMPL = StageHandoff(
@@ -36,6 +39,8 @@ _TEST_SUITE_TO_IMPL = StageHandoff(
     target_type=WORK_ITEM_TYPE_IMPLEMENTATION,
     link_type=LINK_TYPE_TESTED_BY,
     additional_links=("implements",),
+    ref_field=CUSTOM_FIELD_TEST_SUITE_REF,
+    propagate_fields=(CUSTOM_FIELD_INTERFACE_REF,),
 )
 
 
