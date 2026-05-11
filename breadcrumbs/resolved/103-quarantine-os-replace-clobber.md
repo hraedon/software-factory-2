@@ -6,7 +6,7 @@ description: >
   silently overwrites the destination quarantine directory, losing the prior
   corrupted attempt.
 severity: low
-status: proposed
+status: resolved
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -21,3 +21,7 @@ destination name, or check existence and append a counter.
 ## Affected file
 
 - `src/factory/workspace.py`
+
+## Resolution
+
+Added subsecond timestamp and collision counter to `quarantine_attempt` destination path, preventing silent overwrite of existing quarantine directories.

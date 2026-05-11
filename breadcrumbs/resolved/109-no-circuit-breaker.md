@@ -7,7 +7,7 @@ description: >
   default), claiming work items and immediately failing them. This wastes substrate
   claims and pollutes the event log with identical channel_fail transitions.
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -23,3 +23,7 @@ Reset counter on a successful submit.
 ## Affected file
 
 - `src/factory/runner.py`
+
+## Resolution
+
+Added per-channel consecutive failure tracking with exponential backoff (base 30s, max 300s); counter resets on successful submit.

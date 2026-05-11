@@ -25,6 +25,10 @@ def ensure_project_venv(project_dir: Path) -> Path:
 
     If no ``requirements.txt`` exists, returns ``sys.executable``.
 
+    Gate tooling (pytest, mypy, ruff) is installed into a separate
+    ``<project_dir>/.venv-gate`` to avoid dependency conflicts with project
+    requirements.
+
     Uses ``uv`` when available, otherwise falls back to the standard-library
     ``venv`` + ``pip``.
     """
@@ -39,19 +43,18 @@ def ensure_project_venv(project_dir: Path) -> Path:
     if venv_dir.exists() and deps_hash_path.exists():
         stored_hash = deps_hash_path.read_text().strip()
         if stored_hash == current_hash:
+            _clean_stale_project_venv(venv_dir)
+            _ensure_gate_venv(project_dir)
             return venv_dir / "bin" / "python"
 
-    # Determine tooling
     has_uv = _which("uv") is not None
     python = sys.executable
 
-    # Remove stale venv so recreation succeeds
     if venv_dir.exists():
         import shutil
 
         shutil.rmtree(venv_dir)
 
-    # Create venv
     if has_uv:
         subprocess.run(
             ["uv", "venv", str(venv_dir)],
@@ -67,23 +70,86 @@ def ensure_project_venv(project_dir: Path) -> Path:
 
     venv_python = venv_dir / "bin" / "python"
 
-    # Install requirements + gate tooling
-    packages = ["pytest", "mypy", "ruff"]
     if requirements.exists() and requirements.stat().st_size > 0:
-        packages.append(f"-r{requirements}")
+        if has_uv:
+            subprocess.run(
+                ["uv", "pip", "install", "--python", str(venv_python), f"-r{requirements}"],
+                capture_output=True,
+                check=True,
+            )
+        else:
+            subprocess.run(
+                [str(venv_python), "-m", "pip", "install", f"-r{requirements}"],
+                capture_output=True,
+                check=True,
+            )
+
+    deps_hash_path.write_text(current_hash)
+    _ensure_gate_venv(project_dir)
+    return venv_python
+
+
+_GATE_TOOLS = ["pytest", "mypy", "ruff"]
+_GATE_TOOLS_HASH_INPUT = ",".join(_GATE_TOOLS) + "\n"
+
+
+def _gate_tools_hash() -> str:
+    return hashlib.sha256(_GATE_TOOLS_HASH_INPUT.encode()).hexdigest()
+
+
+def _clean_stale_project_venv(venv_dir: Path) -> None:
+    marker = venv_dir / ".gate_tools_removed"
+    if marker.exists():
+        return
+    for tool in _GATE_TOOLS:
+        for suffix in (".dist-info", ".egg-info"):
+            for child in venv_dir.glob(f"lib/python*/site-packages/{tool}*{suffix}"):
+                shutil.rmtree(child, ignore_errors=True)
+    marker.write_text("gate tools moved to .venv-gate")
+
+
+def _ensure_gate_venv(project_dir: Path) -> Path:
+    gate_venv_dir = project_dir / ".venv-gate"
+    gate_hash_path = gate_venv_dir / ".gate_hash"
+    current_gate_hash = _gate_tools_hash()
+
+    if gate_venv_dir.exists() and gate_hash_path.exists():
+        stored = gate_hash_path.read_text().strip()
+        if stored == current_gate_hash:
+            return gate_venv_dir / "bin" / "python"
+
+    has_uv = _which("uv") is not None
+    python = sys.executable
+
+    if gate_venv_dir.exists():
+        shutil.rmtree(gate_venv_dir)
 
     if has_uv:
         subprocess.run(
-            ["uv", "pip", "install", "--python", str(venv_python), *packages],
+            ["uv", "venv", str(gate_venv_dir)],
             capture_output=True,
             check=True,
         )
     else:
         subprocess.run(
-            [str(venv_python), "-m", "pip", "install", *packages],
+            [python, "-m", "venv", str(gate_venv_dir)],
             capture_output=True,
             check=True,
         )
 
-    deps_hash_path.write_text(current_hash)
-    return venv_python
+    gate_python = gate_venv_dir / "bin" / "python"
+    if has_uv:
+        subprocess.run(
+            ["uv", "pip", "install", "--python", str(gate_python), *_GATE_TOOLS],
+            capture_output=True,
+            check=True,
+        )
+    else:
+        subprocess.run(
+            [str(gate_python), "-m", "pip", "install", *_GATE_TOOLS],
+            capture_output=True,
+            check=True,
+        )
+
+    gate_hash_path.write_text(current_gate_hash)
+    return gate_python

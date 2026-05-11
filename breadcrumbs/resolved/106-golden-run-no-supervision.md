@@ -6,7 +6,7 @@ description: >
   runner dies early, gate and scheduler continue burning claims and model budget
   pointlessly. There is no health check, restart, or pipeline-failure stop.
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -22,3 +22,7 @@ migrate to a process manager (systemd, supervisord) for production runs.
 ## Affected file
 
 - `Makefile`
+
+## Resolution
+
+Created `scripts/golden_run_nanny.py` that launches all three processes, polls PIDs, and terminates remaining processes if any exits non-zero. `make golden-run` now uses nanny instead of raw `&`/`wait`.

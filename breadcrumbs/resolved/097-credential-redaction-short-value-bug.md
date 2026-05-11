@@ -7,7 +7,7 @@ description: >
   is redacted to "ab********" instead of a uniform mask. For len == 4, visible=0,
   which is inconsistent with the min(4, ...) intent.
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -22,3 +22,7 @@ for any value >= 8 bytes, otherwise mask the entire string.
 ## Affected file
 
 - `src/factory/credentials.py`
+
+## Resolution
+
+Clamped `visible` to `max(0, ...)` in `redact_value`; short values are now fully redacted instead of producing negative-length slices.

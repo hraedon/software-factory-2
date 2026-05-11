@@ -6,7 +6,7 @@ description: >
   a truncated or syntactically invalid object, which then fails json.loads and
   falls through. In the worst case it may match a large nested object incorrectly.
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -21,3 +21,7 @@ small windows. Consider using `json.JSONDecoder.raw_decode` with index tracking.
 ## Affected file
 
 - `src/factory/output_extraction.py`
+
+## Resolution
+
+Replaced greedy regex with `json.JSONDecoder.raw_decode` scanning; handles nested braces correctly by parsing actual JSON structure.

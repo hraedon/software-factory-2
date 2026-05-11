@@ -7,7 +7,7 @@ description: >
   point at any filesystem path (e.g., /home/user/projects), causing destructive data
   loss.
 severity: high
-status: proposed
+status: resolved
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -26,3 +26,7 @@ known factory tree or containing .. segments. Options:
 ## Affected file
 
 - `populate_work_items.py`
+
+## Resolution
+
+Added `_validate_workspace_root_for_reset` guard in `populate_work_items.py` that refuses paths outside `/tmp`, `/var/tmp`, or project root, and rejects paths containing `..`.

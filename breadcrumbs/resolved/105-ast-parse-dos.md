@@ -7,7 +7,7 @@ description: >
   with the lack of artifact size limits (BC-095, BC-104), this is a direct DoS
   vector against the gate process.
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -25,3 +25,7 @@ with a capped input size.
 
 - `src/factory/gate.py`
 - `src/factory/pre_gate.py`
+
+## Resolution
+
+Closed as subsumed by BC-104; the size guard (`_guard_artifact_size`) is the primary defense. Oversized artifacts are rejected before reaching `ast.parse`.

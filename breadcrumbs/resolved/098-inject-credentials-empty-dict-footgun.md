@@ -6,7 +6,7 @@ description: >
   `dict(env or os.environ)` means passing `{}` copies the entire parent environment.
   This is harmless today (callers pass None) but is a latent API footgun.
 severity: low
-status: proposed
+status: resolved
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -21,3 +21,7 @@ otherwise merge into the provided dict without falling back to os.environ.
 ## Affected file
 
 - `src/factory/credentials.py`
+
+## Resolution
+
+Changed default env handling: `dict(env)` only when env is explicitly provided; passing an empty dict `{}` no longer copies `os.environ` — it remains an empty dict with injected credentials.

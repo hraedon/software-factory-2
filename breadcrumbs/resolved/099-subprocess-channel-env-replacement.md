@@ -8,7 +8,7 @@ description: >
   document this contract. A future adapter passing a partial dict silently breaks
   PATH and other required env vars.
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -25,3 +25,7 @@ environment, not a replacement. In SubprocessChannel, merge explicitly:
 
 - `src/factory/subprocess_channel.py`
 - `src/factory/channel.py` (protocol docstring)
+
+## Resolution
+
+`SubprocessChannel.invoke` now merges `extra_env` into `os.environ` explicitly via `{**os.environ, **(extra_env or {})}`, ensuring PATH and other required env vars are always present.

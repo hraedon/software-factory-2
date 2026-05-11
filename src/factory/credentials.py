@@ -38,7 +38,10 @@ def get_provider_credential(
 def inject_credentials_into_env(
     credentials: dict[str, dict[str, str]], provider: str, env: dict[str, str] | None = None
 ) -> dict[str, str]:
-    merged = dict(env or os.environ)
+    if env is not None:
+        merged = dict(env)
+    else:
+        merged = dict(os.environ)
     provider_creds = credentials.get(provider)
     if not provider_creds:
         return merged
@@ -55,7 +58,7 @@ CREDENTIAL_KEY_PREFIXES = ("fk-", "zai-", "sk-", "gsk-", "pk-", "AIza")
 def redact_value(value: str) -> str:
     for prefix in CREDENTIAL_KEY_PREFIXES:
         if value.startswith(prefix):
-            visible = min(4, len(value) - 4)
+            visible = max(0, min(4, len(value) - 4))
             return f"{value[:visible]}{'*' * 8}"
     if len(value) > 8:
         return f"{value[:4]}{'*' * 8}"

@@ -63,6 +63,15 @@ def test_c():
     assert "zero assertions" in result.diagnostics[0].lower()
 
 
+def test_syntax_error_fails_not_passes(tmp_path: Path) -> None:
+    content = "def test_broken(:\n    pass\n"
+    path = tmp_path / "test_syntax_error.py"
+    path.write_text(content)
+    result = evaluate_test_suite(path)
+    assert not result.passed
+    assert "syntax" in result.diagnostic_kind.lower() or result.gate_name == "test_suite_assertions"
+
+
 def test_no_test_functions_skips_assertion_check(tmp_path: Path) -> None:
     content = """
 def helper():

@@ -6,7 +6,7 @@ description: >
   _create_channels only knows Claude, OpenCode, and Gemini. If a config ever
   references a DeepSeek channel name directly, it raises ValueError.
 severity: medium
-status: proposed
+status: implemented
 kind: improvement
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -23,3 +23,7 @@ FAMILY_OLLAMA from constants if it is dead code.
 
 - `src/factory/constants.py`
 - `src/factory/runner.py` — `_create_channels`
+
+## Resolution
+
+Removed `FAMILY_OLLAMA` dead code from constants; DeepSeek is documented as accessible only via the opencode channel, not as a standalone adapter.

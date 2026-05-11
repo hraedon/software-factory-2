@@ -83,16 +83,26 @@ def _ensure_downstream_item(
     ref_field = handoff.ref_field
 
     if ref_field:
-        existing = sub.query_work_items(
-            workflow_name=config.workflow_name,
-            workflow_version=config.workflow_version,
-            work_item_types=[next_type],
-            page_size=config.query_page_size,
-        )
-        for item in existing.items:
-            item_ref = (item.custom_fields or {}).get(ref_field)
-            if item_ref and str(item_ref) == str(source_wi.work_item_id):
+        found = False
+        cursor = None
+        while not found:
+            page = sub.query_work_items(
+                workflow_name=config.workflow_name,
+                workflow_version=config.workflow_version,
+                work_item_types=[next_type],
+                page_size=config.query_page_size,
+                cursor=cursor,
+            )
+            for item in page.items:
+                item_ref = (item.custom_fields or {}).get(ref_field)
+                if item_ref and str(item_ref) == str(source_wi.work_item_id):
+                    found = True
+                    break
+            if found:
                 return
+            if not page.has_more:
+                break
+            cursor = page.cursor
 
     custom = source_wi.custom_fields or {}
     extra: dict = {}

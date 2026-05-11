@@ -7,7 +7,7 @@ description: >
   fails and the runner retries, the model receives a modified file in its retry
   prompt context.
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -23,3 +23,7 @@ pytest; ruff should follow the same pattern.
 ## Affected file
 
 - `src/factory/pre_gate.py`
+
+## Resolution
+
+Both `_run_ruff` (gate.py) and `_run_ruff_fast` (pre_gate.py) now copy the artifact to a tempdir before running `ruff --fix`, leaving the original untouched.

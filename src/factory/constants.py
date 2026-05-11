@@ -20,7 +20,6 @@ FAMILY_CODE = "code"
 FAMILY_GEMINI = "google"
 FAMILY_ZAI = "zai"
 FAMILY_FIREWORKS = "fireworks"
-FAMILY_OLLAMA = "ollama"
 
 STATE_NEW = "new"
 STATE_IN_PROGRESS = "in_progress"
@@ -103,7 +102,6 @@ GATE_NAME_UNKNOWN = "unknown"
 
 FAMILY_BY_PROVIDER = {
     "zai-coding-plan": FAMILY_ZAI,
-    "ollama-cloud": FAMILY_OLLAMA,
     "fireworks-ai": FAMILY_FIREWORKS,
     "opencode": "opencode-free",
     "mac-studio-lms": "local-lms",

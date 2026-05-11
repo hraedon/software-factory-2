@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 from pathlib import Path
 from typing import ClassVar
@@ -63,7 +64,7 @@ class SubprocessChannel:
         cmd = self._build_cmd(role_config)
         if role_config and role_config.model:
             cmd.extend(["--model", role_config.model])
-        env_override = extra_env
+        env_override = {**os.environ, **(extra_env or {})} if extra_env is not None else None
         try:
             result = subprocess.run(
                 cmd,

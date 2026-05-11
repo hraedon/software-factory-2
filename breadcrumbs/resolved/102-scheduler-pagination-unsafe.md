@@ -7,7 +7,7 @@ description: >
   a skipped page, causing duplicate downstream items. This was acknowledged in BC-032
   as "accepted for Phase 3" but remains a live correctness risk at scale.
 severity: high
-status: proposed
+status: resolved
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -24,3 +24,7 @@ related: ["032", "026"]
 ## Affected file
 
 - `src/factory/scheduler.py`
+
+## Resolution
+
+Added pagination loop with `has_more` cursor in `_ensure_downstream_item`, iterating through all pages before concluding no existing item exists.

@@ -113,9 +113,17 @@ def quarantine_attempt(attempt_path: Path) -> Path:
     parent = attempt_path.parent
     corrupt_dir = parent / CORRUPT_DIR_NAME
     corrupt_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S-%f")
     attempt_name = attempt_path.name
     dest = corrupt_dir / f"{attempt_name}-{timestamp}"
+    if dest.exists():
+        counter = 1
+        while True:
+            alt = corrupt_dir / f"{attempt_name}-{timestamp}-{counter}"
+            if not alt.exists():
+                dest = alt
+                break
+            counter += 1
     os.replace(attempt_path, dest)
     return dest
 

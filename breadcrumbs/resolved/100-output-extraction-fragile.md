@@ -8,7 +8,7 @@ description: >
   words. There is no size limit, so a 10 MB explanation before code causes a full
   regex scan.
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -24,3 +24,7 @@ tags: [channel, output-extraction, robustness]
 ## Affected file
 
 - `src/factory/output_extraction.py`
+
+## Resolution
+
+Updated `extract_artifact_from_output` to prefer the last `python` block, then last any-language block, with fallback heuristic limited to 200 lines.

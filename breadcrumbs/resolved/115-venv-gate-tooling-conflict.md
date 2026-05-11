@@ -6,7 +6,7 @@ description: >
   requirements.txt pins conflicting versions, the install may fail or produce an
   inconsistent environment.
 severity: low
-status: proposed
+status: resolved
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -21,3 +21,7 @@ that python executable for gates, while the project venv remains pure.
 ## Affected file
 
 - `src/factory/venv.py`
+
+## Resolution
+
+Gate tooling (pytest, mypy, ruff) now installed in a separate `.venv-gate` directory, keeping the project venv pure and avoiding dependency conflicts.

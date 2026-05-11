@@ -43,6 +43,15 @@ class DepArtifact:
     is_stub_only: bool
 
 
+def _safe_artifact_path(raw: str | None) -> Path | None:
+    if not raw:
+        return None
+    p = Path(raw)
+    if ".." in p.parts:
+        return None
+    return p
+
+
 def resolve_dep_artifacts(
     substrate: Substrate,
     dep_refs: list[str],
@@ -57,11 +66,8 @@ def resolve_dep_artifacts(
         if not module_name:
             dep_spec = dep_wi.custom_fields.get(CUSTOM_FIELD_SPEC_SECTION, "")
             module_name = _extract_module_name_from_spec(dep_spec) if dep_spec else None
-        spec_path_str = dep_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
-        if not spec_path_str:
-            continue
-        spec_path = Path(spec_path_str)
-        if not spec_path.exists():
+        spec_path = _safe_artifact_path(dep_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH))
+        if spec_path is None or not spec_path.exists():
             continue
         if module_name is None:
             module_name = spec_path.stem
@@ -72,12 +78,10 @@ def resolve_dep_artifacts(
         if dep_wi.work_item_type == WORK_ITEM_TYPE_INTERFACE_SPEC:
             impl_wi = _find_locked_impl(substrate, str(ref_uuid))
             if impl_wi and impl_wi.custom_fields:
-                impl_path_str = impl_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
-                if impl_path_str:
-                    p = Path(impl_path_str)
-                    if p.exists():
-                        impl_path = p
-                        is_stub_only = False
+                raw_impl = impl_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
+                impl_path = _safe_artifact_path(raw_impl)
+                if impl_path and impl_path.exists():
+                    is_stub_only = False
         elif dep_wi.work_item_type == WORK_ITEM_TYPE_IMPLEMENTATION:
             if dep_wi.current_state == STATE_LOCKED:
                 is_stub_only = False

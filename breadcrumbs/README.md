@@ -45,29 +45,12 @@ Reusable tags:
 | # | Title | Severity | Status |
 |---|---|---|---|
 | 078 | Benchmark scope systematically excludes cross-module dependencies — Phase 2 exit criteria measured on easy case | high | proposed |
-| 081 | No criteria test for cert-watch full DAG — structural gap in regression detection for multi-module pipelines | medium | implemented |
 | 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | proposed |
-| 096 | populate_work_items --reset permits arbitrary directory deletion | high | proposed |
-| 102 | Scheduler idempotency is pagination-unsafe O(N) | high | proposed |
 | 107 | Phase 3 GR-015 uses unvalidated channel adapters | high | proposed |
-| 097 | credentials.py redaction logic is buggy for short values | medium | proposed |
-| 099 | SubprocessChannel.invoke replaces entire child environment | medium | proposed |
-| 100 | Output extraction regex is fragile and easily gamed | medium | proposed |
-| 101 | JSON extraction regex matches invalid nested braces | medium | proposed |
-| 104 | Gate layer reads artifacts without size limits | medium | proposed |
-| 105 | ast.parse on arbitrary user code is a DoS vector | medium | proposed |
-| 106 | make golden-run lacks process supervision | medium | proposed |
 | 108 | GeminiCLIChannel exists but is essentially untested in production | medium | proposed |
-| 109 | No circuit breaker or backoff for failing channels | medium | proposed |
-| 110 | Missing adversarial/fuzz tests for channel output parsing | medium | proposed |
-| 111 | No path traversal tests for custom_fields | medium | proposed |
-| 112 | Missing DeepSeek standalone channel adapter | medium | proposed |
-| 114 | pre_gate _run_ruff_fast mutates artifact file in-place | medium | proposed |
-| 116 | _check_assertion_count returns passed=True on SyntaxError | medium | proposed |
-| 098 | inject_credentials_into_env copies full os.environ when passed empty dict | low | proposed |
-| 103 | quarantine_attempt uses os.replace which can clobber | low | proposed |
-| 113 | _resolve_extra_env uses unnecessary hasattr | low | proposed |
-| 115 | ensure_project_venv installs gate tooling into project venv | low | proposed |
+| 117 | Scheduler pagination has no integration test — requires >100 same-type work items to exercise | medium | proposed |
+| 118 | golden_run_nanny.py lacks overall timeout and progress reporting | low | proposed |
+| 119 | Venv gate tool hash won't detect version changes — only covers tool name list | low | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -91,6 +74,25 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 116 | _check_assertion_count returns passed=True on SyntaxError | medium | Changed SyntaxError handler to return passed=False with diagnostic_kind="syntax" |
+| 115 | ensure_project_venv installs gate tooling into project venv | low | Gate tooling (pytest, mypy, ruff) now installed into separate .venv-gate; project venv stays pure |
+| 114 | pre_gate _run_ruff_fast mutates artifact file in-place | medium | Both _run_ruff (gate.py) and _run_ruff_fast (pre_gate.py) now copy artifact to tempdir before ruff --fix |
+| 113 | _resolve_extra_env uses unnecessary hasattr | low | Removed hasattr guard; config.credentials_path is a declared dataclass field |
+| 112 | Missing DeepSeek standalone channel adapter | medium | Removed FAMILY_OLLAMA dead code from constants; DeepSeek accessible only via opencode channel |
+| 111 | No path traversal tests for custom_fields | medium | Added _safe_artifact_path rejecting '..' paths; added test_path_traversal.py |
+| 110 | Missing adversarial/fuzz tests for channel output parsing | medium | Added test_output_extraction_adversarial.py with adversarial parsing tests |
+| 109 | No circuit breaker or backoff for failing channels | medium | Added per-channel consecutive failure tracking with exponential backoff (base 30s, max 300s) in runner.py |
+| 106 | make golden-run lacks process supervision | medium | Created scripts/golden_run_nanny.py; make golden-run uses nanny instead of raw &/wait |
+| 105 | ast.parse on arbitrary user code is a DoS vector | medium | Closed as subsumed by BC-104; size guard is primary defense |
+| 104 | Gate layer reads artifacts without size limits | medium | Added GATE_MAX_ARTIFACT_SIZE_BYTES and _guard_artifact_size to all evaluate_* entry points |
+| 103 | quarantine_attempt uses os.replace which can clobber | low | Added subsecond timestamp and collision counter to quarantine_attempt destination |
+| 102 | Scheduler idempotency is pagination-unsafe O(N) | high | Added pagination loop with has_more/next_cursor in _ensure_downstream_item |
+| 101 | JSON extraction regex matches invalid nested braces | medium | Replaced greedy regex with json.JSONDecoder.raw_decode scanning; handles nested braces correctly |
+| 100 | Output extraction regex is fragile and easily gamed | medium | Prefer last python block, then last any-language block; fallback heuristic limited to 200 lines |
+| 099 | SubprocessChannel.invoke replaces entire child environment | medium | SubprocessChannel.invoke now merges extra_env into os.environ explicitly |
+| 098 | inject_credentials_into_env copies full os.environ when passed empty dict | low | Changed default env handling: empty dict no longer copies os.environ; only None falls back to os.environ |
+| 097 | credentials.py redaction logic is buggy for short values | medium | Clamped visible to max(0, min(4, len(value)-4)); short values now fully redacted |
+| 096 | populate_work_items --reset permits arbitrary directory deletion | high | Added _validate_workspace_root_for_reset guard refusing paths outside /tmp, /var/tmp, or project root; rejects '..' segments |
 | 032 | Scheduler O(n) idempotency and hardcoded dispatch need hardening | medium | Added `ref_field` and `propagate_fields` to `StageHandoff`; removed `_ref_field_for` hardcoded if/elif; scheduler derives ref fields from `stage_topology`; removed `if next_type == "implementation"` hardcoded type check; O(n) idempotency accepted for Phase 3 single-runner mode |
 | 071 | sub.transition(custom_fields=...) merges into WorkItem but API surface implies per-event storage — telemetry footgun | low | Added `test_substrate_event_contract.py` asserting Event has no `custom_fields` attribute; prevents future consumers from assuming per-event storage (Option c) |
 | 081 | No criteria test for cert-watch full DAG — structural gap in regression detection for multi-module pipelines | medium | Created `test_gr015_criteria.py` with 7 skip-when-absent criteria tests for cert-watch full DAG golden run (interface_spec lock rate, no ModuleNotFoundError, cross-module imports, work item count, unknown gates, telemetry verify, multi-channel config) |

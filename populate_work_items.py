@@ -88,6 +88,26 @@ def _parse_dependency_refs(spec_text: str) -> list[str]:
     return deps
 
 
+_SAFE_RESET_PREFIXES = ("/tmp", "/var/tmp", "/private/tmp")
+
+
+def _validate_workspace_root_for_reset(ws: Path) -> None:
+    if ".." in str(ws):
+        raise ValueError(f"Workspace root contains '..' segments: {ws}")
+    safe = False
+    for prefix in _SAFE_RESET_PREFIXES:
+        if str(ws).startswith(prefix):
+            safe = True
+            break
+    if str(ws).startswith(str(ROOT_DIR)):
+        safe = True
+    if not safe:
+        raise ValueError(
+            f"Refusing to delete workspace root outside safe directories: {ws}. "
+            f"Allowed prefixes: {_SAFE_RESET_PREFIXES} or project root {ROOT_DIR}"
+        )
+
+
 def _to_uuid(value: str | _uuid.UUID) -> _uuid.UUID:
     if isinstance(value, _uuid.UUID):
         return value
@@ -110,8 +130,9 @@ def _open_or_create_project(
         except Exception:
             pass
         if workspace_root:
-            ws = Path(workspace_root)
+            ws = Path(workspace_root).resolve()
             if ws.exists():
+                _validate_workspace_root_for_reset(ws)
                 shutil.rmtree(ws, ignore_errors=True)
                 ws.mkdir(parents=True, exist_ok=True)
             print(f"Cleaned workspace '{workspace_root}'")

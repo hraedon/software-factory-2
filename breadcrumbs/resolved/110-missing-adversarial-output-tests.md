@@ -7,7 +7,7 @@ description: >
   block, JSON payload with nested braces confusing the regex, or
   cannot_proceed.json with malformed JSON.
 severity: medium
-status: proposed
+status: implemented
 kind: improvement
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -23,3 +23,7 @@ extract_json_from_output covering the adversarial cases listed above.
 
 - `tests/test_output_extraction.py` (new)
 - `src/factory/output_extraction.py`
+
+## Resolution
+
+Added `test_output_extraction_adversarial.py` with adversarial output parsing tests covering 0 bytes, invalid UTF-8, no backticks, massive prose before code, nested JSON, and malformed cannot_proceed.

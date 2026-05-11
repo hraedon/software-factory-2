@@ -2,7 +2,7 @@
 number: "081"
 title: "No criteria test for cert-watch full DAG — structural gap in regression detection for multi-module pipelines"
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: deepseek-v4-pro (adversarial review — Session 20)
 date: "2026-05-11"
@@ -40,3 +40,7 @@ There is a self-reinforcing gap:
 2. Define a `make golden-run-full-dag` target that runs the full fixture end-to-end and records artifacts.
 3. Wire the criteria test into `make check` with a skip-when-absent marker, so it gates CI when artifacts are available.
 4. Resolve BC-077 (topological ordering) first, as it is a prerequisite for the full DAG to run at all.
+
+## Resolution
+
+Created `test_gr015_criteria.py` covering the cert-watch full DAG fixture with criteria for interface spec lock rate, test suite lock rate, implementation lock rate, no ModuleNotFoundError, and telemetry verification.

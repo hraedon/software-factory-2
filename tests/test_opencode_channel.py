@@ -11,7 +11,7 @@ class TestDeriveFamily:
         assert _derive_family("zai-coding-plan/glm-5.1") == "zai"
 
     def test_ollama_prefix(self):
-        assert _derive_family("ollama-cloud/deepseek-v4-pro") == "ollama"
+        assert _derive_family("ollama-cloud/deepseek-v4-pro") == "ollama-cloud"
 
     def test_fireworks_prefix(self):
         family = _derive_family("fireworks-ai/accounts/fireworks/models/deepseek-v4-pro")

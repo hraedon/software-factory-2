@@ -4,6 +4,61 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-11 — Session 23: Close 20 breadcrumbs + 4 self-identified fixes
+
+**Invocation:** OpenCode (glm-5.1)
+
+**Focus:** Resolve all actionable breadcrumbs from adversarial review, then clean up self-identified gaps.
+
+### Breadcrumbs resolved (20)
+
+BC-081, 096–116: arbitrary directory deletion guard, credential redaction fix, env footgun fix, SubprocessChannel env merge, output extraction robustness, JSON extraction via raw_decode, scheduler pagination loop, quarantine collision safety, gate size limits, ast-parse DoS (subsumed by BC-104), golden-run nanny, circuit breaker backoff, adversarial output tests, path traversal guards, FAMILY_OLLAMA dead code removal, hasattr removal, ruff tempdir copy, venv gate isolation, SyntaxError in assertion count.
+
+### Self-identified fixes (4)
+
+1. Circuit breaker constants moved from module-level to `FactoryConfig.channel_backoff_base_seconds` / `.channel_backoff_max_attempts` (BC-056 convention).
+2. `GATE_MAX_ARTIFACT_SIZE_BYTES` consolidated into `MAX_ARTIFACT_SIZE_BYTES` — was a maintenance trap.
+3. `golden_run_nanny.py` — removed dead `for _, log_file_handle in []: pass`; added proper `log_files` tracking with `close()` in all exit paths.
+4. `venv.py` — `_gate_tools_hash()` uses stable input string; `_clean_stale_project_venv` removes gate tools from old project venvs with `.gate_tools_removed` marker.
+
+### Breadcrumbs opened (3)
+
+- BC-117: Scheduler pagination has no integration test (needs mocked paginated substrate)
+- BC-118: golden_run_nanny.py lacks timeout and progress reporting
+- BC-119: Venv gate tool hash won't detect version changes
+
+### Test results: 469 pass, 13 skip, 0 lint errors, 0 audit findings
+
+### Files created/modified
+
+- `src/factory/config.py` — added `channel_backoff_base_seconds`, `channel_backoff_max_attempts`
+- `src/factory/constants.py` — removed `GATE_MAX_ARTIFACT_SIZE_BYTES` and `FAMILY_OLLAMA`
+- `src/factory/credentials.py` — redaction clamp, env footgun fix
+- `src/factory/dep_resolution.py` — `_safe_artifact_path` path traversal guard
+- `src/factory/gate.py` — size guard, ruff tempdir, SyntaxError in assertion count, import consolidation
+- `src/factory/gate_process.py` — path traversal guard in `_resolve_ref_artifact`
+- `src/factory/output_extraction.py` — last-python-block preference, raw_decode JSON extraction
+- `src/factory/pre_gate.py` — ruff tempdir copy
+- `src/factory/runner.py` — circuit breaker with config values, hasattr removal
+- `src/factory/scheduler.py` — pagination loop using `page.has_more`/`page.cursor`
+- `src/factory/subprocess_channel.py` — explicit os.environ merge
+- `src/factory/venv.py` — gate venv isolation, stale project venv cleanup
+- `src/factory/workspace.py` — subsecond timestamp, collision counter
+- `populate_work_items.py` — `_validate_workspace_root_for_reset` guard
+- `scripts/golden_run_nanny.py` — new, replaces raw &/wait
+- `Makefile` — golden-run target uses nanny
+- `tests/test_credentials.py` — new, redaction + env footgun tests
+- `tests/test_output_extraction_adversarial.py` — new, adversarial parsing tests
+- `tests/test_path_traversal.py` — new, path traversal tests
+- `tests/test_populate_reset_guard.py` — new, reset guard tests
+- `tests/test_gate_assertion_count.py` — SyntaxError test added
+- `tests/test_opencode_channel.py` — ollama-cloud family updated
+- 20 breadcrumb files moved to `breadcrumbs/resolved/`
+- 3 new breadcrumb files opened
+- `breadcrumbs/README.md` — index updated
+
+---
+
 ## 2026-05-11 — Session 22: BC-084 resolved; GR-014 executed
 
 **Invocation:** OpenCode (glm-5.1)

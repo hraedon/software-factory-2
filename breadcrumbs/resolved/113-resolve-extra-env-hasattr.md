@@ -6,7 +6,7 @@ description: >
   the point of obscurity and suggests the field might not exist, which it always
   does.
 severity: low
-status: proposed
+status: implemented
 kind: improvement
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -21,3 +21,7 @@ with `config.credentials_path` directly.
 ## Affected file
 
 - `src/factory/runner.py`
+
+## Resolution
+
+Removed unnecessary `hasattr` guard; `config.credentials_path` is a declared dataclass field, so the attribute always exists. Changed to `config.credentials_path` directly.

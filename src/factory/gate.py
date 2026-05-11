@@ -31,6 +31,7 @@ from factory.constants import (
     GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
     GATE_NAME_TEST_SUITE_NOT_EMPTY,
     GATE_NAME_TEST_SUITE_SYNTAX,
+    MAX_ARTIFACT_SIZE_BYTES,
     TEMPFILE_PREFIX_COLLECT,
     TEMPFILE_PREFIX_MYPY,
     TEMPFILE_PREFIX_PYTEST,
@@ -48,7 +49,28 @@ class GateResult:
     skipped: bool = False
 
 
+def _guard_artifact_size(artifact_path: Path) -> GateResult | None:
+    try:
+        size = artifact_path.stat().st_size
+    except OSError:
+        return None
+    if size > MAX_ARTIFACT_SIZE_BYTES:
+        return GateResult(
+            passed=False,
+            gate_name="artifact_oversized",
+            diagnostics=[
+                f"Artifact size {size} bytes exceeds gate limit {MAX_ARTIFACT_SIZE_BYTES} bytes"
+            ],
+            artifact_valid=False,
+            diagnostic_kind="artifact_oversized",
+        )
+    return None
+
+
 def evaluate_interface_spec(artifact_path: Path, ac_ids: list[str] | None = None) -> GateResult:
+    size_guard = _guard_artifact_size(artifact_path)
+    if size_guard is not None:
+        return size_guard
     if not artifact_path.exists():
         return GateResult(
             passed=False,
@@ -205,6 +227,9 @@ def evaluate_test_suite(
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
+    size_guard = _guard_artifact_size(artifact_path)
+    if size_guard is not None:
+        return size_guard
     if not artifact_path.exists():
         return GateResult(
             passed=False,
@@ -285,8 +310,14 @@ def evaluate_test_suite(
 def _check_assertion_count(artifact_path: Path) -> GateResult:
     try:
         tree = ast.parse(artifact_path.read_text())
-    except SyntaxError:
-        return GateResult(passed=True, gate_name=GATE_NAME_TEST_SUITE_ASSERTIONS)
+    except SyntaxError as e:
+        return GateResult(
+            passed=False,
+            gate_name=GATE_NAME_TEST_SUITE_ASSERTIONS,
+            diagnostics=[f"SyntaxError at line {e.lineno}: {e.msg}"],
+            artifact_valid=False,
+            diagnostic_kind="syntax",
+        )
 
     test_functions: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
     for node in ast.walk(tree):
@@ -358,6 +389,9 @@ def evaluate_implementation(
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
 ) -> GateResult:
+    size_guard = _guard_artifact_size(artifact_path)
+    if size_guard is not None:
+        return size_guard
     if not artifact_path.exists():
         return GateResult(
             passed=False,
@@ -674,6 +708,8 @@ def _run_ruff(
     artifact_path: Path,
     python_executable: str | None = None,
 ) -> GateResult:
+    import tempfile
+
     ruff = shutil.which("ruff") or shutil.which("ruff", path=str(Path(sys.prefix) / "bin"))
     if ruff is None:
         return GateResult(
@@ -683,33 +719,36 @@ def _run_ruff(
             diagnostic_kind="tool_not_found",
         )
     try:
-        subprocess.run(
-            [ruff, "check", "--fix", str(artifact_path)],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        subprocess.run(
-            [ruff, "format", str(artifact_path)],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        result = subprocess.run(
-            [ruff, "check", str(artifact_path)],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode != 0:
-            lines = result.stdout.strip().splitlines()
-            diagnostics = lines[:10] if lines else ["ruff reported lint issues"]
-            return GateResult(
-                passed=False,
-                gate_name=GATE_NAME_IMPLEMENTATION_LINT,
-                diagnostics=diagnostics,
-                diagnostic_kind="impl_lint",
+        with tempfile.TemporaryDirectory(prefix="sf2_ruff_") as tmpdir:
+            tmp_copy = Path(tmpdir) / artifact_path.name
+            tmp_copy.write_text(artifact_path.read_text())
+            subprocess.run(
+                [ruff, "check", "--fix", str(tmp_copy)],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
+            subprocess.run(
+                [ruff, "format", str(tmp_copy)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            result = subprocess.run(
+                [ruff, "check", str(tmp_copy)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode != 0:
+                lines = result.stdout.strip().splitlines()
+                diagnostics = lines[:10] if lines else ["ruff reported lint issues"]
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_IMPLEMENTATION_LINT,
+                    diagnostics=diagnostics,
+                    diagnostic_kind="impl_lint",
+                )
     except subprocess.TimeoutExpired:
         return GateResult(
             passed=False,

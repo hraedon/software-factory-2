@@ -105,7 +105,10 @@ def _resolve_ref_artifact(sub: Substrate, ref: str) -> Path | None:
     if wi and wi.custom_fields:
         ref_path = wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
         if ref_path:
-            return Path(ref_path)
+            p = Path(ref_path)
+            if ".." in p.parts:
+                return None
+            return p
     return None
 
 

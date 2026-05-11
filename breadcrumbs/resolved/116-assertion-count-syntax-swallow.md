@@ -7,7 +7,7 @@ description: >
   is a defense-in-depth gap: a later mutation or a direct caller of
   _check_assertion_count would silently skip assertion validation on invalid code.
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -22,3 +22,7 @@ invalid-artifact result that upstream callers can map to a syntax gate failure.
 ## Affected file
 
 - `src/factory/gate.py`
+
+## Resolution
+
+`_check_assertion_count` now returns `passed=False` with `diagnostic_kind="syntax"` on `SyntaxError`, closing the defense-in-depth gap.

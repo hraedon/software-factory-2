@@ -120,7 +120,10 @@ def worker_loop(runtime: PipelineRuntime) -> None:
     for role_name in config.worker_roles:
         sub.register_actor_role(actor_id, role_name)
     poll_interval = config.poll_interval_seconds
+    max_attempts = config.channel_backoff_max_attempts
+    backoff_base = config.channel_backoff_base_seconds
     shutting_down = False
+    channel_consecutive_failures: dict[str, int] = {}
 
     def _handle_signal(signum, frame):
         nonlocal shutting_down
@@ -146,6 +149,19 @@ def worker_loop(runtime: PipelineRuntime) -> None:
             if role_name is None:
                 continue
             channel = runtime.channel_for_role(role_name)
+            backoff = channel_consecutive_failures.get(channel.name, 0)
+            if backoff >= max_attempts:
+                backoff_seconds = min(
+                    backoff_base * (2 ** (backoff - max_attempts)),
+                    300,
+                )
+                log.warning(
+                    "channel_backoff",
+                    channel=channel.name,
+                    consecutive_failures=backoff,
+                    backoff_seconds=backoff_seconds,
+                )
+                continue
             claim = sub.acquire_claim(wi.work_item_id, actor_id, config.claim_ttl_seconds)
             if claim.attempt_number >= config.attempt_threshold:
                 log.warning(
@@ -173,9 +189,12 @@ def worker_loop(runtime: PipelineRuntime) -> None:
             try:
                 process_work_item(runtime, wi, actor_id, claim, role_name)
                 claimed = True
+                channel_consecutive_failures.pop(channel.name, None)
             except Exception:
                 log.exception("process_error", work_item_id=str(wi.work_item_id))
                 sub.release_claim(wi.work_item_id, actor_id)
+                prev = channel_consecutive_failures.get(channel.name, 0)
+                channel_consecutive_failures[channel.name] = prev + 1
             break
         if not claimed and not shutting_down:
             time.sleep(poll_interval)
@@ -193,9 +212,7 @@ def _resolve_extra_env(config: FactoryConfig, role_name: str) -> dict[str, str] 
         return None
     from factory.credentials import inject_credentials_into_env, load_credentials
 
-    credentials = load_credentials(
-        config.credentials_path if hasattr(config, "credentials_path") else None
-    )
+    credentials = load_credentials(config.credentials_path)
     if not credentials:
         return None
     return inject_credentials_into_env(credentials, role_config.provider)

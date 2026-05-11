@@ -7,7 +7,7 @@ description: >
   artifact_path.read_bytes() / read_text() without any size check. An oversized
   artifact that reaches gating can still OOM the gate process.
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"
@@ -25,3 +25,7 @@ pre_gate function.
 
 - `src/factory/gate.py`
 - `src/factory/pre_gate.py`
+
+## Resolution
+
+Added `GATE_MAX_ARTIFACT_SIZE_BYTES` constant and `_guard_artifact_size` helper; called at the top of all `evaluate_*` entry points in gate.py and pre_gate.py.

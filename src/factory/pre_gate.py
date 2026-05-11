@@ -362,38 +362,43 @@ def _run_ruff_fast(
     artifact_path: Path,
     python_executable: str | None = None,
 ) -> dict:
+    import tempfile
+
     exe = python_executable or sys.executable
     try:
-        result = subprocess.run(
-            [exe, "-m", "ruff", "check", "--fix", str(artifact_path)],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode != 0:
-            lines = result.stdout.strip().splitlines()
-            diagnostics = lines[:10] if lines else ["ruff check reported errors"]
-            return {"passed": False, "diagnostics": diagnostics}
-        result2 = subprocess.run(
-            [exe, "-m", "ruff", "format", str(artifact_path)],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result2.returncode != 0:
-            lines = result2.stderr.strip().splitlines()
-            diagnostics = lines[:10] if lines else ["ruff format reported errors"]
-            return {"passed": False, "diagnostics": diagnostics}
-        result3 = subprocess.run(
-            [exe, "-m", "ruff", "check", str(artifact_path)],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result3.returncode != 0:
-            lines = result3.stdout.strip().splitlines()
-            diagnostics = lines[:10] if lines else ["ruff check reported errors"]
-            return {"passed": False, "diagnostics": diagnostics}
+        with tempfile.TemporaryDirectory(prefix="sf2_ruff_") as tmpdir:
+            tmp_copy = Path(tmpdir) / artifact_path.name
+            tmp_copy.write_text(artifact_path.read_text())
+            result = subprocess.run(
+                [exe, "-m", "ruff", "check", "--fix", str(tmp_copy)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode != 0:
+                lines = result.stdout.strip().splitlines()
+                diagnostics = lines[:10] if lines else ["ruff check reported errors"]
+                return {"passed": False, "diagnostics": diagnostics}
+            result2 = subprocess.run(
+                [exe, "-m", "ruff", "format", str(tmp_copy)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result2.returncode != 0:
+                lines = result2.stderr.strip().splitlines()
+                diagnostics = lines[:10] if lines else ["ruff format reported errors"]
+                return {"passed": False, "diagnostics": diagnostics}
+            result3 = subprocess.run(
+                [exe, "-m", "ruff", "check", str(tmp_copy)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result3.returncode != 0:
+                lines = result3.stdout.strip().splitlines()
+                diagnostics = lines[:10] if lines else ["ruff check reported errors"]
+                return {"passed": False, "diagnostics": diagnostics}
     except subprocess.TimeoutExpired:
         return {"passed": False, "diagnostics": ["ruff timed out after 30s"]}
     except Exception as e:
