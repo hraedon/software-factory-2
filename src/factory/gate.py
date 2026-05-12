@@ -7,6 +7,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from factory.config import GateTimeouts
 from factory.constants import (
     ARTIFACT_FILENAME_INTERFACE,
     GATE_NAME_IMPLEMENTATION,
@@ -226,6 +227,7 @@ def evaluate_test_suite(
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
+    gate_timeouts: GateTimeouts | None = None,
 ) -> GateResult:
     size_guard = _guard_artifact_size(artifact_path)
     if size_guard is not None:
@@ -291,6 +293,7 @@ def evaluate_test_suite(
         dependency_pyi_paths=dependency_pyi_paths,
         dependency_spec_paths=dependency_spec_paths,
         python_executable=python_executable,
+        timeout=gate_timeouts.collect_timeout if gate_timeouts else 30,
     )
     if not collect_result.passed:
         return collect_result
@@ -388,7 +391,9 @@ def evaluate_implementation(
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
+    gate_timeouts: GateTimeouts | None = None,
 ) -> GateResult:
+    t = gate_timeouts or GateTimeouts()
     size_guard = _guard_artifact_size(artifact_path)
     if size_guard is not None:
         return size_guard
@@ -433,6 +438,7 @@ def evaluate_implementation(
             dependency_pyi_paths=dependency_pyi_paths,
             dependency_spec_paths=dependency_spec_paths,
             python_executable=python_executable,
+            timeout=t.mypy_timeout,
         )
         if not mypy_result.passed:
             return mypy_result
@@ -444,11 +450,14 @@ def evaluate_implementation(
             dependency_pyi_paths=dependency_pyi_paths,
             dependency_spec_paths=dependency_spec_paths,
             python_executable=python_executable,
+            timeout=t.pytest_timeout,
         )
         if not pytest_result.passed:
             return pytest_result
 
-    ruff_result = _run_ruff(artifact_path, python_executable=python_executable)
+    ruff_result = _run_ruff(
+        artifact_path, python_executable=python_executable, timeout=t.ruff_timeout
+    )
     if not ruff_result.passed:
         return ruff_result
 
@@ -495,6 +504,7 @@ def _run_pytest_collect(
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
+    timeout: int = 30,
 ) -> GateResult:
     import os
     import tempfile
@@ -512,7 +522,7 @@ def _run_pytest_collect(
                 [exe, "-m", "pytest", "--collect-only", "-q", str(test_copy)],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=timeout,
                 cwd=tmpdir,
                 env={
                     **os.environ,
@@ -550,7 +560,7 @@ def _run_pytest_collect(
         return GateResult(
             passed=False,
             gate_name=GATE_NAME_TEST_SUITE_COLLECT,
-            diagnostics=["pytest --collect-only timed out after 30s"],
+            diagnostics=[f"pytest --collect-only timed out after {timeout}s"],
             diagnostic_kind="test_collect",
         )
     except Exception as e:
@@ -569,6 +579,7 @@ def _run_mypy(
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
+    timeout: int = 120,
 ) -> GateResult:
     import os
     import tempfile
@@ -592,7 +603,7 @@ def _run_mypy(
                 [exe, "-m", "mypy", "--strict", "--no-error-summary", str(impl_copy)],
                 capture_output=True,
                 text=True,
-                timeout=60,
+                timeout=timeout,
                 cwd=tmpdir,
                 env={**os.environ, "MYPYPATH": tmpdir},
             )
@@ -616,7 +627,7 @@ def _run_mypy(
         return GateResult(
             passed=False,
             gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
-            diagnostics=["mypy timed out after 60s"],
+            diagnostics=[f"mypy timed out after {timeout}s"],
             diagnostic_kind="impl_mypy",
         )
     except Exception as e:
@@ -635,6 +646,7 @@ def _run_pytest(
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
+    timeout: int = 300,
 ) -> GateResult:
     import os
     import tempfile
@@ -663,7 +675,7 @@ def _run_pytest(
                 ],
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=timeout,
                 cwd=tmpdir,
                 env={
                     **os.environ,
@@ -691,7 +703,7 @@ def _run_pytest(
         return GateResult(
             passed=False,
             gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
-            diagnostics=["pytest timed out after 120s"],
+            diagnostics=[f"pytest timed out after {timeout}s"],
             diagnostic_kind="impl_pytest",
         )
     except Exception as e:
@@ -707,6 +719,7 @@ def _run_pytest(
 def _run_ruff(
     artifact_path: Path,
     python_executable: str | None = None,
+    timeout: int = 60,
 ) -> GateResult:
     import tempfile
 
@@ -726,19 +739,19 @@ def _run_ruff(
                 [ruff, "check", "--fix", str(tmp_copy)],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=timeout,
             )
             subprocess.run(
                 [ruff, "format", str(tmp_copy)],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=timeout,
             )
             result = subprocess.run(
                 [ruff, "check", str(tmp_copy)],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=timeout,
             )
             if result.returncode != 0:
                 lines = result.stdout.strip().splitlines()
@@ -753,7 +766,7 @@ def _run_ruff(
         return GateResult(
             passed=False,
             gate_name=GATE_NAME_IMPLEMENTATION_LINT,
-            diagnostics=["ruff timed out after 30s"],
+            diagnostics=[f"ruff timed out after {timeout}s"],
             diagnostic_kind="impl_lint",
         )
     except Exception as e:

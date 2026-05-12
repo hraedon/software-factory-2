@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -11,14 +11,11 @@ from factory.constants import (
     ACTOR_ID_WORKER_PREFIX,
     CHANNEL_CLAUDE_CODE,
     CHANNEL_CODE,
-    CHANNEL_GEMINI_CLI,
     CHANNEL_OPENCODE,
+    CHANNEL_TO_FAMILY,
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_TEST_SUITE_REF,
     FAMILY_ANTHROPIC,
-    FAMILY_CODE,
-    FAMILY_GEMINI,
-    FAMILY_OPENCODE,
     LINK_TYPE_DERIVED_FROM,
     LINK_TYPE_IMPLEMENTS,
     LINK_TYPE_TESTED_BY,
@@ -55,18 +52,19 @@ class RoleConfig:
 
     @property
     def family(self) -> str:
-        if self.channel == CHANNEL_CLAUDE_CODE:
-            return FAMILY_ANTHROPIC
-        if self.channel == CHANNEL_OPENCODE:
-            return FAMILY_OPENCODE
-        if self.channel == CHANNEL_CODE:
-            return FAMILY_CODE
-        if self.channel == CHANNEL_GEMINI_CLI:
-            return FAMILY_GEMINI
-        return FAMILY_ANTHROPIC
+        return CHANNEL_TO_FAMILY.get(self.channel, FAMILY_ANTHROPIC)
 
 
 _DEFAULT_WORKSPACE = Path(WORK_DIR_NAME) / WORK_SUBDIR
+
+
+@dataclass(frozen=True)
+class GateTimeouts:
+    import_timeout: int = 60
+    collect_timeout: int = 120
+    ruff_timeout: int = 60
+    mypy_timeout: int = 120
+    pytest_timeout: int = 300
 
 
 @dataclass(frozen=True)
@@ -99,6 +97,7 @@ class FactoryConfig:
     channel_backoff_base_seconds: int = 30
     channel_backoff_max_attempts: int = 3
     credentials_path: Path | None = None
+    gate_timeouts: GateTimeouts = field(default_factory=GateTimeouts)
     stage_topology: tuple[StageHandoff, ...] = (
         StageHandoff(
             source_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
@@ -231,6 +230,8 @@ class FactoryConfig:
                 kwargs["gate_roles"] = tuple(kwargs["gate_roles"])
         if "type_to_role" in kwargs:
             kwargs["type_to_role"] = tuple(tuple(pair) for pair in kwargs["type_to_role"])
+        if "gate_timeouts" in kwargs and isinstance(kwargs["gate_timeouts"], dict):
+            kwargs["gate_timeouts"] = GateTimeouts(**kwargs["gate_timeouts"])
         return cls(**kwargs)
 
     @classmethod

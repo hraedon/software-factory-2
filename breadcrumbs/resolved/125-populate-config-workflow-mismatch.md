@@ -2,7 +2,7 @@
 number: "125"
 title: "populate_work_items.py --config doesn't infer --workflow from config YAML"
 severity: medium
-status: proposed
+status: resolved
 kind: bug
 author: opencode-session-25
 date: "2026-05-12"
@@ -16,26 +16,10 @@ When `--config` is provided, `populate_work_items.py` overrides `--dsn`, `--proj
 
 This caused GR-019's first attempt to populate work items with `workflow_version=2` while the config specified `workflow_version: 3`. The runner queried for `workflow_version=3` and found zero items.
 
-## Impact
+## Resolution
 
-Golden runs that use `--config` with a phase3 workflow will silently create work items in the wrong workflow version. The runner sits idle, finding no claimable items.
+`--workflow` default changed from `"phase2"` to `None`. When `--workflow` is not explicitly set:
+1. If `--config` is provided, workflow is inferred from `config.workflow_version` via `{1: "phase1", 2: "phase2", 3: "phase3"}` mapping.
+2. If `--config` is not provided, defaults to `"phase2"`.
 
-## Affected file
-
-- `populate_work_items.py` lines 228-234: `workflow_version` derived from `args.workflow` only, ignoring config.
-
-## Proposed fix
-
-When `--config` is provided and `args.workflow` was not explicitly set, infer the workflow from `config.workflow_version`:
-
-```python
-if config is not None and args.workflow == parser.get_default("workflow"):
-    if config.workflow_version == 1:
-        args.workflow = "phase1"
-    elif config.workflow_version == 3:
-        args.workflow = "phase3"
-```
-
-## Workaround
-
-Pass `--workflow phase3` explicitly alongside `--config`.
+Also fixed: summary line now prints the resolved `project` variable instead of `args.project`.

@@ -207,6 +207,7 @@ def process_gate_item(
                     dependency_pyi_paths=dep_pyi_paths,
                     dependency_spec_paths=dep_spec_paths,
                     python_executable=python_executable,
+                    gate_timeouts=config.gate_timeouts,
                 )
     elif wi.work_item_type == WORK_ITEM_TYPE_IMPLEMENTATION:
         interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
@@ -281,6 +282,7 @@ def process_gate_item(
                     dependency_pyi_paths=dep_pyi_paths,
                     dependency_spec_paths=dep_spec_paths,
                     python_executable=python_executable,
+                    gate_timeouts=config.gate_timeouts,
                 )
     else:
         gate_result = GateResult(

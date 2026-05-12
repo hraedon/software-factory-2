@@ -9,7 +9,7 @@ import structlog
 from substrate import ActorMetadata, Substrate
 
 from factory.channel import Channel
-from factory.config import FactoryConfig, load_config
+from factory.config import FactoryConfig, GateTimeouts, load_config
 from factory.constants import (
     ARTIFACT_FILENAME_CANNOT_PROCEED,
     CHANNEL_CLAUDE_CODE,
@@ -411,6 +411,7 @@ def _run_pre_gate(
     role_name: str,
     artifact_path: Path,
     deps: PreGateDeps,
+    config: FactoryConfig | None = None,
 ) -> PreGateResult:
     from factory.pre_gate import (
         pre_gate_implementation,
@@ -418,11 +419,13 @@ def _run_pre_gate(
         pre_gate_test_suite,
     )
 
+    t = config.gate_timeouts if config else GateTimeouts()
     if role_name == ROLE_INTERFACE_ARCHITECT:
         return pre_gate_interface_spec(
             artifact_path,
             dependency_pyi_paths=deps.dep_paths,
             python_executable=deps.python_executable,
+            timeouts=t,
         )
     if role_name == ROLE_TEST_AUTHOR:
         return pre_gate_test_suite(
@@ -431,6 +434,7 @@ def _run_pre_gate(
             dependency_pyi_paths=deps.dep_paths,
             dependency_spec_paths=deps.dep_spec_paths,
             python_executable=deps.python_executable,
+            timeouts=t,
         )
     return pre_gate_implementation(
         artifact_path,
@@ -439,6 +443,7 @@ def _run_pre_gate(
         dependency_spec_paths=deps.dep_spec_paths,
         python_executable=deps.python_executable,
         test_suite_path=deps.test_suite_path,
+        timeouts=t,
     )
 
 
@@ -476,6 +481,7 @@ def _inner_gate_loop(
             role_name,
             current_artifact,
             pre_gate_deps,
+            config,
         )
         if pre_result.passed:
             log.info(
@@ -685,27 +691,30 @@ def _resume_and_submit(
     )
 
 
+_CHANNEL_CONSTRUCTORS: dict[str, type[Channel]] = {}
+
+
+def _register_channel(channel_name: str, import_path: str, class_name: str) -> None:
+    import importlib
+
+    _CHANNEL_CONSTRUCTORS[channel_name] = getattr(importlib.import_module(import_path), class_name)
+
+
+_register_channel(CHANNEL_OPENCODE, "factory.opencode_channel", "OpenCodeChannel")
+_register_channel(CHANNEL_CLAUDE_CODE, "factory.claude_code_channel", "ClaudeCodeChannel")
+_register_channel(CHANNEL_GEMINI_CLI, "factory.gemini_channel", "GeminiCLIChannel")
+
+_SUPPORTED_CHANNEL_NAMES = ", ".join(sorted(_CHANNEL_CONSTRUCTORS))
+
+
 def _create_channels(config: FactoryConfig) -> dict[str, Channel]:
     channel_names = set(rc.channel for rc in config.roles if rc.channel != CHANNEL_CODE)
     channels: dict[str, Channel] = {}
     for ch_name in channel_names:
-        if ch_name == CHANNEL_OPENCODE:
-            from factory.opencode_channel import OpenCodeChannel
-
-            channels[ch_name] = OpenCodeChannel(config)
-        elif ch_name == CHANNEL_CLAUDE_CODE:
-            from factory.claude_code_channel import ClaudeCodeChannel
-
-            channels[ch_name] = ClaudeCodeChannel(config)
-        elif ch_name == CHANNEL_GEMINI_CLI:
-            from factory.gemini_channel import GeminiCLIChannel
-
-            channels[ch_name] = GeminiCLIChannel(config)
-        else:
-            raise ValueError(
-                f"Unknown channel: {ch_name}. "
-                f"Supported: {CHANNEL_CLAUDE_CODE}, {CHANNEL_OPENCODE}, {CHANNEL_GEMINI_CLI}"
-            )
+        constructor = _CHANNEL_CONSTRUCTORS.get(ch_name)
+        if constructor is None:
+            raise ValueError(f"Unknown channel: {ch_name}. Supported: {_SUPPORTED_CHANNEL_NAMES}")
+        channels[ch_name] = constructor(config)
     if not channels:
         raise ValueError("No model channels configured")
     return channels

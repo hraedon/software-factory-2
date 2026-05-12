@@ -48,7 +48,6 @@ Reusable tags:
 | 108 | GeminiCLIChannel exists but is essentially untested in production | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed |
 | 121 | Gate process and runner use project venv instead of gate venv for gate tooling | critical | implemented |
-| 125 | populate_work_items.py --config doesn't infer --workflow from config YAML | medium | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -70,12 +69,13 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-012 | Gate subprocess credential stripping and sandboxing — defense-in-depth against model output executing in gate context | medium | Phase 5+ (untrusted specs) |
 | RFC-013 | Expanded inner-gate feedback for implementer retries — richer failure signal without infra overhead | medium | Phase 3 (inner gate loop) |
 | RFC-014 | Staff engineer summarizer — compress outer-path failure history into actionable constraints | medium | Phase 4 (outer retry path) |
+| RFC-015 | Dependency import manifest + gate-level import validation — accepted; review feedback inline in RFC | high | Phase 3 (prompt + gate) |
 
 ## Resolved
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
-| 125 | populate_work_items.py --config doesn't infer --workflow from config YAML | medium | Proposed fix: infer workflow from config.workflow_version when --workflow not explicitly set |
+| 125 | populate_work_items.py --config doesn't infer --workflow from config YAML | medium | --workflow defaults to None; inferred from config.workflow_version when --config provided; summary line prints resolved project name |
 | 124 | Selective ruff rule set for model output — relax non-critical rules | medium | Inner gate uses `--select E,F,I,N,W,UP,RUF --ignore E501` matching pyproject.toml; GR-019 validated: zero ruff failures |
 | 123 | Inner gate auto-fix: copy ruff-corrected artifacts back instead of retrying | medium | `_run_ruff_fast` auto-fixes and writes back with `.orig` backup; targeted F841 unsafe fix; GR-019 validated |
 | 122 | Prompt pre-flight checklist to improve first-attempt pass rate | high | Pre-flight verification checklists added to all three role prompts; GR-019: inner gate first-attempt rate 0% → 64% |

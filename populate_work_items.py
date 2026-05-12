@@ -192,9 +192,9 @@ def main():
     parser.add_argument(
         "--workflow",
         type=str,
-        default="phase2",
+        default=None,
         choices=["phase1", "phase2", "phase3"],
-        help="Workflow version to register (default: phase2)",
+        help="Workflow version to register (default: inferred from --config or phase2)",
     )
     parser.add_argument(
         "--config",
@@ -210,10 +210,18 @@ def main():
     )
     args = parser.parse_args()
 
-    # Load config if provided
     config: FactoryConfig | None = None
     if args.config:
         config = FactoryConfig.from_yaml(args.config)
+
+    if args.workflow is not None:
+        workflow_name = args.workflow
+    elif config is not None:
+        workflow_name = {1: "phase1", 2: "phase2", 3: "phase3"}.get(
+            config.workflow_version, "phase2"
+        )
+    else:
+        workflow_name = "phase2"
 
     dsn = args.dsn
     project = args.project
@@ -225,10 +233,10 @@ def main():
         key_path = config.hmac_key_path
         workspace_root = str(config.workspace_root)
 
-    workflow_path = ROOT_DIR / "workflows" / f"{args.workflow}.yaml"
-    if args.workflow == "phase1":
+    workflow_path = ROOT_DIR / "workflows" / f"{workflow_name}.yaml"
+    if workflow_name == "phase1":
         workflow_version = 1
-    elif args.workflow == "phase3":
+    elif workflow_name == "phase3":
         workflow_version = 3
     else:
         workflow_version = 2
@@ -346,7 +354,7 @@ def main():
                 print(f"  [{wi_id_str[:8]}] dependency_refs updated: {resolved}")
 
     print(f"\nCreated {len(created)} work-items, skipped {skipped} existing, "
-          f"in project '{args.project}' (workflow_version={workflow_version})")
+          f"in project '{project}' (workflow_version={workflow_version})")
     print("\nSummary:")
     for label, shape, wi_id in created:
         print(f"  {label}  {shape:20s}  {wi_id}")

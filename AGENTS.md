@@ -42,23 +42,25 @@ The principal of this project is a **systems architect, not a developer**. Archi
 
 ## Status
 
-**Phase 3 (current).** Fleet integration. Phase 2 (sequential single-channel pipeline) exit criteria met (GR-014: 91% lock rate on cert-watch full DAG, 20/22 items). Phase 3 adds multi-channel dispatch, per-role channel binding, Gemini adapter, and credential infrastructure.
+**Phase 3 (current).** Fleet integration. Phase 2 (sequential single-channel pipeline) exit criteria met (GR-014: 91% lock rate on cert-watch full DAG, 20/22 items). Phase 3 adds multi-channel dispatch, per-role channel binding, and credential infrastructure.
 
 **What exists:**
 - 7-module runner: runner, gate, gate_process, router, scheduler, config, workspace
 - 3 channel adapters: ClaudeCodeChannel, OpenCodeChannel (K2/GLM/DeepSeek via model selection), GeminiCLIChannel
 - Multi-channel dispatch: runner selects channel per-role based on config binding
 - Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys
-- 2 workflow YAMLs: phase1.yaml (single-role), phase2.yaml (3-stage pipeline)
-- 405 passing tests, 0 lint errors
-- 14 golden runs executed (GR-001 through GR-014)
+- 3 workflow YAMLs: phase1.yaml (single-role), phase2.yaml, phase3.yaml (3-stage pipeline)
+- 477 passing tests, 0 lint errors
+- 19 golden runs executed (GR-001 through GR-019)
+  - GR-019: 94% lock rate (15/16) on cert-watch full DAG, K2-only; zero ruff failures; inner gate first-attempt rate 64%
+  - GR-015: 100% lock rate (24/24) on cert-watch full DAG, K2-only; 0% first-attempt pass rate (all required inner gate retry)
   - GR-014: 91% lock rate (20/22) on cert-watch full DAG with K2 via Fireworks
 
-**Known issues:** 5 open breadcrumbs (0 critical, 2 high, 3 medium, 0 low) + 14 RFCs. See `breadcrumbs/README.md`.
+**Known issues:** 4 open breadcrumbs (0 critical, 2 high, 2 medium, 0 low) + 14 RFCs. See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing. All channels have adapter implementations.
 
-**Next concrete step:** execute Golden Run 015 with Phase 3 multi-channel config (interface_architect→Claude, test_author→K2, implementer→GLM) to validate fleet integration end-to-end.
+**Next concrete step:** define Phase 3 exit criteria numbers (target lock rate, first-attempt rate, acceptable model-timeout count) and decide if a clean GR-020 is needed for definitive telemetry.
 
 ## What not to build yet
 
@@ -67,7 +69,6 @@ The phasing in `spec.md` §10 exists to prevent the v1 mistake of building the w
 - Mechanical gates only. Cross-family review, frontier jury, and coherence review are Phase 3-4.
 - No jury gates or race patterns until Phase 4.
 - Channel adapters for DeepSeek (standalone Ollama adapter) and Gemini (CLI has Node.js version issue on current host) exist but are not yet validated in golden runs.
-
 If you find yourself wanting to skip ahead, file a breadcrumb explaining why and let the principal decide.
 
 ## Pointers
@@ -79,7 +80,7 @@ If you find yourself wanting to skip ahead, file a breadcrumb explaining why and
 ## Testing
 
 ```bash
-make test    # 405 tests, ~52s
+make test    # 477 tests, ~64s
 make lint    # ruff check + format (no errors)
 make audit   # vulture dead-code check (no findings)
 make check   # lint + audit + test (full CI gate)
@@ -98,30 +99,30 @@ The pipeline runs 3 concurrent processes (runner, gate, scheduler) against a Pos
 
 ```bash
 # 1. Create config YAML (copy a prior golden-run-NNN-config.yaml, change project_name and workspace_root)
-# 2. Populate work items from fixture
-make golden-run CONFIG=golden-run-014-config.yaml FIXTURES=tests/fixtures/cert-watch
+# 2. Populate work items from fixture (--workflow inferred from config)
+make golden-run CONFIG=golden-run-019-config.yaml FIXTURES=tests/fixtures/cert-watch
 # 3. This runs populate, then runner+gate+scheduler in parallel, then telemetry
 ```
 
 For manual step-by-step control (recommended for monitoring):
 
 ```bash
-.venv/bin/python populate_work_items.py --config golden-run-014-config.yaml --reset --fixtures tests/fixtures/cert-watch
-.venv/bin/python -m factory.runner --config golden-run-014-config.yaml > /tmp/gr014-runner.log 2>&1 &
-.venv/bin/python -m factory.gate_process --config golden-run-014-config.yaml > /tmp/gr014-gate.log 2>&1 &
-.venv/bin/python -m factory.scheduler --config golden-run-014-config.yaml > /tmp/gr014-scheduler.log 2>&1 &
+.venv/bin/python populate_work_items.py --config golden-run-019-config.yaml --reset --fixtures tests/fixtures/cert-watch
+.venv/bin/python -m factory.runner --config golden-run-019-config.yaml > /tmp/gr019-runner.log 2>&1 &
+.venv/bin/python -m factory.gate_process --config golden-run-019-config.yaml > /tmp/gr019-gate.log 2>&1 &
+.venv/bin/python -m factory.scheduler --config golden-run-019-config.yaml > /tmp/gr019-scheduler.log 2>&1 &
 wait
-.venv/bin/python -m factory.telemetry --config golden-run-014-config.yaml
-.venv/bin/python -m factory.telemetry --verify --config golden-run-014-config.yaml
+.venv/bin/python -m factory.telemetry --config golden-run-019-config.yaml
+.venv/bin/python -m factory.telemetry --verify --config golden-run-019-config.yaml
 ```
 
 ### Monitoring
 
 Check progress while running:
 ```bash
-tail -20 /tmp/gr014-runner.log
-tail -10 /tmp/gr014-scheduler.log
-tail -10 /tmp/gr014-gate.log
+tail -20 /tmp/gr019-runner.log
+tail -10 /tmp/gr019-scheduler.log
+tail -10 /tmp/gr019-gate.log
 ```
 
 Processes are idle when no new log lines appear for >60s. Kill with `kill <PID>` or `kill -9 <PID>` if needed, then run telemetry.

@@ -4,6 +4,25 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-12 — Session 26: BC-125 resolved; AGENTS.md and docs refreshed
+
+**Invocation:** GLM-5.1
+
+**Focus:** Resolve BC-125, update stale documentation, assess BC-120.
+
+### Breadcrumbs resolved (1)
+
+- **BC-125 (medium):** `populate_work_items.py --workflow` now defaults to `None` instead of `"phase2"`. When `--config` is provided and `--workflow` is not explicitly set, workflow is inferred from `config.workflow_version` via `{1: "phase1", 2: "phase2", 3: "phase3"}` mapping. Also fixed summary line printing `args.project` instead of resolved `project` variable. 2 new tests.
+
+### Documentation updated
+
+- **AGENTS.md:** test count 405→477, golden run count 14→19, breadcrumb count 5→4, next concrete step updated, golden run examples updated to GR-019, workflow count 2→3, `--workflow inferred from config` noted.
+- **breadcrumbs/README.md:** BC-125 moved from Open to Resolved.
+
+### Test results: 477 pass, 0 lint errors
+
+---
+
 ## 2026-05-12 — Session 25: BC-122/123/124 throughput improvements; GR-019 validation
 
 **Invocation:** OpenCode (fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo)

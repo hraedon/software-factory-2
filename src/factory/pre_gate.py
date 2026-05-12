@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
 
+from factory.config import GateTimeouts
 from factory.constants import (
     ARTIFACT_FILENAME_INTERFACE,
     INNER_GATE_RUFF_IGNORE,
@@ -16,6 +17,8 @@ from factory.constants import (
     TEMPFILE_PREFIX_MYPY,
     TEMPFILE_PREFIX_PYTEST,
 )
+
+_DEFAULT_TIMEOUTS = GateTimeouts()
 
 _PYTEST_DIAGNOSTIC_CHAR_LIMIT = 300
 _RAW_OUTPUT_CHAR_LIMIT = 5000
@@ -46,7 +49,9 @@ def pre_gate_implementation(
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
     test_suite_path: Path | None = None,
+    timeouts: GateTimeouts | None = None,
 ) -> PreGateResult:
+    t = timeouts or _DEFAULT_TIMEOUTS
     if not artifact_path.exists():
         return PreGateResult(
             passed=False,
@@ -62,6 +67,7 @@ def pre_gate_implementation(
         dependency_pyi_paths=dependency_pyi_paths,
         dependency_spec_paths=dependency_spec_paths,
         python_executable=python_executable,
+        timeout=t.mypy_timeout,
     )
     if not mypy_result["passed"]:
         all_diagnostics = mypy_result.get("diagnostics", [])
@@ -74,7 +80,9 @@ def pre_gate_implementation(
             output=mypy_result.get("raw_output", ""),
         )
 
-    ruff_result = _run_ruff_fast(artifact_path, python_executable=python_executable)
+    ruff_result = _run_ruff_fast(
+        artifact_path, python_executable=python_executable, timeout=t.ruff_timeout
+    )
     if not ruff_result["passed"]:
         all_diagnostics = mypy_result.get("diagnostics", []) + ruff_result.get("diagnostics", [])
         return PreGateResult(
@@ -93,6 +101,7 @@ def pre_gate_implementation(
         dependency_spec_paths=dependency_spec_paths,
         python_executable=python_executable,
         test_suite_path=test_suite_path,
+        timeout=t.pytest_timeout,
     )
     all_diagnostics = ruff_result.get("diagnostics", []) + pytest_result.get("diagnostics", [])
     return PreGateResult(
@@ -109,7 +118,9 @@ def pre_gate_interface_spec(
     artifact_path: Path,
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
+    timeouts: GateTimeouts | None = None,
 ) -> PreGateResult:
+    t = timeouts or _DEFAULT_TIMEOUTS
     if not artifact_path.exists():
         return PreGateResult(
             passed=False,
@@ -119,7 +130,9 @@ def pre_gate_interface_spec(
             diagnostics=[f"Artifact not found: {artifact_path}"],
         )
 
-    ruff_result = _run_ruff_fast(artifact_path, python_executable=python_executable)
+    ruff_result = _run_ruff_fast(
+        artifact_path, python_executable=python_executable, timeout=t.ruff_timeout
+    )
     if not ruff_result["passed"]:
         return PreGateResult(
             passed=False,
@@ -134,6 +147,7 @@ def pre_gate_interface_spec(
         artifact_path,
         dependency_pyi_paths=dependency_pyi_paths,
         python_executable=python_executable,
+        timeout=t.import_timeout,
     )
     if not import_result["passed"]:
         return PreGateResult(
@@ -160,7 +174,9 @@ def pre_gate_test_suite(
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
+    timeouts: GateTimeouts | None = None,
 ) -> PreGateResult:
+    t = timeouts or _DEFAULT_TIMEOUTS
     if not artifact_path.exists():
         return PreGateResult(
             passed=False,
@@ -170,7 +186,9 @@ def pre_gate_test_suite(
             diagnostics=[f"Artifact not found: {artifact_path}"],
         )
 
-    ruff_result = _run_ruff_fast(artifact_path, python_executable=python_executable)
+    ruff_result = _run_ruff_fast(
+        artifact_path, python_executable=python_executable, timeout=t.ruff_timeout
+    )
     if not ruff_result["passed"]:
         return PreGateResult(
             passed=False,
@@ -187,6 +205,7 @@ def pre_gate_test_suite(
         dependency_pyi_paths=dependency_pyi_paths,
         dependency_spec_paths=dependency_spec_paths,
         python_executable=python_executable,
+        timeout=t.collect_timeout,
     )
     if not collect_result["passed"]:
         return PreGateResult(
@@ -270,6 +289,7 @@ def _run_import_check(
     artifact_path: Path,
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
+    timeout: int = 60,
 ) -> dict:
     import tempfile
 
@@ -286,7 +306,7 @@ def _run_import_check(
                 [exe, "-c", f"import {module_stem}"],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=timeout,
                 cwd=tmpdir,
                 env={**os.environ, "PYTHONPATH": tmpdir},
             )
@@ -295,7 +315,7 @@ def _run_import_check(
                 diags = lines[:5] if lines else ["import check failed"]
                 return _fail(diags, _truncate_raw_output(result.stderr))
     except subprocess.TimeoutExpired:
-        return _fail(["import check timed out after 30s"])
+        return _fail([f"import check timed out after {timeout}s"])
     except Exception as e:
         return _fail([f"import check failed: {e}"])
     return _ok()
@@ -307,6 +327,7 @@ def _run_collect_only(
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
+    timeout: int = 120,
 ) -> dict:
     import tempfile
 
@@ -325,7 +346,7 @@ def _run_collect_only(
                 [exe, "-m", "pytest", "--collect-only", "-q", str(test_copy)],
                 capture_output=True,
                 text=True,
-                timeout=60,
+                timeout=timeout,
                 cwd=tmpdir,
                 env={**os.environ, "PYTHONPATH": tmpdir},
             )
@@ -339,7 +360,7 @@ def _run_collect_only(
                 raw = _truncate_raw_output(result.stdout + "\n" + result.stderr)
                 return _fail(diags, raw)
     except subprocess.TimeoutExpired:
-        return _fail(["pytest collect-only timed out after 60s"])
+        return _fail([f"pytest collect-only timed out after {timeout}s"])
     except Exception as e:
         return _fail([f"pytest collect-only failed: {e}"])
     return _ok()
@@ -351,6 +372,7 @@ def _run_mypy_fast(
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
+    timeout: int = 120,
 ) -> dict:
     import tempfile
 
@@ -368,7 +390,7 @@ def _run_mypy_fast(
                 [exe, "-m", "mypy", "--strict", "--no-error-summary", str(impl_copy)],
                 capture_output=True,
                 text=True,
-                timeout=60,
+                timeout=timeout,
                 cwd=tmpdir,
                 env={**os.environ, "MYPYPATH": tmpdir},
             )
@@ -379,7 +401,7 @@ def _run_mypy_fast(
                 diags = lines[:10] if lines else ["mypy reported errors"]
                 return _fail(diags, _truncate_raw_output(result.stdout))
     except subprocess.TimeoutExpired:
-        return _fail(["mypy timed out after 60s"])
+        return _fail([f"mypy timed out after {timeout}s"])
     except Exception as e:
         return _fail([f"mypy invocation failed: {e}"])
     return _ok()
@@ -391,6 +413,7 @@ _RAW_ARTIFACT_SUFFIX = ".orig"
 def _run_ruff_fast(
     artifact_path: Path,
     python_executable: str | None = None,
+    timeout: int = 60,
 ) -> dict:
     import tempfile
 
@@ -415,25 +438,25 @@ def _run_ruff_fast(
                 ],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=timeout,
             )
             subprocess.run(
                 [exe, "-m", "ruff", "check", "--fix", *check_args, str(tmp_copy)],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=timeout,
             )
             subprocess.run(
                 [exe, "-m", "ruff", "format", str(tmp_copy)],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=timeout,
             )
             result = subprocess.run(
                 [exe, "-m", "ruff", "check", *check_args, str(tmp_copy)],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=timeout,
             )
             if result.returncode != 0:
                 lines = result.stdout.strip().splitlines()
@@ -445,7 +468,7 @@ def _run_ruff_fast(
                 orig_backup.write_text(original_content)
                 artifact_path.write_text(fixed_content)
     except subprocess.TimeoutExpired:
-        return _fail(["ruff timed out after 30s"])
+        return _fail([f"ruff timed out after {timeout}s"])
     except Exception as e:
         return _fail([f"ruff invocation failed: {e}"])
     return _ok()
@@ -458,6 +481,7 @@ def _run_pytest_fast(
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
     test_suite_path: Path | None = None,
+    timeout: int = 300,
 ) -> dict:
     import tempfile
 
@@ -491,7 +515,7 @@ def _run_pytest_fast(
                 ],
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=timeout,
                 cwd=tmpdir,
                 env={
                     **os.environ,
@@ -508,7 +532,7 @@ def _run_pytest_fast(
                 raw = _truncate_raw_output(result.stdout + "\n" + result.stderr)
                 return _fail(diags, raw)
     except subprocess.TimeoutExpired:
-        return _fail(["pytest timed out after 120s"])
+        return _fail([f"pytest timed out after {timeout}s"])
     except Exception as e:
         return _fail([f"pytest invocation failed: {e}"])
     return _ok()
