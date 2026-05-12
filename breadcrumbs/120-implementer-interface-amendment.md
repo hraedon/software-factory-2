@@ -45,7 +45,7 @@ The spec already has `cannot_proceed` as a terminal state with structured diagno
 
 ## Phase placement
 
-Phase 4 (when jury gates are introduced). The amendment flow is most valuable when paired with automated review — a Tier-A model evaluating the diff against ACs. In Phase 3, the principal handles it manually.
+Phase 4 (when jury gates are introduced). The amendment flow is most valuable when paired with automated review — a Tier-A model evaluating the diff against ACs. In Phase 3, the principal handles it manually. **Decision: defer to Phase 4 per principal direction. Add telemetry dimension for `interface_amendment_requests` as cheap insurance; actual implementation waits for jury gates.**
 
 ## Evidence
 

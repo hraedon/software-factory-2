@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from factory.spec_lint import (
     LintResult,
+    _extract_acs,
     check_ac_bullets_well_formed,
     check_ac_count_within_band,
     check_ac_section_exists,
@@ -174,3 +175,53 @@ class TestFormatLintResults:
         assert "FAIL" in text
         assert "ERROR" in text
         assert "1 errors" in text
+
+
+class TestExtractAcsHeadingPerAcFormat:
+    _HEADING_SPEC = (
+        "# Interface Specification: Parser\n\n"
+        "## Dependencies\nNone.\n\n"
+        "## AC-01: Parse Input\n"
+        "A `parse_certificate` function must accept DER bytes.\n\n"
+        "## AC-02: Error Handling\n"
+        "Must return `MalformedCertificateError` on bad input.\n\n"
+        "## AC-03: Fingerprint\n"
+        "Must expose `fingerprint_sha256`.\n"
+    )
+
+    def test_extracts_heading_acs(self):
+        acs = _extract_acs(self._HEADING_SPEC)
+        assert len(acs) == 3
+        assert acs[0][0] == "AC-01"
+        assert "parse_certificate" in acs[0][1]
+        assert acs[1][0] == "AC-02"
+        assert acs[2][0] == "AC-03"
+
+    def test_ac_section_exists_passes_for_headings(self):
+        f = check_ac_section_exists("spec.md", self._HEADING_SPEC)
+        assert f is None
+
+    def test_ac_count_within_band_passes_for_headings(self):
+        f = check_ac_count_within_band("spec.md", self._HEADING_SPEC)
+        assert f is None
+
+    def test_ac_bullets_well_formed_passes_for_headings(self):
+        findings = check_ac_bullets_well_formed("spec.md", self._HEADING_SPEC)
+        assert len(findings) == 0
+
+    def test_single_concern_for_heading_spec(self):
+        findings = check_ac_single_concern("spec.md", self._HEADING_SPEC)
+        assert len(findings) == 0
+
+    def test_full_lint_passes_for_heading_spec(self):
+        result = spec_lint("spec.md", self._HEADING_SPEC)
+        assert result.passed
+        assert len(result.errors) == 0
+
+    def test_heading_spec_with_many_acs_warns(self):
+        acs = "\n\n".join(f"## AC-{i:02d}: Item {i}\nShort desc {i}." for i in range(1, 11))
+        spec = f"# Spec\n\n{acs}\n"
+        f = check_ac_count_within_band("spec.md", spec)
+        assert f is not None
+        assert f.level == "WARN"
+        assert "10 ACs" in f.message

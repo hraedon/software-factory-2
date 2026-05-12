@@ -10,7 +10,9 @@ from substrate import Substrate
 from factory.config import FactoryConfig, load_config
 from factory.constants import (
     GATE_NAME_UNKNOWN,
+    STATE_CANNOT_PROCEED,
     STATE_IN_PROGRESS,
+    STATE_LOCKED,
     TRANSITION_CHANNEL_FAIL,
     TRANSITION_GATE_FAIL,
     TRANSITION_GATE_PASS,
@@ -24,6 +26,209 @@ from factory.event_schemas import (
 )
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class ExitCriteriaMetrics:
+    lock_within_budget_rate: float
+    locked_count: int
+    total_count: int
+    mean_attempts_to_lock: float
+    first_attempt_mechanical_gate_rate: float
+    first_attempt_passes: int
+    first_attempt_evaluations: int
+    stuck_count: int
+    unknown_gate_rate: float
+    unknown_gate_count: int
+    total_gate_events: int
+    deterministic_gate_rate: float
+    deterministic_count: int
+
+
+def compute_exit_criteria(
+    sub: Substrate, config: FactoryConfig, attempts: list[GateAttempt]
+) -> ExitCriteriaMetrics:
+    page = sub.query_work_items(
+        workflow_name=config.workflow_name,
+        workflow_version=config.workflow_version,
+        page_size=config.query_page_size,
+    )
+    locked = 0
+    cannot_proceed = 0
+    total = len(page.items)
+    for wi in page.items:
+        if wi.current_state == STATE_LOCKED:
+            locked += 1
+        elif wi.current_state == STATE_CANNOT_PROCEED:
+            cannot_proceed += 1
+    stuck = total - locked - cannot_proceed
+
+    per_item_attempts: dict[str, int] = defaultdict(int)
+    for a in attempts:
+        per_item_attempts[a.work_item_id] += 1
+
+    total_attempts = sum(per_item_attempts.values())
+    mean_attempts = total_attempts / len(per_item_attempts) if per_item_attempts else 0.0
+
+    inner_gate_attempts = [a for a in attempts if a.gate_name.startswith("inner_")]
+    per_item_inner: dict[str, list[GateAttempt]] = defaultdict(list)
+    for a in inner_gate_attempts:
+        per_item_inner[a.work_item_id].append(a)
+
+    first_attempt_inner_passes = 0
+    first_attempt_inner_evaluations = 0
+    for item_attempts in per_item_inner.values():
+        sorted_attempts = sorted(item_attempts, key=lambda a: a.attempt_n)
+        by_gate: dict[str, list[GateAttempt]] = defaultdict(list)
+        for sa in sorted_attempts:
+            by_gate[sa.gate_name].append(sa)
+        for gate_attempts in by_gate.values():
+            gate_sorted = sorted(gate_attempts, key=lambda a: a.attempt_n)
+            first = gate_sorted[0]
+            first_attempt_inner_evaluations += 1
+            if first.passed and first.attempt_n <= 1:
+                first_attempt_inner_passes += 1
+
+    if first_attempt_inner_evaluations == 0:
+        per_item_outer: dict[str, list[GateAttempt]] = defaultdict(list)
+        for a in attempts:
+            if not a.gate_name.startswith("inner_"):
+                per_item_outer[a.work_item_id].append(a)
+        for item_attempts in per_item_outer.values():
+            sorted_attempts = sorted(item_attempts, key=lambda a: a.attempt_n)
+            by_gate: dict[str, list[GateAttempt]] = defaultdict(list)
+            for sa in sorted_attempts:
+                by_gate[sa.gate_name].append(sa)
+            for gate_attempts in by_gate.values():
+                gate_sorted = sorted(gate_attempts, key=lambda a: a.attempt_n)
+                first = gate_sorted[0]
+                first_attempt_inner_evaluations += 1
+                if first.passed and first.attempt_n <= 1:
+                    first_attempt_inner_passes += 1
+
+    first_attempt_rate = (
+        first_attempt_inner_passes / first_attempt_inner_evaluations
+        if first_attempt_inner_evaluations
+        else 0.0
+    )
+
+    unknown_gate_count = sum(1 for a in attempts if a.gate_name == GATE_NAME_UNKNOWN)
+    total_gate_events = len(attempts)
+    unknown_rate = unknown_gate_count / total_gate_events if total_gate_events else 0.0
+
+    deterministic_gates = {
+        "interface_spec_syntax",
+        "interface_spec_stub",
+        "interface_spec_structural_semantics",
+        "interface_spec_file_exists",
+        "interface_spec_not_empty",
+        "test_suite_syntax",
+        "test_suite_import_forbidden",
+        "test_suite_collect",
+        "test_suite_file_exists",
+        "test_suite_not_empty",
+        "test_suite_assertions",
+        "implementation_syntax",
+        "implementation_import_forbidden",
+        "implementation_imports",
+        "implementation_mypy",
+        "implementation_pytest",
+        "implementation_lint",
+        "implementation_file_exists",
+        "implementation_not_empty",
+        "implementation_dependency",
+        "inner_pytest",
+        "inner_import",
+        "inner_test_collect",
+        "inner_mypy",
+        "inner_ruff",
+        "inner_import_symbols",
+        "test_suite_dependency",
+    }
+    deterministic_count = sum(1 for a in attempts if a.gate_name in deterministic_gates)
+    deterministic_rate = deterministic_count / total_gate_events if total_gate_events else 0.0
+
+    lock_rate = locked / total if total else 0.0
+
+    return ExitCriteriaMetrics(
+        lock_within_budget_rate=lock_rate,
+        locked_count=locked,
+        total_count=total,
+        mean_attempts_to_lock=mean_attempts,
+        first_attempt_mechanical_gate_rate=first_attempt_rate,
+        first_attempt_passes=first_attempt_inner_passes,
+        first_attempt_evaluations=first_attempt_inner_evaluations,
+        stuck_count=stuck,
+        unknown_gate_rate=unknown_rate,
+        unknown_gate_count=unknown_gate_count,
+        total_gate_events=total_gate_events,
+        deterministic_gate_rate=deterministic_rate,
+        deterministic_count=deterministic_count,
+    )
+
+
+def format_exit_criteria_summary(metrics: ExitCriteriaMetrics) -> str:
+    lines: list[str] = []
+    lines.append("=" * 70)
+    lines.append("Phase 3 Exit Criteria Summary")
+    lines.append("=" * 70)
+    lines.append("")
+
+    lr = f"{metrics.lock_within_budget_rate:.0%}"
+    lr_pass = metrics.lock_within_budget_rate >= 0.90
+    lr_label = "PASS" if lr_pass else "FAIL"
+    lr_line = (
+        f"  Lock-within-budget rate:     {lr} "
+        f"({metrics.locked_count}/{metrics.total_count})  "
+        f"{lr_label:4s} [target: >=90%]"
+    )
+    lines.append(lr_line)
+
+    ma = f"{metrics.mean_attempts_to_lock:.2f}"
+    ma_pass = metrics.mean_attempts_to_lock <= 2.0
+    ma_label = "PASS" if ma_pass else "FAIL"
+    lines.append(f"  Mean attempts to lock:        {ma}  {ma_label:4s} [target: <=2.0]")
+
+    fa = f"{metrics.first_attempt_mechanical_gate_rate:.0%}"
+    fa_pass = metrics.first_attempt_mechanical_gate_rate >= 0.60
+    fa_label = "PASS" if fa_pass else "FAIL"
+    fa_line = (
+        f"  First-attempt gate pass rate: {fa} "
+        f"({metrics.first_attempt_passes}/{metrics.first_attempt_evaluations})  "
+        f"{fa_label:4s} [target: >=60%]"
+    )
+    lines.append(fa_line)
+
+    lines.append("")
+    lines.append(
+        f"  Stuck items:                 {metrics.stuck_count}  [target: <=1 per 16-item DAG]"
+    )
+
+    ur = f"{metrics.unknown_gate_rate:.1%}"
+    ur_pass = metrics.unknown_gate_rate <= 0.10
+    ur_label = "PASS" if ur_pass else "FAIL"
+    ur_line = (
+        f"  Unknown gate rate:            {ur} "
+        f"({metrics.unknown_gate_count}/{metrics.total_gate_events})  "
+        f"{ur_label:4s} [target: <=10%]"
+    )
+    lines.append(ur_line)
+
+    dr = f"{metrics.deterministic_gate_rate:.0%}"
+    dr_pass = metrics.deterministic_gate_rate >= 0.80
+    dr_label = "PASS" if dr_pass else "FAIL"
+    dr_line = (
+        f"  Deterministic gate rate:      {dr} "
+        f"({metrics.deterministic_count}/{metrics.total_gate_events})  "
+        f"{dr_label:4s} [target: >=80%]"
+    )
+    lines.append(dr_line)
+
+    all_pass = lr_pass and ma_pass and fa_pass and ur_pass and dr_pass
+    lines.append("")
+    lines.append(f"  Overall: {'ALL PASS' if all_pass else 'SOME FAIL'}")
+    lines.append("")
+    return "\n".join(lines)
 
 
 @dataclass(frozen=True)
@@ -261,7 +466,10 @@ def run_telemetry_report(config: FactoryConfig) -> str:
     try:
         attempts = collect_gate_attempts(sub, config)
         rows = compute_pass_rates(attempts)
-        return format_pass_rate_table(rows)
+        metrics = compute_exit_criteria(sub, config, attempts)
+        detail = format_pass_rate_table(rows)
+        summary = format_exit_criteria_summary(metrics)
+        return summary + "\n" + detail
     finally:
         sub.close()
 

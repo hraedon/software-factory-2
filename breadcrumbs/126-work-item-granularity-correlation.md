@@ -2,7 +2,7 @@
 number: "126"
 title: "Work-item granularity correlation — measure AC count vs first-attempt pass rate, then cap"
 severity: high
-status: proposed
+status: in_progress
 kind: improvement
 author: opus-review
 date: "2026-05-12"

@@ -2,7 +2,7 @@
 number: "127"
 title: "Spec linting — pre-flight pass over work-item specs before model invocation"
 severity: high
-status: proposed
+status: resolved
 kind: improvement
 author: opus-review
 date: "2026-05-12"

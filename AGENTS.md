@@ -50,17 +50,33 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Multi-channel dispatch: runner selects channel per-role based on config binding
 - Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys
 - 3 workflow YAMLs: phase1.yaml (single-role), phase2.yaml, phase3.yaml (3-stage pipeline)
+- Spec lint integrated into `populate_work_items.py` (BC-127)
 - 550 passing tests, 0 lint errors
 - 19 golden runs executed (GR-001 through GR-019)
   - GR-019: 94% lock rate (15/16) on cert-watch full DAG, K2-only; zero ruff failures; inner gate first-attempt rate 64%
   - GR-015: 100% lock rate (24/24) on cert-watch full DAG, K2-only; 0% first-attempt pass rate (all required inner gate retry)
   - GR-014: 91% lock rate (20/22) on cert-watch full DAG with K2 via Fireworks
 
-**Known issues:** 5 open breadcrumbs (1 critical, 3 high, 1 medium, 0 low) + 14 RFCs. See `breadcrumbs/README.md`.
+**Known issues:** 4 open breadcrumbs (0 critical, 2 high, 1 medium, 0 low) + 1 proposed (deferred to Phase 4) + 14 RFCs. See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing. All channels have adapter implementations.
 
-**Next concrete step:** define Phase 3 exit criteria numbers (target lock rate, first-attempt rate, acceptable model-timeout count) and decide if a clean GR-020 is needed for definitive telemetry.
+**Phase 3 exit criteria** (defined in `spec.md` §10, must be met by a single clean golden run):
+- First-attempt mechanical-gate pass rate ≥ 60%
+- Lock-within-budget rate ≥ 90%
+- Mean attempts to lock ≤ 2.0
+- ≤1 stuck item per 16-work-item DAG
+- ≤10% unknown/tool_not_found gate failures; ≥80% deterministic
+- Spec lint wired and producing deterministic findings
+- BC-126 analysis report exists with conclusion
+- No breadcrumb status drift
+- Default config binds only validated channels
+
+**Next concrete steps before Phase 4:**
+1. Run BC-126 Phase A measurement (work-item size vs first-attempt correlation)
+2. Execute clean GR-020 to validate exit criteria
+3. Fleet triage: validate or disable untested channels (Gemini, GLM, DeepSeek)
+4. Add `mean_attempts_to_lock` telemetry dimension
 
 ## What not to build yet
 

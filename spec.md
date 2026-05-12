@@ -282,6 +282,22 @@ If the work-item is still in `in_progress` because the prior claim's TTL has not
 - Begin role promotion based on data (not vibes, not cost).
 - 405 tests, 0 lint errors.
 
+**Phase 3 exit criteria (shall be met by a single clean golden run on cert-watch full DAG):**
+
+| Layer | Metric | Target | Rationale |
+|---|---|---|---|
+| Contract quality (leading indicator) | First-attempt mechanical-gate pass rate | ≥60% | Measures whether prompts and specs are clean enough that the implementer self-checks before returning. GR-019 achieved 64% on inner-gate data. |
+| Operational success | Lock-within-budget rate | ≥90% | Did the system actually deliver? GR-014 achieved 91%. |
+| Efficiency / brute-force detector | Mean attempts to lock | ≤2.0 | Catches "lock by burning retries." GR-015 achieved 100% lock with ~2.0 mean attempts — the boundary between structured retry and brute force. |
+
+**Additional exit constraints:**
+- Stuck/orphan rate: ≤1 stuck item per 16-work-item DAG, with automatic escalation after 2× mean wall-clock.
+- Gate-failure mode breakdown: ≤10% of failures are "unknown" or "tool_not_found"; ≥80% are deterministic gate failures with clear `diagnostic_kind`.
+- Spec lint integrated into `populate_work_items.py` and producing deterministic findings.
+- BC-126 work-item size analysis report exists and has a conclusion.
+- No breadcrumb status drift between files and README index.
+- Default config binds only validated channels (K2 and Claude CC).
+
 **Phase 4 — Jury and race.**
 - Add multi-channel judge gates.
 - A/B race for load-bearing roles where Phase 3 telemetry shows uncertainty.

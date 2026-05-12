@@ -34,33 +34,68 @@ class LintResult:
         return len(self.findings) == 0
 
 
-def _extract_ac_section(spec_text: str) -> tuple[bool, str]:
-    in_ac = False
-    lines: list[str] = []
-    for line in spec_text.splitlines():
+def _extract_acs(spec_text: str) -> list[tuple[str, str]]:
+    """Extract (AC-id, body-text) pairs from a spec.
+
+    Supports two formats:
+    1. Section-heading per AC: ``## AC-01: Title`` followed by body text until
+       the next ``## AC-NN:`` heading or end of spec.
+    2. Bulleted AC section: ``## Acceptance Criteria`` section containing
+       ``- `AC-01`: description`` or ``- AC-01: description`` lines.
+
+    Returns a list of (AC-id, body_text) pairs.  *body_text* is the full
+    multi-line content for heading-style ACs, or the single-line description
+    for bulleted ACs.
+    """
+    acs: list[tuple[str, str]] = []
+    lines = spec_text.splitlines()
+
+    heading_ids = []
+    for line in lines:
+        m = re.match(r"^##\s+(AC-\d+)\s*:\s*(.*)", line, re.IGNORECASE)
+        if m:
+            heading_ids.append(m.group(1))
+
+    if heading_ids:
+        current_id: str | None = None
+        current_body_lines: list[str] = []
+        for line in lines:
+            m = re.match(r"^##\s+(AC-\d+)\s*:\s*(.*)", line, re.IGNORECASE)
+            if m:
+                if current_id is not None:
+                    acs.append((current_id, "\n".join(current_body_lines).strip()))
+                current_id = m.group(1)
+                current_body_lines = [m.group(2)]
+                continue
+            if current_id is not None:
+                if line.strip().startswith("## "):
+                    acs.append((current_id, "\n".join(current_body_lines).strip()))
+                    current_id = None
+                    current_body_lines = []
+                    continue
+                current_body_lines.append(line)
+        if current_id is not None:
+            acs.append((current_id, "\n".join(current_body_lines).strip()))
+        return acs
+
+    in_ac_section = False
+    for line in lines:
         stripped = line.strip()
         if stripped.lower().startswith("## acceptance criteria"):
-            in_ac = True
+            in_ac_section = True
             continue
-        if in_ac and stripped.startswith("## "):
+        if in_ac_section and stripped.startswith("## "):
             break
-        if in_ac:
-            lines.append(line)
-    return in_ac, "\n".join(lines)
-
-
-def _parse_ac_bullets(ac_text: str) -> list[tuple[str, str]]:
-    bullets: list[tuple[str, str]] = []
-    for line in ac_text.splitlines():
-        stripped = line.strip()
+        if not in_ac_section:
+            continue
         m = re.match(r"^- `(AC-\d+)`:\s*(.*)", stripped)
         if m:
-            bullets.append((m.group(1), m.group(2)))
+            acs.append((m.group(1), m.group(2)))
             continue
         m = re.match(r"^-\s*(AC-\d+):\s*(.*)", stripped)
         if m:
-            bullets.append((m.group(1), m.group(2)))
-    return bullets
+            acs.append((m.group(1), m.group(2)))
+    return acs
 
 
 def _extract_backtick_symbols(text: str) -> list[str]:
@@ -68,40 +103,44 @@ def _extract_backtick_symbols(text: str) -> list[str]:
 
 
 def check_ac_section_exists(spec_name: str, spec_text: str) -> LintFinding | None:
-    has_ac, _ = _extract_ac_section(spec_text)
-    if not has_ac:
+    acs = _extract_acs(spec_text)
+    has_ac_section = bool(acs)
+    ac_heading_pat = r"^##\s+AC-\d+\s*:"
+    has_heading = bool(re.search(ac_heading_pat, spec_text, re.IGNORECASE | re.MULTILINE))
+    ac_section_pat = r"^##\s+acceptance criteria"
+    has_bulleted = bool(re.search(ac_section_pat, spec_text, re.IGNORECASE | re.MULTILINE))
+    if not has_ac_section and not has_heading and not has_bulleted:
         return LintFinding(
             spec_name=spec_name,
             level="ERROR",
             check="ac_section_exists",
-            message="No '## Acceptance Criteria' section found",
+            message="No '## Acceptance Criteria' section or '## AC-NN:' headings found",
         )
     return None
 
 
 def check_ac_bullets_well_formed(spec_name: str, spec_text: str) -> list[LintFinding]:
-    _, ac_text = _extract_ac_section(spec_text)
-    bullets = _parse_ac_bullets(ac_text)
+    acs = _extract_acs(spec_text)
     findings: list[LintFinding] = []
 
-    if not bullets:
-        non_empty = [
-            ln for ln in ac_text.splitlines() if ln.strip() and not ln.strip().startswith("#")
-        ]
-        if non_empty:
+    if not acs:
+        ac_heading_pat = r"^##\s+AC-\d+\s*:"
+        has_ac_heading = bool(re.search(ac_heading_pat, spec_text, re.IGNORECASE | re.MULTILINE))
+        ac_section_pat = r"^##\s+acceptance criteria"
+        has_ac_section = bool(re.search(ac_section_pat, spec_text, re.IGNORECASE | re.MULTILINE))
+        if has_ac_heading or has_ac_section:
             findings.append(
                 LintFinding(
                     spec_name=spec_name,
                     level="ERROR",
                     check="ac_bullets_well_formed",
-                    message="AC section has content but no well-formed bullets "
-                    "(expected: `- AC-N: description` or `- `AC-N`: description`)",
+                    message="AC section/heading found but no parseable ACs",
                 )
             )
         return findings
 
     seen_ids: dict[str, int] = {}
-    for ac_id, _desc in bullets:
+    for ac_id, _desc in acs:
         count = seen_ids.get(ac_id, 0) + 1
         seen_ids[ac_id] = count
 
@@ -120,9 +159,8 @@ def check_ac_bullets_well_formed(spec_name: str, spec_text: str) -> list[LintFin
 
 
 def check_ac_count_within_band(spec_name: str, spec_text: str) -> LintFinding | None:
-    _, ac_text = _extract_ac_section(spec_text)
-    bullets = _parse_ac_bullets(ac_text)
-    count = len(bullets)
+    acs = _extract_acs(spec_text)
+    count = len(acs)
 
     if count < 1:
         return LintFinding(
@@ -149,8 +187,7 @@ def check_ac_symbol_references_resolve(
     if not export_map:
         return []
 
-    _, ac_text = _extract_ac_section(spec_text)
-    bullets = _parse_ac_bullets(ac_text)
+    acs = _extract_acs(spec_text)
     findings: list[LintFinding] = []
 
     all_exports: set[str] = set()
@@ -160,7 +197,7 @@ def check_ac_symbol_references_resolve(
     spec_own_names = set(re.findall(r"def\s+(\w+)", spec_text))
     spec_own_names |= set(re.findall(r"class\s+(\w+)", spec_text))
 
-    for ac_id, desc in bullets:
+    for ac_id, desc in acs:
         symbols = _extract_backtick_symbols(desc)
         for sym in symbols:
             if sym in all_exports:
@@ -185,11 +222,10 @@ def check_ac_symbol_references_resolve(
 
 
 def check_ac_single_concern(spec_name: str, spec_text: str) -> list[LintFinding]:
-    _, ac_text = _extract_ac_section(spec_text)
-    bullets = _parse_ac_bullets(ac_text)
+    acs = _extract_acs(spec_text)
     findings: list[LintFinding] = []
 
-    for ac_id, desc in bullets:
+    for ac_id, desc in acs:
         and_count = len(re.findall(r"\band\b", desc, re.IGNORECASE))
         or_count = len(re.findall(r"\bor\b", desc, re.IGNORECASE))
         if and_count + or_count > 1:
