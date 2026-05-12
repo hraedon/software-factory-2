@@ -44,14 +44,11 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | proposed |
 | 108 | GeminiCLIChannel exists but is essentially untested in production | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed |
 | 121 | Gate process and runner use project venv instead of gate venv for gate tooling | critical | implemented |
 | 126 | Work-item granularity correlation — measure AC count vs first-attempt pass rate, then cap | high | implemented |
 | 127 | Spec linting — pre-flight pass over work-item specs before model invocation | high | implemented |
-| 128 | Cross-attempt defect taxonomy — classify model-attempt failures across GRs | high | implemented |
-| 129 | Substrate actor_metadata API change breaks 10 integration tests — dict vs attribute access | high | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -80,6 +77,9 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 129 | Substrate actor_metadata API change breaks 10 integration tests — dict vs attribute access | high | Fixed on substrate side; all 18 tests pass; make check clean |
+| 128 | Cross-attempt defect taxonomy — classify model-attempt failures across GRs | high | Corpus builder (`build_failure_corpus.py`), report generator (`failure_corpus_report.py`), classification rules, 16 tests; substrate syntax error blocking import fixed |
+| 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | `make integration` target added; 8 new integration tests covering test_suite lifecycle, implementation lifecycle, scheduler DAG, channel failure retry, crash recovery on real Postgres |
 | 125 | populate_work_items.py --config doesn't infer --workflow from config YAML | medium | --workflow defaults to None; inferred from config.workflow_version when --config provided; summary line prints resolved project name |
 | 124 | Selective ruff rule set for model output — relax non-critical rules | medium | Inner gate uses `--select E,F,I,N,W,UP,RUF --ignore E501` matching pyproject.toml; GR-019 validated: zero ruff failures |
 | 123 | Inner gate auto-fix: copy ruff-corrected artifacts back instead of retrying | medium | `_run_ruff_fast` auto-fixes and writes back with `.orig` backup; targeted F841 unsafe fix; GR-019 validated |

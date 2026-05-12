@@ -50,13 +50,13 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Multi-channel dispatch: runner selects channel per-role based on config binding
 - Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys
 - 3 workflow YAMLs: phase1.yaml (single-role), phase2.yaml, phase3.yaml (3-stage pipeline)
-- 477 passing tests, 0 lint errors
+- 550 passing tests, 0 lint errors
 - 19 golden runs executed (GR-001 through GR-019)
   - GR-019: 94% lock rate (15/16) on cert-watch full DAG, K2-only; zero ruff failures; inner gate first-attempt rate 64%
   - GR-015: 100% lock rate (24/24) on cert-watch full DAG, K2-only; 0% first-attempt pass rate (all required inner gate retry)
   - GR-014: 91% lock rate (20/22) on cert-watch full DAG with K2 via Fireworks
 
-**Known issues:** 4 open breadcrumbs (0 critical, 2 high, 2 medium, 0 low) + 14 RFCs. See `breadcrumbs/README.md`.
+**Known issues:** 5 open breadcrumbs (1 critical, 3 high, 1 medium, 0 low) + 14 RFCs. See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing. All channels have adapter implementations.
 
@@ -80,10 +80,11 @@ If you find yourself wanting to skip ahead, file a breadcrumb explaining why and
 ## Testing
 
 ```bash
-make test    # 477 tests, ~64s
-make lint    # ruff check + format (no errors)
-make audit   # vulture dead-code check (no findings)
-make check   # lint + audit + test (full CI gate)
+make test        # 550 tests, ~76s
+make lint        # ruff check + format (no errors)
+make audit       # vulture dead-code check (no findings)
+make integration # @pytest.mark.integration only (requires Postgres)
+make check       # lint + audit + test (full CI gate)
 ```
 
 ## Golden runs

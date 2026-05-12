@@ -2,7 +2,7 @@
 number: "128"
 title: "Cross-attempt defect taxonomy — classify model-attempt failures across GRs"
 severity: high
-status: proposed
+status: implemented
 kind: improvement
 author: opus-review
 date: "2026-05-12"

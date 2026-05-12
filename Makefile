@@ -1,4 +1,4 @@
-.PHONY: lint format test cov audit check golden-run
+.PHONY: lint format test cov audit check golden-run integration
 
 PYTEST := .venv/bin/python -m pytest
 VULTURE := .venv/bin/vulture
@@ -21,6 +21,9 @@ audit:
 	$(VULTURE) src/factory/ tests/ .vulture_whitelist.py --min-confidence 80
 
 check: lint audit test
+
+integration:
+	$(PYTEST) tests/ -q -m integration
 
 golden-run:
 	@test -n "$(CONFIG)" || (echo "CONFIG=<path> required" && exit 1)
