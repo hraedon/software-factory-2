@@ -9,6 +9,10 @@ When a debate item is resolved (accepted or rejected), it should be:
 
 ## Index
 
-_No active debates._
+| # | Title | Status | Related |
+|---|---|---|---|
+| adv-001 | Adversarial review: Phase 3 readiness is lower than metrics suggest | open | BC-120, BC-126, BC-127, BC-108, RFC-007, RFC-008, RFC-010 |
+
+## Resolved
 
 All round-1 items (001–010), follow-on items (011, 012, NEW-001/002/003), and round-2 items (R2-001 through R2-006) were reviewed by claude-opus-4-7, gemini-cli, glm-5.1, deepseek-v4-pro, and kimi-k2p6-turbo. Synthesis is in `debate/resolved/positions/claude-opus-4-7/RECOMMENDATIONS.md`. Accepted items are now tracked in `plans/phase2-close-and-phase3-prep.md`. Deferred items live as RFCs (RFC-006/007/008) or as named-trigger entries in §4 of that plan. All retired items and their per-reviewer positions are preserved under `debate/resolved/`.
