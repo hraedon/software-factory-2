@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ast
+import logging
 import os
 import subprocess
 import sys
@@ -23,6 +25,13 @@ _DEFAULT_TIMEOUTS = GateTimeouts()
 _PYTEST_DIAGNOSTIC_CHAR_LIMIT = 300
 _RAW_OUTPUT_CHAR_LIMIT = 5000
 
+_pre_gate_log = logging.getLogger("factory.pre_gate")
+
+
+@dataclass(frozen=True)
+class GateScope:
+    strict_imports: bool = True
+
 
 class PreGateDeps(NamedTuple):
     interface_pyi_path: Path | None
@@ -38,8 +47,99 @@ class PreGateResult:
     mypy_passed: bool
     ruff_passed: bool
     pytest_passed: bool
+    imports_symbols_passed: bool
     diagnostics: list[str]
     output: str = ""
+    skipped_import_patterns: dict[str, int] | None = None
+
+
+def validate_artifact_imports(
+    artifact_path: Path,
+    export_map: dict[str, set[str]],
+    scope: GateScope | None = None,
+) -> tuple[bool, list[str], dict[str, int]]:
+    """AST-only symbol-membership check. Complements the runtime importlib check.
+
+    Walks every ``ast.ImportFrom`` node, cross-references against the
+    pre-computed export map, and reports ALL mismatches (not just the first).
+    """
+    _scope = scope or GateScope()
+    skipped: dict[str, int] = {}
+    if export_map is None or not artifact_path.exists():
+        return True, [], skipped
+
+    content = artifact_path.read_text()
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        return True, [], skipped
+
+    mismatches: dict[str, list[tuple[int, list[str]]]] = {}
+    type_checking_nodes: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.If):
+            test = node.test
+            if isinstance(test, ast.Name) and test.id == "TYPE_CHECKING":
+                for child in ast.walk(node):
+                    type_checking_nodes.add(id(child))
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if id(node) in type_checking_nodes:
+            skipped["type_checking_block"] = skipped.get("type_checking_block", 0) + 1
+            _pre_gate_log.warning(
+                "unsupported_import_pattern pattern=type_checking_block module=%s file=%s",
+                node.module or "",
+                artifact_path,
+            )
+            continue
+        module_name = node.module or ""
+        if node.level and node.level > 0:
+            skipped["relative"] = skipped.get("relative", 0) + 1
+            _pre_gate_log.warning(
+                "unsupported_import_pattern pattern=relative module=%s file=%s",
+                module_name or ".",
+                artifact_path,
+            )
+            continue
+        if "." in module_name:
+            skipped["submodule_dotted"] = skipped.get("submodule_dotted", 0) + 1
+            _pre_gate_log.warning(
+                "unsupported_import_pattern pattern=submodule_dotted module=%s file=%s",
+                module_name,
+                artifact_path,
+            )
+            continue
+        if module_name not in export_map:
+            continue
+        if node.names and any(alias.name == "*" for alias in node.names):
+            skipped["star"] = skipped.get("star", 0) + 1
+            _pre_gate_log.warning(
+                "unsupported_import_pattern pattern=star module=%s file=%s",
+                module_name,
+                artifact_path,
+            )
+            continue
+        available = export_map[module_name]
+        unknown = [alias.name for alias in node.names if alias.name not in available]
+        if unknown:
+            entry = mismatches.setdefault(module_name, [])
+            entry.append((node.lineno, unknown))
+
+    if not mismatches:
+        return True, [], skipped
+
+    diagnostics = []
+    for mod in sorted(mismatches):
+        for lineno, names in mismatches[mod]:
+            available_sorted = sorted(export_map[mod])
+            diagnostics.append(
+                f"{artifact_path.name}:{lineno}: '{mod}' imports the following "
+                f"unknown symbols: {', '.join(sorted(names))}"
+            )
+            diagnostics.append(f"  available in {mod}: {', '.join(available_sorted)}")
+    return False, diagnostics, skipped
 
 
 def pre_gate_implementation(
@@ -50,6 +150,8 @@ def pre_gate_implementation(
     python_executable: str | None = None,
     test_suite_path: Path | None = None,
     timeouts: GateTimeouts | None = None,
+    export_map: dict[str, set[str]] | None = None,
+    gate_scope: GateScope | None = None,
 ) -> PreGateResult:
     t = timeouts or _DEFAULT_TIMEOUTS
     if not artifact_path.exists():
@@ -58,7 +160,25 @@ def pre_gate_implementation(
             mypy_passed=True,
             ruff_passed=True,
             pytest_passed=True,
+            imports_symbols_passed=True,
             diagnostics=[f"Artifact not found: {artifact_path}"],
+        )
+
+    if export_map:
+        imports_ok, imports_diags, skipped = validate_artifact_imports(
+            artifact_path, export_map, gate_scope
+        )
+    else:
+        imports_ok, imports_diags, skipped = True, [], {}
+    if not imports_ok:
+        return PreGateResult(
+            passed=False,
+            mypy_passed=True,
+            ruff_passed=True,
+            pytest_passed=True,
+            imports_symbols_passed=False,
+            diagnostics=_truncate_diagnostics(imports_diags),
+            skipped_import_patterns=skipped or None,
         )
 
     mypy_result = _run_mypy_fast(
@@ -76,8 +196,10 @@ def pre_gate_implementation(
             mypy_passed=False,
             ruff_passed=True,
             pytest_passed=True,
+            imports_symbols_passed=True,
             diagnostics=_truncate_diagnostics(all_diagnostics),
             output=mypy_result.get("raw_output", ""),
+            skipped_import_patterns=skipped or None,
         )
 
     ruff_result = _run_ruff_fast(
@@ -90,8 +212,10 @@ def pre_gate_implementation(
             mypy_passed=True,
             ruff_passed=False,
             pytest_passed=True,
+            imports_symbols_passed=True,
             diagnostics=_truncate_diagnostics(all_diagnostics),
             output=ruff_result.get("raw_output", ""),
+            skipped_import_patterns=skipped or None,
         )
 
     pytest_result = _run_pytest_fast(
@@ -109,8 +233,10 @@ def pre_gate_implementation(
         mypy_passed=True,
         ruff_passed=True,
         pytest_passed=pytest_result["passed"],
+        imports_symbols_passed=True,
         diagnostics=_truncate_diagnostics(all_diagnostics),
         output=pytest_result.get("raw_output", "") if not pytest_result["passed"] else "",
+        skipped_import_patterns=skipped or None,
     )
 
 
@@ -127,6 +253,7 @@ def pre_gate_interface_spec(
             mypy_passed=True,
             ruff_passed=True,
             pytest_passed=True,
+            imports_symbols_passed=True,
             diagnostics=[f"Artifact not found: {artifact_path}"],
         )
 
@@ -139,6 +266,7 @@ def pre_gate_interface_spec(
             mypy_passed=True,
             ruff_passed=False,
             pytest_passed=True,
+            imports_symbols_passed=True,
             diagnostics=_truncate_diagnostics(ruff_result.get("diagnostics", [])),
             output=ruff_result.get("raw_output", ""),
         )
@@ -155,6 +283,7 @@ def pre_gate_interface_spec(
             mypy_passed=True,
             ruff_passed=True,
             pytest_passed=True,
+            imports_symbols_passed=True,
             diagnostics=_truncate_diagnostics(import_result.get("diagnostics", [])),
             output=import_result.get("raw_output", ""),
         )
@@ -164,6 +293,7 @@ def pre_gate_interface_spec(
         mypy_passed=True,
         ruff_passed=True,
         pytest_passed=True,
+        imports_symbols_passed=True,
         diagnostics=[],
     )
 
@@ -175,6 +305,8 @@ def pre_gate_test_suite(
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
     timeouts: GateTimeouts | None = None,
+    export_map: dict[str, set[str]] | None = None,
+    gate_scope: GateScope | None = None,
 ) -> PreGateResult:
     t = timeouts or _DEFAULT_TIMEOUTS
     if not artifact_path.exists():
@@ -183,7 +315,25 @@ def pre_gate_test_suite(
             mypy_passed=True,
             ruff_passed=True,
             pytest_passed=True,
+            imports_symbols_passed=True,
             diagnostics=[f"Artifact not found: {artifact_path}"],
+        )
+
+    if export_map:
+        imports_ok, imports_diags, skipped = validate_artifact_imports(
+            artifact_path, export_map, gate_scope
+        )
+    else:
+        imports_ok, imports_diags, skipped = True, [], {}
+    if not imports_ok:
+        return PreGateResult(
+            passed=False,
+            mypy_passed=True,
+            ruff_passed=True,
+            pytest_passed=True,
+            imports_symbols_passed=False,
+            diagnostics=_truncate_diagnostics(imports_diags),
+            skipped_import_patterns=skipped or None,
         )
 
     ruff_result = _run_ruff_fast(
@@ -195,8 +345,10 @@ def pre_gate_test_suite(
             mypy_passed=True,
             ruff_passed=False,
             pytest_passed=True,
+            imports_symbols_passed=True,
             diagnostics=_truncate_diagnostics(ruff_result.get("diagnostics", [])),
             output=ruff_result.get("raw_output", ""),
+            skipped_import_patterns=skipped or None,
         )
 
     collect_result = _run_collect_only(
@@ -213,8 +365,10 @@ def pre_gate_test_suite(
             mypy_passed=True,
             ruff_passed=True,
             pytest_passed=False,
+            imports_symbols_passed=True,
             diagnostics=_truncate_diagnostics(collect_result.get("diagnostics", [])),
             output=collect_result.get("raw_output", ""),
+            skipped_import_patterns=skipped or None,
         )
 
     return PreGateResult(
@@ -222,7 +376,9 @@ def pre_gate_test_suite(
         mypy_passed=True,
         ruff_passed=True,
         pytest_passed=True,
+        imports_symbols_passed=True,
         diagnostics=[],
+        skipped_import_patterns=skipped or None,
     )
 
 

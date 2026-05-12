@@ -38,6 +38,7 @@ class PromptContext:
     prompt_template_hash: str
     extra_artifacts: dict[str, str]
     stub_only_deps: list[str]
+    export_map: dict[str, set[str]] | None = None
 
 
 def _to_uuid(value: str | uuid.UUID) -> uuid.UUID:
@@ -54,6 +55,7 @@ def derive_context(
     spec_glossary: dict[str, str] | None = None,
     extra_artifacts: dict[str, str] | None = None,
     stub_only_deps: list[str] | None = None,
+    export_map: dict[str, set[str]] | None = None,
 ) -> PromptContext:
     wi = substrate.get_work_item(work_item_id)
     if wi is None:
@@ -93,6 +95,7 @@ def derive_context(
         prompt_template_hash=prompt_template_hash,
         extra_artifacts=extras,
         stub_only_deps=stub_only_deps or [],
+        export_map=export_map,
     )
 
 
@@ -136,6 +139,7 @@ def derive_test_author_context(
         extra_artifacts["locked_interface"] = locked_interface
     dep_contents, stub_only = _resolve_dependency_contents(substrate, custom)
     extra_artifacts.update(dep_contents)
+    export_map = _build_export_map_from_contents(dep_contents)
 
     return derive_context(
         substrate,
@@ -145,6 +149,7 @@ def derive_test_author_context(
         spec_glossary=spec_glossary,
         extra_artifacts=extra_artifacts,
         stub_only_deps=stub_only,
+        export_map=export_map,
     )
 
 
@@ -191,6 +196,7 @@ def derive_implementer_context(
         extra_artifacts["test_suite"] = test_suite
     dep_contents, stub_only = _resolve_dependency_contents(substrate, custom)
     extra_artifacts.update(dep_contents)
+    export_map = _build_export_map_from_contents(dep_contents)
 
     return derive_context(
         substrate,
@@ -200,7 +206,25 @@ def derive_implementer_context(
         spec_glossary=spec_glossary,
         extra_artifacts=extra_artifacts,
         stub_only_deps=stub_only,
+        export_map=export_map,
     )
+
+
+def _build_export_map_from_contents(
+    dep_contents: dict[str, str],
+) -> dict[str, set[str]]:
+    from factory.gate import extract_exports
+
+    export_map: dict[str, set[str]] = {}
+    prefix = "locked_dependency_"
+    for key, content in dep_contents.items():
+        if key.startswith(prefix):
+            module_name = key[len(prefix) :]
+            try:
+                export_map[module_name] = extract_exports(content)
+            except Exception:
+                pass
+    return export_map
 
 
 def _serialize_bundle(
@@ -280,6 +304,15 @@ def render_prompt(ctx: PromptContext) -> str:
             parts.append("")
             parts.append(value)
             parts.append("")
+    if ctx.export_map:
+        parts.append("## available_dependency_imports")
+        parts.append("")
+        for module_name in sorted(ctx.export_map):
+            symbols = sorted(ctx.export_map[module_name])
+            is_stub = module_name in ctx.stub_only_deps
+            tag = " (stub-only)" if is_stub else ""
+            parts.append(f"- {module_name}{tag}: {', '.join(symbols)}")
+        parts.append("")
     if ctx.stub_only_deps:
         parts.append("## stub_only_dependencies")
         parts.append("")

@@ -855,6 +855,29 @@ def structural_signature(pyi_content: str) -> list[str]:
     return sorted(elements)
 
 
+def extract_exports(pyi_content: str) -> set[str]:
+    """Extract top-level public names from .pyi content.
+
+    Returns a flat set of exported names (classes, functions, type aliases).
+    Enum members collapse to their parent class name.
+    """
+    tree = ast.parse(pyi_content)
+    names: set[str] = set()
+
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            names.add(node.name)
+        elif isinstance(node, ast.ClassDef):
+            names.add(node.name)
+        elif isinstance(node, ast.AnnAssign):
+            if isinstance(node.target, ast.Name):
+                names.add(node.target.id)
+        elif isinstance(node, ast.Assign) and len(node.targets) == 1:
+            if isinstance(node.targets[0], ast.Name):
+                names.add(node.targets[0].id)
+    return names
+
+
 def structurally_equivalent_pyi(a: str, b: str) -> bool:
     """Return True if two .pyi contents are structurally equivalent.
 

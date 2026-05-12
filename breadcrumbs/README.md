@@ -48,6 +48,10 @@ Reusable tags:
 | 108 | GeminiCLIChannel exists but is essentially untested in production | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed |
 | 121 | Gate process and runner use project venv instead of gate venv for gate tooling | critical | implemented |
+| 126 | Work-item granularity correlation — measure AC count vs first-attempt pass rate, then cap | high | implemented |
+| 127 | Spec linting — pre-flight pass over work-item specs before model invocation | high | implemented |
+| 128 | Cross-attempt defect taxonomy — classify model-attempt failures across GRs | high | implemented |
+| 129 | Substrate actor_metadata API change breaks 10 integration tests — dict vs attribute access | high | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -69,7 +73,8 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-012 | Gate subprocess credential stripping and sandboxing — defense-in-depth against model output executing in gate context | medium | Phase 5+ (untrusted specs) |
 | RFC-013 | Expanded inner-gate feedback for implementer retries — richer failure signal without infra overhead | medium | Phase 3 (inner gate loop) |
 | RFC-014 | Staff engineer summarizer — compress outer-path failure history into actionable constraints | medium | Phase 4 (outer retry path) |
-| RFC-015 | Dependency import manifest + gate-level import validation — accepted; review feedback inline in RFC | high | Phase 3 (prompt + gate) |
+| RFC-015 | Dependency import manifest + gate-level import validation — implemented | high | Phase 3 (prompt + gate) |
+| RFC-016 | Defect-class taxonomy — evolve breadcrumbs from per-defect entries to class-based corpus | medium | Phase 3 (process) — deferred behind BC-128 |
 
 ## Resolved
 

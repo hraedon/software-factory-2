@@ -1,0 +1,41 @@
+allowed:
+  - pattern: "unused import"
+    category: ruff_style
+  - pattern: "undefined name"
+    category: ruff_style
+  - pattern: "import.*but unused"
+    category: ruff_style
+  - pattern: "E501"
+    category: ruff_style
+  - pattern: "F841"
+    category: ruff_style
+  - pattern: "imports.*unknown symbols"
+    category: import_unknown_symbol
+  - pattern: "has no attribute"
+    category: import_unknown_symbol
+  - pattern: "No module named"
+    category: import_module_path
+  - pattern: "ModuleNotFoundError"
+    category: import_module_path
+  - pattern: "ImportError"
+    category: import_module_path
+  - pattern: "cannot import name"
+    category: import_module_path
+  - pattern: "mypy"
+    category: type_mismatch_internal
+  - pattern: "AssertionError"
+    category: pytest_assertion
+  - pattern: "assert"
+    category: pytest_assertion
+  - pattern: "collect.*error"
+    category: pytest_collect_error
+  - pattern: "collect.*failed"
+    category: pytest_collect_error
+  - pattern: "fixture"
+    category: pytest_fixture_missing
+  - pattern: "timed out"
+    category: channel_failure
+  - pattern: "empty output"
+    category: channel_failure
+  - pattern: "parse error"
+    category: channel_failure

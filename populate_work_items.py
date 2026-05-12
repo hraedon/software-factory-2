@@ -208,6 +208,16 @@ def main():
         default=None,
         help="Directory containing .md fixture files for custom golden-run sets",
     )
+    parser.add_argument(
+        "--skip-lint",
+        action="store_true",
+        help="Skip spec lint checks (use with caution)",
+    )
+    parser.add_argument(
+        "--strict-lint",
+        action="store_true",
+        help="Treat lint warnings as errors",
+    )
     args = parser.parse_args()
 
     config: FactoryConfig | None = None
@@ -273,6 +283,40 @@ def main():
             dest = ws_root / "requirements.txt"
             dest.write_text(fixture_reqs.read_text())
             print(f"  Copied {fixture_reqs} -> {dest}")
+
+    if not args.skip_lint:
+        from factory.spec_lint import spec_lint, format_lint_results
+
+        lint_results: list[tuple[str, object]] = []
+        for filename, label, _shape, _ac_ids in items:
+            if only_labels is not None and label not in only_labels:
+                continue
+            if fixtures_dir_custom is not None:
+                spec_path = fixtures_dir_custom / filename
+                spec_text = spec_path.read_text() if spec_path.exists() else None
+            else:
+                spec_text = _resolve_spec_text(filename, label)
+            if spec_text is None:
+                continue
+            result = spec_lint(filename, spec_text)
+            lint_results.append((filename, result))
+
+        if lint_results:
+            report = format_lint_results(lint_results)
+            print(report)
+
+            if args.strict_lint:
+                any_finding = any(r.findings for _, r in lint_results)
+                if any_finding:
+                    print("\n--strict-lint: treating warnings as errors. Aborting.", file=sys.stderr)
+                    sys.exit(1)
+            else:
+                any_error = any(r.errors for _, r in lint_results)
+                if any_error:
+                    print("\nSpec lint found errors. Fix or use --skip-lint to override.", file=sys.stderr)
+                    sys.exit(1)
+    else:
+        print("WARNING: --skip-lint used; spec lint checks bypassed")
 
     created = []
     skipped = 0

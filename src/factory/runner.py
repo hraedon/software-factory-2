@@ -22,6 +22,7 @@ from factory.constants import (
     CUSTOM_FIELD_TEST_SUITE_REF,
     GATE_NAME_INNER_COLLECT,
     GATE_NAME_INNER_IMPORT,
+    GATE_NAME_INNER_IMPORT_SYMBOLS,
     GATE_NAME_INNER_MYPY,
     GATE_NAME_INNER_PYTEST,
     GATE_NAME_INNER_RUFF,
@@ -44,7 +45,7 @@ from factory.context import (
     render_prompt,
 )
 from factory.event_schemas import ChannelFailPayload, SubmitPayload
-from factory.pre_gate import PreGateDeps, PreGateResult
+from factory.pre_gate import GateScope, PreGateDeps, PreGateResult
 from factory.runtime import PipelineRuntime
 from factory.workspace import (
     ArtifactManifest,
@@ -244,6 +245,28 @@ def _resolve_pre_gate_deps(sub: Substrate, wi, config: FactoryConfig) -> PreGate
     )
 
 
+def _build_export_map(
+    dep_paths: list[tuple[str, Path]] | None,
+) -> dict[str, set[str]]:
+    from factory.gate import extract_exports
+
+    export_map: dict[str, set[str]] = {}
+    if not dep_paths:
+        return export_map
+    for module_name, dep_path in dep_paths:
+        if dep_path.exists():
+            try:
+                content = dep_path.read_text()
+                export_map[module_name] = extract_exports(content)
+            except Exception:
+                log.warning(
+                    "export_map_extract_failed",
+                    module=module_name,
+                    path=str(dep_path),
+                )
+    return export_map
+
+
 def process_work_item(
     runtime: PipelineRuntime,
     wi,
@@ -412,6 +435,7 @@ def _run_pre_gate(
     artifact_path: Path,
     deps: PreGateDeps,
     config: FactoryConfig | None = None,
+    export_map: dict[str, set[str]] | None = None,
 ) -> PreGateResult:
     from factory.pre_gate import (
         pre_gate_implementation,
@@ -420,6 +444,7 @@ def _run_pre_gate(
     )
 
     t = config.gate_timeouts if config else GateTimeouts()
+    gate_scope = GateScope()
     if role_name == ROLE_INTERFACE_ARCHITECT:
         return pre_gate_interface_spec(
             artifact_path,
@@ -435,6 +460,8 @@ def _run_pre_gate(
             dependency_spec_paths=deps.dep_spec_paths,
             python_executable=deps.python_executable,
             timeouts=t,
+            export_map=export_map,
+            gate_scope=gate_scope,
         )
     return pre_gate_implementation(
         artifact_path,
@@ -444,6 +471,8 @@ def _run_pre_gate(
         python_executable=deps.python_executable,
         test_suite_path=deps.test_suite_path,
         timeouts=t,
+        export_map=export_map,
+        gate_scope=gate_scope,
     )
 
 
@@ -467,6 +496,7 @@ def _inner_gate_loop(
     sub = runtime.sub
     work_item_id = str(wi.work_item_id)
     pre_gate_deps = _resolve_pre_gate_deps(sub, wi, config)
+    export_map = _build_export_map(pre_gate_deps.dep_paths)
     max_retries = config.inner_gate_retries
     current_artifact = artifact_path
     current_ctx = ctx
@@ -482,6 +512,7 @@ def _inner_gate_loop(
             current_artifact,
             pre_gate_deps,
             config,
+            export_map=export_map,
         )
         if pre_result.passed:
             log.info(
@@ -495,6 +526,7 @@ def _inner_gate_loop(
             "inner_gate_failed_retry",
             work_item_id=work_item_id,
             retry=retry,
+            imports_symbols_passed=pre_result.imports_symbols_passed,
             mypy_passed=pre_result.mypy_passed,
             ruff_passed=pre_result.ruff_passed,
             pytest_passed=pre_result.pytest_passed,
@@ -503,7 +535,9 @@ def _inner_gate_loop(
 
         from factory.failure_summary import FailureEntry
 
-        if not pre_result.mypy_passed:
+        if not pre_result.imports_symbols_passed:
+            gate_label = GATE_NAME_INNER_IMPORT_SYMBOLS
+        elif not pre_result.mypy_passed:
             gate_label = GATE_NAME_INNER_MYPY
         elif not pre_result.ruff_passed:
             gate_label = GATE_NAME_INNER_RUFF
@@ -543,6 +577,7 @@ def _inner_gate_loop(
             prompt_template_hash=current_ctx.prompt_template_hash,
             extra_artifacts=current_ctx.extra_artifacts,
             stub_only_deps=current_ctx.stub_only_deps,
+            export_map=current_ctx.export_map,
         )
         retry_prompt = render_prompt(current_ctx)
         retry_ad = ad / f"retry-{retry}"

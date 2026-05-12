@@ -95,6 +95,7 @@ GATE_NAME_INNER_IMPORT = "inner_import"
 GATE_NAME_INNER_COLLECT = "inner_test_collect"
 GATE_NAME_INNER_MYPY = "inner_mypy"
 GATE_NAME_INNER_RUFF = "inner_ruff"
+GATE_NAME_INNER_IMPORT_SYMBOLS = "inner_import_symbols"
 
 GATE_NAME_UNKNOWN_TYPE = "unknown_type"
 GATE_NAME_BEHAVIORAL = "behavioral"
@@ -117,3 +118,6 @@ FAMILY_BY_PROVIDER = {
     "opencode": "opencode-free",
     "mac-studio-lms": "local-lms",
 }
+
+AC_SOFT_CAP = 8
+SPEC_WORD_COUNT_SOFT_CAP = 800
