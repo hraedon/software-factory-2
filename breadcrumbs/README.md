@@ -48,6 +48,9 @@ Reusable tags:
 | 108 | GeminiCLIChannel exists but is essentially untested in production | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed |
 | 121 | Gate process and runner use project venv instead of gate venv for gate tooling | critical | implemented |
+| 122 | Prompt pre-flight checklist to improve first-attempt pass rate | high | proposed |
+| 123 | Inner gate auto-fix: copy ruff-corrected artifacts back instead of retrying | medium | proposed |
+| 124 | Selective ruff rule set for model output — relax non-critical rules | medium | proposed |
 
 ### RFCs (awaiting upstream phases)
 
