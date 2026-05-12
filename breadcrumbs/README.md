@@ -48,9 +48,7 @@ Reusable tags:
 | 108 | GeminiCLIChannel exists but is essentially untested in production | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed |
 | 121 | Gate process and runner use project venv instead of gate venv for gate tooling | critical | implemented |
-| 122 | Prompt pre-flight checklist to improve first-attempt pass rate | high | proposed |
-| 123 | Inner gate auto-fix: copy ruff-corrected artifacts back instead of retrying | medium | proposed |
-| 124 | Selective ruff rule set for model output — relax non-critical rules | medium | proposed |
+| 125 | populate_work_items.py --config doesn't infer --workflow from config YAML | medium | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -77,6 +75,10 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 125 | populate_work_items.py --config doesn't infer --workflow from config YAML | medium | Proposed fix: infer workflow from config.workflow_version when --workflow not explicitly set |
+| 124 | Selective ruff rule set for model output — relax non-critical rules | medium | Inner gate uses `--select E,F,I,N,W,UP,RUF --ignore E501` matching pyproject.toml; GR-019 validated: zero ruff failures |
+| 123 | Inner gate auto-fix: copy ruff-corrected artifacts back instead of retrying | medium | `_run_ruff_fast` auto-fixes and writes back with `.orig` backup; targeted F841 unsafe fix; GR-019 validated |
+| 122 | Prompt pre-flight checklist to improve first-attempt pass rate | high | Pre-flight verification checklists added to all three role prompts; GR-019: inner gate first-attempt rate 0% → 64% |
 | 121 | Gate process and runner use project venv instead of gate venv for gate tooling | critical | `ensure_gate_venv` now installs gate tools + project requirements into `.venv-gate`; `gate_process.py` and `runner.py` both use gate venv python for gate operations |
 | 119 | Venv gate tool hash won't detect version changes — only covers tool name list | low | _gate_tools_hash() now queries pip show for installed versions; hash changes on version drift |
 | 118 | golden_run_nanny.py lacks overall timeout and progress reporting | low | Added --timeout flag (default 60 min) and 30s periodic stdout status with PID/elapsed |

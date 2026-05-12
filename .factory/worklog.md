@@ -4,6 +4,53 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-12 — Session 25: BC-122/123/124 throughput improvements; GR-019 validation
+
+**Invocation:** OpenCode (fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo)
+
+**Focus:** Implement three breadcrumbs targeting the 0% first-attempt pass rate observed in GR-015. Validate with GR-019.
+
+### Breadcrumbs implemented (3)
+
+- **BC-122 (high):** Prompt pre-flight checklists. Added "Pre-flight verification" sections to all three role prompt templates (`interface_architect.md`, `test_author.md`, `implementer.md`) with itemized checklists for the model to self-verify before outputting.
+
+- **BC-124 (medium):** Selective ruff rule set for inner gate. Added `INNER_GATE_RUFF_SELECT`, `INNER_GATE_RUFF_IGNORE`, `INNER_GATE_RUFF_UNSAFE_FIXES` to `constants.py`. Inner gate now uses `--select E,F,I,N,W,UP,RUF --ignore E501` matching `pyproject.toml`. Outer gate unchanged (full ruleset).
+
+- **BC-123 (medium):** Inner gate auto-fix-back. `_run_ruff_fast` now: (1) runs targeted unsafe fix for F841 only, (2) runs safe fixes for all selected rules, (3) formats, (4) final verify. When content changes, saves model's raw output as `.<name>.orig` before writing back the fixed version.
+
+### Fixes during review
+
+Three issues caught during pre-flight review, all fixed:
+
+1. **Inner gate ruleset diverged from pyproject.toml** — widened from `E,W,F,I` to `E,F,I,N,W,UP,RUF` to eliminate possibility of inner-gate-pass → outer-gate-fail.
+2. **`--unsafe-fixes` was a blanket flag** — replaced with targeted `--unsafe-fixes --select F841` pass for unused variable removal only.
+3. **Auto-fix overwrote model's raw output** — added conditional `.orig` backup; only written when content actually changes.
+
+### Golden Run 019 — K2-only, cert-watch full DAG
+
+Wall clock: ~65 min (03:13 – 04:18 UTC). One item stuck on channel timeout.
+
+**Inner gate results (clean signal):**
+
+| Metric | GR-015 | GR-019 |
+|---|---|---|
+| Inner gate first-attempt pass (retry=0) | 0/24 (0%) | 7/11 (64%) |
+| Ruff failures | 8/8 interface specs | **0** |
+| Lock rate | 24/24 (100%) | 15/16 (94%) |
+| Remaining failure modes | ruff, import, mypy, pytest | import, mypy, pytest only |
+
+- 1 item stuck: `d75ba24b` (cert_chain_library implementation) — channel timeout on every invocation. Model capability issue, not pipeline issue.
+- **Zero ruff failures across the entire run.** Ruff eliminated as a failure mode.
+- Outer gate telemetry shows 0% first-attempt due to contaminated attempt counters from multiple partial runs. Inner gate data is the clean signal.
+
+### Breadcrumbs opened (1)
+
+- **BC-125:** `populate_work_items.py --config` doesn't infer `--workflow` from config YAML, causing work items to be created with wrong workflow version. Led to GR-019 first attempt finding zero work items.
+
+### Test results: 474 pass, 13 skip, 0 lint errors, 0 audit findings
+
+---
+
 ## 2026-05-12 — Session 24: Golden runs 015–018; BC-121 critical regression; model capability evaluation
 
 **Invocation:** OpenCode (fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo)

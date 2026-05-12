@@ -2,7 +2,7 @@
 number: "123"
 title: "Inner gate auto-fix: copy ruff-corrected artifacts back instead of retrying"
 severity: medium
-status: proposed
+status: resolved
 kind: improvement
 author: opencode-session-eval
 date: "2026-05-12"

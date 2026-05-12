@@ -45,3 +45,16 @@ Your implementation will be evaluated by:
 3. `ruff check` for lint compliance (auto-fixes run, so only unfixable issues fail).
 
 A clean run of all three means gate_pass.
+
+## Pre-flight verification
+
+Before returning your implementation, verify every item on this checklist. Fix any violations before outputting:
+
+1. `mypy --strict` would pass against the `.pyi` contract — every function has a concrete return statement, no `...` or bare `pass` bodies.
+2. `ruff check` would pass — no unused imports, no undefined names, imports sorted correctly.
+3. Every function signature matches the `.pyi` contract exactly (name, parameters, return type).
+4. Dependency types are imported from their module (e.g., `from certificate_model import Certificate`), not redefined locally.
+5. Type annotations use modern syntax: `X | Y`, `X | None`, lowercase generics (`dict[K, V]`, `list[T]`). No `typing.Union`, `typing.Optional`, `typing.Dict`.
+6. Imports are sorted: `__future__`, stdlib, third-party — each group alphabetical, separated by blank lines.
+7. No unused imports or unused local variables.
+8. No comments in the code.

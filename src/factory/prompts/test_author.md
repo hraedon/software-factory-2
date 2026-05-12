@@ -89,3 +89,16 @@ Every test in the example above: imports only from the locked interface, names t
 - Cover every AC listed in `ac_ids`. If an AC is missing from your tests, the gate will reject.
 - Error codes are not optional decoration — every `ErrorCode` variant in the interface must be exercised.
 - Output one code block only. No preamble, no explanation, no commentary after the block.
+
+## Pre-flight verification
+
+Before returning your test file, verify every item on this checklist. Fix any violations before outputting:
+
+1. The file parses as valid Python (no syntax errors).
+2. Every test function name starts with `test_`.
+3. All imports resolve: import only from `interface` and declared dependency modules — no imports from `_impl`, `implementation`, or modules not in the locked interface.
+4. Every `ac_ids` value is covered by at least one test function (include AC ID in the docstring).
+5. Every `ErrorCode` enum value declared in the interface is exercised by at least one test.
+6. Type annotations use modern syntax where present: `X | Y`, lowercase generics.
+7. Imports are sorted: stdlib, then local modules — each group alphabetical.
+8. No unused imports.

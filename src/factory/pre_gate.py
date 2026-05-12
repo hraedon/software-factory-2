@@ -9,6 +9,9 @@ from typing import NamedTuple
 
 from factory.constants import (
     ARTIFACT_FILENAME_INTERFACE,
+    INNER_GATE_RUFF_IGNORE,
+    INNER_GATE_RUFF_SELECT,
+    INNER_GATE_RUFF_UNSAFE_FIXES,
     TEMPFILE_PREFIX_COLLECT,
     TEMPFILE_PREFIX_MYPY,
     TEMPFILE_PREFIX_PYTEST,
@@ -382,6 +385,9 @@ def _run_mypy_fast(
     return _ok()
 
 
+_RAW_ARTIFACT_SUFFIX = ".orig"
+
+
 def _run_ruff_fast(
     artifact_path: Path,
     python_executable: str | None = None,
@@ -389,12 +395,42 @@ def _run_ruff_fast(
     import tempfile
 
     exe = python_executable or sys.executable
+    check_args = ["--select", INNER_GATE_RUFF_SELECT, "--ignore", INNER_GATE_RUFF_IGNORE]
+    original_content = artifact_path.read_text()
     try:
         with tempfile.TemporaryDirectory(prefix="sf2_ruff_") as tmpdir:
             tmp_copy = Path(tmpdir) / artifact_path.name
-            tmp_copy.write_text(artifact_path.read_text())
+            tmp_copy.write_text(original_content)
+            subprocess.run(
+                [
+                    exe,
+                    "-m",
+                    "ruff",
+                    "check",
+                    "--fix",
+                    "--unsafe-fixes",
+                    "--select",
+                    INNER_GATE_RUFF_UNSAFE_FIXES,
+                    str(tmp_copy),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            subprocess.run(
+                [exe, "-m", "ruff", "check", "--fix", *check_args, str(tmp_copy)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            subprocess.run(
+                [exe, "-m", "ruff", "format", str(tmp_copy)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
             result = subprocess.run(
-                [exe, "-m", "ruff", "check", "--fix", str(tmp_copy)],
+                [exe, "-m", "ruff", "check", *check_args, str(tmp_copy)],
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -403,26 +439,11 @@ def _run_ruff_fast(
                 lines = result.stdout.strip().splitlines()
                 diags = lines[:10] if lines else ["ruff check reported errors"]
                 return _fail(diags, _truncate_raw_output(result.stdout))
-            result2 = subprocess.run(
-                [exe, "-m", "ruff", "format", str(tmp_copy)],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if result2.returncode != 0:
-                lines = result2.stderr.strip().splitlines()
-                diags = lines[:10] if lines else ["ruff format reported errors"]
-                return _fail(diags, _truncate_raw_output(result2.stderr))
-            result3 = subprocess.run(
-                [exe, "-m", "ruff", "check", str(tmp_copy)],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if result3.returncode != 0:
-                lines = result3.stdout.strip().splitlines()
-                diags = lines[:10] if lines else ["ruff check reported errors"]
-                return _fail(diags, _truncate_raw_output(result3.stdout))
+            fixed_content = tmp_copy.read_text()
+            if fixed_content != original_content:
+                orig_backup = artifact_path.parent / f".{artifact_path.name}{_RAW_ARTIFACT_SUFFIX}"
+                orig_backup.write_text(original_content)
+                artifact_path.write_text(fixed_content)
     except subprocess.TimeoutExpired:
         return _fail(["ruff timed out after 30s"])
     except Exception as e:

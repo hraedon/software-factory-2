@@ -2,7 +2,7 @@
 number: "122"
 title: "Prompt pre-flight checklist to improve first-attempt pass rate"
 severity: high
-status: proposed
+status: resolved
 kind: improvement
 author: opencode-session-eval
 date: "2026-05-12"

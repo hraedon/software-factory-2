@@ -33,14 +33,14 @@ class TestPreGateImplementation:
         assert not result.passed
         assert not result.mypy_passed
 
-    def test_fails_on_ruff_error(self, tmp_path):
+    def test_auto_fixes_ruff_errors(self, tmp_path):
         artifact = tmp_path / "interface.py"
         artifact.write_text("def hello() -> str:\n    x=1+2\n    return 'hello'\n")
         interface_pyi = tmp_path / "interface.pyi"
         interface_pyi.write_text("def hello() -> str: ...\n")
         result = pre_gate_implementation(artifact, interface_pyi_path=interface_pyi)
-        assert not result.passed
-        assert not result.ruff_passed
+        assert result.passed
+        assert result.ruff_passed
 
     def test_skips_mypy_without_interface(self, tmp_path):
         artifact = tmp_path / "interface.py"
@@ -262,12 +262,11 @@ class TestPreGateInterfaceSpec:
         assert result.ruff_passed
         assert result.diagnostics == []
 
-    def test_fails_on_ruff_error(self, tmp_path):
+    def test_auto_fixes_ruff_errors(self, tmp_path):
         artifact = tmp_path / "artifact.pyi"
-        artifact.write_text("def hello() -> str:\n    x=1+2\n    return 'hello'\n")
+        artifact.write_text("def hello() ->str:\n    return 'hello'\n")
         result = pre_gate_interface_spec(artifact)
-        assert not result.passed
-        assert not result.ruff_passed
+        assert result.ruff_passed
 
     def test_fails_on_import_error(self, tmp_path):
         artifact = tmp_path / "artifact.pyi"
@@ -301,11 +300,14 @@ class TestPreGateInterfaceSpec:
         result = pre_gate_interface_spec(artifact)
         assert not result.passed
 
-    def test_ruff_auto_fix_before_import_check(self, tmp_path):
+    def test_ruff_auto_fix_copies_back(self, tmp_path):
+        original_content = "def hello() ->str:\n    return 'hello'\n"
         artifact = tmp_path / "artifact.pyi"
-        artifact.write_text("def hello() ->str:\n    return 'hello'\n")
+        artifact.write_text(original_content)
         result = pre_gate_interface_spec(artifact)
-        assert result.ruff_passed or not result.passed
+        assert result.ruff_passed
+        fixed = artifact.read_text()
+        assert fixed != original_content
 
 
 class TestPreGateTestSuite:
@@ -316,12 +318,11 @@ class TestPreGateTestSuite:
         assert result.passed
         assert result.diagnostics == []
 
-    def test_fails_on_ruff_error(self, tmp_path):
+    def test_auto_fixes_ruff_errors(self, tmp_path):
         artifact = tmp_path / "test_hello.py"
         artifact.write_text("def hello() -> str:\n    x=1+2\n    return 'hello'\n")
         result = pre_gate_test_suite(artifact)
-        assert not result.passed
-        assert not result.ruff_passed
+        assert result.ruff_passed
 
     def test_fails_on_collection_error(self, tmp_path):
         artifact = tmp_path / "test_bad.py"
@@ -418,3 +419,54 @@ class TestPreGateDispatch:
         )
         result = _run_pre_gate("implementer", artifact, deps)
         assert result.passed
+
+
+class TestRunRuffFastAutoFix:
+    def test_auto_fix_writes_back_to_artifact(self, tmp_path):
+        from factory.pre_gate import _run_ruff_fast
+
+        artifact = tmp_path / "impl.py"
+        original = "x=1\n"
+        artifact.write_text(original)
+        result = _run_ruff_fast(artifact)
+        assert result["passed"]
+        fixed = artifact.read_text()
+        assert fixed != original
+        assert "x = 1" in fixed
+
+    def test_auto_fix_saves_orig_backup(self, tmp_path):
+        from factory.pre_gate import _run_ruff_fast
+
+        artifact = tmp_path / "impl.py"
+        original = "x=1\n"
+        artifact.write_text(original)
+        _run_ruff_fast(artifact)
+        orig = tmp_path / ".impl.py.orig"
+        assert orig.exists()
+        assert orig.read_text() == original
+
+    def test_no_orig_backup_when_unchanged(self, tmp_path):
+        from factory.pre_gate import _run_ruff_fast
+
+        artifact = tmp_path / "impl.py"
+        artifact.write_text("x = 1\n")
+        _run_ruff_fast(artifact)
+        orig = tmp_path / ".impl.py.orig"
+        assert not orig.exists()
+
+    def test_unfixable_error_fails(self, tmp_path):
+        from factory.pre_gate import _run_ruff_fast
+
+        artifact = tmp_path / "impl.py"
+        artifact.write_text("print(undefined_name)\n")
+        result = _run_ruff_fast(artifact)
+        assert not result["passed"]
+
+    def test_e501_long_line_passes(self, tmp_path):
+        from factory.pre_gate import _run_ruff_fast
+
+        artifact = tmp_path / "impl.py"
+        long_line = "x = " + '"a"' * 50 + "\n"
+        artifact.write_text(long_line)
+        result = _run_ruff_fast(artifact)
+        assert result["passed"]

@@ -2,7 +2,7 @@
 number: "124"
 title: "Selective ruff rule set for model output — relax non-critical rules"
 severity: medium
-status: proposed
+status: resolved
 kind: improvement
 author: opencode-session-eval
 date: "2026-05-12"

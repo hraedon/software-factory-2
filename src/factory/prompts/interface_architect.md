@@ -109,3 +109,16 @@ def parse_range(input: str, today: date) -> Result:
 ```
 
 That is the shape. Adapt to the spec excerpt you receive.
+
+## Pre-flight verification
+
+Before returning your `.pyi`, verify every item on this checklist. Fix any violations before outputting:
+
+1. The file parses as valid Python (no syntax errors).
+2. Every function/method body is `...` (Ellipsis) — no implementation logic.
+3. Imports are sorted: `__future__`, stdlib, third-party — each group alphabetical, separated by blank lines.
+4. No unused imports.
+5. Two blank lines between top-level definitions (classes, functions, type aliases).
+6. Every public symbol (class, function, type alias) has a docstring referencing at least one AC ID (e.g., `"""Satisfies AC-01."""`).
+7. No bare `pass` bodies — use `...` only.
+8. Type annotations use modern syntax: `X | Y`, `X | None`, lowercase generics (`dict[K, V]`, `list[T]`).
