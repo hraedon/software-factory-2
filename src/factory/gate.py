@@ -10,6 +10,7 @@ from pathlib import Path
 from factory.config import GateTimeouts
 from factory.constants import (
     ARTIFACT_FILENAME_INTERFACE,
+    GATE_NAME_CROSS_FAMILY_REVIEW,
     GATE_NAME_IMPLEMENTATION,
     GATE_NAME_IMPLEMENTATION_FILE_EXISTS,
     GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN,
@@ -25,6 +26,8 @@ from factory.constants import (
     GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS,
     GATE_NAME_INTERFACE_SPEC_STUB,
     GATE_NAME_INTERFACE_SPEC_SYNTAX,
+    GATE_NAME_JURY_DISAGREE,
+    GATE_NAME_JURY_QUORUM,
     GATE_NAME_TEST_SUITE,
     GATE_NAME_TEST_SUITE_ASSERTIONS,
     GATE_NAME_TEST_SUITE_COLLECT,
@@ -37,6 +40,7 @@ from factory.constants import (
     TEMPFILE_PREFIX_MYPY,
     TEMPFILE_PREFIX_PYTEST,
 )
+from factory.output_extraction import extract_json_from_output
 from factory.pre_gate import copy_dependency_pyis
 
 
@@ -890,3 +894,82 @@ def structurally_equivalent_pyi(a: str, b: str) -> bool:
         return sig_a == sig_b
     except SyntaxError:
         return False
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: Review and Jury gates
+# ---------------------------------------------------------------------------
+
+
+def _extract_json_vote(path: Path) -> dict:
+    """Read a JSON artifact and return the parsed vote object."""
+    if not path.exists():
+        return {}
+    try:
+        text = path.read_text()
+    except Exception:
+        return {}
+    extracted = extract_json_from_output(text)
+    if extracted is None:
+        return {}
+    if isinstance(extracted, dict):
+        return extracted
+    try:
+        import json
+
+        return json.loads(str(extracted))
+    except json.JSONDecodeError:
+        return {}
+
+
+def evaluate_review(artifact_path: Path) -> GateResult:
+    """Evaluate a cross-family review artifact.
+
+    Expects a JSON object with `passed` (boolean) and `findings` (list).
+    """
+    vote = _extract_json_vote(artifact_path)
+    passed = bool(vote.get("passed"))
+    findings = vote.get("findings", [])
+    if not isinstance(findings, list):
+        findings = []
+    rationale = str(vote.get("rationale", ""))
+    diagnostics: list[str] = []
+    if not passed:
+        if findings:
+            diagnostics.extend(str(f) for f in findings)
+        else:
+            diagnostics.append("Review did not pass and provided no findings.")
+        if rationale:
+            diagnostics.append(f"Rationale: {rationale}")
+    return GateResult(
+        passed=passed,
+        gate_name=GATE_NAME_CROSS_FAMILY_REVIEW,
+        diagnostics=diagnostics,
+        diagnostic_kind="cross_family_review" if not passed else "",
+    )
+
+
+def evaluate_jury(artifact_path: Path) -> GateResult:
+    """Evaluate a jury verdict artifact.
+
+    Expects a JSON object with `quorum_met` (boolean), `votes_for`, `votes_against`,
+    and optionally `disagreement_rationale`.
+    """
+    vote = _extract_json_vote(artifact_path)
+    quorum_met = bool(vote.get("quorum_met"))
+    passed = quorum_met
+    votes_for = int(vote.get("votes_for", 0))
+    votes_against = int(vote.get("votes_against", 0))
+    disagreement = str(vote.get("disagreement_rationale", ""))
+    diagnostics: list[str] = []
+    if not passed:
+        diagnostics.append(f"Jury quorum not met ({votes_for} for, {votes_against} against).")
+        if disagreement:
+            diagnostics.append(f"Disagreement: {disagreement}")
+    gate_name = GATE_NAME_JURY_QUORUM if passed else GATE_NAME_JURY_DISAGREE
+    return GateResult(
+        passed=passed,
+        gate_name=gate_name,
+        diagnostics=diagnostics,
+        diagnostic_kind="jury" if not passed else "",
+    )

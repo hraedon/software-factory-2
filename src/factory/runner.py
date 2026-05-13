@@ -12,6 +12,7 @@ from factory.channel import Channel
 from factory.config import FactoryConfig, GateTimeouts, load_config
 from factory.constants import (
     ARTIFACT_FILENAME_CANNOT_PROCEED,
+    ARTIFACT_FILENAME_JURY_VERDICT,
     CHANNEL_CLAUDE_CODE,
     CHANNEL_CODE,
     CHANNEL_OPENCODE,
@@ -26,6 +27,8 @@ from factory.constants import (
     GATE_NAME_INNER_PYTEST,
     GATE_NAME_INNER_RUFF,
     MAX_ARTIFACT_SIZE_BYTES,
+    ROLE_CROSS_FAMILY_REVIEWER,
+    ROLE_FRONTIER_JUDGE,
     ROLE_IMPLEMENTER,
     ROLE_INTERFACE_ARCHITECT,
     ROLE_TEST_AUTHOR,
@@ -40,6 +43,8 @@ from factory.context import (
     PromptContext,
     derive_context,
     derive_implementer_context,
+    derive_jury_context,
+    derive_review_context,
     derive_test_author_context,
     render_prompt,
 )
@@ -82,6 +87,10 @@ def _derive_role_context(
         return derive_test_author_context(runtime.sub, work_item_id, spec_content=spec)
     if role_name == ROLE_IMPLEMENTER:
         return derive_implementer_context(runtime.sub, work_item_id, spec_content=spec)
+    if role_name == ROLE_CROSS_FAMILY_REVIEWER:
+        return derive_review_context(runtime.sub, work_item_id, spec_content=spec)
+    if role_name == ROLE_FRONTIER_JUDGE:
+        return derive_jury_context(runtime.sub, work_item_id, spec_content=spec)
     return derive_context(runtime.sub, work_item_id, role_name, spec_content=spec)
 
 
@@ -310,9 +319,25 @@ def process_work_item(
     ctx = _derive_role_context(runtime, wi.work_item_id, role_name)
     role_config = config.get_role_config(role_name)
     timeout = role_config.timeout_seconds if role_config else config.claim_ttl_seconds
+    ad = attempt_dir(wr, work_item_id, attempt_number)
+    extra_env = _resolve_extra_env(config, role_name)
+
+    if role_name == ROLE_FRONTIER_JUDGE:
+        _process_jury_work_item(
+            runtime,
+            wi,
+            actor_id,
+            claim,
+            ctx,
+            ad,
+            timeout,
+            extra_env,
+        )
+        return
+
+    channel = runtime.channel_for_role(role_name)
     if config.per_channel_timeout and channel.name in config.per_channel_timeout:
         timeout = config.per_channel_timeout[channel.name]
-    ad = attempt_dir(wr, work_item_id, attempt_number)
     prompt = render_prompt(ctx)
     invocation_start = time.monotonic()
     extra_env = _resolve_extra_env(config, role_name)
@@ -730,6 +755,125 @@ def _resume_and_submit(
         custom_fields={
             CUSTOM_FIELD_ARTIFACT_PATH: str(artifact_path),
             CUSTOM_FIELD_ARTIFACT_HASH: manifest.artifact_sha256,
+        },
+    )
+
+
+def _resolve_jury_channels(
+    runtime: PipelineRuntime,
+    config: FactoryConfig,
+) -> dict[str, Channel]:
+    """Build a dict of juror channels from config."""
+    jury_channels: dict[str, Channel] = {}
+    for rc in config.roles:
+        if rc.role == ROLE_FRONTIER_JUDGE:
+            ch = runtime.channels.get(rc.channel) if runtime.channels else runtime.channel
+            if ch is not None:
+                jury_channels[rc.channel] = ch
+    return jury_channels
+
+
+def _process_jury_work_item(
+    runtime: PipelineRuntime,
+    wi,
+    actor_id: str,
+    claim,
+    ctx: PromptContext,
+    ad: Path,
+    timeout: int,
+    extra_env: dict[str, str] | None,
+) -> None:
+    from factory.jury import run_jury
+
+    sub = runtime.sub
+    config = runtime.config
+    work_item_id = str(wi.work_item_id)
+    attempt_number = claim.attempt_number
+    jury_channels = _resolve_jury_channels(runtime, config)
+    if not jury_channels:
+        log.error("no_jury_channels_configured", work_item_id=work_item_id)
+        sub.transition(
+            wi.work_item_id,
+            TRANSITION_CHANNEL_FAIL,
+            actor_id,
+            actor_metadata=ActorMetadata(
+                role=ROLE_FRONTIER_JUDGE,
+                channel="none",
+                family="",
+                attempt_n=attempt_number,
+                context_hash=ctx.context_hash,
+                prompt_template_hash=ctx.prompt_template_hash,
+            ).to_dict(),
+            payload=ChannelFailPayload(
+                diagnostics={
+                    "error_message": "No jury channels configured for frontier_judge role",
+                }
+            ).to_dict(),
+        )
+        return
+
+    prompt = render_prompt(ctx)
+    verdict = run_jury(
+        channels=jury_channels,
+        prompt=prompt,
+        outputs_dir=ad,
+        timeout=timeout,
+        quorum=getattr(config, "jury_quorum", 2),
+    )
+    verdict_path = ad / ARTIFACT_FILENAME_JURY_VERDICT
+    verdict_path.write_text(
+        json.dumps(
+            {
+                "passed": verdict.passed,
+                "votes_for": verdict.votes_for,
+                "votes_against": verdict.votes_against,
+                "quorum_met": verdict.quorum_met,
+                "disagreement_rationale": verdict.disagreement_rationale,
+                "verdicts": [
+                    {
+                        "passed": v.passed,
+                        "rationale": v.rationale,
+                        "channel": v.channel,
+                        "family": v.family,
+                    }
+                    for v in verdict.verdicts
+                ],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    artifact_data = verdict_path.read_bytes()
+    sha = compute_sha256(artifact_data)
+    manifest = ArtifactManifest(
+        attempt_number=attempt_number,
+        work_item_id=work_item_id,
+        artifact_name=ARTIFACT_FILENAME_JURY_VERDICT,
+        artifact_sha256=sha,
+        artifact_size=len(artifact_data),
+        actor_id=actor_id,
+        channel="jury_aggregate",
+        family="multi",
+        model=None,
+        context_hash=ctx.context_hash,
+    )
+    write_artifact(ad, ARTIFACT_FILENAME_JURY_VERDICT, artifact_data, manifest)
+    actor_metadata = ActorMetadata(
+        role=ROLE_FRONTIER_JUDGE,
+        channel="jury_aggregate",
+        family="multi",
+        attempt_n=attempt_number,
+        context_hash=ctx.context_hash,
+        prompt_template_hash=ctx.prompt_template_hash,
+    ).to_dict()
+    sub.transition(
+        wi.work_item_id,
+        TRANSITION_SUBMIT,
+        actor_id,
+        actor_metadata=actor_metadata,
+        custom_fields={
+            CUSTOM_FIELD_ARTIFACT_PATH: str(verdict_path),
+            CUSTOM_FIELD_ARTIFACT_HASH: sha,
         },
     )
 

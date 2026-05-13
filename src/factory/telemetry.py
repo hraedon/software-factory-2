@@ -147,6 +147,10 @@ def compute_exit_criteria(
         "inner_mypy",
         "inner_ruff",
         "inner_import_symbols",
+        "cross_family_review",
+        "jury",
+        "jury_quorum",
+        "jury_disagree",
     }
     deterministic_count = sum(1 for a in attempts if a.gate_name in deterministic_gates)
     deterministic_rate = deterministic_count / total_gate_events if total_gate_events else 0.0

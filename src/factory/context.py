@@ -13,9 +13,13 @@ from factory.constants import (
     CUSTOM_FIELD_AC_IDS,
     CUSTOM_FIELD_ARTIFACT_PATH,
     CUSTOM_FIELD_DEPENDENCY_REFS,
+    CUSTOM_FIELD_IMPLEMENTATION_REF,
     CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_REVIEW_REF,
     CUSTOM_FIELD_SPEC_SECTION,
     CUSTOM_FIELD_TEST_SUITE_REF,
+    ROLE_CROSS_FAMILY_REVIEWER,
+    ROLE_FRONTIER_JUDGE,
     ROLE_IMPLEMENTER,
     ROLE_TEST_AUTHOR,
 )
@@ -203,6 +207,110 @@ def derive_implementer_context(
         substrate,
         work_item_id,
         role=ROLE_IMPLEMENTER,
+        spec_content=spec_content,
+        spec_glossary=spec_glossary,
+        extra_artifacts=extra_artifacts,
+        stub_only_deps=stub_only,
+        export_map=export_map,
+    )
+
+
+def _resolve_ref_artifact(substrate: Substrate, ref: str | None) -> str:
+    if not ref:
+        return ""
+    ref_wi = substrate.get_work_item(_to_uuid(ref))
+    if ref_wi and ref_wi.custom_fields:
+        ref_path = ref_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
+        if ref_path:
+            p = Path(ref_path)
+            if p.exists():
+                return p.read_text()
+    return ""
+
+
+def derive_review_context(
+    substrate: Substrate,
+    work_item_id: str,
+    spec_content: str | None = None,
+    spec_glossary: dict[str, str] | None = None,
+) -> PromptContext:
+    wi_id = _to_uuid(work_item_id)
+    wi = substrate.get_work_item(wi_id)
+    if wi is None:
+        raise ValueError(f"Work item {work_item_id} not found")
+    custom = wi.custom_fields or {}
+
+    locked_interface = _resolve_ref_artifact(substrate, custom.get(CUSTOM_FIELD_INTERFACE_REF))
+    test_suite = _resolve_ref_artifact(substrate, custom.get(CUSTOM_FIELD_TEST_SUITE_REF))
+    implementation = _resolve_ref_artifact(substrate, custom.get(CUSTOM_FIELD_IMPLEMENTATION_REF))
+
+    extra_artifacts: dict[str, str] = {}
+    if locked_interface:
+        extra_artifacts["locked_interface"] = locked_interface
+    if test_suite:
+        extra_artifacts["test_suite"] = test_suite
+    if implementation:
+        extra_artifacts["implementation"] = implementation
+
+    dep_contents, stub_only = _resolve_dependency_contents(substrate, custom)
+    extra_artifacts.update(dep_contents)
+    export_map = _build_export_map_from_contents(dep_contents)
+
+    return derive_context(
+        substrate,
+        work_item_id,
+        role=ROLE_CROSS_FAMILY_REVIEWER,
+        spec_content=spec_content,
+        spec_glossary=spec_glossary,
+        extra_artifacts=extra_artifacts,
+        stub_only_deps=stub_only,
+        export_map=export_map,
+    )
+
+
+def derive_jury_context(
+    substrate: Substrate,
+    work_item_id: str,
+    spec_content: str | None = None,
+    spec_glossary: dict[str, str] | None = None,
+) -> PromptContext:
+    wi_id = _to_uuid(work_item_id)
+    wi = substrate.get_work_item(wi_id)
+    if wi is None:
+        raise ValueError(f"Work item {work_item_id} not found")
+    custom = wi.custom_fields or {}
+
+    review_ref = custom.get(CUSTOM_FIELD_REVIEW_REF)
+    locked_interface = ""
+    test_suite = ""
+    implementation = ""
+    if review_ref:
+        review_wi = substrate.get_work_item(_to_uuid(review_ref))
+        if review_wi and review_wi.custom_fields:
+            review_custom = review_wi.custom_fields
+            iface_ref = review_custom.get(CUSTOM_FIELD_INTERFACE_REF)
+            ts_ref = review_custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
+            impl_ref = review_custom.get(CUSTOM_FIELD_IMPLEMENTATION_REF)
+            locked_interface = _resolve_ref_artifact(substrate, iface_ref)
+            test_suite = _resolve_ref_artifact(substrate, ts_ref)
+            implementation = _resolve_ref_artifact(substrate, impl_ref)
+
+    extra_artifacts: dict[str, str] = {}
+    if locked_interface:
+        extra_artifacts["locked_interface"] = locked_interface
+    if test_suite:
+        extra_artifacts["test_suite"] = test_suite
+    if implementation:
+        extra_artifacts["implementation"] = implementation
+
+    dep_contents, stub_only = _resolve_dependency_contents(substrate, custom)
+    extra_artifacts.update(dep_contents)
+    export_map = _build_export_map_from_contents(dep_contents)
+
+    return derive_context(
+        substrate,
+        work_item_id,
+        role=ROLE_FRONTIER_JUDGE,
         spec_content=spec_content,
         spec_glossary=spec_glossary,
         extra_artifacts=extra_artifacts,

@@ -73,6 +73,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 132 | Phase 4 jury and race architecture skeleton | medium | `jury.py`, `review.py`, prompt templates, `evaluate_review()`, `evaluate_jury()`, `process_jury_work_item()`, `phase4.yaml`, `FactoryConfig.phase4()`; 10 new tests; lint/test clean |
 | 131 | Runtime import resolution feedback quality — dotted submodule and module-not-found errors | high | `_parse_import_failure()` in pre_gate.py classifies import failures as dotted_submodule/wrong_module_name/other_traceback; `import_feedback` field in PreGateResult and PromptContext injects actionable retry context; structlog `import_feedback_kind` dimension; GR-021 validated: 5/5 wrong_module_name failures recovered on retry=1; inner gate first-attempt rate 74% (20/27) |
 | 108 | GeminiCLIChannel disabled — unvalidated in golden runs, removed from runner registration | medium | GeminiCLIChannel removed from `_register_channel()` calls; Phase 3 default config uses kimi-k2p6-turbo for all roles; unvalidated channels no longer in default bindings |
 | 126 | Work-item granularity correlation — measure AC count vs first-attempt pass rate, then cap | high | Phase A measurement complete. 96 rows across 5 GRs. No relationship between AC count/spec words/dep lines and first-attempt failure. Curve is flat; no knee. No spec-lint size cap warranted. See `.factory/analysis/2026-05-13-work-item-granularity.md` |

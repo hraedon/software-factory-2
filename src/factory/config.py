@@ -13,12 +13,18 @@ from factory.constants import (
     CHANNEL_CODE,
     CHANNEL_OPENCODE,
     CHANNEL_TO_FAMILY,
+    CUSTOM_FIELD_IMPLEMENTATION_REF,
     CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_REVIEW_REF,
     CUSTOM_FIELD_TEST_SUITE_REF,
     FAMILY_ANTHROPIC,
     LINK_TYPE_DERIVED_FROM,
     LINK_TYPE_IMPLEMENTS,
+    LINK_TYPE_JUDGES,
+    LINK_TYPE_REVIEWS,
     LINK_TYPE_TESTED_BY,
+    ROLE_CROSS_FAMILY_REVIEWER,
+    ROLE_FRONTIER_JUDGE,
     ROLE_IMPLEMENTER,
     ROLE_INTERFACE_ARCHITECT,
     ROLE_MECHANICAL_GATE,
@@ -26,6 +32,8 @@ from factory.constants import (
     STATE_LOCKED,
     WORK_ITEM_TYPE_IMPLEMENTATION,
     WORK_ITEM_TYPE_INTERFACE_SPEC,
+    WORK_ITEM_TYPE_JURY,
+    WORK_ITEM_TYPE_REVIEW,
     WORK_ITEM_TYPE_TEST_SUITE,
 )
 from factory.workspace import WORK_DIR_NAME, WORK_SUBDIR
@@ -94,6 +102,7 @@ class FactoryConfig:
     use_project_venv: bool = False
     inner_gate_retries: int = 2
     inner_gate_max_feedback_chars: int = 2000
+    jury_quorum: int = 2
     channel_backoff_base_seconds: int = 30
     channel_backoff_max_attempts: int = 3
     credentials_path: Path | None = None
@@ -155,6 +164,81 @@ class FactoryConfig:
         RoleConfig(role=ROLE_MECHANICAL_GATE, channel=CHANNEL_CODE),
     )
 
+    PHASE4_WORKER_ROLES: tuple[str, ...] = (
+        ROLE_INTERFACE_ARCHITECT,
+        ROLE_TEST_AUTHOR,
+        ROLE_IMPLEMENTER,
+        ROLE_CROSS_FAMILY_REVIEWER,
+        ROLE_FRONTIER_JUDGE,
+    )
+    PHASE4_TYPE_TO_ROLE: tuple[tuple[str, str], ...] = (
+        (WORK_ITEM_TYPE_INTERFACE_SPEC, ROLE_INTERFACE_ARCHITECT),
+        (WORK_ITEM_TYPE_TEST_SUITE, ROLE_TEST_AUTHOR),
+        (WORK_ITEM_TYPE_IMPLEMENTATION, ROLE_IMPLEMENTER),
+        (WORK_ITEM_TYPE_REVIEW, ROLE_CROSS_FAMILY_REVIEWER),
+        (WORK_ITEM_TYPE_JURY, ROLE_FRONTIER_JUDGE),
+    )
+    PHASE4_ROLES: tuple[RoleConfig, ...] = (
+        RoleConfig(
+            role=ROLE_INTERFACE_ARCHITECT,
+            channel=CHANNEL_OPENCODE,
+            model="fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo",
+        ),
+        RoleConfig(
+            role=ROLE_TEST_AUTHOR,
+            channel=CHANNEL_OPENCODE,
+            model="fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo",
+        ),
+        RoleConfig(
+            role=ROLE_IMPLEMENTER,
+            channel=CHANNEL_OPENCODE,
+            model="fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo",
+        ),
+        RoleConfig(
+            role=ROLE_CROSS_FAMILY_REVIEWER,
+            channel=CHANNEL_OPENCODE,
+            model="fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo",
+        ),
+        RoleConfig(role=ROLE_FRONTIER_JUDGE, channel=CHANNEL_CLAUDE_CODE),
+        RoleConfig(role=ROLE_MECHANICAL_GATE, channel=CHANNEL_CODE),
+    )
+    PHASE4_STAGE_TOPOLOGY: tuple[StageHandoff, ...] = (
+        StageHandoff(
+            source_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            source_state=STATE_LOCKED,
+            target_type=WORK_ITEM_TYPE_TEST_SUITE,
+            link_type=LINK_TYPE_DERIVED_FROM,
+            ref_field=CUSTOM_FIELD_INTERFACE_REF,
+        ),
+        StageHandoff(
+            source_type=WORK_ITEM_TYPE_TEST_SUITE,
+            source_state=STATE_LOCKED,
+            target_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+            link_type=LINK_TYPE_TESTED_BY,
+            additional_links=(LINK_TYPE_IMPLEMENTS,),
+            ref_field=CUSTOM_FIELD_TEST_SUITE_REF,
+            propagate_fields=(CUSTOM_FIELD_INTERFACE_REF,),
+        ),
+        StageHandoff(
+            source_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+            source_state=STATE_LOCKED,
+            target_type=WORK_ITEM_TYPE_REVIEW,
+            link_type=LINK_TYPE_REVIEWS,
+            ref_field=CUSTOM_FIELD_IMPLEMENTATION_REF,
+            propagate_fields=(
+                CUSTOM_FIELD_INTERFACE_REF,
+                CUSTOM_FIELD_TEST_SUITE_REF,
+            ),
+        ),
+        StageHandoff(
+            source_type=WORK_ITEM_TYPE_REVIEW,
+            source_state=STATE_LOCKED,
+            target_type=WORK_ITEM_TYPE_JURY,
+            link_type=LINK_TYPE_JUDGES,
+            ref_field=CUSTOM_FIELD_REVIEW_REF,
+        ),
+    )
+
     @classmethod
     def phase2(cls, **overrides) -> FactoryConfig:
         return cls(
@@ -172,6 +256,17 @@ class FactoryConfig:
             worker_roles=cls.PHASE3_WORKER_ROLES,
             type_to_role=cls.PHASE3_TYPE_TO_ROLE,
             roles=cls.PHASE3_ROLES,
+            **overrides,
+        )
+
+    @classmethod
+    def phase4(cls, **overrides) -> FactoryConfig:
+        return cls(
+            workflow_version=4,
+            worker_roles=cls.PHASE4_WORKER_ROLES,
+            type_to_role=cls.PHASE4_TYPE_TO_ROLE,
+            roles=cls.PHASE4_ROLES,
+            stage_topology=cls.PHASE4_STAGE_TOPOLOGY,
             **overrides,
         )
 

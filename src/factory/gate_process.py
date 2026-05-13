@@ -29,6 +29,8 @@ from factory.constants import (
     TRANSITION_GATE_PASS,
     WORK_ITEM_TYPE_IMPLEMENTATION,
     WORK_ITEM_TYPE_INTERFACE_SPEC,
+    WORK_ITEM_TYPE_JURY,
+    WORK_ITEM_TYPE_REVIEW,
     WORK_ITEM_TYPE_TEST_SUITE,
 )
 from factory.dep_resolution import _to_uuid, resolve_dep_artifacts
@@ -37,6 +39,8 @@ from factory.gate import (
     GateResult,
     evaluate_implementation,
     evaluate_interface_spec,
+    evaluate_jury,
+    evaluate_review,
     evaluate_test_suite,
 )
 from factory.router import route
@@ -284,6 +288,10 @@ def process_gate_item(
                     python_executable=python_executable,
                     gate_timeouts=config.gate_timeouts,
                 )
+    elif wi.work_item_type == WORK_ITEM_TYPE_REVIEW:
+        gate_result = evaluate_review(artifact_path)
+    elif wi.work_item_type == WORK_ITEM_TYPE_JURY:
+        gate_result = evaluate_jury(artifact_path)
     else:
         gate_result = GateResult(
             passed=False,
