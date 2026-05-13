@@ -32,6 +32,15 @@ class _FakeChannel:
         return InvocationResult(success=True, artifact_name="jury_vote.json")
 
 
+class _ExplodingChannel:
+    def __init__(self, name: str):
+        self.name = name
+        self.family = "test"
+
+    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None):
+        raise RuntimeError("boom")
+
+
 class TestParseVote:
     def test_empty(self):
         assert _parse_vote("") == {}
@@ -97,6 +106,29 @@ class TestRunJury:
         channels = {"a": _FakeChannel("a", True)}
         run_jury(channels, "prompt", tmp_path, 60, quorum=1)
         assert (tmp_path / "a" / "jury_vote.json").exists()
+
+    def test_parallel_invocation_preserves_all_votes(self, tmp_path):
+        channels = {
+            "a": _FakeChannel("a", True, "yes"),
+            "b": _FakeChannel("b", True, "yes"),
+            "c": _FakeChannel("c", False, "no"),
+        }
+        verdict = run_jury(channels, "prompt", tmp_path, 60, quorum=2)
+        assert len(verdict.verdicts) == 3
+        passed_channels = {v.channel for v in verdict.verdicts if v.passed}
+        assert passed_channels == {"a", "b"}
+
+    def test_juror_exception_caught(self, tmp_path):
+        channels = {
+            "a": _ExplodingChannel("a"),
+            "b": _FakeChannel("b", True, "ok"),
+        }
+        verdict = run_jury(channels, "prompt", tmp_path, 60, quorum=1)
+        assert len(verdict.verdicts) == 2
+        failed = [v for v in verdict.verdicts if not v.passed]
+        assert len(failed) == 1
+        assert failed[0].channel == "a"
+        assert failed[0].rationale == "juror invocation raised an exception"
 
 
 class TestJuryVerdictFrozen:

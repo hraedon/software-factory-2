@@ -813,13 +813,36 @@ def _process_jury_work_item(
         return
 
     prompt = render_prompt(ctx)
-    verdict = run_jury(
-        channels=jury_channels,
-        prompt=prompt,
-        outputs_dir=ad,
-        timeout=timeout,
-        quorum=getattr(config, "jury_quorum", 2),
-    )
+    try:
+        verdict = run_jury(
+            channels=jury_channels,
+            prompt=prompt,
+            outputs_dir=ad,
+            timeout=timeout,
+            quorum=getattr(config, "jury_quorum", 2),
+        )
+    except Exception:
+        log.exception("jury_invoke_failed", work_item_id=work_item_id)
+        sub.transition(
+            wi.work_item_id,
+            TRANSITION_CHANNEL_FAIL,
+            actor_id,
+            actor_metadata=ActorMetadata(
+                role=ROLE_FRONTIER_JUDGE,
+                channel="jury_aggregate",
+                family="multi",
+                attempt_n=attempt_number,
+                context_hash=ctx.context_hash,
+                prompt_template_hash=ctx.prompt_template_hash,
+            ).to_dict(),
+            payload=ChannelFailPayload(
+                diagnostics={
+                    "error_message": "jury invocation raised an exception",
+                    "duration_seconds": 0,
+                }
+            ).to_dict(),
+        )
+        return
     verdict_path = ad / ARTIFACT_FILENAME_JURY_VERDICT
     verdict_path.write_text(
         json.dumps(

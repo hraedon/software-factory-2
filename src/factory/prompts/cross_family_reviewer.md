@@ -35,7 +35,7 @@ Field semantics:
 - **Do not write code.** Your output is JSON only. No `.pyi`, no `.py`, no test functions.
 - **Do not guess about intent.** If the spec is ambiguous, mark `passed: false` and note the ambiguity in `findings`.
 - **Do not reject for style preferences.** Reject only for objective gaps: missing AC coverage, type mismatches, untested error paths, or implementation that would not pass the tests.
-- **Do not produce prose outside the JSON block.** No preamble, no explanation after.
+- **Do not produce prose outside the JSON block.** No preamble, no explanation after, no markdown wrapping around the JSON fence.
 
 ## Quality bar
 
@@ -69,8 +69,9 @@ Given the same interface but tests missing the `INVERTED_RANGE` error path:
 
 Before returning your JSON, verify every item on this checklist. Fix any violations before outputting:
 
-1. Output is exactly one fenced JSON code block. No other text.
-2. The JSON object has all three required fields: `passed`, `findings`, `rationale`.
+1. Output is exactly one fenced JSON code block. No other text before or after it.
+2. The JSON must be valid: no trailing commas, no comments, no wrapping in additional markdown or prose. Raw JSON only inside the fence.
+3. The JSON object has all three required fields: `passed`, `findings`, `rationale`.
 3. `findings` is a JSON array (empty `[]` when passing, non-empty when failing).
 4. Every finding is specific and references an AC ID or a concrete code location when possible.
 5. `rationale` is under 200 characters.

@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 
+import structlog
+
 from factory.channel import Channel
 from factory.output_extraction import extract_json_from_output
+
+log = structlog.get_logger()
 
 
 @dataclass(frozen=True)
@@ -39,6 +44,36 @@ def _parse_vote(text: str) -> dict:
         return {}
 
 
+def _invoke_juror(
+    ch_name: str,
+    channel: Channel,
+    prompt: str,
+    outputs_dir: Path,
+    timeout: int,
+) -> JurorVote:
+    """Invoke a single juror channel and return its vote."""
+    ch_outputs = outputs_dir / ch_name
+    ch_outputs.mkdir(parents=True, exist_ok=True)
+    result = channel.invoke("frontier_judge", prompt, ch_outputs, timeout)
+    effective_family = result.family or channel.family
+    if not result.success:
+        return JurorVote(
+            passed=False,
+            rationale=result.error_message or "channel failure",
+            channel=ch_name,
+            family=effective_family,
+        )
+    artifact_path = ch_outputs / result.artifact_name
+    raw = artifact_path.read_text() if artifact_path.exists() else ""
+    vote_data = _parse_vote(raw)
+    return JurorVote(
+        passed=bool(vote_data.get("passed")),
+        rationale=str(vote_data.get("rationale", "")),
+        channel=ch_name,
+        family=effective_family,
+    )
+
+
 def run_jury(
     channels: dict[str, Channel],
     prompt: str,
@@ -46,38 +81,26 @@ def run_jury(
     timeout: int,
     quorum: int = 2,
 ) -> JuryVerdict:
-    """Invoke each configured juror channel sequentially and compute a quorum verdict.
-
-    Parallel invocation is deferred to a later optimization; the interface
-    (JuryVerdict) will remain unchanged.
-    """
+    """Invoke each configured juror channel in parallel and compute a quorum verdict."""
     votes: list[JurorVote] = []
-    for ch_name, channel in channels.items():
-        ch_outputs = outputs_dir / ch_name
-        ch_outputs.mkdir(parents=True, exist_ok=True)
-        result = channel.invoke("frontier_judge", prompt, ch_outputs, timeout)
-        effective_family = result.family or channel.family
-        if not result.success:
-            votes.append(
-                JurorVote(
+    with ThreadPoolExecutor(max_workers=len(channels)) as pool:
+        futures = {
+            pool.submit(_invoke_juror, ch_name, ch, prompt, outputs_dir, timeout): ch_name
+            for ch_name, ch in channels.items()
+        }
+        for future in as_completed(futures):
+            ch_name = futures[future]
+            try:
+                vote = future.result()
+            except Exception:
+                log.exception("juror_invoke_failed", channel=ch_name)
+                vote = JurorVote(
                     passed=False,
-                    rationale=result.error_message or "channel failure",
+                    rationale="juror invocation raised an exception",
                     channel=ch_name,
-                    family=effective_family,
+                    family="unknown",
                 )
-            )
-            continue
-        artifact_path = ch_outputs / result.artifact_name
-        raw = artifact_path.read_text() if artifact_path.exists() else ""
-        vote_data = _parse_vote(raw)
-        votes.append(
-            JurorVote(
-                passed=bool(vote_data.get("passed")),
-                rationale=str(vote_data.get("rationale", "")),
-                channel=ch_name,
-                family=effective_family,
-            )
-        )
+            votes.append(vote)
 
     votes_for = sum(1 for v in votes if v.passed)
     votes_against = len(votes) - votes_for

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+from unittest.mock import patch
 
 from factory.channel import InvocationResult
-from factory.config import FactoryConfig
-from factory.runner import process_work_item
+from factory.config import FactoryConfig, RoleConfig
+from factory.context import PromptContext
+from factory.runner import _process_jury_work_item, process_work_item
 from factory.runtime import PipelineRuntime
 from factory.workspace import (
     ArtifactManifest,
@@ -318,3 +321,115 @@ class TestRunnerResumePath:
         assert invoked
         updated = mock_substrate.get_work_item(wi.work_item_id)
         assert updated.current_state == "gating"
+
+
+class TestProcessJuryWorkItemExceptionHandling:
+    def test_jury_exception_records_channel_fail(self, mock_substrate, workspace_root):
+        from factory.constants import ROLE_FRONTIER_JUDGE
+
+        phase4_path = str(Path(__file__).parent.parent / "workflows" / "phase4.yaml")
+        mock_substrate.register_workflow_file(phase4_path)
+
+        iface, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="test-creator",
+            custom_fields={"spec_section": "Jury crash test", "ac_ids": ["AC-01"]},
+        )
+        ts, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="test_suite",
+            actor_id="test-creator",
+            custom_fields={
+                "spec_section": "Test section",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+            },
+        )
+        impl, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="implementation",
+            actor_id="test-creator",
+            custom_fields={
+                "spec_section": "Impl section",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+                "test_suite_ref": str(ts.work_item_id),
+            },
+        )
+        review_wi, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="review",
+            actor_id="test-creator",
+            custom_fields={
+                "spec_section": "Review section",
+                "ac_ids": ["AC-01"],
+                "interface_ref": str(iface.work_item_id),
+                "test_suite_ref": str(ts.work_item_id),
+                "implementation_ref": str(impl.work_item_id),
+            },
+        )
+        wi, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="jury",
+            actor_id="test-creator",
+            custom_fields={
+                "review_ref": str(review_wi.work_item_id),
+            },
+        )
+        mock_substrate.register_actor_role("test-worker", "frontier_judge")
+        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
+        mock_substrate.transition(
+            wi.work_item_id,
+            "claim",
+            "test-worker",
+            actor_metadata={"role": "frontier_judge"},
+        )
+
+        config = FactoryConfig(
+            workspace_root=workspace_root,
+            roles=(RoleConfig(role=ROLE_FRONTIER_JUDGE, channel="dummy"),),
+        )
+        runtime = PipelineRuntime(
+            sub=mock_substrate,
+            config=config,
+            spec_content="Jury crash test",
+            channels={"dummy": _FailingChannel(InvocationResult(success=True, artifact_name="x"))},
+        )
+        ctx = PromptContext(
+            work_item_id=str(wi.work_item_id),
+            role="frontier_judge",
+            spec_section="Jury crash test",
+            ac_ids=["AC-01"],
+            glossary={},
+            prior_failures=[],
+            prompt_template="test prompt",
+            context_hash="abc",
+            prompt_template_hash="def",
+            extra_artifacts={},
+            stub_only_deps=[],
+        )
+        ad = attempt_dir(workspace_root, str(wi.work_item_id), 1)
+        ad.mkdir(parents=True, exist_ok=True)
+
+        with patch(
+            "factory.jury.run_jury",
+            side_effect=RuntimeError("jury infrastructure failure"),
+        ):
+            _process_jury_work_item(
+                runtime,
+                wi,
+                "test-worker",
+                claim,
+                ctx,
+                ad,
+                60,
+                None,
+            )
+
+        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        channel_fail_events = events_by_transition(all_events, "channel_fail")
+        assert len(channel_fail_events) == 1
+        payload = channel_fail_events[0].payload or {}
+        diagnostics = payload.get("diagnostics", {})
+        assert "exception" in diagnostics.get("error_message", "").lower()

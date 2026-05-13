@@ -33,7 +33,7 @@ Field semantics:
 - **Do not write code.** Your output is JSON only.
 - **Do not guess about intent.** If the spec is ambiguous, mark `passed: false` and explain the ambiguity.
 - **Do not reject for style preferences.** Reject only for objective gaps: missing AC coverage, type mismatches, untested error paths, or implementation that would not pass the tests.
-- **Do not produce prose outside the JSON block.** No preamble, no explanation after.
+- **Do not produce prose outside the JSON block.** No preamble, no explanation after, no markdown wrapping around the JSON fence.
 
 ## Quality bar
 
@@ -63,7 +63,8 @@ Given a bundle where the implementation uses `typing.Optional` but the interface
 
 Before returning your JSON, verify every item on this checklist. Fix any violations before outputting:
 
-1. Output is exactly one fenced JSON code block. No other text.
-2. The JSON object has both required fields: `passed`, `rationale`.
+1. Output is exactly one fenced JSON code block. No other text before or after it.
+2. The JSON must be valid: no trailing commas, no comments, no wrapping in additional markdown or prose. Raw JSON only inside the fence.
+3. The JSON object has both required fields: `passed`, `rationale`.
 3. `rationale` is under 200 characters.
 4. No comments inside the JSON block.

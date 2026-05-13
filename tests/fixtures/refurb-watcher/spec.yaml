@@ -1,0 +1,271 @@
+meta:
+  name: "refurb-watcher"
+  spec_level: 2
+  desired_level: 3
+  date: "2026-05-12"
+  extensions: []
+
+glossary:
+  - term: "dedup key"
+    definition: "A stable, deterministic string uniquely identifying a product configuration across polling cycles. Format: '{normalized_category}::{config_string}'. Price changes do not change the dedup key."
+  - term: "config string"
+    definition: "The full configuration text as presented on Apple's refurb page, e.g. 'Apple M4 Pro chip with 14-core CPU and 20-core GPU, 24GB unified memory, 1TB SSD'. Two listings with the same config string (after normalization) are the same item."
+  - term: "restocked"
+    definition: "An item that was previously seen with status 'sold_out' has reappeared on the refurb page. This is a re-alert-worthy event distinct from a new item."
+  - term: "M4-family chip"
+    definition: "Any chip whose name starts with 'M4' — includes M4, M4 Pro, and M4 Max. The spec uses 'M4' as a shorthand for the entire M4 family."
+  - term: "normalized category"
+    definition: "The canonical form of a raw HTML category string, produced by normalize_category. E.g., 'Mac mini' → 'mac_mini', 'Mac Studio' → 'mac_studio'."
+  - term: "price_cents"
+    definition: "Price stored as integer cents to avoid floating-point issues. $1,399.00 = 139900. Sentinel value -1 means 'unknown price'."
+  - term: "cycle"
+    definition: "One complete polling iteration: fetch → parse → match → reconcile → notify → mark seen/sold out."
+
+scope:
+  in_scope:
+    - Polling Apple's refurb page at a configurable interval
+    - Parsing product listings from arbitrary HTML
+    - Matching listings against configurable predicates with M4-family chip expansion
+    - Deduplication of seen items across cycles, including sell-out and restock detection
+    - Notification of new and restocked items via Discord webhook
+    - Human-readable formatting of notifications and summaries
+    - Graceful handling of network failures, empty pages, and DOM changes
+  out_of_scope:
+    - Authentication or authorization (no login required for Apple's refurb page)
+    - Payment or checkout integration
+    - Multi-user state or account management
+    - Historical analytics or trend tracking
+    - Automated purchasing
+    - Monitoring of non-Apple refurb sources
+
+mvp:
+  description: "A single-operator tool that polls Apple's refurb page, detects M4+ Mac minis and 128GB+ Mac Studios, deduplicates across cycles, and posts new/restocked alerts to a Discord webhook."
+  fr_ids: ["FR-01", "FR-02", "FR-03", "FR-04", "FR-05", "FR-06"]
+  rationale: "The user needs immediate value: they want to know when target refurbs appear. All FRs are required for this to be useful — skipping dedup means spam, skipping matching means irrelevant alerts, skipping notification means no value delivery."
+  architectural_prerequisites:
+    - fr_id: "FR-01"
+      requires: "Config loading and predicate model"
+      resolution: "invisible_infrastructure"
+    - fr_id: "FR-04"
+      requires: "Persistent state store (SQLite or Postgres)"
+      resolution: "invisible_infrastructure"
+
+functional_requirements:
+  - id: "FR-01"
+    mvp: true
+    text: "Given a config file or defaults, the system loads watch predicates, poll interval, webhook URL, and state path. M4-family chip expansion is built into the predicate model."
+  - id: "FR-02"
+    mvp: true
+    text: "Given a URL, the system fetches the page HTML with timeout, retry on transient failure, and rate limiting. All failure modes return structured errors, not exceptions."
+  - id: "FR-03"
+    mvp: true
+    text: "Given HTML from the refurb page, the system extracts product listings with config strings, prices, categories, and URLs. The parser must be resilient to DOM changes and return empty (not crash) when it cannot parse."
+  - id: "FR-04"
+    mvp: true
+    text: "Given a list of current listings and prior seen state, the system reconciles new, restocked, sold-out, and unchanged items. Identity is the dedup key; presence is the status. A sold-out item that reappears is restocked and re-alerted."
+  - id: "FR-05"
+    mvp: true
+    text: "Given match results and reconcile output, the system sends Discord webhook notifications for new and restocked items. Notifications include formatted summaries with config string, price, and predicate label. Unknown prices are formatted as 'Price unknown', not excluded."
+  - id: "FR-06"
+    mvp: true
+    text: "Given a configuration, the system runs repeated polling cycles at the configured interval, with clean shutdown on signal, config reload between cycles, and graceful degradation on any step failure."
+
+data:
+  inputs:
+    - name: "refurb page HTML"
+      format: "HTML"
+      source: "Apple refurb store (HTTP GET)"
+      validation: "Non-empty string; parse_listings handles all content"
+    - name: "config file"
+      format: "YAML"
+      source: "Local filesystem (~/.config/refurb-watcher/config.yaml)"
+      validation: "load_config validates required fields and ranges"
+  outputs:
+    - name: "Discord webhook payloads"
+      format: "JSON (Discord embed)"
+      destination: "config.webhook_url via HTTP POST"
+    - name: "cycle result log"
+      format: "Structured log lines"
+      destination: "stdout/stderr"
+  persisted_state:
+    - description: "Seen items with dedup key, config string, price, status, timestamps"
+      location: "SQLite or Postgres at config.state_db_path"
+      retention: "Indefinite until manually pruned"
+
+business_rules:
+  - id: "BR-01"
+    text: "M4-family chip expansion: a predicate with chip='M4' matches 'M4', 'M4 Pro', and 'M4 Max'. This is not substring matching — it is family matching from a known taxonomy."
+  - id: "BR-02"
+    text: "Dedup key is (normalized_category, config_string). Price does not change identity. Two listings with the same dedup key at different prices are the same item, with a price update."
+  - id: "BR-03"
+    text: "Re-alert occurs only for new items and items transitioning from sold_out to available (restocked). Price changes on an available item do not trigger re-alert."
+  - id: "BR-04"
+    text: "Unknown price (price_cents=-1) does not exclude a listing from predicate matching. If max_price_cents is set and the listing's price is unknown, the listing is included (optimistic inclusion)."
+  - id: "BR-05"
+    text: "Poll interval must be at least 60 seconds. Default is 300 seconds (5 minutes)."
+
+failure_modes:
+  - failure: "Page fetch timeout"
+    trigger: "Connection or read timeout exceeds configured limits"
+    response: "Return FetchError with error_type='timeout'; log error; skip cycle"
+    notification: "Error in CycleResult.errors list"
+  - failure: "Page fetch HTTP error"
+    trigger: "Non-2xx status code after retries exhausted"
+    response: "Return FetchError; log error; skip cycle"
+    notification: "Error in CycleResult.errors list"
+  - failure: "Empty parse result"
+    trigger: "Parser finds no listings on page (could be DOM change or genuine empty)"
+    response: "Proceed with empty listings; reconcile marks all previously available items as sold_out"
+    notification: "None — empty page is not an error condition"
+  - failure: "Malformed price in listing"
+    trigger: "Parser cannot extract a price from a listing"
+    response: "Set price_cents=-1; listing is still included and matched"
+    notification: "None — partial extraction is preferred over omission"
+  - failure: "Discord webhook failure"
+    trigger: "HTTP error or timeout when posting to webhook URL"
+    response: "Return False from send_notification; increment failed count; continue sending others"
+    notification: "None — individual notification failure does not block others"
+  - failure: "State store unavailable"
+    trigger: "SQLite/Postgres connection fails or schema corruption"
+    response: "Log error; return CycleResult with zero state-change counts and error in errors list"
+    notification: "Error in CycleResult.errors list"
+  - failure: "Config file invalid or missing after first load"
+    trigger: "Config file deleted or corrupted between cycles"
+    response: "Log error; continue with last valid config"
+    notification: "None — watcher does not stop polling"
+
+nfr:
+  performance: "Page fetch and parse under 30 seconds total — derived from: 'refurb stock turns over in minutes, the system must not lose events'"
+  reliability: "Recovers from any single-step failure within one cycle — derived from: 'if the fetch fails, try again next cycle, don't crash'"
+  operability: "Single-process background service with configurable cadence — derived from: 'cheap to run continuously on a tight cadence'"
+
+high_coupling_decisions:
+  - decision: "Dedup key format and identity semantics"
+    status: "decided"
+    notes: "normalized_category::config_string. Price is mutable property, not identity. Sold-out-then-restock is re-alert."
+  - decision: "Parsing strategy (resilient extraction vs. brittle CSS selectors)"
+    status: "deferred_flexible"
+    notes: "Spec says 'extract product data from arbitrary HTML' and tests behavior against frozen test corpus. Implementer chooses technique. Flexibility built in: empty result is valid, partial extraction preferred over crash."
+  - decision: "State persistence backend (SQLite vs. Postgres)"
+    status: "deferred_flexible"
+    notes: "Implementer chooses. Config provides path/DSN. ACs test behavior, not storage format."
+  - decision: "HTML test corpus contents and management"
+    status: "deferred_flexible"
+    notes: "Corpus lives in the fixture directory, not in the spec. Implementer must handle any valid HTML, not just known snapshots. Corpus is for gate-testing only."
+
+acceptance_criteria:
+  - id: "AC-RW-01"
+    fr_ids: ["FR-01"]
+    condition: "Given no config file, load_config returns RefurbConfig with default predicates, poll_interval_seconds=300, webhook_url=None"
+  - id: "AC-RW-02"
+    fr_ids: ["FR-01"]
+    condition: "Given a predicate with chip='M4', matches returns True for listings with chip 'M4', 'M4 Pro', and 'M4 Max'"
+  - id: "AC-RW-03"
+    fr_ids: ["FR-01"]
+    condition: "Given a predicate with min_ram_gb=128, matches returns True for listings with ram_gb=128 and ram_gb=192"
+  - id: "AC-RW-04"
+    fr_ids: ["FR-02"]
+    condition: "Given a URL that times out, fetch_with_retry returns FetchError with error_type='retry_exhausted' after 3 retries"
+  - id: "AC-RW-05"
+    fr_ids: ["FR-03"]
+    condition: "Given empty HTML string, parse_listings returns empty list without raising"
+  - id: "AC-RW-06"
+    fr_ids: ["FR-03"]
+    condition: "Given HTML with no recognizable product structure, parse_listings returns empty list without raising"
+  - id: "AC-RW-07"
+    fr_ids: ["FR-04"]
+    condition: "Given an item marked sold_out that reappears in current_keys, reconcile returns it in restocked_keys"
+  - id: "AC-RW-08"
+    fr_ids: ["FR-04"]
+    condition: "Given mark_seen called twice for the same dedup_key with status available, second call returns False"
+  - id: "AC-RW-09"
+    fr_ids: ["FR-05"]
+    condition: "Given price_cents=-1, format_price returns 'Price unknown'"
+  - id: "AC-RW-10"
+    fr_ids: ["FR-05"]
+    condition: "Given a notification failure, notify_all continues sending remaining notifications and returns incremented failed count"
+  - id: "AC-RW-11"
+    fr_ids: ["FR-06"]
+    condition: "Given a page fetch failure, run_cycle returns CycleResult with errors containing the failure description and zero counts"
+
+untestable_items:
+  - item: "Human readability of notification summaries"
+    reason: "No mechanical gate can distinguish 'good' from 'passable' prose. Outcome verification (human reading the notification) is the backstop."
+  - item: "Resilience to future Apple DOM changes not represented in test corpus"
+    reason: "Non-deterministic — depends on Apple's unspecified future HTML structure. Test corpus represents known cases only."
+
+work_decomposition:
+  value_phases:
+    - phase: 1
+      label: "MVP"
+      fr_ids: ["FR-01", "FR-02", "FR-03", "FR-04", "FR-05", "FR-06"]
+      rationale: "All FRs are required for the tool to be useful. Skipping any one means either spam, missed alerts, or no value delivery."
+
+  dependency_hints:
+    - fr_id: "FR-01"
+      requires: []
+      parallel_with: []
+    - fr_id: "FR-02"
+      requires: ["FR-01"]
+      parallel_with: []
+    - fr_id: "FR-03"
+      requires: ["FR-01"]
+      parallel_with: ["FR-02"]
+    - fr_id: "FR-04"
+      requires: ["FR-01"]
+      parallel_with: ["FR-02", "FR-03"]
+    - fr_id: "FR-05"
+      requires: ["FR-01", "FR-03", "FR-04"]
+      parallel_with: []
+    - fr_id: "FR-06"
+      requires: ["FR-01", "FR-02", "FR-03", "FR-04", "FR-05"]
+      parallel_with: []
+
+open_questions:
+  - question: "What happens if Apple's refurb page returns a completely different content type (e.g., JSON API instead of HTML)?"
+    category: "unknowable"
+    owner: "implementer"
+  - question: "Should sold-out items trigger a notification (in addition to new and restocked)?"
+    category: "indifferent"
+    owner: "principal"
+  - question: "What is the maximum number of concurrent listings Apple's page typically shows?"
+    category: "needs_research"
+    owner: "implementer"
+
+assumptions:
+  - assumption: "Apple's refurb page is publicly accessible without authentication"
+    rationale: "User stated at scoping: no auth needed"
+  - assumption: "Apple's refurb page returns valid UTF-8 HTML"
+    rationale: "Industry standard; if not, the fetcher returns a FetchError and the cycle skips"
+  - assumption: "Discord webhook API is stable and documented"
+    rationale: "Discord webhooks are a documented, versioned API"
+  - assumption: "A single process can handle one poll cycle within the default 5-minute interval"
+    rationale: "Refurb page is small; fetch+parse+notify should complete in seconds, not minutes"
+
+handoff:
+  decisions_made:
+    - decision: "Dedup key is category::config_string, not category::config_string::price"
+      rationale: "Price changes on an available item are not re-alert-worthy. Including price in the key would cause re-alerts on price drops, which the user did not request."
+    - decision: "Unknown price (-1) is optimistically included in matching"
+      rationale: "Excluding unknown-price items from max_price filtering means never losing a potentially matching listing just because the parser couldn't read the price."
+    - decision: "M4-family chip expansion is built into the predicate model, not the parser"
+      rationale: "The parser should extract what's on the page; the matcher should interpret it. 'M4 Pro' is the chip on the page; 'matches M4 family' is the predicate evaluation."
+  pending:
+    - item: "HTML test corpus snapshots"
+      why_deferred: "Needs real Apple refurb page captures (not synthetic HTML)"
+      impact_if_wrong: "Low — parser ACs are behavioral, not corpus-dependent"
+  intent_signals:
+    - signal: "Refurb stock turns over in minutes — system must not lose events"
+      relevance: "Drives NFR for fetch reliability and poll cadence. Missing a cycle is more costly than a false positive."
+    - signal: "Will use this personally — real user value"
+      relevance: "Quality bar is higher than a synthetic fixture; correctness failures have real consequence."
+    - signal: "Respect Apple's ToS for actual deployment"
+      relevance: "Default user-agent identifies the tool; default poll interval (5 min) is conservative. Deployment-time cadence is the user's responsibility."
+
+delta_to_next_level:
+  - gap: "No exhaustive enumeration of Apple's config string formats"
+    what_would_close_it: "Capture 50+ real config strings from Apple's refurb page to build a comprehensive parsing test suite"
+  - gap: "Notification content quality has no mechanical verification"
+    what_would_close_it: "Phase 4 jury gate that evaluates notification readability"
+  - gap: "No specification for what happens when the same config string appears in different categories"
+    what_would_close_it: "Clarify with user whether this is possible and whether dedup key should include category"

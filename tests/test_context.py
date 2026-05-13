@@ -359,6 +359,21 @@ class TestDeriveContextMissingWorkItem:
             derive_context(mock_substrate, str(uuid.uuid4()), "interface_architect")
 
 
+class TestMissingPromptTemplate:
+    def test_missing_prompt_file_raises(self, mock_substrate):
+        wi, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="test-creator",
+            custom_fields={
+                "spec_section": "Section X",
+                "ac_ids": ["AC-01"],
+            },
+        )
+        with pytest.raises(FileNotFoundError, match="nonexistent_role"):
+            derive_context(mock_substrate, wi.work_item_id, "nonexistent_role")
+
+
 class TestDeriveTestAuthorContext:
     def test_includes_locked_interface(self, mock_substrate, tmp_path):
         from factory.context import derive_test_author_context

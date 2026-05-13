@@ -71,7 +71,9 @@ def derive_context(
     ac_ids = ac_ids_raw if isinstance(ac_ids_raw, list) else [ac_ids_raw]
     failures = derive_failures(substrate, work_item_id)
     prompt_path = PROMPTS_DIR / f"{role}.md"
-    prompt_template = prompt_path.read_text() if prompt_path.exists() else ""
+    if not prompt_path.exists():
+        raise FileNotFoundError(f"Prompt template not found: {prompt_path}")
+    prompt_template = prompt_path.read_text()
     glossary = spec_glossary if spec_glossary is not None else {}
     section_content = spec_section
     if not section_content and spec_content is not None:
