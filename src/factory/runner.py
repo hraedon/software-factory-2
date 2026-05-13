@@ -14,7 +14,6 @@ from factory.constants import (
     ARTIFACT_FILENAME_CANNOT_PROCEED,
     CHANNEL_CLAUDE_CODE,
     CHANNEL_CODE,
-    CHANNEL_GEMINI_CLI,
     CHANNEL_OPENCODE,
     CUSTOM_FIELD_ARTIFACT_HASH,
     CUSTOM_FIELD_ARTIFACT_PATH,
@@ -430,6 +429,22 @@ def process_work_item(
     )
 
 
+def _inner_gate_label(pre_result: PreGateResult, role_name: str) -> str:
+    if not pre_result.imports_symbols_passed:
+        return GATE_NAME_INNER_IMPORT_SYMBOLS
+    if not pre_result.mypy_passed:
+        return GATE_NAME_INNER_MYPY
+    if not pre_result.ruff_passed:
+        return GATE_NAME_INNER_RUFF
+    if not pre_result.pytest_passed:
+        if role_name == ROLE_INTERFACE_ARCHITECT:
+            return GATE_NAME_INNER_IMPORT
+        if role_name == ROLE_TEST_AUTHOR:
+            return GATE_NAME_INNER_COLLECT
+        return GATE_NAME_INNER_PYTEST
+    return GATE_NAME_INNER_PYTEST
+
+
 def _run_pre_gate(
     role_name: str,
     artifact_path: Path,
@@ -514,11 +529,16 @@ def _inner_gate_loop(
             config,
             export_map=export_map,
         )
+
+        gate_label = _inner_gate_label(pre_result, role_name)
+
         if pre_result.passed:
             log.info(
                 "inner_gate_passed",
                 work_item_id=work_item_id,
                 retry=retry,
+                inner_gate_name=gate_label,
+                import_feedback_kind=pre_result.import_feedback_kind,
             )
             return current_artifact, current_ctx, duration_seconds
 
@@ -526,30 +546,16 @@ def _inner_gate_loop(
             "inner_gate_failed_retry",
             work_item_id=work_item_id,
             retry=retry,
+            inner_gate_name=gate_label,
             imports_symbols_passed=pre_result.imports_symbols_passed,
             mypy_passed=pre_result.mypy_passed,
             ruff_passed=pre_result.ruff_passed,
             pytest_passed=pre_result.pytest_passed,
             diagnostics=pre_result.diagnostics[:3],
+            import_feedback_kind=pre_result.import_feedback_kind,
         )
 
         from factory.failure_summary import FailureEntry
-
-        if not pre_result.imports_symbols_passed:
-            gate_label = GATE_NAME_INNER_IMPORT_SYMBOLS
-        elif not pre_result.mypy_passed:
-            gate_label = GATE_NAME_INNER_MYPY
-        elif not pre_result.ruff_passed:
-            gate_label = GATE_NAME_INNER_RUFF
-        elif not pre_result.pytest_passed:
-            if role_name == ROLE_INTERFACE_ARCHITECT:
-                gate_label = GATE_NAME_INNER_IMPORT
-            elif role_name == ROLE_TEST_AUTHOR:
-                gate_label = GATE_NAME_INNER_COLLECT
-            else:
-                gate_label = GATE_NAME_INNER_PYTEST
-        else:
-            gate_label = GATE_NAME_INNER_PYTEST
 
         max_feedback = config.inner_gate_max_feedback_chars
         truncated_output = pre_result.output[-max_feedback:] if pre_result.output else ""
@@ -565,6 +571,7 @@ def _inner_gate_loop(
                 gate_output=truncated_output,
             ),
         ]
+        import_feedback = pre_result.import_feedback or current_ctx.import_feedback
         current_ctx = PromptContext(
             work_item_id=current_ctx.work_item_id,
             role=current_ctx.role,
@@ -578,6 +585,7 @@ def _inner_gate_loop(
             extra_artifacts=current_ctx.extra_artifacts,
             stub_only_deps=current_ctx.stub_only_deps,
             export_map=current_ctx.export_map,
+            import_feedback=import_feedback,
         )
         retry_prompt = render_prompt(current_ctx)
         retry_ad = ad / f"retry-{retry}"
@@ -737,7 +745,6 @@ def _register_channel(channel_name: str, import_path: str, class_name: str) -> N
 
 _register_channel(CHANNEL_OPENCODE, "factory.opencode_channel", "OpenCodeChannel")
 _register_channel(CHANNEL_CLAUDE_CODE, "factory.claude_code_channel", "ClaudeCodeChannel")
-_register_channel(CHANNEL_GEMINI_CLI, "factory.gemini_channel", "GeminiCLIChannel")
 
 _SUPPORTED_CHANNEL_NAMES = ", ".join(sorted(_CHANNEL_CONSTRUCTORS))
 

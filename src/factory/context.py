@@ -39,6 +39,7 @@ class PromptContext:
     extra_artifacts: dict[str, str]
     stub_only_deps: list[str]
     export_map: dict[str, set[str]] | None = None
+    import_feedback: str = ""
 
 
 def _to_uuid(value: str | uuid.UUID) -> uuid.UUID:
@@ -297,6 +298,11 @@ def render_prompt(ctx: PromptContext) -> str:
                 for line in f.gate_output.splitlines():
                     parts.append(f"  {line}")
                 parts.append("  ```")
+        parts.append("")
+    if ctx.import_feedback:
+        parts.append("## import_resolution_feedback")
+        parts.append("")
+        parts.append(ctx.import_feedback)
         parts.append("")
     if ctx.extra_artifacts:
         for key, value in sorted(ctx.extra_artifacts.items()):

@@ -45,7 +45,7 @@ class TestPhase3Config:
         assert "fireworks" in test_author.model
         implementer = config.get_role_config(ROLE_IMPLEMENTER)
         assert implementer.model is not None
-        assert "zai" in implementer.model
+        assert "fireworks" in implementer.model
 
     def test_phase3_family_derivation(self):
         config = FactoryConfig.phase3()

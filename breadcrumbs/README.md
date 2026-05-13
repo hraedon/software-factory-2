@@ -44,9 +44,7 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 108 | GeminiCLIChannel exists but is essentially untested in production | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed (deferred to Phase 4) |
-| 131 | Runtime import resolution feedback quality — dotted submodule and module-not-found errors | high | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -75,6 +73,8 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 131 | Runtime import resolution feedback quality — dotted submodule and module-not-found errors | high | `_parse_import_failure()` in pre_gate.py classifies import failures as dotted_submodule/wrong_module_name/other_traceback; `import_feedback` field in PreGateResult and PromptContext injects actionable retry context; structlog `import_feedback_kind` dimension; GR-021 validated: 5/5 wrong_module_name failures recovered on retry=1; inner gate first-attempt rate 74% (20/27) |
+| 108 | GeminiCLIChannel disabled — unvalidated in golden runs, removed from runner registration | medium | GeminiCLIChannel removed from `_register_channel()` calls; Phase 3 default config uses kimi-k2p6-turbo for all roles; unvalidated channels no longer in default bindings |
 | 126 | Work-item granularity correlation — measure AC count vs first-attempt pass rate, then cap | high | Phase A measurement complete. 96 rows across 5 GRs. No relationship between AC count/spec words/dep lines and first-attempt failure. Curve is flat; no knee. No spec-lint size cap warranted. See `.factory/analysis/2026-05-13-work-item-granularity.md` |
 | 130 | spec_lint only handled bulleted AC format — heading-per-AC specs were all ERROR | medium | Refactored `_extract_acs()` to handle both `## AC-NN:` heading format and `## Acceptance Criteria` bullet format; 7 new tests; all cert-watch specs lint cleanly |
 | 127 | Spec linting — pre-flight pass over work-item specs before model invocation | high | `spec_lint.py` module with 7 checks; wired into `populate_work_items.py` with `--skip-lint`/`--strict-lint` flags; handles both AC formats; deterministic output verified |

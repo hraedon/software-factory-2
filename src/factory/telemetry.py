@@ -117,17 +117,21 @@ def compute_exit_criteria(
     unknown_rate = unknown_gate_count / total_gate_events if total_gate_events else 0.0
 
     deterministic_gates = {
+        "interface_spec",
         "interface_spec_syntax",
         "interface_spec_stub",
         "interface_spec_structural_semantics",
         "interface_spec_file_exists",
         "interface_spec_not_empty",
+        "test_suite",
         "test_suite_syntax",
         "test_suite_import_forbidden",
         "test_suite_collect",
         "test_suite_file_exists",
         "test_suite_not_empty",
         "test_suite_assertions",
+        "test_suite_dependency",
+        "implementation",
         "implementation_syntax",
         "implementation_import_forbidden",
         "implementation_imports",
@@ -143,7 +147,6 @@ def compute_exit_criteria(
         "inner_mypy",
         "inner_ruff",
         "inner_import_symbols",
-        "test_suite_dependency",
     }
     deterministic_count = sum(1 for a in attempts if a.gate_name in deterministic_gates)
     deterministic_rate = deterministic_count / total_gate_events if total_gate_events else 0.0

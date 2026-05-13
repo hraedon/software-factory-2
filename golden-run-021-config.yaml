@@ -1,0 +1,38 @@
+workflow_name: software_factory
+workflow_version: 3
+dsn: postgresql://substrate_test:substrate_test@localhost:5432/substrate_test
+project_name: sf2_golden_021
+hmac_key_path: tests/test_keys.json
+workspace_root: /tmp/sf2-golden-021
+spec_file: null
+poll_interval_seconds: 5
+claim_ttl_seconds: 600
+attempt_threshold: 3
+use_project_venv: true
+inner_gate_retries: 2
+worker_roles:
+  - interface_architect
+  - test_author
+  - implementer
+gate_roles:
+  - mechanical_gate
+type_to_role:
+  - [interface_spec, interface_architect]
+  - [test_suite, test_author]
+  - [implementation, implementer]
+roles:
+  - role: interface_architect
+    channel: opencode
+    timeout_seconds: 600
+    model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
+  - role: test_author
+    channel: opencode
+    timeout_seconds: 600
+    model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
+  - role: implementer
+    channel: opencode
+    timeout_seconds: 600
+    model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
+  - role: mechanical_gate
+    channel: code
+    timeout_seconds: 120

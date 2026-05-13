@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import ast
+import difflib
 import logging
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -19,6 +21,10 @@ from factory.constants import (
     TEMPFILE_PREFIX_MYPY,
     TEMPFILE_PREFIX_PYTEST,
 )
+
+_IMPORT_FEEDBACK_KIND_DOTTED_SUBMODULE = "dotted_submodule"
+_IMPORT_FEEDBACK_KIND_WRONG_MODULE_NAME = "wrong_module_name"
+_IMPORT_FEEDBACK_KIND_OTHER = "other_traceback"
 
 _DEFAULT_TIMEOUTS = GateTimeouts()
 
@@ -51,6 +57,8 @@ class PreGateResult:
     diagnostics: list[str]
     output: str = ""
     skipped_import_patterns: dict[str, int] | None = None
+    import_feedback_kind: str = ""
+    import_feedback: str = ""
 
 
 def validate_artifact_imports(
@@ -286,6 +294,8 @@ def pre_gate_interface_spec(
             imports_symbols_passed=True,
             diagnostics=_truncate_diagnostics(import_result.get("diagnostics", [])),
             output=import_result.get("raw_output", ""),
+            import_feedback_kind=import_result.get("import_feedback_kind", ""),
+            import_feedback=import_result.get("import_feedback", ""),
         )
 
     return PreGateResult(
@@ -441,6 +451,93 @@ def copy_dependency_pyis(
             dep_pyi.write_text(content)
 
 
+def _parse_import_failure(
+    stderr: str,
+    artifact_lines: list[str] | None = None,
+    available_modules: list[str] | None = None,
+) -> tuple[str, str]:
+    """Parse import-check stderr into a feedback kind and actionable message.
+
+    Returns (feedback_kind, feedback_message) where feedback_kind is one of
+    IMPORT_FEEDBACK_KIND_DOTTED_SUBMODULE, IMPORT_FEEDBACK_KIND_WRONG_MODULE_NAME,
+    or IMPORT_FEEDBACK_KIND_OTHER.
+
+    The feedback_message is intended for model retry context and must stay under
+    500 characters.
+    """
+    module_not_found_match = re.search(
+        r"ModuleNotFoundError:\s*No module named ['\"](.+?)['\"]", stderr
+    )
+    import_error_match = re.search(
+        r"ImportError:\s*(?:cannot import name .+? from ['\"](.+?)['\"]|.+)",
+        stderr,
+    )
+
+    unavailable_modules = sorted(available_modules) if available_modules else []
+
+    def _suggest(module_name: str) -> str:
+        if not unavailable_modules:
+            return ""
+        best = max(
+            unavailable_modules,
+            key=lambda m: difflib.SequenceMatcher(None, m, module_name).ratio(),
+        )
+        ratio = difflib.SequenceMatcher(None, best, module_name).ratio()
+        if ratio >= 0.4:
+            return f"\nDid you mean: {best}?"
+        return ""
+
+    if module_not_found_match:
+        missing = module_not_found_match.group(1)
+        if "." in missing:
+            top = missing.split(".")[0]
+            msg = (
+                f"Import resolution failed: '{missing}' is a dotted submodule path.\n"
+                f"Dotted submodule imports (from a.b import c) are not supported — "
+                f"dependencies are injected as flat modules by the pipeline.\n"
+                f"Use: from {top} import ..."
+            )
+            if unavailable_modules:
+                msg += f"\nAvailable flat modules: {', '.join(unavailable_modules)}"
+            return _IMPORT_FEEDBACK_KIND_DOTTED_SUBMODULE, msg[:500]
+        line_info = _find_import_line(artifact_lines, missing)
+        msg = f"Import resolution failed{line_info}: module '{missing}' not found."
+        if unavailable_modules:
+            msg += f"\nAvailable modules: {', '.join(unavailable_modules)}"
+        msg += _suggest(missing)
+        return _IMPORT_FEEDBACK_KIND_WRONG_MODULE_NAME, msg[:500]
+
+    if import_error_match:
+        from_module = import_error_match.group(1)
+        if from_module and "." in from_module:
+            top = from_module.split(".")[0]
+            msg = (
+                f"Import resolution failed: '{from_module}' is a dotted submodule path.\n"
+                f"Dotted submodule imports are not supported — "
+                f"dependencies are injected as flat modules by the pipeline.\n"
+                f"Use: from {top} import ..."
+            )
+            if unavailable_modules:
+                msg += f"\nAvailable flat modules: {', '.join(unavailable_modules)}"
+            return _IMPORT_FEEDBACK_KIND_DOTTED_SUBMODULE, msg[:500]
+
+    lines = stderr.strip().splitlines()
+    diags = lines[:3] if lines else ["import check failed"]
+    return _IMPORT_FEEDBACK_KIND_OTHER, "; ".join(diags)[:500]
+
+
+def _find_import_line(artifact_lines: list[str] | None, module_name: str) -> str:
+    if artifact_lines is None:
+        return ""
+    for i, line in enumerate(artifact_lines, 1):
+        stripped = line.strip()
+        if stripped.startswith("import ") and module_name in stripped:
+            return f" at line {i}"
+        if stripped.startswith("from ") and module_name in stripped:
+            return f" at line {i}"
+    return ""
+
+
 def _run_import_check(
     artifact_path: Path,
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
@@ -469,7 +566,24 @@ def _run_import_check(
             if result.returncode != 0:
                 lines = result.stderr.strip().splitlines()
                 diags = lines[:5] if lines else ["import check failed"]
-                return _fail(diags, _truncate_raw_output(result.stderr))
+                artifact_lines = None
+                try:
+                    artifact_lines = artifact_path.read_text().splitlines()
+                except Exception:
+                    pass
+                available_modules = (
+                    [name for name, _ in dependency_pyi_paths] if dependency_pyi_paths else []
+                )
+                feedback_kind, feedback_msg = _parse_import_failure(
+                    result.stderr,
+                    artifact_lines=artifact_lines,
+                    available_modules=available_modules,
+                )
+                return {
+                    **_fail(diags, _truncate_raw_output(result.stderr)),
+                    "import_feedback_kind": feedback_kind,
+                    "import_feedback": feedback_msg,
+                }
     except subprocess.TimeoutExpired:
         return _fail([f"import check timed out after {timeout}s"])
     except Exception as e:

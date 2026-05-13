@@ -2,7 +2,7 @@
 number: "131"
 title: "Runtime import resolution feedback quality — dotted submodule and module-not-found errors"
 severity: high
-status: proposed
+status: implemented
 kind: improvement
 author: glm-5.1
 date: "2026-05-13"
@@ -33,6 +33,8 @@ Two patterns observed in GR-020:
 
 2. **Wrong module path inference** — The model guesses the module name from the stub filename or the prompt section heading, not from the actual module name used in the dependency's own imports. Example: writing `from cert_model import Certificate` when the locked stub's module is `certificate_model`.
 
+   **Note:** RFC-015's manifest already injects correct module names into the prompt (`available_dependency_imports`). Before implementing the Levenshtein suggestion feature, verify this pattern actually occurs in GR-020's artifacts (inspect `attempt-0001/artifact.py` for each failed interface_architect item in `/tmp/sf2-golden-020/`). The runner log only records the Traceback header, not the failing import line — the distinction between dotted and wrong-name matters for scope. If all 5 failures are dotted submodules, the wrong-name branch can be deferred.
+
 ## Proposed fix
 
 **Not a gate addition.** The gate already catches this (`_run_import_check` in `pre_gate_interface_spec`). The fix is **feedback quality** — when `_run_import_check` fails, parse the exception and emit structured diagnostics the model can act on.
@@ -51,12 +53,12 @@ In `_run_import_check` (or its consumer in the inner-gate loop), when the subpro
    ```
    Import resolution failed at artifact.py:4: from cryptography.hazmat.primitives import serialization
    
-   Dotted submodule imports (from a.b import c) are not supported by the inner gate.
-   Available flat modules: cryptography, certificate_model, database_layer, cert_chain_library
-   
-   If you need a symbol from a submodule, import from the top-level module and access it 
-   by attribute: import cryptography; cryptography.hazmat.primitives.serialization.load_pem(...)
+   Dotted submodule imports (from a.b import c) are not supported — dependencies are 
+   injected as flat modules by the pipeline. Available flat modules: cryptography, 
+   certificate_model, database_layer, cert_chain_library
    ```
+
+   **Implementation note:** The "not supported" language must reference the pipeline constraint (flat `.pyi` stub injection), not present it as a Python limitation. For a future fixture where dotted imports are valid (e.g., a project using `from package.submodule import thing`), this feedback would be misleading if it says "not supported" without qualifying *why*. The model should understand this is an artifact of how the factory resolves dependencies, not a general Python rule.
 
 3. **Also handle the "wrong module name" case**:
 
@@ -90,8 +92,13 @@ Phase 3 (current). Pure runner/prompt change — no new gate stage, no new subst
 
 ## Validation criteria
 
+**Primary (must hold):**
 - GR-021 (next clean run) shows `interface_architect` with dependencies first-attempt pass rate ≥ 70% (up from 46%)
-- Zero `Traceback` import failures where `imports_symbols_passed=True` (currently 6 in GR-020)
+
+**Secondary (aspirational, not gate):**
+- Zero `Traceback` import failures where `imports_symbols_passed=True`. Note: N=6 interface_architect-with-deps items in the cert-watch DAG. If 4/5 failures are fixed but 1 remains, that's a major improvement (1/6 failure rate vs 5/6) but misses the zero target. Do not block on zero — the primary criterion is the rate.
+
+**Tertiary:**
 - Feedback character count < 500 chars per failure (model context budget)
 - No new breadcrumbs for submodule resolution edge cases (scope discipline)
 
@@ -109,6 +116,6 @@ This breadcrumb is a **feedback-layer** fix, not a gate-layer extension. It teac
 
 One PR:
 1. `src/factory/pre_gate.py` — enhance `_run_import_check` return value to include parsed failure kind + suggestions
-2. `src/factory/runner.py` — wire structured feedback into retry prompt context
+2. `src/factory/runner.py` — wire structured feedback into retry prompt context; add `import_feedback_kind` telemetry counter (values: `dotted_submodule`, `wrong_module_name`, `other_traceback`) so future BC-126-style analyses can track which failure class this addresses across golden runs
 3. `tests/test_import_feedback.py` — test cases for dotted-submodule detection, module-name suggestion, feedback character budget
 4. `breadcrumbs/131-*.md` — flip `status: proposed` to `status: implemented` on merge

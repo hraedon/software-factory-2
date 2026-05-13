@@ -6,7 +6,7 @@ description: >
   notes Gemini-cli flakiness is "largely harness-shaped." Shipping an untested
   adapter in the channel factory is a reliability risk.
 severity: medium
-status: proposed
+status: implemented
 kind: bug
 author: opencode-adversarial-review
 date: "2026-05-11"

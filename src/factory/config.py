@@ -150,7 +150,7 @@ class FactoryConfig:
         RoleConfig(
             role=ROLE_IMPLEMENTER,
             channel=CHANNEL_OPENCODE,
-            model="zai-coding-plan/glm-5.1",
+            model="fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo",
         ),
         RoleConfig(role=ROLE_MECHANICAL_GATE, channel=CHANNEL_CODE),
     )
