@@ -302,7 +302,7 @@ If the work-item is still in `in_progress` because the prior claim's TTL has not
 - Add multi-channel judge gates.
 - A/B race for load-bearing roles where Phase 3 telemetry shows uncertainty.
 
-**Phase 5 — First real workload.**
+**Phase 5 — First real workload.** *(Requires RFC-017, RFC-019, RFC-020, RFC-021)*
 - Pick a small LoB tool to build end-to-end.
 - Observe failure modes. Iterate on roles/prompts/gates.
 
@@ -310,7 +310,31 @@ If the work-item is still in `in_progress` because the prior claim's TTL has not
 - Second and third workloads, with patterns extracted into reusable roles/skills.
 - At this point, decide whether v2 is ready to attempt anything from the existing software-factory v1 backlog.
 
-The phasing exists to prevent the v1 mistake of trying to ship the whole architecture at once and discovering halfway that role boundaries don't work.
+### Mechanical gate budget
+
+The phasing exists to prevent the v1 mistake of trying to ship the whole architecture at once and discovering halfway that role boundaries don't work. **A second v1 mistake was an unbounded proliferation of mechanical gates: each time a new failure class was discovered, a new gate was added, which in turn exposed new failure classes, endlessly.**
+
+Each phase therefore ships with a **maximum mechanical gate count** that is not exceeded without a spec amendment with rationale. The budget is:
+
+| Phase | Max mechanical gates | Rationale |
+|---|---|---|
+| Phase 1 | 3 | Syntax, stub, structural semantics — the minimal set |
+| Phase 2 | 8 | Add import, mypy, pytest, ruff, pytest-collect; outer + inner gate variants |
+| Phase 3 | 12 | Add inner-gate variants for interface_spec and test_suite; pre-gate layers |
+| Phase 4 | 15 | Jury evaluation gates; race comparison gates |
+| Phase 5 | 18 | Integration and end-to-end verification gates |
+
+A "mechanical gate" is any deterministic, non-model evaluation applied to an artifact: syntax checks, type checks, linters, test runners, structural validators, import smoke tests, artifact size guards, and their inner-gate equivalents. A "jury gate" is a single mechanical gate regardless of how many model channels participate in the quorum.
+
+**Default response to a new bug class is not a new gate.** When a bug class is discovered, the response order is:
+
+1. **Prompt change** — clarify the role system prompt so the model avoids the class.
+2. **Role boundary change** — move responsibility to a different role whose output shape prevents the class.
+3. **Spec clarification** — amend the spec so the contract is unambiguous.
+4. **Defect-class systemic fix** — if the class has ≥3 instances in the failure corpus (per RFC-016 / BC-128), file an RFC for the systemic fix.
+5. **New mechanical gate** — justified only if steps 1–4 were attempted and the class recurs ≥3 additional times *after* those changes.
+
+If a phase is at its gate budget and a new gate is justified, the spec amendment must either (a) remove an existing gate that has not fired in the last 3 golden runs, or (b) escalate to the principal with the recurrence data and the attempted responses. Adding gates by accumulating `if/elif` branches without this process is the v1 failure mode; it is prevented by construction, not by reviewer discipline.
 
 ## 11. Glossary
 

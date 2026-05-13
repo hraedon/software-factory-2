@@ -67,7 +67,12 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-013 | Expanded inner-gate feedback for implementer retries — richer failure signal without infra overhead | medium | Phase 3 (inner gate loop) |
 | RFC-014 | Staff engineer summarizer — compress outer-path failure history into actionable constraints | medium | Phase 4 (outer retry path) |
 | RFC-015 | Dependency import manifest + gate-level import validation — implemented | high | Phase 3 (prompt + gate) |
-| RFC-016 | Defect-class taxonomy — evolve breadcrumbs from per-defect entries to class-based corpus | medium | Phase 3 (process) — deferred behind BC-128 |
+| RFC-016 | Defect-class taxonomy — evolve breadcrumbs from per-defect entries to class-based corpus | medium | Phase 3 (process) — BC-128 resolved; unblocked |
+| RFC-017 | Operational survivability — resource limits, disk monitoring, log rotation, workspace lifecycle | high | Phase 5 (first real workload) |
+| RFC-018 | Live state reporter — substrate-derived project snapshot | medium | Phase 4–5 |
+| RFC-019 | Artifact bundling and output delivery — Stage 9 implementation | high | Phase 5 (first real workload) |
+| RFC-020 | Project archetype catalog for Phase 5 cold-start | high | Phase 5 (first real workload) |
+| RFC-021 | Spec mutation and invalidation policy | high | Phase 5 (first real workload) |
 
 ## Resolved
 

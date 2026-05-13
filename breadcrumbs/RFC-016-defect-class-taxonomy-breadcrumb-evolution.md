@@ -10,17 +10,17 @@ tags: [breadcrumbs, process, taxonomy, meta, phase-3]
 related: ["RFC-004", "RFC-014", "128"]
 ---
 
-## Status note (2026-05-12, post-glm-review)
+## Status note (2026-05-13, post-BC-128-resolution)
 
-**Deferred behind BC-128.** This RFC proposes pattern recognition over the project-defect corpus (resolved BCs). BC-128 proposes the same shape of work over the model-attempt corpus (gate failures). The two have parallel structure but BC-128's data will land first and is more actionable. Specifically:
+**BC-128 is resolved.** The cross-attempt defect taxonomy machinery is live (`build_failure_corpus.py`, `failure_corpus_report.py`, 16 tests, classification rules). The model-attempt corpus has been measured across 5+ golden runs.
 
-- BC-128 produces signal within 1-2 GRs (≈ 1-2 weeks).
-- RFC-016's backfill produces signal only after the read-and-classify pass is complete.
-- The defect classes I sketched (JSONB drift, dep resolution, venv divergence) are guesses. BC-128's corpus will reveal whether project-level defects actually cluster the same way model-level failures do, or whether reality groups differently.
+**RFC-016 is unblocked.** The question "do project-level defects cluster the same way model-level failures do?" can now be answered against the BC-128 corpus. The initial classes sketched below (JSONB drift, dep resolution, venv divergence) should be validated or revised against the actual BC-128 clusters before the RFC proceeds.
 
-Open this RFC for implementation only after: BC-128 has been live for 3+ GRs **and** BC-126's analysis is complete. At that point the question "do we organize breadcrumbs by class?" can be answered against measured cluster structure rather than intuition.
+**Trigger for activation:** After reviewing the BC-128 failure corpus (`.factory/analysis/` or `failure_corpus_report.py` output), either:
+1. Confirm the initial class guesses and begin the backfill, or
+2. Revise the class list, then begin the backfill.
 
-The migration estimate below ("≈ 2 hours of reading") is also revised — reading 125 BCs at ~1 minute each is 2 hours *before* writing any CLASS files. Realistic backfill cost: half a day, not 2 hours. Worth knowing before scheduling.
+The backfill cost remains realistic at half a day for reading + classifying ~125 resolved BCs.
 
 ---
 
