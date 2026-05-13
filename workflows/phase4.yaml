@@ -219,6 +219,10 @@ work_item_types:
         target_work_item_type: implementation
         required: true
         ui_visible: true
+      - name: dependency_refs
+        type: json
+        required: false
+        ui_visible: true
       - name: artifact_path
         type: string
         ui_visible: true
@@ -231,10 +235,26 @@ work_item_types:
 
   - name: jury
     custom_fields:
+      - name: spec_section
+        type: string
+        required: false
+        ui_visible: true
+      - name: ac_ids
+        type: json
+        required: false
+        ui_visible: true
+      - name: module_name
+        type: string
+        required: false
+        ui_visible: true
       - name: review_ref
         type: work_item_ref
         target_work_item_type: review
         required: true
+        ui_visible: true
+      - name: dependency_refs
+        type: json
+        required: false
         ui_visible: true
       - name: artifact_path
         type: string

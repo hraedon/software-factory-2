@@ -193,7 +193,7 @@ def main():
         "--workflow",
         type=str,
         default=None,
-        choices=["phase1", "phase2", "phase3"],
+        choices=["phase1", "phase2", "phase3", "phase4"],
         help="Workflow version to register (default: inferred from --config or phase2)",
     )
     parser.add_argument(
@@ -227,7 +227,7 @@ def main():
     if args.workflow is not None:
         workflow_name = args.workflow
     elif config is not None:
-        workflow_name = {1: "phase1", 2: "phase2", 3: "phase3"}.get(
+        workflow_name = {1: "phase1", 2: "phase2", 3: "phase3", 4: "phase4"}.get(
             config.workflow_version, "phase2"
         )
     else:
@@ -248,6 +248,8 @@ def main():
         workflow_version = 1
     elif workflow_name == "phase3":
         workflow_version = 3
+    elif workflow_name == "phase4":
+        workflow_version = 4
     else:
         workflow_version = 2
 

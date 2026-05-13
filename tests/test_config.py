@@ -143,3 +143,120 @@ class TestConfigMalformed:
         yaml_path.write_text("{}")
         config = FactoryConfig.from_yaml(yaml_path)
         assert config.workflow_name == "software_factory"
+
+
+class TestPhaseConfigRoundTrip:
+    """Round-trip test: FactoryConfig.phaseN() -> dict -> YAML -> from_yaml().
+
+    Catches YAML loader drift (e.g. missing stage_topology parsing, new
+    fields not serialised) before it breaks a golden run.
+    """
+
+    def _plain_dict(self, config: FactoryConfig) -> dict:
+        """Convert a frozen dataclass config to a plain dict with only
+        JSON/YAML-safe types (lists instead of tuples, strings instead of Path).
+        """
+
+        def _convert(value: object) -> object:
+            if isinstance(value, tuple):
+                return [_convert(v) for v in value]
+            if isinstance(value, list):
+                return [_convert(v) for v in value]
+            if isinstance(value, dict):
+                return {k: _convert(v) for k, v in value.items()}
+            if isinstance(value, Path):
+                return str(value)
+            # dataclass instances -> dict
+            if hasattr(value, "__dataclass_fields__"):
+                return {k: _convert(getattr(value, k)) for k in value.__dataclass_fields__}
+            return value
+
+        return _convert(config)  # type: ignore[return-value]
+
+    def _roundtrip(self, config: FactoryConfig, tmp_path: Path) -> FactoryConfig:
+        yaml_path = tmp_path / "config.yaml"
+        yaml_path.write_text(yaml.dump(self._plain_dict(config)))
+        return FactoryConfig.from_yaml(yaml_path)
+
+    def test_phase2_roundtrip(self, tmp_path: Path):
+        original = FactoryConfig.phase2()
+        loaded = self._roundtrip(original, tmp_path)
+        assert loaded.workflow_version == 2
+        assert loaded.worker_roles == original.worker_roles
+        assert loaded.type_to_role == original.type_to_role
+        assert len(loaded.stage_topology) == 2
+        assert loaded.stage_topology == original.stage_topology
+
+    def test_phase3_roundtrip(self, tmp_path: Path):
+        original = FactoryConfig.phase3()
+        loaded = self._roundtrip(original, tmp_path)
+        assert loaded.workflow_version == 3
+        assert loaded.worker_roles == original.worker_roles
+        assert loaded.type_to_role == original.type_to_role
+        assert len(loaded.stage_topology) == 2
+        assert loaded.stage_topology == original.stage_topology
+
+    def test_phase4_roundtrip(self, tmp_path: Path):
+        original = FactoryConfig.phase4()
+        loaded = self._roundtrip(original, tmp_path)
+        assert loaded.workflow_version == 4
+        assert loaded.worker_roles == original.worker_roles
+        assert loaded.type_to_role == original.type_to_role
+        assert len(loaded.stage_topology) == 4
+        assert loaded.stage_topology == original.stage_topology
+        # review and jury handoffs are present
+        types = {h.target_type for h in loaded.stage_topology}
+        assert "review" in types
+        assert "jury" in types
+
+    def test_stage_topology_yaml_list(self, tmp_path: Path):
+        """Direct YAML with stage_topology list round-trips correctly."""
+        yaml_path = tmp_path / "config.yaml"
+        yaml_path.write_text(
+            yaml.dump(
+                {
+                    "stage_topology": [
+                        {
+                            "source_type": "interface_spec",
+                            "source_state": "locked",
+                            "target_type": "test_suite",
+                            "link_type": "derived_from",
+                            "ref_field": "interface_ref",
+                        },
+                        {
+                            "source_type": "test_suite",
+                            "source_state": "locked",
+                            "target_type": "implementation",
+                            "link_type": "tested_by",
+                            "additional_links": ["implements"],
+                            "ref_field": "test_suite_ref",
+                            "propagate_fields": ["interface_ref"],
+                        },
+                        {
+                            "source_type": "implementation",
+                            "source_state": "locked",
+                            "target_type": "review",
+                            "link_type": "reviews",
+                            "ref_field": "implementation_ref",
+                            "propagate_fields": ["interface_ref", "test_suite_ref"],
+                        },
+                        {
+                            "source_type": "review",
+                            "source_state": "locked",
+                            "target_type": "jury",
+                            "link_type": "judges",
+                            "ref_field": "review_ref",
+                        },
+                    ]
+                }
+            )
+        )
+        config = FactoryConfig.from_yaml(yaml_path)
+        assert len(config.stage_topology) == 4
+        assert config.stage_topology[2].target_type == "review"
+        assert config.stage_topology[3].target_type == "jury"
+        assert config.stage_topology[2].propagate_fields == (
+            "interface_ref",
+            "test_suite_ref",
+        )
+        assert config.stage_topology[1].additional_links == ("implements",)

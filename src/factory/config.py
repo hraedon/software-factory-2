@@ -327,6 +327,19 @@ class FactoryConfig:
             kwargs["type_to_role"] = tuple(tuple(pair) for pair in kwargs["type_to_role"])
         if "gate_timeouts" in kwargs and isinstance(kwargs["gate_timeouts"], dict):
             kwargs["gate_timeouts"] = GateTimeouts(**kwargs["gate_timeouts"])
+        if "stage_topology" in kwargs:
+            topo = kwargs["stage_topology"]
+            if isinstance(topo, list):
+                handoffs: list[StageHandoff] = []
+                for item in topo:
+                    if isinstance(item, dict):
+                        for list_field in ("additional_links", "propagate_fields"):
+                            if list_field in item and isinstance(item[list_field], list):
+                                item[list_field] = tuple(item[list_field])
+                        handoffs.append(StageHandoff(**item))
+                    elif isinstance(item, StageHandoff):
+                        handoffs.append(item)
+                kwargs["stage_topology"] = tuple(handoffs)
         return cls(**kwargs)
 
     @classmethod

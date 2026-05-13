@@ -42,21 +42,22 @@ The principal of this project is a **systems architect, not a developer**. Archi
 
 ## Status
 
-**Phase 3 (current).** Fleet integration. Phase 2 (sequential single-channel pipeline) exit criteria met (GR-014: 91% lock rate on cert-watch full DAG, 20/22 items). Phase 3 adds multi-channel dispatch, per-role channel binding, and credential infrastructure.
+**Phase 4 (jury and review skeleton validated, first golden run pending).** Phase 3 exit criteria met (GR-021). Phase 4 adds cross-family review and frontier jury gates to the pipeline, enabled by `phase4.yaml` (v4 workflow) and the `jury` / `review` modules.
 
 **What exists:**
 - 7-module runner: runner, gate, gate_process, router, scheduler, config, workspace
 - 3 channel adapters: ClaudeCodeChannel, OpenCodeChannel (K2/GLM/DeepSeek via model selection); GeminiCLIChannel disabled (unvalidated)
 - Multi-channel dispatch: runner selects channel per-role based on config binding
 - Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys
-- 3 workflow YAMLs: phase1.yaml (single-role), phase2.yaml, phase3.yaml (3-stage pipeline)
+- 5 workflow YAMLs: phase1.yaml, phase2.yaml, phase3.yaml, phase4.yaml (review + jury), full_pipeline.yaml
 - Spec lint integrated into `populate_work_items.py` (BC-127)
-- 579 passing tests, 0 lint errors
-- 21 golden runs executed (GR-001 through GR-021)
+- 599 passing tests, 0 lint errors
+- 22 golden runs executed (GR-001 through GR-022)
+  - GR-022: Phase 4 first run — 100% lock rate (15/15) on cert-watch-mini, all 5 roles exercised (interface→tests→impl→review→jury), single-family jury, 50 min wall clock
   - GR-021: 100% lock rate (24/24) on cert-watch full DAG, K2-only; inner gate first-attempt rate 74% (20/27); wrong_module_name feedback: 5/5 recovered on retry=1
   - GR-020: 100% lock rate (24/24) on cert-watch full DAG, K2-only; zero ruff failures; inner gate first-attempt rate 77% (20/26)
 
-**Known issues:** 2 open breadcrumbs (0 critical, 0 high, 1 medium, 0 low) + 1 proposed (deferred to Phase 4) + 14 RFCs. See `breadcrumbs/README.md`.
+**Known issues:** 2 open breadcrumbs (0 critical, 0 high, 1 medium, 0 low) + 1 proposed (deferred to Phase 4) + 18 RFCs. See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing. All validated channels have working adapters; unvalidated adapters disabled.
 
@@ -71,18 +72,18 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - No breadcrumb status drift — **met**
 - Default config binds only validated channels — **met** (GeminiCLIChannel disabled; implementer uses K2)
 
-**Next concrete steps before Phase 4:**
-1. ✅ Run BC-126 Phase A measurement (work-item size vs first-attempt correlation) — **done; conclusion: no relationship**
-2. ✅ Execute clean GR-020 to validate exit criteria — **done**
-3. ✅ Fleet triage: disable untested channels (Gemini adapter removed from runner registration; GLM/DeepSeek available via opencode channel but not in default config)
-4. ✅ Telemetry: add `inner_gate_first_attempt` structlog metric; fix deterministic classifier for composite gate names
+**Next concrete steps (Phase 4 validation):**
+1. ✅ Execute Phase 4 golden run (GR-022) against `cert-watch-mini` with `phase4.yaml` — **done; 100% lock rate, all 5 roles exercised**
+2. 🔄 Run multi-family jury GR with `jury_quorum=2` and ≥2 distinct channel families
+3. 🔄 Exercise review rejection + retry path (may need synthetic test)
+4. 🔄 Exercise jury disagreement/quorum-not-met path
 
 ## What not to build yet
 
 The phasing in `spec.md` §10 exists to prevent the v1 mistake of building the whole architecture at once. Current constraints:
-- Three-role pipeline only (interface_architect, test_author, implementer). Roles beyond these have no implementation.
-- Mechanical gates only. Cross-family review, frontier jury, and coherence review are Phase 3-4.
-- No jury gates or race patterns until Phase 4.
+- Five-role pipeline (interface_architect, test_author, implementer, cross_family_reviewer, frontier_judge). Roles beyond these (integrator, outcome_verifier, coherence_reviewer) have no implementation.
+- Mechanical gates + single-channel review/jury gates. Multi-family jury racing is validated in skeleton but awaiting first golden-run exercise.
+- No integration or outcome-verification stages until Phase 5.
 - Channel adapters for DeepSeek (standalone Ollama adapter) and Gemini (CLI has Node.js version issue on current host) exist but are not yet validated in golden runs.
 If you find yourself wanting to skip ahead, file a breadcrumb explaining why and let the principal decide.
 
@@ -104,7 +105,7 @@ make check       # lint + audit + test (full CI gate)
 
 ## Golden runs
 
-The pipeline runs 3 concurrent processes (runner, gate, scheduler) against a PostgreSQL database and a real model channel.
+The pipeline runs 3–4 concurrent processes (runner, gate, scheduler) against a PostgreSQL database and a real model channel. Phase 4 adds review + jury work items; runner and gate handle them transparently.
 
 ### Prerequisites
 
@@ -116,20 +117,29 @@ The pipeline runs 3 concurrent processes (runner, gate, scheduler) against a Pos
 ```bash
 # 1. Create config YAML (copy a prior golden-run-NNN-config.yaml, change project_name and workspace_root)
 # 2. Populate work items from fixture (--workflow inferred from config)
-make golden-run CONFIG=golden-run-019-config.yaml FIXTURES=tests/fixtures/cert-watch
+make golden-run CONFIG=golden-run-022-config.yaml FIXTURES=tests/fixtures/cert-watch-mini
 # 3. This runs populate, then runner+gate+scheduler in parallel, then telemetry
 ```
 
 For manual step-by-step control (recommended for monitoring):
 
 ```bash
-.venv/bin/python populate_work_items.py --config golden-run-019-config.yaml --reset --fixtures tests/fixtures/cert-watch
-.venv/bin/python -m factory.runner --config golden-run-019-config.yaml > /tmp/gr019-runner.log 2>&1 &
-.venv/bin/python -m factory.gate_process --config golden-run-019-config.yaml > /tmp/gr019-gate.log 2>&1 &
-.venv/bin/python -m factory.scheduler --config golden-run-019-config.yaml > /tmp/gr019-scheduler.log 2>&1 &
+.venv/bin/python populate_work_items.py --config golden-run-022-config.yaml --reset --fixtures tests/fixtures/cert-watch-mini
+.venv/bin/python -m factory.runner --config golden-run-022-config.yaml > /tmp/gr022-runner.log 2>&1 &
+.venv/bin/python -m factory.gate_process --config golden-run-022-config.yaml > /tmp/gr022-gate.log 2>&1 &
+.venv/bin/python -m factory.scheduler --config golden-run-022-config.yaml > /tmp/gr022-scheduler.log 2>&1 &
 wait
-.venv/bin/python -m factory.telemetry --config golden-run-019-config.yaml
-.venv/bin/python -m factory.telemetry --verify --config golden-run-019-config.yaml
+.venv/bin/python -m factory.telemetry --config golden-run-022-config.yaml
+.venv/bin/python -m factory.telemetry --verify --config golden-run-022-config.yaml
+```
+
+### Monitoring
+
+Check progress while running:
+```bash
+tail -20 /tmp/gr022-runner.log
+tail -10 /tmp/gr022-scheduler.log
+tail -10 /tmp/gr022-gate.log
 ```
 
 ### Monitoring
