@@ -51,32 +51,33 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys
 - 3 workflow YAMLs: phase1.yaml (single-role), phase2.yaml, phase3.yaml (3-stage pipeline)
 - Spec lint integrated into `populate_work_items.py` (BC-127)
-- 550 passing tests, 0 lint errors
-- 19 golden runs executed (GR-001 through GR-019)
+- 557 passing tests, 0 lint errors
+- 20 golden runs executed (GR-001 through GR-020)
+  - GR-020: 100% lock rate (24/24) on cert-watch full DAG, K2-only; zero ruff failures; inner gate first-attempt rate 77% (20/26)
   - GR-019: 94% lock rate (15/16) on cert-watch full DAG, K2-only; zero ruff failures; inner gate first-attempt rate 64%
   - GR-015: 100% lock rate (24/24) on cert-watch full DAG, K2-only; 0% first-attempt pass rate (all required inner gate retry)
   - GR-014: 91% lock rate (20/22) on cert-watch full DAG with K2 via Fireworks
 
-**Known issues:** 4 open breadcrumbs (0 critical, 2 high, 1 medium, 0 low) + 1 proposed (deferred to Phase 4) + 14 RFCs. See `breadcrumbs/README.md`.
+**Known issues:** 3 open breadcrumbs (0 critical, 1 high, 1 medium, 0 low) + 1 proposed (deferred to Phase 4) + 14 RFCs. See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing. All channels have adapter implementations.
 
 **Phase 3 exit criteria** (defined in `spec.md` §10, must be met by a single clean golden run):
-- First-attempt mechanical-gate pass rate ≥ 60%
-- Lock-within-budget rate ≥ 90%
-- Mean attempts to lock ≤ 2.0
-- ≤1 stuck item per 16-work-item DAG
-- ≤10% unknown/tool_not_found gate failures; ≥80% deterministic
-- Spec lint wired and producing deterministic findings
-- BC-126 analysis report exists with conclusion
-- No breadcrumb status drift
-- Default config binds only validated channels
+- First-attempt mechanical-gate pass rate ≥ 60% — **met via inner gate: 77% (GR-020)**
+- Lock-within-budget rate ≥ 90% — **met: 100% (GR-020)**
+- Mean attempts to lock ≤ 2.0 — **met: 1.08 (GR-020)**
+- ≤1 stuck item per 16-work-item DAG — **met: 0 stuck (GR-020)**
+- ≤10% unknown/tool_not_found gate failures; ≥80% deterministic — **partial: 0% unknown, but deterministic classifier mislabels `test_suite_assertions`**
+- Spec lint wired and producing deterministic findings — **met**
+- BC-126 analysis report exists with conclusion — **met** (`.factory/analysis/2026-05-13-work-item-granularity.md`)
+- No breadcrumb status drift — **TBD**
+- Default config binds only validated channels — **met**
 
 **Next concrete steps before Phase 4:**
-1. Run BC-126 Phase A measurement (work-item size vs first-attempt correlation)
-2. Execute clean GR-020 to validate exit criteria
+1. ✅ Run BC-126 Phase A measurement (work-item size vs first-attempt correlation) — **done; conclusion: no relationship**
+2. ✅ Execute clean GR-020 to validate exit criteria — **done**
 3. Fleet triage: validate or disable untested channels (Gemini, GLM, DeepSeek)
-4. Add `mean_attempts_to_lock` telemetry dimension
+4. Telemetry: add `inner_gate_first_attempt` dimension and fix deterministic classifier for `test_suite_assertions`
 
 ## What not to build yet
 

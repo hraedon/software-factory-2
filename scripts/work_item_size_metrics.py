@@ -47,21 +47,24 @@ def _extract_gr_id(config_path: str) -> str:
     return Path(config_path).stem
 
 
-def _count_ac_bullets(spec_section: str) -> int:
+def _count_acs(spec_section: str) -> int:
     if not spec_section:
         return 0
-    in_ac = False
-    count = 0
+    heading_count = 0
+    bullet_count = 0
+    in_ac_section = False
     for line in spec_section.splitlines():
         stripped = line.strip()
         if stripped.lower().startswith("## acceptance criteria"):
-            in_ac = True
+            in_ac_section = True
             continue
-        if in_ac and stripped.startswith("## "):
+        if in_ac_section and stripped.startswith("## "):
             break
-        if in_ac and stripped.startswith("- "):
-            count += 1
-    return count
+        if in_ac_section and stripped.startswith("- "):
+            bullet_count += 1
+        if re.match(r"^## AC-\d+", stripped, re.IGNORECASE):
+            heading_count += 1
+    return max(heading_count, bullet_count)
 
 
 def _word_count(text: str) -> int:
@@ -113,9 +116,80 @@ def _get_gate_events(sub: Substrate, work_item_id: str, event_limit: int) -> lis
     return gate_events
 
 
+_INNER_GATE_RE = re.compile(
+    r"inner_gate_(?P<kind>passed|failed_retry|exhausted_retries).*?work_item_id=(?P<wi>[a-f0-9-]+)"
+)
+
+# The structured runner log contains per-gate boolean flags, e.g.:
+# mypy_passed=False pytest_passed=True retry=0 ruff_passed=True work_item_id=...
+_INNER_GATE_FLAG_RE = re.compile(
+    r"(?P<flag>(?:mypy_passed|ruff_passed|pytest_passed|imports_symbols_passed))=(?P<val>True|False)"
+)
+
+
+def _gate_label_from_flags(line: str) -> str:
+    flags = {}
+    for m in _INNER_GATE_FLAG_RE.finditer(line):
+        flags[m.group("flag")] = m.group("val") == "True"
+    if flags.get("mypy_passed") is False:
+        return "inner_mypy"
+    if flags.get("ruff_passed") is False:
+        return "inner_ruff"
+    if flags.get("pytest_passed") is False:
+        return "inner_pytest"
+    if flags.get("imports_symbols_passed") is False:
+        return "inner_import_symbols"
+    # pre_gate_interface_spec uses _run_import_check, which does not emit a
+    # structured flag. When all flags are True but diagnostics contain a
+    # Traceback, the failure is an import check failure.
+    diag_match = re.search(r"diagnostics=\[(?P<diag>.*?)\]", line)
+    if diag_match:
+        diag_text = diag_match.group("diag")
+        if "Traceback" in diag_text or "ModuleNotFound" in diag_text:
+            return "inner_import_check"
+    return "inner_unknown"
+
+
+def _parse_runner_log(runner_log_path: str) -> dict[str, dict]:
+    """Return map of work_item_id -> {first_attempt_passed, retry_count, gate_label_on_first_fail}"""
+    p = Path(runner_log_path)
+    if not p.exists():
+        return {}
+    results: dict[str, dict] = {}
+    for line in p.read_text().splitlines():
+        m = _INNER_GATE_RE.search(line)
+        if not m:
+            continue
+        kind = m.group("kind")
+        wi = m.group("wi")
+        if wi not in results:
+            results[wi] = {"first_attempt_passed": None, "retry_count": 0, "gate_label_on_first_fail": ""}
+        if kind == "passed":
+            if results[wi]["first_attempt_passed"] is None:
+                results[wi]["first_attempt_passed"] = True
+        elif kind == "failed_retry":
+            if results[wi]["first_attempt_passed"] is None:
+                results[wi]["first_attempt_passed"] = False
+            # Extract retry count and gate label from structured flags
+            retry_match = re.search(r"retry=(?P<retry>\d+)", line)
+            retry = int(retry_match.group("retry")) if retry_match else 0
+            gate_label = _gate_label_from_flags(line)
+            if retry == 0 and not results[wi]["gate_label_on_first_fail"]:
+                results[wi]["gate_label_on_first_fail"] = gate_label
+            results[wi]["retry_count"] = max(results[wi]["retry_count"], retry + 1)
+        elif kind == "exhausted_retries":
+            results[wi]["retry_count"] = max(results[wi].get("retry_count", 0), 2)
+    # For items with no inner gate events but were submitted, infer passed
+    for wi in results:
+        if results[wi]["first_attempt_passed"] is None:
+            results[wi]["first_attempt_passed"] = True
+    return results
+
+
 def extract_size_rows(
     config: FactoryConfig,
     gr_id: str,
+    runner_log_path: str | None = None,
 ) -> list[SizeRow]:
     sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
     try:
@@ -139,7 +213,7 @@ def extract_size_rows(
 
             dep_count, dep_lines = _count_dep_lines(sub, dep_refs_raw)
 
-            ac_count = _count_ac_bullets(spec_section)
+            ac_count = _count_acs(spec_section)
             if ac_count == 0 and ac_ids:
                 ac_count = len(ac_ids)
 
@@ -178,8 +252,16 @@ def extract_size_rows(
             retry_count = 0
             gate_label_on_first_fail = ""
 
-            if not inner_gate_events:
+            # Prefer runner log for accurate inner-gate first-attempt signal
+            log_results = _parse_runner_log(runner_log_path or "")
+            log_result = log_results.get(work_item_id)
+            if log_result:
+                first_attempt_passed = log_result["first_attempt_passed"]
+                retry_count = log_result["retry_count"]
+                gate_label_on_first_fail = log_result["gate_label_on_first_fail"]
+            elif not inner_gate_events:
                 first_attempt_passed = True
+                retry_count = 0
             else:
                 sorted_events = sorted(inner_gate_events, key=lambda g: g["attempt_n"])
                 first_events = [ge for ge in sorted_events if ge["attempt_n"] <= 1]
@@ -187,10 +269,13 @@ def extract_size_rows(
                     if all(ge["passed"] for ge in first_events):
                         first_attempt_passed = True
                     else:
+                        first_attempt_passed = False
                         for ge in first_events:
                             if not ge["passed"]:
                                 gate_label_on_first_fail = ge["gate_name"]
                                 break
+                else:
+                    first_attempt_passed = True
 
                 attempts_seen = set(ge["attempt_n"] for ge in inner_gate_events)
                 retry_count = max(0, len(attempts_seen) - 1)
@@ -258,13 +343,14 @@ def _main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Extract work-item size metrics")
     parser.add_argument("--config", type=str, nargs="*", help="Config YAML(s)")
     parser.add_argument("--output", type=str, default=None, help="Output CSV path")
+    parser.add_argument("--runner-log", type=str, nargs="*", help="Runner log path(s) (same order as --config)")
     args = parser.parse_args(argv)
 
     if not args.config:
         parser.error("--config required")
 
     all_rows: list[SizeRow] = []
-    for config_path in args.config:
+    for idx, config_path in enumerate(args.config):
         gr_id = _extract_gr_id(config_path)
         print(f"Extracting {gr_id}...")
         try:
@@ -272,8 +358,11 @@ def _main(argv: list[str] | None = None) -> None:
         except Exception as e:
             print(f"  SKIP: {e}")
             continue
+        runner_log = ""
+        if args.runner_log and idx < len(args.runner_log):
+            runner_log = args.runner_log[idx]
         try:
-            rows = extract_size_rows(config, gr_id)
+            rows = extract_size_rows(config, gr_id, runner_log_path=runner_log or None)
         except Exception as e:
             print(f"  SKIP: {e}")
             continue

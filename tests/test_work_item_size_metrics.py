@@ -5,13 +5,13 @@ import io
 
 from scripts.work_item_size_metrics import (
     SizeRow,
-    _count_ac_bullets,
+    _count_acs,
     _word_count,
     rows_to_csv,
 )
 
 
-class TestCountAcBullets:
+class TestCountAcs:
     def test_counts_bullets_in_ac_section(self):
         spec = (
             "## Overview\n"
@@ -26,18 +26,52 @@ class TestCountAcBullets:
             "## Notes\n"
             "More text.\n"
         )
-        assert _count_ac_bullets(spec) == 3
+        assert _count_acs(spec) == 3
+
+    def test_counts_heading_style_acs(self):
+        spec = (
+            "## Overview\n"
+            "Some text.\n"
+            "\n"
+            "## AC-01: parses valid input\n"
+            "Body text.\n"
+            "## AC-02: rejects invalid input\n"
+            "Body text.\n"
+            "## AC-03: returns error code\n"
+            "Body text.\n"
+            "\n"
+            "## Notes\n"
+            "More text.\n"
+        )
+        assert _count_acs(spec) == 3
+
+    def test_heading_style_outside_bullet_section(self):
+        # If AC headings appear after bullet-style AC section has ended,
+        # they are counted too (max of both styles)
+        spec = (
+            "## Overview\n"
+            "Some text.\n"
+            "\n"
+            "## AC-01: parses valid input\n"
+            "Body text.\n"
+            "## AC-02: rejects invalid input\n"
+            "Body text.\n"
+            "\n"
+            "## Notes\n"
+            "More text.\n"
+        )
+        assert _count_acs(spec) == 2
 
     def test_empty_spec(self):
-        assert _count_ac_bullets("") == 0
+        assert _count_acs("") == 0
 
     def test_no_ac_section(self):
         spec = "## Overview\nSome text.\n"
-        assert _count_ac_bullets(spec) == 0
+        assert _count_acs(spec) == 0
 
     def test_ac_section_at_end(self):
         spec = "## Acceptance Criteria\n\n- AC-01: foo\n- AC-02: bar\n"
-        assert _count_ac_bullets(spec) == 2
+        assert _count_acs(spec) == 2
 
 
 class TestWordCount:

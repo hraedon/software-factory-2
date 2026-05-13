@@ -46,8 +46,7 @@ Reusable tags:
 |---|---|---|---|
 | 108 | GeminiCLIChannel exists but is essentially untested in production | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed (deferred to Phase 4) |
-| 121 | Gate process and runner use project venv instead of gate venv for gate tooling | critical | implemented |
-| 126 | Work-item granularity correlation — measure AC count vs first-attempt pass rate, then cap | high | in_progress |
+| 131 | Runtime import resolution feedback quality — dotted submodule and module-not-found errors | high | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -76,6 +75,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 126 | Work-item granularity correlation — measure AC count vs first-attempt pass rate, then cap | high | Phase A measurement complete. 96 rows across 5 GRs. No relationship between AC count/spec words/dep lines and first-attempt failure. Curve is flat; no knee. No spec-lint size cap warranted. See `.factory/analysis/2026-05-13-work-item-granularity.md` |
 | 130 | spec_lint only handled bulleted AC format — heading-per-AC specs were all ERROR | medium | Refactored `_extract_acs()` to handle both `## AC-NN:` heading format and `## Acceptance Criteria` bullet format; 7 new tests; all cert-watch specs lint cleanly |
 | 127 | Spec linting — pre-flight pass over work-item specs before model invocation | high | `spec_lint.py` module with 7 checks; wired into `populate_work_items.py` with `--skip-lint`/`--strict-lint` flags; handles both AC formats; deterministic output verified |
 | 129 | Substrate actor_metadata API change breaks 10 integration tests — dict vs attribute access | high | Fixed on substrate side; all 18 tests pass; make check clean |

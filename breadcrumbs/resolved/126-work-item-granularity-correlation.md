@@ -2,13 +2,21 @@
 number: "126"
 title: "Work-item granularity correlation — measure AC count vs first-attempt pass rate, then cap"
 severity: high
-status: in_progress
+status: resolved
 kind: improvement
 author: opus-review
 date: "2026-05-12"
 tags: [spec, work-item, first-attempt, prompt, phase-3]
 related: ["122", "RFC-013", "RFC-015"]
 ---
+
+## Resolution
+
+Phase A measurement complete. Analysis report at `.factory/analysis/2026-05-13-work-item-granularity.md`.
+
+Conclusion: **The hypothesis is not supported.** Across 96 work-item rows (43 with clean inner-gate signal from GR-019+020), first-attempt pass rate is flat across AC counts 4–10. Pearson correlations are near zero and slightly positive (r = +0.11 for AC count, +0.03 for spec words, +0.03 for dep lines). No knee in the curve. No monotonic decline. Larger work items actually lock at slightly higher rates.
+
+No spec-lint size cap warranted. BC-126 closed without Phase B action. The 10 first-attempt failures that remain are import-resolution and mypy generic-type errors — structural issues, not size issues. These are better addressed by RFC-015 (dependency import manifest) than by work-item splitting.
 
 ## Problem
 
