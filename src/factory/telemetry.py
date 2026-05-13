@@ -82,6 +82,9 @@ class ExitCriteriaMetrics:
     total_gate_events: int
     deterministic_gate_rate: float
     deterministic_count: int
+    inner_gate_first_pass_rate: float
+    inner_gate_first_passes: int
+    inner_gate_evaluations: int
 
 
 def compute_exit_criteria(
@@ -147,6 +150,24 @@ def compute_exit_criteria(
 
     lock_rate = locked / total if total else 0.0
 
+    inner_attempts = [a for a in attempts if a.gate_name.startswith("inner_")]
+    inner_per_item: dict[str, list[GateAttempt]] = defaultdict(list)
+    for a in inner_attempts:
+        inner_per_item[a.work_item_id].append(a)
+    inner_first_passes = 0
+    inner_evaluations = 0
+    for item_attempts in inner_per_item.values():
+        sorted_ia = sorted(item_attempts, key=lambda a: (a.attempt_n, a.gate_name))
+        by_gate_ia: dict[str, list[GateAttempt]] = defaultdict(list)
+        for sa in sorted_ia:
+            by_gate_ia[sa.gate_name].append(sa)
+        for gate_attempts in by_gate_ia.values():
+            gate_sorted = sorted(gate_attempts, key=lambda a: a.attempt_n)
+            inner_evaluations += 1
+            if gate_sorted[0].passed:
+                inner_first_passes += 1
+    inner_rate = inner_first_passes / inner_evaluations if inner_evaluations else 0.0
+
     return ExitCriteriaMetrics(
         lock_within_budget_rate=lock_rate,
         locked_count=locked,
@@ -161,13 +182,16 @@ def compute_exit_criteria(
         total_gate_events=total_gate_events,
         deterministic_gate_rate=deterministic_rate,
         deterministic_count=deterministic_count,
+        inner_gate_first_pass_rate=inner_rate,
+        inner_gate_first_passes=inner_first_passes,
+        inner_gate_evaluations=inner_evaluations,
     )
 
 
 def format_exit_criteria_summary(metrics: ExitCriteriaMetrics) -> str:
     lines: list[str] = []
     lines.append("=" * 70)
-    lines.append("Phase 3 Exit Criteria Summary")
+    lines.append("Pipeline Exit Criteria Summary")
     lines.append("=" * 70)
     lines.append("")
 
@@ -195,9 +219,18 @@ def format_exit_criteria_summary(metrics: ExitCriteriaMetrics) -> str:
         f"{fa_label:4s} [target: >=60%]"
     )
     lines.append(fa_line)
-    lines.append(
-        "    (inner-gate retry data requires runner-log parsing; not captured in substrate events)"
-    )
+    if metrics.inner_gate_evaluations > 0:
+        ig = f"{metrics.inner_gate_first_pass_rate:.0%}"
+        ig_pass = metrics.inner_gate_first_pass_rate >= 0.60
+        ig_label = "PASS" if ig_pass else "FAIL"
+        ig_line = (
+            f"  Inner gate first-pass rate:    {ig} "
+            f"({metrics.inner_gate_first_passes}/{metrics.inner_gate_evaluations})  "
+            f"{ig_label:4s} [target: >=60%]"
+        )
+        lines.append(ig_line)
+    else:
+        lines.append("  Inner gate first-pass rate:    \u2014 (no inner gate data in substrate)")
 
     lines.append("")
     lines.append(
@@ -265,6 +298,21 @@ def collect_gate_attempts(sub: Substrate, config: FactoryConfig) -> list[GateAtt
                     try:
                         parsed = SubmitPayload.from_dict(payload)
                         worker_duration = parsed.duration_seconds
+                        if parsed.inner_gate_attempts:
+                            for iga in parsed.inner_gate_attempts:
+                                attempts.append(
+                                    GateAttempt(
+                                        work_item_id=str(wi.work_item_id),
+                                        work_item_type=wi.work_item_type,
+                                        role=worker_meta.get("role", "unknown"),
+                                        channel=worker_meta.get("channel", "unknown"),
+                                        family=worker_meta.get("family", "unknown"),
+                                        attempt_n=md.get("attempt_n", 0) or 0,
+                                        gate_name=iga.get("gate_name", "unknown"),
+                                        passed=iga.get("passed", False),
+                                        duration_seconds=worker_duration,
+                                    )
+                                )
                     except EventSchemaError:
                         pass
             if ev.transition not in (TRANSITION_GATE_PASS, TRANSITION_GATE_FAIL):

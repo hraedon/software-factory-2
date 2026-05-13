@@ -364,8 +364,9 @@ def process_work_item(
 
     artifact_path = ad / invoke_result.artifact_name
 
+    inner_gate_attempts: list[dict] | None = None
     if role_name in _INNER_GATE_ROLES and config.inner_gate_retries > 0:
-        artifact_path, ctx, duration_seconds = _inner_gate_loop(
+        artifact_path, ctx, duration_seconds, inner_gate_attempts = _inner_gate_loop(
             runtime,
             wi,
             actor_id,
@@ -446,7 +447,10 @@ def process_work_item(
         TRANSITION_SUBMIT,
         actor_id,
         actor_metadata=actor_metadata,
-        payload=SubmitPayload(duration_seconds=duration_seconds).to_dict(),
+        payload=SubmitPayload(
+            duration_seconds=duration_seconds,
+            inner_gate_attempts=inner_gate_attempts,
+        ).to_dict(),
         custom_fields={
             CUSTOM_FIELD_ARTIFACT_PATH: str(artifact_path),
             CUSTOM_FIELD_ARTIFACT_HASH: sha,
@@ -532,7 +536,7 @@ def _inner_gate_loop(
     effective_family: str,
     config: FactoryConfig,
     extra_env: dict[str, str] | None = None,
-) -> tuple[Path | None, PromptContext, float]:
+) -> tuple[Path | None, PromptContext, float, list[dict]]:
     sub = runtime.sub
     work_item_id = str(wi.work_item_id)
     pre_gate_deps = _resolve_pre_gate_deps(sub, wi, config)
@@ -541,11 +545,12 @@ def _inner_gate_loop(
     current_artifact = artifact_path
     current_ctx = ctx
     duration_seconds = round(time.monotonic() - invocation_start, 3)
+    inner_gate_attempts: list[dict] = []
 
     for retry in range(max_retries):
         if not current_artifact.exists():
             log.warning("inner_gate_artifact_missing", work_item_id=work_item_id)
-            return current_artifact, current_ctx, duration_seconds
+            return current_artifact, current_ctx, duration_seconds, inner_gate_attempts
 
         pre_result = _run_pre_gate(
             role_name,
@@ -557,6 +562,15 @@ def _inner_gate_loop(
 
         gate_label = _inner_gate_label(pre_result, role_name)
 
+        inner_gate_attempts.append(
+            {
+                "retry": retry,
+                "gate_name": gate_label,
+                "passed": pre_result.passed,
+                "diagnostics": pre_result.diagnostics[:5],
+            }
+        )
+
         if pre_result.passed:
             log.info(
                 "inner_gate_passed",
@@ -565,7 +579,7 @@ def _inner_gate_loop(
                 inner_gate_name=gate_label,
                 import_feedback_kind=pre_result.import_feedback_kind,
             )
-            return current_artifact, current_ctx, duration_seconds
+            return current_artifact, current_ctx, duration_seconds, inner_gate_attempts
 
         log.info(
             "inner_gate_failed_retry",
@@ -635,7 +649,7 @@ def _inner_gate_loop(
                 effective_family,
                 duration_seconds,
             )
-            return None, current_ctx, duration_seconds
+            return None, current_ctx, duration_seconds, inner_gate_attempts
         current_artifact = retry_ad / retry_result.artifact_name
 
     log.info(
@@ -643,7 +657,7 @@ def _inner_gate_loop(
         work_item_id=work_item_id,
         max_retries=max_retries,
     )
-    return current_artifact, current_ctx, duration_seconds
+    return current_artifact, current_ctx, duration_seconds, inner_gate_attempts
 
 
 def _handle_invoke_failure(
@@ -762,15 +776,19 @@ def _resume_and_submit(
 def _resolve_jury_channels(
     runtime: PipelineRuntime,
     config: FactoryConfig,
-) -> dict[str, Channel]:
-    """Build a dict of juror channels from config."""
+) -> tuple[dict[str, Channel], dict[str, str | None]]:
+    """Build a dict of juror channels and models from config."""
     jury_channels: dict[str, Channel] = {}
+    jury_models: dict[str, str | None] = {}
     for rc in config.roles:
         if rc.role == ROLE_FRONTIER_JUDGE:
             ch = runtime.channels.get(rc.channel) if runtime.channels else runtime.channel
             if ch is not None:
-                jury_channels[rc.channel] = ch
-    return jury_channels
+                model_id = rc.model.split("/")[-1] if rc.model else "default"
+                key = f"{rc.channel}-{model_id}"
+                jury_channels[key] = ch
+                jury_models[key] = rc.model
+    return jury_channels, jury_models
 
 
 def _process_jury_work_item(
@@ -789,7 +807,7 @@ def _process_jury_work_item(
     config = runtime.config
     work_item_id = str(wi.work_item_id)
     attempt_number = claim.attempt_number
-    jury_channels = _resolve_jury_channels(runtime, config)
+    jury_channels, jury_models = _resolve_jury_channels(runtime, config)
     if not jury_channels:
         log.error("no_jury_channels_configured", work_item_id=work_item_id)
         sub.transition(
@@ -820,6 +838,7 @@ def _process_jury_work_item(
             outputs_dir=ad,
             timeout=timeout,
             quorum=getattr(config, "jury_quorum", 2),
+            models=jury_models,
         )
     except Exception:
         log.exception("jury_invoke_failed", work_item_id=work_item_id)

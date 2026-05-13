@@ -55,15 +55,24 @@ class SubprocessChannel:
         outputs_dir: Path,
         timeout: int,
         extra_env: dict[str, str] | None = None,
+        model_override: str | None = None,
     ) -> InvocationResult:
         outputs_dir.mkdir(parents=True, exist_ok=True)
         role_config = self._config.get_role_config(role)
         effective_timeout = role_config.timeout_seconds if role_config else timeout
-        invocation_family = self._derive_invocation_family(role_config)
+        model = model_override or (role_config.model if role_config else None)
 
         cmd = self._build_cmd(role_config)
-        if role_config and role_config.model:
-            cmd.extend(["--model", role_config.model])
+        if model:
+            cmd.extend(["--model", model])
+
+        if model_override:
+            from factory.constants import FAMILY_BY_PROVIDER
+
+            prefix = model_override.split("/")[0]
+            invocation_family = FAMILY_BY_PROVIDER.get(prefix, prefix)
+        else:
+            invocation_family = self._derive_invocation_family(role_config)
         env_override = {**os.environ, **(extra_env or {})} if extra_env is not None else None
         try:
             result = subprocess.run(

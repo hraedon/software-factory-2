@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from factory.channel import InvocationResult
+from factory.gate import evaluate_jury
 from factory.jury import JurorVote, JuryVerdict, _parse_vote, run_jury
 
 
@@ -17,7 +18,7 @@ class _FakeChannel:
         self._rationale = rationale
         self._success = success
 
-    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None):
+    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None, model_override=None):
         result_path = Path(outputs_dir) / "jury_vote.json"
         result_path.write_text(
             json.dumps(
@@ -37,7 +38,7 @@ class _ExplodingChannel:
         self.name = name
         self.family = "test"
 
-    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None):
+    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None, model_override=None):
         raise RuntimeError("boom")
 
 
@@ -89,7 +90,21 @@ class TestRunJury:
         }
         verdict = run_jury(channels, "prompt", tmp_path, 60, quorum=2)
         assert verdict.passed is False
-        assert verdict.disagreement_rationale == ""
+        assert "[all_against]" in verdict.disagreement_rationale
+        assert "a: no" in verdict.disagreement_rationale
+
+    def test_all_channels_fail(self, tmp_path):
+        channels = {
+            "a": _FakeChannel("a", False, success=False),
+            "b": _FakeChannel("b", False, success=False),
+        }
+        verdict = run_jury(channels, "prompt", tmp_path, 60, quorum=2)
+        assert verdict.passed is False
+        assert verdict.votes_for == 0
+        assert verdict.votes_against == 2
+        assert "[all_against]" in verdict.disagreement_rationale
+        assert "a: channel fail" in verdict.disagreement_rationale
+        assert "b: channel fail" in verdict.disagreement_rationale
 
     def test_channel_failure(self, tmp_path):
         channels = {
@@ -143,3 +158,55 @@ class TestJurorVoteFrozen:
         vote = JurorVote(passed=True, rationale="ok", channel="x", family="test")
         with pytest.raises(AttributeError):
             vote.passed = False
+
+
+class TestEvaluateJury:
+    def test_all_against_diagnostics(self, tmp_path):
+        verdict_path = tmp_path / "jury_verdict.json"
+        verdict_path.write_text(
+            json.dumps(
+                {
+                    "passed": False,
+                    "quorum_met": False,
+                    "votes_for": 0,
+                    "votes_against": 2,
+                    "disagreement_rationale": "[all_against] a: channel fail; b: channel fail",
+                }
+            )
+        )
+        result = evaluate_jury(verdict_path)
+        assert result.passed is False
+        assert any("All jurors against" in d for d in result.diagnostics)
+
+    def test_split_disagreement_diagnostics(self, tmp_path):
+        verdict_path = tmp_path / "jury_verdict.json"
+        verdict_path.write_text(
+            json.dumps(
+                {
+                    "passed": False,
+                    "quorum_met": False,
+                    "votes_for": 1,
+                    "votes_against": 2,
+                    "disagreement_rationale": "For: a: yes | Against: b: no",
+                }
+            )
+        )
+        result = evaluate_jury(verdict_path)
+        assert result.passed is False
+        assert any("Disagreement" in d for d in result.diagnostics)
+
+    def test_no_rationale_when_passed(self, tmp_path):
+        verdict_path = tmp_path / "jury_verdict.json"
+        verdict_path.write_text(
+            json.dumps(
+                {
+                    "passed": True,
+                    "quorum_met": True,
+                    "votes_for": 2,
+                    "votes_against": 0,
+                }
+            )
+        )
+        result = evaluate_jury(verdict_path)
+        assert result.passed is True
+        assert result.diagnostics == []

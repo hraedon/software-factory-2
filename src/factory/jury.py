@@ -50,11 +50,18 @@ def _invoke_juror(
     prompt: str,
     outputs_dir: Path,
     timeout: int,
+    model_override: str | None = None,
 ) -> JurorVote:
     """Invoke a single juror channel and return its vote."""
     ch_outputs = outputs_dir / ch_name
     ch_outputs.mkdir(parents=True, exist_ok=True)
-    result = channel.invoke("frontier_judge", prompt, ch_outputs, timeout)
+    result = channel.invoke(
+        "frontier_judge",
+        prompt,
+        ch_outputs,
+        timeout,
+        model_override=model_override,
+    )
     effective_family = result.family or channel.family
     if not result.success:
         return JurorVote(
@@ -80,12 +87,21 @@ def run_jury(
     outputs_dir: Path,
     timeout: int,
     quorum: int = 2,
+    models: dict[str, str | None] | None = None,
 ) -> JuryVerdict:
     """Invoke each configured juror channel in parallel and compute a quorum verdict."""
     votes: list[JurorVote] = []
     with ThreadPoolExecutor(max_workers=len(channels)) as pool:
         futures = {
-            pool.submit(_invoke_juror, ch_name, ch, prompt, outputs_dir, timeout): ch_name
+            pool.submit(
+                _invoke_juror,
+                ch_name,
+                ch,
+                prompt,
+                outputs_dir,
+                timeout,
+                model_override=(models or {}).get(ch_name),
+            ): ch_name
             for ch_name, ch in channels.items()
         }
         for future in as_completed(futures):
@@ -107,10 +123,14 @@ def run_jury(
     quorum_met = votes_for >= quorum
 
     disagreement_rationale = ""
-    if not quorum_met and votes_for > 0 and votes_against > 0:
-        for_votes = "; ".join(f"{v.channel}: {v.rationale}" for v in votes if v.passed)
-        against_votes = "; ".join(f"{v.channel}: {v.rationale}" for v in votes if not v.passed)
-        disagreement_rationale = f"For: {for_votes} | Against: {against_votes}"
+    if not quorum_met:
+        if votes_for > 0 and votes_against > 0:
+            for_votes = "; ".join(f"{v.channel}: {v.rationale}" for v in votes if v.passed)
+            against_votes = "; ".join(f"{v.channel}: {v.rationale}" for v in votes if not v.passed)
+            disagreement_rationale = f"For: {for_votes} | Against: {against_votes}"
+        elif votes_for == 0:
+            against_votes = "; ".join(f"{v.channel}: {v.rationale}" for v in votes if not v.passed)
+            disagreement_rationale = f"[all_against] {against_votes}"
 
     passed = quorum_met
     return JuryVerdict(

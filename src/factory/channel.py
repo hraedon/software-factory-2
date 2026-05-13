@@ -27,4 +27,5 @@ class Channel(Protocol):
         outputs_dir: Path,
         timeout: int,
         extra_env: dict[str, str] | None = None,
+        model_override: str | None = None,
     ) -> InvocationResult: ...

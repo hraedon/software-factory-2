@@ -44,6 +44,7 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 135 | glm-5.1 (z.ai) returns empty output for implementer role — model reliability issue | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed (deferred to Phase 4) |
 
 ### RFCs (awaiting upstream phases)
@@ -73,11 +74,14 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-019 | Artifact bundling and output delivery — Stage 9 implementation | high | Phase 5 (first real workload) |
 | RFC-020 | Project archetype catalog for Phase 5 cold-start | high | Phase 5 (first real workload) |
 | RFC-021 | Spec mutation and invalidation policy | high | Phase 5 (first real workload) |
+| RFC-022 | Initiative primitive for work-item bundling and operational granularity | medium | Phase 5 (first real workload) |
 
 ## Resolved
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 134 | run_jury observability gap — disagreement_rationale empty on all-error/all-timeout | medium | `jury.py` always populates `disagreement_rationale` when quorum not met; `[all_against]` tag distinguishes all-failure from split; `evaluate_jury()` produces tagged diagnostics; 3 new evaluate_jury tests |
+| 133 | Telemetry two-source-of-truth — inner-gate signal lives only in runner logs | high | `SubmitPayload.inner_gate_attempts` carries inner gate history in substrate events; `telemetry.py` reads inner gate attempts from submit payloads; separate inner gate first-pass rate in exit criteria; report label "Phase 3" → "Pipeline" |
 | 132 | Phase 4 jury and race architecture skeleton | medium | `jury.py`, `review.py`, prompt templates, `evaluate_review()`, `evaluate_jury()`, `process_jury_work_item()`, `phase4.yaml`, `FactoryConfig.phase4()`; 10 new tests; lint/test clean |
 | 131 | Runtime import resolution feedback quality — dotted submodule and module-not-found errors | high | `_parse_import_failure()` in pre_gate.py classifies import failures as dotted_submodule/wrong_module_name/other_traceback; `import_feedback` field in PreGateResult and PromptContext injects actionable retry context; structlog `import_feedback_kind` dimension; GR-021 validated: 5/5 wrong_module_name failures recovered on retry=1; inner gate first-attempt rate 74% (20/27) |
 | 108 | GeminiCLIChannel disabled — unvalidated in golden runs, removed from runner registration | medium | GeminiCLIChannel removed from `_register_channel()` calls; Phase 3 default config uses kimi-k2p6-turbo for all roles; unvalidated channels no longer in default bindings |

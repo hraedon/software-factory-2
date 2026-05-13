@@ -964,7 +964,9 @@ def evaluate_jury(artifact_path: Path) -> GateResult:
     diagnostics: list[str] = []
     if not passed:
         diagnostics.append(f"Jury quorum not met ({votes_for} for, {votes_against} against).")
-        if disagreement:
+        if disagreement.startswith("[all_against]"):
+            diagnostics.append(f"All jurors against: {disagreement.removeprefix('[all_against] ')}")
+        elif disagreement:
             diagnostics.append(f"Disagreement: {disagreement}")
     gate_name = GATE_NAME_JURY_QUORUM if passed else GATE_NAME_JURY_DISAGREE
     return GateResult(

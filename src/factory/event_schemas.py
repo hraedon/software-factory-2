@@ -25,22 +25,28 @@ class SubmitPayload:
     """
 
     duration_seconds: float | None = None
+    inner_gate_attempts: list[dict] | None = None
 
     def to_dict(self) -> dict:
         d: dict = {}
         if self.duration_seconds is not None:
             d["duration_seconds"] = self.duration_seconds
+        if self.inner_gate_attempts:
+            d["inner_gate_attempts"] = self.inner_gate_attempts
         return d
 
     @classmethod
     def from_dict(cls, d: dict) -> SubmitPayload:
         if not isinstance(d, dict):
             raise EventSchemaError("SubmitPayload must be a dict")
-        _warn_unknown_fields("SubmitPayload", d, {"duration_seconds"})
+        _warn_unknown_fields("SubmitPayload", d, {"duration_seconds", "inner_gate_attempts"})
         duration = d.get("duration_seconds")
         if duration is not None and not isinstance(duration, (int, float)):
             raise EventSchemaError("SubmitPayload 'duration_seconds' must be a number")
-        return cls(duration_seconds=duration)
+        attempts = d.get("inner_gate_attempts")
+        if attempts is not None and not isinstance(attempts, list):
+            raise EventSchemaError("SubmitPayload 'inner_gate_attempts' must be a list")
+        return cls(duration_seconds=duration, inner_gate_attempts=attempts)
 
 
 @dataclass(frozen=True)

@@ -4,6 +4,49 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-13 — Session 28: v1+K2p6 control experiment on cert-watch
+
+**Invocation:** Opus 4.7 (remote-control session, no code changes to sf2)
+
+**Focus:** Disentangle "v2 architecture vs. K2 model improvement" as explanations for v2 clearing cert-watch where v1 could not. Ran v1 with the same Kimi K2p6 model v2 uses, against the same cert-watch spec.
+
+### Setup
+
+- Target: `/projects/software-factory/projects/cert-watch-11` (reset with `factory reset --hard --reset-git`).
+- Spec edits: `provider: opencode → openai`, `model: k2p5-turbo → k2p6-turbo` on all three roles (architect, implementer, reviewer). Base URL `https://api.fireworks.ai/inference/v1`.
+- v1's `openai` provider (`factory/agents/providers/openai_loop.py`) hits Fireworks directly via OpenAI-compatible API. No code changes needed.
+- API key (Firepass-scoped) authenticated cleanly against K2p6.
+
+### Result
+
+**v1+K2p6 hard-failed at Stage 2.5 (Skeleton Architect / BC-294) after three self-correction attempts.** Never reached agent fan-out, never wrote feature code.
+
+All three violations were the same class (E5) on the same file: the skeleton plan declared exports (`get_config_dep`, `get_scanner_service`, `get_certificate_parser_service`) from `src/cert_watch_11/web/deps_base.py` that the model then failed to define as top-level bindings when emitting the file. Plan-vs-emission inconsistency. K2p6 could not reconcile its own plan against its own code in 3 attempts.
+
+Artifacts preserved at `/projects/software-factory/projects/cert-watch-11/.factory/`:
+- `worktrees/skeleton-architect/.factory/skeleton-plan-violations.yaml`
+- `observability/factory.log`
+
+### Interpretation
+
+The failure mechanism is specific and load-bearing. v1's Skeleton Architect stage asks one model invocation to (a) declare a structural plan and (b) emit files that conform to it, then validates them against each other. K2 cannot reliably satisfy that contract — it contradicts its own earlier structural commitments within a single long output.
+
+v2's pipeline shape has no equivalent stage. `interface_architect` writes the interface as a separate work item; `implementer` writes code against that interface in a fresh context, mechanically gated. The "model forgot what it said five minutes ago" failure mode is structurally impossible in v2.
+
+This narrows the v2 claim from the vague "better orchestration" to the specific **"stage decomposition is small enough that the model can't contradict itself across stages."** That is a defensible architectural win, grounded in evidence. It also recontextualizes the v2 jury/review stages: they're not just catching defects — they're checking a model whose upstream stages have already prevented the most common self-contradiction failure mode.
+
+### What this does NOT prove
+
+- We don't know whether v1+K2p6 would have failed downstream too (merge collisions, gate-not-enforced bugs). We stopped at the first failure rather than forcing past it.
+- We don't know whether a single-invocation plan-and-emit contract is fundamentally infeasible for K2, or whether v1's specific validator strictness is the proximate cause. v2 just avoids the question.
+- This is a single fixture (cert-watch) and a single model (K2p6). Other models with stronger long-context self-consistency might survive v1's skeleton stage. K2 cannot.
+
+### Next steps
+
+None directly from this experiment — the result is recorded. The pre-existing Phase 4 validation work (synthetic bad-impl fixture for the reviewer, multi-family jury GR, jury disagreement path) remains the actual blocker for declaring Phase 4 done.
+
+---
+
 ## 2026-05-12 — Session 26: BC-125 resolved; AGENTS.md and docs refreshed
 
 **Invocation:** GLM-5.1

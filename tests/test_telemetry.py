@@ -591,3 +591,58 @@ class TestComputeExitCriteria:
         assert metrics.first_gate_evaluation_evaluations == 1
         assert metrics.first_gate_evaluation_pass_rate == 0.0
         assert metrics.lock_within_budget_rate == 1.0
+
+    def test_inner_gate_attempts_extracted_from_submit_payload(self, mock_substrate):
+        from factory.telemetry import compute_exit_criteria
+
+        config = _make_config(mock_substrate)
+        wm = _worker_md(role="interface_architect", channel="opencode", family="opencode")
+        wi, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            actor_id="test-actor",
+            actor_kind="agent",
+            custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
+        )
+        wid = wi.work_item_id
+        mock_substrate.transition(
+            wid,
+            TRANSITION_CLAIM,
+            "test-actor",
+            actor_metadata={"role": wm["role"]},
+        )
+        mock_substrate.transition(
+            wid,
+            TRANSITION_SUBMIT,
+            "test-actor",
+            actor_metadata=wm,
+            payload={
+                "duration_seconds": 42.0,
+                "inner_gate_attempts": [
+                    {
+                        "retry": 0,
+                        "gate_name": "inner_pytest",
+                        "passed": False,
+                        "diagnostics": ["fail"],
+                    },
+                    {
+                        "retry": 1,
+                        "gate_name": "inner_pytest",
+                        "passed": True,
+                        "diagnostics": [],
+                    },
+                ],
+            },
+        )
+        attempts = collect_gate_attempts(mock_substrate, config)
+        inner = [a for a in attempts if a.gate_name.startswith("inner_")]
+        assert len(inner) == 2
+        assert inner[0].gate_name == "inner_pytest"
+        assert inner[0].passed is False
+        assert inner[1].gate_name == "inner_pytest"
+        assert inner[1].passed is True
+
+        metrics = compute_exit_criteria(mock_substrate, config, attempts)
+        assert metrics.inner_gate_evaluations == 1
+        assert metrics.inner_gate_first_passes == 0
+        assert metrics.inner_gate_first_pass_rate == 0.0

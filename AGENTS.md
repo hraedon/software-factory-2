@@ -42,22 +42,28 @@ The principal of this project is a **systems architect, not a developer**. Archi
 
 ## Status
 
-**Phase 4 (jury and review skeleton validated, first golden run pending).** Phase 3 exit criteria met (GR-021). Phase 4 adds cross-family review and frontier jury gates to the pipeline, enabled by `phase4.yaml` (v4 workflow) and the `jury` / `review` modules.
+**Phase 4 (jury and review validated, multi-model jury exercised).** Phase 3 exit criteria met (GR-021). Phase 4 adds cross-family review and frontier jury gates to the pipeline, enabled by `phase4.yaml` (v4 workflow) and the `jury` / `review` modules.
 
 **What exists:**
 - 7-module runner: runner, gate, gate_process, router, scheduler, config, workspace
 - 3 channel adapters: ClaudeCodeChannel, OpenCodeChannel (K2/GLM/DeepSeek via model selection); GeminiCLIChannel disabled (unvalidated)
 - Multi-channel dispatch: runner selects channel per-role based on config binding
+- Multi-model jury: parallel invocation of distinct models through same adapter via `model_override`; unique juror keys by channel+model
 - Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys
 - 5 workflow YAMLs: phase1.yaml, phase2.yaml, phase3.yaml, phase4.yaml (review + jury), full_pipeline.yaml
 - Spec lint integrated into `populate_work_items.py` (BC-127)
-- 599 passing tests, 0 lint errors
-- 22 golden runs executed (GR-001 through GR-022)
+- 620 passing tests, 0 lint errors
+- Inner gate telemetry: submit payloads carry `inner_gate_attempts`; telemetry reports inner gate first-pass rate (BC-133)
+- Jury observability: `disagreement_rationale` always populated when quorum not met; `[all_against]` tag for all-failure cases (BC-134)
+- 25 golden runs executed (GR-001 through GR-025)
+  - GR-025: Mixed-family jury (K2 + glm-5.1 via z.ai), jury_quorum=2; jury_disagree exercised (glm-5.1 empty output); `[all_against]` tag validated
+  - GR-024: glm-5.1 isolated role validation; interface_architect and test_author passed; implementer hit empty output issue (model reliability)
+  - GR-023: broken-impl fixture (Phase 4), all 5 roles locked with K2; inner gate telemetry visible in report
   - GR-022: Phase 4 first run — 100% lock rate (15/15) on cert-watch-mini, all 5 roles exercised (interface→tests→impl→review→jury), single-family jury, 50 min wall clock
   - GR-021: 100% lock rate (24/24) on cert-watch full DAG, K2-only; inner gate first-attempt rate 74% (20/27); wrong_module_name feedback: 5/5 recovered on retry=1
   - GR-020: 100% lock rate (24/24) on cert-watch full DAG, K2-only; zero ruff failures; inner gate first-attempt rate 77% (20/26)
 
-**Known issues:** 2 open breadcrumbs (0 critical, 0 high, 1 medium, 0 low) + 1 proposed (deferred to Phase 4) + 18 RFCs. See `breadcrumbs/README.md`.
+**Known issues:** 1 open breadcrumb (0 critical, 0 high, 1 medium, 0 low) + 1 proposed (deferred to Phase 4) + 18 RFCs. See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing. All validated channels have working adapters; unvalidated adapters disabled.
 
@@ -74,15 +80,16 @@ The principal of this project is a **systems architect, not a developer**. Archi
 
 **Next concrete steps (Phase 4 validation):**
 1. ✅ Execute Phase 4 golden run (GR-022) against `cert-watch-mini` with `phase4.yaml` — **done; 100% lock rate, all 5 roles exercised**
-2. 🔄 Run multi-family jury GR with `jury_quorum=2` and ≥2 distinct channel families
-3. 🔄 Exercise review rejection + retry path (may need synthetic test)
-4. 🔄 Exercise jury disagreement/quorum-not-met path
+2. ✅ Run multi-family jury GR with `jury_quorum=2` and ≥2 distinct channel families — **done (GR-025): K2 + glm-5.1; jury_disagree exercised; glm-5.1 empty output reliability issue**
+3. ✅ Exercise review rejection + retry path — **done: unit/integration tests in test_review_rejection.py (12 tests)**
+4. ✅ Exercise jury disagreement/quorum-not-met path — **done (GR-025): `[all_against]` tag validated; BC-134 resolved**
 
 ## What not to build yet
 
 The phasing in `spec.md` §10 exists to prevent the v1 mistake of building the whole architecture at once. Current constraints:
 - Five-role pipeline (interface_architect, test_author, implementer, cross_family_reviewer, frontier_judge). Roles beyond these (integrator, outcome_verifier, coherence_reviewer) have no implementation.
 - Mechanical gates + single-channel review/jury gates. Multi-family jury racing is validated in skeleton but awaiting first golden-run exercise.
+- Multi-model jury: parallel invocation of distinct models through same adapter via `model_override`; unique juror keys by channel+model suffix. Validated in GR-025 (K2 + glm-5.1).
 - No integration or outcome-verification stages until Phase 5.
 - Channel adapters for DeepSeek (standalone Ollama adapter) and Gemini (CLI has Node.js version issue on current host) exist but are not yet validated in golden runs.
 If you find yourself wanting to skip ahead, file a breadcrumb explaining why and let the principal decide.
