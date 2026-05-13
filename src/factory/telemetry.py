@@ -27,96 +27,8 @@ from factory.event_schemas import (
 
 log = logging.getLogger(__name__)
 
-
-@dataclass
-class ExitCriteriaMetrics:
-    lock_within_budget_rate: float
-    locked_count: int
-    total_count: int
-    mean_attempts_to_lock: float
-    first_attempt_mechanical_gate_rate: float
-    first_attempt_passes: int
-    first_attempt_evaluations: int
-    stuck_count: int
-    unknown_gate_rate: float
-    unknown_gate_count: int
-    total_gate_events: int
-    deterministic_gate_rate: float
-    deterministic_count: int
-
-
-def compute_exit_criteria(
-    sub: Substrate, config: FactoryConfig, attempts: list[GateAttempt]
-) -> ExitCriteriaMetrics:
-    page = sub.query_work_items(
-        workflow_name=config.workflow_name,
-        workflow_version=config.workflow_version,
-        page_size=config.query_page_size,
-    )
-    locked = 0
-    cannot_proceed = 0
-    total = len(page.items)
-    for wi in page.items:
-        if wi.current_state == STATE_LOCKED:
-            locked += 1
-        elif wi.current_state == STATE_CANNOT_PROCEED:
-            cannot_proceed += 1
-    stuck = total - locked - cannot_proceed
-
-    per_item_attempts: dict[str, int] = defaultdict(int)
-    for a in attempts:
-        per_item_attempts[a.work_item_id] += 1
-
-    total_attempts = sum(per_item_attempts.values())
-    mean_attempts = total_attempts / len(per_item_attempts) if per_item_attempts else 0.0
-
-    inner_gate_attempts = [a for a in attempts if a.gate_name.startswith("inner_")]
-    per_item_inner: dict[str, list[GateAttempt]] = defaultdict(list)
-    for a in inner_gate_attempts:
-        per_item_inner[a.work_item_id].append(a)
-
-    first_attempt_inner_passes = 0
-    first_attempt_inner_evaluations = 0
-    for item_attempts in per_item_inner.values():
-        sorted_attempts = sorted(item_attempts, key=lambda a: a.attempt_n)
-        by_gate: dict[str, list[GateAttempt]] = defaultdict(list)
-        for sa in sorted_attempts:
-            by_gate[sa.gate_name].append(sa)
-        for gate_attempts in by_gate.values():
-            gate_sorted = sorted(gate_attempts, key=lambda a: a.attempt_n)
-            first = gate_sorted[0]
-            first_attempt_inner_evaluations += 1
-            if first.passed and first.attempt_n <= 1:
-                first_attempt_inner_passes += 1
-
-    if first_attempt_inner_evaluations == 0:
-        per_item_outer: dict[str, list[GateAttempt]] = defaultdict(list)
-        for a in attempts:
-            if not a.gate_name.startswith("inner_"):
-                per_item_outer[a.work_item_id].append(a)
-        for item_attempts in per_item_outer.values():
-            sorted_attempts = sorted(item_attempts, key=lambda a: a.attempt_n)
-            by_gate: dict[str, list[GateAttempt]] = defaultdict(list)
-            for sa in sorted_attempts:
-                by_gate[sa.gate_name].append(sa)
-            for gate_attempts in by_gate.values():
-                gate_sorted = sorted(gate_attempts, key=lambda a: a.attempt_n)
-                first = gate_sorted[0]
-                first_attempt_inner_evaluations += 1
-                if first.passed and first.attempt_n <= 1:
-                    first_attempt_inner_passes += 1
-
-    first_attempt_rate = (
-        first_attempt_inner_passes / first_attempt_inner_evaluations
-        if first_attempt_inner_evaluations
-        else 0.0
-    )
-
-    unknown_gate_count = sum(1 for a in attempts if a.gate_name == GATE_NAME_UNKNOWN)
-    total_gate_events = len(attempts)
-    unknown_rate = unknown_gate_count / total_gate_events if total_gate_events else 0.0
-
-    deterministic_gates = {
+DETERMINISTIC_GATES = frozenset(
+    {
         "interface_spec",
         "interface_spec_syntax",
         "interface_spec_stub",
@@ -152,7 +64,85 @@ def compute_exit_criteria(
         "jury_quorum",
         "jury_disagree",
     }
-    deterministic_count = sum(1 for a in attempts if a.gate_name in deterministic_gates)
+)
+
+
+@dataclass
+class ExitCriteriaMetrics:
+    lock_within_budget_rate: float
+    locked_count: int
+    total_count: int
+    mean_attempts_to_lock: float
+    first_gate_evaluation_pass_rate: float
+    first_gate_evaluation_passes: int
+    first_gate_evaluation_evaluations: int
+    stuck_count: int
+    unknown_gate_rate: float
+    unknown_gate_count: int
+    total_gate_events: int
+    deterministic_gate_rate: float
+    deterministic_count: int
+
+
+def compute_exit_criteria(
+    sub: Substrate, config: FactoryConfig, attempts: list[GateAttempt]
+) -> ExitCriteriaMetrics:
+    page = sub.query_work_items(
+        workflow_name=config.workflow_name,
+        workflow_version=config.workflow_version,
+        page_size=config.query_page_size,
+    )
+    locked = 0
+    cannot_proceed = 0
+    total = len(page.items)
+    for wi in page.items:
+        if wi.current_state == STATE_LOCKED:
+            locked += 1
+        elif wi.current_state == STATE_CANNOT_PROCEED:
+            cannot_proceed += 1
+    stuck = total - locked - cannot_proceed
+
+    per_item_attempts: dict[str, int] = defaultdict(int)
+    for a in attempts:
+        per_item_attempts[a.work_item_id] += 1
+
+    total_attempts = sum(per_item_attempts.values())
+    mean_attempts = total_attempts / len(per_item_attempts) if per_item_attempts else 0.0
+
+    # Compute first gate-evaluation pass rate per (work_item, gate_name).
+    # "First attempt" means the earliest gate evaluation for that pair,
+    # regardless of substrate attempt_n (which conflates worker claims
+    # and gate claims).  Inner-gate events are not substrate transitions,
+    # so we measure outer-gate first evaluations here.  Inner gate data
+    # is available via runner log parsing (work_item_size_metrics.py).
+    per_item: dict[str, list[GateAttempt]] = defaultdict(list)
+    for a in attempts:
+        if not a.gate_name.startswith("inner_"):
+            per_item[a.work_item_id].append(a)
+
+    first_gate_eval_passes = 0
+    first_gate_eval_evaluations = 0
+    for item_attempts in per_item.values():
+        sorted_attempts = sorted(item_attempts, key=lambda a: a.attempt_n)
+        by_gate: dict[str, list[GateAttempt]] = defaultdict(list)
+        for sa in sorted_attempts:
+            by_gate[sa.gate_name].append(sa)
+        for gate_attempts in by_gate.values():
+            gate_sorted = sorted(gate_attempts, key=lambda a: a.attempt_n)
+            first = gate_sorted[0]
+            first_gate_eval_evaluations += 1
+            if first.passed:
+                first_gate_eval_passes += 1
+
+    first_gate_eval_rate = (
+        first_gate_eval_passes / first_gate_eval_evaluations if first_gate_eval_evaluations else 0.0
+    )
+
+    unknown_gate_count = sum(1 for a in attempts if a.gate_name == GATE_NAME_UNKNOWN)
+    total_gate_events = len(attempts)
+    unknown_rate = unknown_gate_count / total_gate_events if total_gate_events else 0.0
+
+    deterministic_count = sum(1 for a in attempts if a.gate_name in DETERMINISTIC_GATES)
     deterministic_rate = deterministic_count / total_gate_events if total_gate_events else 0.0
 
     lock_rate = locked / total if total else 0.0
@@ -162,9 +152,9 @@ def compute_exit_criteria(
         locked_count=locked,
         total_count=total,
         mean_attempts_to_lock=mean_attempts,
-        first_attempt_mechanical_gate_rate=first_attempt_rate,
-        first_attempt_passes=first_attempt_inner_passes,
-        first_attempt_evaluations=first_attempt_inner_evaluations,
+        first_gate_evaluation_pass_rate=first_gate_eval_rate,
+        first_gate_evaluation_passes=first_gate_eval_passes,
+        first_gate_evaluation_evaluations=first_gate_eval_evaluations,
         stuck_count=stuck,
         unknown_gate_rate=unknown_rate,
         unknown_gate_count=unknown_gate_count,
@@ -196,15 +186,18 @@ def format_exit_criteria_summary(metrics: ExitCriteriaMetrics) -> str:
     ma_label = "PASS" if ma_pass else "FAIL"
     lines.append(f"  Mean attempts to lock:        {ma}  {ma_label:4s} [target: <=2.0]")
 
-    fa = f"{metrics.first_attempt_mechanical_gate_rate:.0%}"
-    fa_pass = metrics.first_attempt_mechanical_gate_rate >= 0.60
+    fa = f"{metrics.first_gate_evaluation_pass_rate:.0%}"
+    fa_pass = metrics.first_gate_evaluation_pass_rate >= 0.60
     fa_label = "PASS" if fa_pass else "FAIL"
     fa_line = (
-        f"  First-attempt gate pass rate: {fa} "
-        f"({metrics.first_attempt_passes}/{metrics.first_attempt_evaluations})  "
+        f"  First gate-evaluation pass rate: {fa} "
+        f"({metrics.first_gate_evaluation_passes}/{metrics.first_gate_evaluation_evaluations})  "
         f"{fa_label:4s} [target: >=60%]"
     )
     lines.append(fa_line)
+    lines.append(
+        "    (inner-gate retry data requires runner-log parsing; not captured in substrate events)"
+    )
 
     lines.append("")
     lines.append(
@@ -377,7 +370,7 @@ def compute_pass_rates(attempts: list[GateAttempt]) -> list[PassRateRow]:
             if any(a.passed for a in sorted_attempts):
                 total_passes += 1
             first = sorted_attempts[0]
-            if first.passed and first.attempt_n <= 1:
+            if first.passed:
                 first_attempt_passes += 1
 
         durations = [a.duration_seconds for a in group if a.duration_seconds is not None]

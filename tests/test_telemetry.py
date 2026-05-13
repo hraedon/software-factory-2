@@ -440,3 +440,154 @@ class TestGateNameDataQuality:
         rows = compute_pass_rates(attempts)
         assert len(rows) == 1
         assert rows[0].first_attempt_passes > 0
+
+
+class TestDeterministicGateParity:
+    def test_all_gate_name_constants_in_deterministic_set(self):
+        """Every GATE_NAME_* constant (except known non-deterministic ones)
+        must appear in telemetry's deterministic_gates set.
+        """
+        import factory.constants as constants
+        import factory.telemetry as telemetry
+
+        gate_constants = {
+            name: value for name, value in vars(constants).items() if name.startswith("GATE_NAME_")
+        }
+        known_non_deterministic = {
+            constants.GATE_NAME_UNKNOWN,
+            constants.GATE_NAME_UNKNOWN_TYPE,
+            constants.GATE_NAME_BEHAVIORAL,
+        }
+        missing = []
+        for name, value in gate_constants.items():
+            if value in known_non_deterministic:
+                continue
+            if value not in telemetry.DETERMINISTIC_GATES:
+                missing.append(name)
+        assert not missing, (
+            f"Gate-name constants missing from telemetry.DETERMINISTIC_GATES: {missing}"
+        )
+
+    def test_deterministic_set_has_no_orphan_names(self):
+        """Every entry in telemetry's deterministic_gates must correspond to
+        a GATE_NAME_* constant (or a composite gate name like 'interface_spec').
+        """
+        import factory.constants as constants
+        import factory.telemetry as telemetry
+
+        constant_values = {
+            value for name, value in vars(constants).items() if name.startswith("GATE_NAME_")
+        }
+        # Composite gate names that are intentionally in the set but not constants
+        # (they are umbrella names used when actor_metadata lacks a specific gate)
+        composite_exceptions = {
+            "interface_spec",
+            "test_suite",
+            "implementation",
+            "inner_import",
+        }
+        orphans = []
+        for gate in telemetry.DETERMINISTIC_GATES:
+            if gate not in constant_values and gate not in composite_exceptions:
+                orphans.append(gate)
+        assert not orphans, (
+            f"telemetry.DETERMINISTIC_GATES contains entries with no matching "
+            f"GATE_NAME_* constant: {orphans}"
+        )
+
+
+class TestComputeExitCriteria:
+    def test_first_gate_evaluation_counts_attempt_n_two(self, mock_substrate):
+        """Production gate claims happen at attempt_n>=2; first-gate-evaluation
+        rate must still be computed correctly."""
+        from factory.telemetry import compute_exit_criteria
+
+        config = _make_config(mock_substrate)
+        _seed_work_item(
+            mock_substrate,
+            WORK_ITEM_TYPE_INTERFACE_SPEC,
+            worker_meta=_worker_md(),
+            gate_events=[
+                _gate_md(
+                    attempt_n=2,
+                    gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX,
+                    passed=True,
+                ),
+            ],
+        )
+        attempts = collect_gate_attempts(mock_substrate, config)
+        metrics = compute_exit_criteria(mock_substrate, config, attempts)
+        assert metrics.first_gate_evaluation_passes == 1
+        assert metrics.first_gate_evaluation_evaluations == 1
+        assert metrics.first_gate_evaluation_pass_rate == 1.0
+
+    def test_first_gate_evaluation_with_retry(self, mock_substrate):
+        """A work item that fails first gate then passes on retry."""
+        from factory.telemetry import compute_exit_criteria
+
+        config = _make_config(mock_substrate)
+        wi, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            actor_id="test-actor",
+            actor_kind="agent",
+            custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
+        )
+        wid = wi.work_item_id
+        wm = _worker_md()
+        gate_md = {
+            "role": "mechanical_gate",
+            "gate_name": GATE_NAME_INTERFACE_SPEC_SYNTAX,
+        }
+        fail_payload = {
+            "diagnostics": {
+                "gate_name": GATE_NAME_INTERFACE_SPEC_SYNTAX,
+                "passed": False,
+                "messages": [],
+            },
+        }
+        # First attempt: claim → submit → gate_fail
+        mock_substrate.transition(
+            wid,
+            TRANSITION_CLAIM,
+            "test-actor",
+            actor_metadata={"role": wm["role"]},
+        )
+        mock_substrate.transition(
+            wid,
+            TRANSITION_SUBMIT,
+            "test-actor",
+            actor_metadata=wm,
+        )
+        mock_substrate.transition(
+            wid,
+            TRANSITION_GATE_FAIL,
+            "test-actor",
+            actor_metadata={**gate_md, "attempt_n": 2},
+            payload=fail_payload,
+        )
+        # Second attempt: claim → submit → gate_pass
+        mock_substrate.transition(
+            wid,
+            TRANSITION_CLAIM,
+            "test-actor",
+            actor_metadata={"role": wm["role"]},
+        )
+        mock_substrate.transition(
+            wid,
+            TRANSITION_SUBMIT,
+            "test-actor",
+            actor_metadata=wm,
+        )
+        mock_substrate.transition(
+            wid,
+            TRANSITION_GATE_PASS,
+            "test-actor",
+            actor_metadata={**gate_md, "attempt_n": 3},
+        )
+        attempts = collect_gate_attempts(mock_substrate, config)
+        metrics = compute_exit_criteria(mock_substrate, config, attempts)
+        assert metrics.first_gate_evaluation_passes == 0
+        assert metrics.first_gate_evaluation_evaluations == 1
+        assert metrics.first_gate_evaluation_pass_rate == 0.0
+        assert metrics.lock_within_budget_rate == 1.0
