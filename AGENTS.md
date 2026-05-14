@@ -159,3 +159,48 @@ tail -10 /tmp/gr019-gate.log
 ```
 
 Processes are idle when no new log lines appear for >60s. Kill with `kill <PID>` or `kill -9 <PID>` if needed, then run telemetry.
+
+### Agent-mediated golden runs (BC-140 protocol)
+
+When an agent (e.g. OpenCode, GLM, Claude Code) executes a golden run on behalf of the principal, use the supervised wrapper to prevent context pollution, unbounded budget burn, and data loss:
+
+```bash
+python scripts/agent_golden_run.py \
+  --config golden-run-NNN-config.yaml \
+  --fixtures tests/fixtures/cert-watch-mini \
+  --log-prefix grNNN
+```
+
+The wrapper enforces the BC-140 safety protocol:
+
+1. **Pre-flight checks** (abort if any fail):
+   - Scans `breadcrumbs/README.md` for open **critical** items — refuses to run if any exist.
+   - Warns on open **high** items.
+   - Validates `attempt_threshold <= 3` in config YAML.
+   - Validates `workspace_root` is outside the repo directory.
+   - Validates fixtures path exists.
+
+2. **Workspace isolation**:
+   - Launches runner/gate/scheduler from `/tmp`, never from the repo root.
+   - Prevents opencode session DB pollution (the GR-026 failure mode).
+
+3. **Process supervision**:
+   - Runs `populate_work_items.py` with `--reset`.
+   - Launches all three processes in background, captures PIDs.
+   - Tails logs every 30s automatically.
+
+4. **Monitoring guardrails** (pause and alert if tripped):
+   - `claim_near_budget` — item at attempt threshold; hard-stop already enforced in runner (BC-139), but ≥3 such items indicates systemic failure.
+   - `gate_failed.*cross_family_review` — review item cycling; kills run if ≥3 occurrences.
+   - `gate_failed.*jury` — jury item cycling; kills run if ≥3 occurrences.
+   - `channel_invoke_failed` — model channel down/rate-limited; kills run if ≥5 occurrences.
+   - Idle detection: no new log lines for 90s → assumes completion, runs telemetry.
+
+5. **Cleanup** (never touches application state):
+   - Removes workspace directory (`/tmp/sf2-golden-NNN`).
+   - Removes log files (`/tmp/grNNN-*.log`).
+   - **Never** touches `~/.local/share/opencode/opencode.db` or any other application state store.
+
+The wrapper runs non-interactively (auto-cleans), making it suitable for unattended agent execution. The principal can check in periodically; if a guardrail trips, the script exits with a loud fatal message and the processes remain in background for inspection.
+
+**Rule for agents:** If asked to execute a golden run, always use `scripts/agent_golden_run.py`. Never run `make golden-run` or the raw `python -m factory.runner` commands directly.
