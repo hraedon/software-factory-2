@@ -105,6 +105,8 @@ class FactoryConfig:
     jury_quorum: int = 2
     channel_backoff_base_seconds: int = 30
     channel_backoff_max_attempts: int = 3
+    empty_output_retries: int = 1
+    empty_output_retry_delay_seconds: int = 3
     credentials_path: Path | None = None
     gate_timeouts: GateTimeouts = field(default_factory=GateTimeouts)
     stage_topology: tuple[StageHandoff, ...] = (

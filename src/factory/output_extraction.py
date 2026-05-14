@@ -15,6 +15,13 @@ def extract_artifact_from_output(content: str) -> str | None:
     all_blocks = list(_CODE_FENCE_PATTERN.finditer(content))
     if all_blocks:
         return all_blocks[-1].group(1).rstrip()
+    stripped = content.strip()
+    if stripped.startswith(("{", "[")):
+        try:
+            json.loads(stripped)
+            return stripped
+        except json.JSONDecodeError:
+            pass
     for i, line in enumerate(content.split("\n")):
         if i >= _MAX_FALLBACK_LINES:
             break

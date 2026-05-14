@@ -1,23 +1,26 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import ClassVar
+
+import structlog
 
 from factory.channel import InvocationResult
 from factory.config import FactoryConfig
 from factory.constants import (
     ARTIFACT_FILENAME_CANNOT_PROCEED,
+    ARTIFACT_FILENAME_RAW_STDERR,
     ARTIFACT_FILENAME_RAW_STDOUT,
     MAX_ARTIFACT_SIZE_BYTES,
     ROLE_INTERFACE_ARCHITECT,
 )
 from factory.output_extraction import extract_artifact_from_output, extract_json_from_output
 
-log = logging.getLogger(__name__)
+log = structlog.get_logger()
 
 
 class SubprocessChannel:
@@ -74,61 +77,88 @@ class SubprocessChannel:
         else:
             invocation_family = self._derive_invocation_family(role_config)
         env_override = {**os.environ, **(extra_env or {})} if extra_env is not None else None
-        try:
-            result = subprocess.run(
-                cmd,
-                input=prompt,
-                capture_output=True,
-                text=True,
-                timeout=effective_timeout,
-                cwd=str(outputs_dir),
-                env=env_override,
-            )
-        except subprocess.TimeoutExpired:
-            return InvocationResult(
-                success=False,
-                error_message=f"Timeout after {effective_timeout}s",
-                exit_code=None,
-                timed_out=True,
-                family=invocation_family,
-            )
-        except FileNotFoundError:
-            return InvocationResult(
-                success=False,
-                error_message=f"{self.CMD[0] if self.CMD else 'command'} not found in PATH",
-                exit_code=None,
-                family=invocation_family,
-            )
 
-        if result.returncode != 0:
-            return InvocationResult(
-                success=False,
-                error_message=result.stderr[:2000] if result.stderr else "Non-zero exit code",
-                exit_code=result.returncode,
-                family=invocation_family,
-            )
+        max_empty_retries = self._config.empty_output_retries
+        retry_delay = self._config.empty_output_retry_delay_seconds
+        last_stderr = ""
 
-        output_text = result.stdout
-        if len(output_text.encode("utf-8")) > MAX_ARTIFACT_SIZE_BYTES:
-            return InvocationResult(
-                success=False,
-                error_message=(
-                    f"Channel output size ({len(output_text.encode('utf-8'))} bytes) "
-                    f"exceeds limit {MAX_ARTIFACT_SIZE_BYTES} bytes"
-                ),
-                exit_code=result.returncode,
-                family=invocation_family,
-            )
-        raw_path = outputs_dir / ARTIFACT_FILENAME_RAW_STDOUT
-        raw_path.write_text(output_text)
+        for attempt in range(max_empty_retries + 1):
+            try:
+                result = subprocess.run(
+                    cmd,
+                    input=prompt,
+                    capture_output=True,
+                    text=True,
+                    timeout=effective_timeout,
+                    cwd=str(outputs_dir),
+                    env=env_override,
+                )
+            except subprocess.TimeoutExpired:
+                return InvocationResult(
+                    success=False,
+                    error_message=f"Timeout after {effective_timeout}s",
+                    exit_code=None,
+                    timed_out=True,
+                    family=invocation_family,
+                )
+            except FileNotFoundError:
+                return InvocationResult(
+                    success=False,
+                    error_message=f"{self.CMD[0] if self.CMD else 'command'} not found in PATH",
+                    exit_code=None,
+                    family=invocation_family,
+                )
 
-        if not output_text.strip():
-            return InvocationResult(
-                success=False,
-                error_message=f"Empty output from {self.CMD[0] if self.CMD else 'channel'}",
-                exit_code=result.returncode,
-                family=invocation_family,
-            )
+            if result.returncode != 0:
+                return InvocationResult(
+                    success=False,
+                    error_message=result.stderr[:2000] if result.stderr else "Non-zero exit code",
+                    exit_code=result.returncode,
+                    family=invocation_family,
+                )
+
+            output_text = result.stdout
+            if len(output_text.encode("utf-8")) > MAX_ARTIFACT_SIZE_BYTES:
+                return InvocationResult(
+                    success=False,
+                    error_message=(
+                        f"Channel output size ({len(output_text.encode('utf-8'))} bytes) "
+                        f"exceeds limit {MAX_ARTIFACT_SIZE_BYTES} bytes"
+                    ),
+                    exit_code=result.returncode,
+                    family=invocation_family,
+                )
+
+            raw_path = outputs_dir / ARTIFACT_FILENAME_RAW_STDOUT
+            raw_path.write_text(output_text)
+
+            if not output_text.strip():
+                last_stderr = result.stderr or ""
+                stderr_path = outputs_dir / ARTIFACT_FILENAME_RAW_STDERR
+                stderr_path.write_text(last_stderr)
+                if attempt < max_empty_retries:
+                    log.warning(
+                        "empty_output_retry",
+                        channel=self._NAME,
+                        attempt=attempt + 1,
+                        max_retries=max_empty_retries,
+                        delay_s=retry_delay,
+                    )
+                    time.sleep(retry_delay)
+                    continue
+
+                cmd_label = self.CMD[0] if self.CMD else "channel"
+                err_parts = [f"Empty output from {cmd_label}"]
+                if last_stderr.strip():
+                    err_parts.append(f"stderr: {last_stderr[:500]}")
+                return InvocationResult(
+                    success=False,
+                    error_message="; ".join(err_parts),
+                    exit_code=result.returncode,
+                    family=invocation_family,
+                )
+
+            break
 
         json_data = extract_json_from_output(output_text)
         if json_data is not None and json_data.get("status") == "cannot_proceed":

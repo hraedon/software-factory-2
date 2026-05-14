@@ -44,7 +44,8 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 135 | glm-5.1 (z.ai) returns empty output for implementer role — model reliability issue | medium | proposed |
+| 136 | Channel failover — automatic backup channel on empty output, API errors, and timeouts | high | proposed |
+| 137 | Model capability evaluation — flawed-spec probe for pipeline role suitability | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed (deferred to Phase 4) |
 
 ### RFCs (awaiting upstream phases)
@@ -80,6 +81,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 135 | glm-5.1 (z.ai) returns empty output for implementer role — model reliability issue | medium | Root cause: transient z.ai provider issue (13/16 failures during GR-024, 0/16 in post-hoc test). Mitigations: empty-output retry (configurable, default 1 retry / 3s delay); stderr capture in error message + `raw_stderr.txt`; 13 new tests |
 | 134 | run_jury observability gap — disagreement_rationale empty on all-error/all-timeout | medium | `jury.py` always populates `disagreement_rationale` when quorum not met; `[all_against]` tag distinguishes all-failure from split; `evaluate_jury()` produces tagged diagnostics; 3 new evaluate_jury tests |
 | 133 | Telemetry two-source-of-truth — inner-gate signal lives only in runner logs | high | `SubmitPayload.inner_gate_attempts` carries inner gate history in substrate events; `telemetry.py` reads inner gate attempts from submit payloads; separate inner gate first-pass rate in exit criteria; report label "Phase 3" → "Pipeline" |
 | 132 | Phase 4 jury and race architecture skeleton | medium | `jury.py`, `review.py`, prompt templates, `evaluate_review()`, `evaluate_jury()`, `process_jury_work_item()`, `phase4.yaml`, `FactoryConfig.phase4()`; 10 new tests; lint/test clean |

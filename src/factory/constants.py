@@ -74,6 +74,7 @@ ACTOR_ID_SCHEDULER = "factory-scheduler"
 ACTOR_KIND_AGENT = "agent"
 
 ARTIFACT_FILENAME_RAW_STDOUT = "raw_stdout.txt"
+ARTIFACT_FILENAME_RAW_STDERR = "raw_stderr.txt"
 ARTIFACT_FILENAME_CANNOT_PROCEED = "cannot_proceed.json"
 ARTIFACT_FILENAME_INTERFACE = "interface"
 ARTIFACT_FILENAME_JURY_VERDICT = "jury_verdict.json"

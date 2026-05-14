@@ -101,7 +101,7 @@ class TestGeminiCLIChannel:
         ch = GeminiCLIChannel(config)
         role_config = config.get_role_config(ROLE_INTERFACE_ARCHITECT)
         cmd = ch._build_cmd(role_config)
-        assert cmd == ["gemini"]
+        assert cmd == ["gemini", "-p", "-", "--yolo", "--skip-trust"]
 
     def test_build_cmd_with_model(self):
         config = FactoryConfig()
@@ -112,7 +112,7 @@ class TestGeminiCLIChannel:
             model="gemini-2.5-pro",
         )
         cmd = ch._build_cmd(role_config)
-        assert cmd == ["gemini", "-m", "gemini-2.5-pro"]
+        assert cmd == ["gemini", "-p", "-", "--yolo", "--skip-trust", "-m", "gemini-2.5-pro"]
 
 
 class TestChannelForRole:

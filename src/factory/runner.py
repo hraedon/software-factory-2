@@ -15,6 +15,7 @@ from factory.constants import (
     ARTIFACT_FILENAME_JURY_VERDICT,
     CHANNEL_CLAUDE_CODE,
     CHANNEL_CODE,
+    CHANNEL_GEMINI_CLI,
     CHANNEL_OPENCODE,
     CUSTOM_FIELD_ARTIFACT_HASH,
     CUSTOM_FIELD_ARTIFACT_PATH,
@@ -931,6 +932,7 @@ def _register_channel(channel_name: str, import_path: str, class_name: str) -> N
 
 _register_channel(CHANNEL_OPENCODE, "factory.opencode_channel", "OpenCodeChannel")
 _register_channel(CHANNEL_CLAUDE_CODE, "factory.claude_code_channel", "ClaudeCodeChannel")
+_register_channel(CHANNEL_GEMINI_CLI, "factory.gemini_channel", "GeminiCLIChannel")
 
 _SUPPORTED_CHANNEL_NAMES = ", ".join(sorted(_CHANNEL_CONSTRUCTORS))
 

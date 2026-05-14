@@ -28,6 +28,26 @@ class TestExtractArtifactMultipleBlocks:
     def test_prose_only_no_code_returns_none(self):
         assert extract_artifact_from_output("Hello world\nNo code here") is None
 
+    def test_raw_json_dict_extracted(self):
+        content = '{"passed": true, "rationale": "ok"}'
+        result = extract_artifact_from_output(content)
+        assert result is not None
+        assert '"passed"' in result
+
+    def test_raw_json_array_extracted(self):
+        content = '[{"id": 1}, {"id": 2}]'
+        result = extract_artifact_from_output(content)
+        assert result is not None
+
+    def test_invalid_raw_json_not_extracted(self):
+        content = '{"incomplete": '
+        result = extract_artifact_from_output(content)
+        assert result is None
+
+    def test_text_starting_with_brace_not_json_skipped(self):
+        content = "{ not valid json but starts with brace"
+        assert extract_artifact_from_output(content) is None
+
 
 class TestExtractJsonFromOutput:
     def test_valid_json_in_code_block(self):
