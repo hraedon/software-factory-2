@@ -3,11 +3,13 @@ from __future__ import annotations
 import pytest
 
 from factory.constants import (
+    GATE_NAME_CROSS_FAMILY_REVIEW,
     GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
     GATE_NAME_INTERFACE_SPEC_NOT_EMPTY,
     GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS,
     GATE_NAME_INTERFACE_SPEC_STUB,
     GATE_NAME_INTERFACE_SPEC_SYNTAX,
+    GATE_NAME_JURY_DISAGREE,
 )
 from factory.gate import GateResult
 from factory.router import DiagnosticKind, _classify_diagnostic, route
@@ -124,3 +126,21 @@ class TestDiagnosticClassification:
             diagnostics=["bad"],
         )
         assert _classify_diagnostic(gate) == DiagnosticKind.GENERIC
+
+    def test_cross_family_review_parse(self):
+        gate = GateResult(
+            passed=False,
+            gate_name=GATE_NAME_CROSS_FAMILY_REVIEW,
+            diagnostics=["Review did not pass"],
+            diagnostic_kind="cross_family_review",
+        )
+        assert _classify_diagnostic(gate) == DiagnosticKind.CROSS_FAMILY_REVIEW
+
+    def test_jury_parse(self):
+        gate = GateResult(
+            passed=False,
+            gate_name=GATE_NAME_JURY_DISAGREE,
+            diagnostics=["Jury quorum not met"],
+            diagnostic_kind="jury",
+        )
+        assert _classify_diagnostic(gate) == DiagnosticKind.JURY

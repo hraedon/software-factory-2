@@ -196,6 +196,8 @@ def worker_loop(runtime: PipelineRuntime) -> None:
                     attempt=claim.attempt_number,
                     threshold=config.attempt_threshold,
                 )
+                sub.release_claim(wi.work_item_id, actor_id)
+                continue
             sub.transition(
                 wi.work_item_id,
                 TRANSITION_CLAIM,

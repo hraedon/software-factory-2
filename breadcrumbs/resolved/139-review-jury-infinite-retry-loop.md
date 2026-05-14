@@ -2,7 +2,7 @@
 number: "139"
 title: Review and jury gate failures never escalate — infinite retry loop consumes unbounded sessions
 severity: critical
-status: proposed
+status: resolved
 kind: bug
 author: agent
 date: "2026-05-14"
@@ -56,6 +56,23 @@ Option (a) — add specific kinds — is more precise and avoids over-escalating
 
 Recommend option (a) with new diagnostic kinds for `CROSS_FAMILY_REVIEW` and `JURY_*` failures.
 
-## Blast radius
+## Resolution
 
-Affects all Phase 4+ runs where review or jury gates can fail. Prior golden runs (GR-022 through GR-025) did not exercise review gate failures, so the bug was latent. Any production pipeline run with failing reviews will consume unbounded model budget and sessions.
+Implemented 2026-05-14 in the same session it was discovered (BC-139 was elevated from `proposed` to `resolved` before commit).
+
+### Changes
+
+1. **`src/factory/router.py`:**
+   - Added `DiagnosticKind.CROSS_FAMILY_REVIEW` and `DiagnosticKind.JURY`.
+   - `_classify_diagnostic()` now maps `diagnostic_kind="cross_family_review"` and `diagnostic_kind="jury"` to their respective kinds (previously fell through to `GENERIC`).
+   - Added both kinds to `_PHASE2_DISPATCH` (route to `new` below threshold, like all other escalatable kinds).
+   - Added both kinds to `_ESCALATABLE_KINDS`. At `attempt_number >= attempt_threshold`, review/jury failures now escalate to `cannot_proceed_seam` instead of cycling to `new` forever.
+
+2. **`src/factory/runner.py`:**
+   - `claim_near_budget` warning is now a **hard stop**. Runner releases the claim and skips to the next work item when `attempt_number >= attempt_threshold`. Prevents model budget burn while waiting for gate escalation.
+
+3. **Tests:** 8 new tests in `test_router.py` (classification) and `test_router_phase2.py` (escalation behavior). 670 tests pass, 13 skipped, 0 lint errors.
+
+### Validation
+
+The fix prevents the exact GR-026 failure pattern: `cross_family_review` gate fail → `new` → re-claim → repeat. With the fix, at attempt 3 the gate process escalates to `cannot_proceed`, and the runner refuses to process the item beyond threshold even if the gate lags.

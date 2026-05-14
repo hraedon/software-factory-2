@@ -40,9 +40,24 @@ GLM attempted to execute GR-026 (full cert-watch, Phase 4, triple jury: K2 + Dee
 - **Open:** 139 (critical), 138 (medium), 120 (medium, deferred).
 - **New in this session:** 140 (high, proposed).
 
+### BC-139 resolution
+
+**Implemented in this session.** Two-part fix:
+
+1. **Router (`src/factory/router.py`):** Added `DiagnosticKind.CROSS_FAMILY_REVIEW` and `DiagnosticKind.JURY`. Updated `_classify_diagnostic()` to recognize `cross_family_review` and `jury` diagnostic kinds from `GateResult`. Added both to `_PHASE2_DISPATCH` (route to `new` below threshold). Added both to `_ESCALATABLE_KINDS` so that at `attempt_number >= attempt_threshold`, the router escalates to `cannot_proceed_seam` instead of cycling to `new` forever.
+
+2. **Runner (`src/factory/runner.py`):** `claim_near_budget` warning is now a **hard stop**. When `claim.attempt_number >= config.attempt_threshold`, the runner releases the claim and `continue`s to the next work item. This prevents model budget burn on items that the gate will eventually escalate, acting as a belt-and-suspenders safety net.
+
+**Tests:** 8 new tests added (2 classification + 2 escalation for each kind). Total tests: 670 pass, 13 skipped, 0 lint errors.
+
+### Breadcrumbs status (post-fix)
+
+- **Open:** 138 (medium), 120 (medium, deferred), 140 (high, proposed).
+- **Resolved in this session:** 139 (critical → resolved).
+
 ### Test results
 
-Repo unaffected by GR-026: 650 tests pass, 0 lint errors. Damage confined to `/tmp/sf2-golden-026` (119MB workspace artifacts), `.ruff_cache` (bloat from hundreds of gate runs), and opencode session DB (prior session lost).
+Repo unaffected by GR-026: 670 tests pass, 13 skipped, 0 lint errors. Damage confined to `/tmp/sf2-golden-026` (119MB workspace artifacts), `.ruff_cache` (bloat from hundreds of gate runs), and opencode session DB (prior session lost).
 
 ---
 

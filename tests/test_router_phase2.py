@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from factory.constants import (
+    GATE_NAME_CROSS_FAMILY_REVIEW,
     GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN,
     GATE_NAME_IMPLEMENTATION_LINT,
     GATE_NAME_IMPLEMENTATION_MYPY,
     GATE_NAME_IMPLEMENTATION_PYTEST,
     GATE_NAME_INTERFACE_SPEC_SYNTAX,
+    GATE_NAME_JURY_DISAGREE,
     GATE_NAME_TEST_SUITE_COLLECT,
     GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
 )
@@ -200,6 +202,80 @@ class TestCrossStageEscalation:
         )
         assert result.target_state == "cannot_proceed"
         assert result.diagnostic_kind == DiagnosticKind.CANNOT_PROCEED_SEAM
+
+    def test_cross_family_review_below_threshold_routes_normally(self):
+        gate = GateResult(
+            passed=False,
+            gate_name=GATE_NAME_CROSS_FAMILY_REVIEW,
+            diagnostics=["Review did not pass"],
+            diagnostic_kind="cross_family_review",
+        )
+        result = route(
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=1,
+            attempt_threshold=3,
+        )
+        assert result.target_state == "new"
+        assert result.diagnostic_kind == DiagnosticKind.CROSS_FAMILY_REVIEW
+
+    def test_cross_family_review_at_threshold_escalates(self):
+        gate = GateResult(
+            passed=False,
+            gate_name=GATE_NAME_CROSS_FAMILY_REVIEW,
+            diagnostics=["Review did not pass"],
+            diagnostic_kind="cross_family_review",
+        )
+        result = route(
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=3,
+            attempt_threshold=3,
+        )
+        assert result.target_state == "cannot_proceed"
+        assert result.diagnostic_kind == DiagnosticKind.CANNOT_PROCEED_SEAM
+        diag = result.custom_fields_update["diagnostics"]
+        assert diag["escalated_from_kind"] == "cross_family_review"
+        assert diag["escalated_after_attempts"] == 3
+
+    def test_jury_below_threshold_routes_normally(self):
+        gate = GateResult(
+            passed=False,
+            gate_name=GATE_NAME_JURY_DISAGREE,
+            diagnostics=["Jury quorum not met"],
+            diagnostic_kind="jury",
+        )
+        result = route(
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=2,
+            attempt_threshold=3,
+        )
+        assert result.target_state == "new"
+        assert result.diagnostic_kind == DiagnosticKind.JURY
+
+    def test_jury_at_threshold_escalates(self):
+        gate = GateResult(
+            passed=False,
+            gate_name=GATE_NAME_JURY_DISAGREE,
+            diagnostics=["Jury quorum not met"],
+            diagnostic_kind="jury",
+        )
+        result = route(
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=3,
+            attempt_threshold=3,
+        )
+        assert result.target_state == "cannot_proceed"
+        assert result.diagnostic_kind == DiagnosticKind.CANNOT_PROCEED_SEAM
+        diag = result.custom_fields_update["diagnostics"]
+        assert diag["escalated_from_kind"] == "jury"
+        assert diag["escalated_after_attempts"] == 3
 
 
 class TestDispatchCompleteness:

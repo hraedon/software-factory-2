@@ -37,6 +37,8 @@ class DiagnosticKind(StrEnum):
     MISSING_DEPENDENCY = "missing_dependency"
     MISSING_ARTIFACT = "missing_artifact"
     TOOL_NOT_FOUND = "tool_not_found"
+    CROSS_FAMILY_REVIEW = "cross_family_review"
+    JURY = "jury"
 
 
 def _classify_diagnostic(gate_result: GateResult) -> DiagnosticKind:
@@ -61,6 +63,10 @@ def _classify_diagnostic(gate_result: GateResult) -> DiagnosticKind:
         return DiagnosticKind.CANNOT_PROCEED
     if "unknown_type" in name:
         return DiagnosticKind.UNKNOWN_TYPE
+    if gate_result.diagnostic_kind == "cross_family_review":
+        return DiagnosticKind.CROSS_FAMILY_REVIEW
+    if gate_result.diagnostic_kind == "jury":
+        return DiagnosticKind.JURY
     return DiagnosticKind.GENERIC
 
 
@@ -136,6 +142,12 @@ _PHASE2_DISPATCH = {
     DiagnosticKind.TOOL_NOT_FOUND: Route(
         target_state=STATE_CANNOT_PROCEED,
     ),
+    DiagnosticKind.CROSS_FAMILY_REVIEW: Route(
+        target_state=STATE_NEW,
+    ),
+    DiagnosticKind.JURY: Route(
+        target_state=STATE_NEW,
+    ),
 }
 
 
@@ -153,6 +165,8 @@ _ESCALATABLE_KINDS = {
     DiagnosticKind.TEST_AC_BINDING,
     DiagnosticKind.TEST_COLLECT,
     DiagnosticKind.TEST_IMPORT_FORBIDDEN,
+    DiagnosticKind.CROSS_FAMILY_REVIEW,
+    DiagnosticKind.JURY,
 }
 
 

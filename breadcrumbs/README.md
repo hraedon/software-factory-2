@@ -45,7 +45,6 @@ Reusable tags:
 | # | Title | Severity | Status |
 |---|---|---|---|
 | 140 | No standard invocation process for agent-mediated factory runs | high | proposed |
-| 139 | Review and jury gate failures never escalate — infinite retry loop consumes unbounded sessions | critical | proposed |
 | 138 | Qwen 3.6-27b operational timeout on test_author and implementer roles (>600s) | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
@@ -82,6 +81,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 139 | Review and jury gate failures never escalate — infinite retry loop consumes unbounded sessions | critical | Added `DiagnosticKind.CROSS_FAMILY_REVIEW` and `DiagnosticKind.JURY`; updated `_classify_diagnostic()`; added both to `_ESCALATABLE_KINDS`; runner `claim_near_budget` warning is now a hard stop (releases claim + skips). 8 new tests. 670 pass, 0 lint errors |
 | 136 | Channel failover — automatic backup channel on empty output, API errors, and timeouts | high | `RoleConfig` extended with `fallback_channel`/`fallback_model`; `_should_failover()` triggers on empty output, timeout, non-zero exit, missing binary; runner primary→fallback immediate retry; inner gate retries use fallback; jury juror fallback with `_fb` channel key; telemetry records fallback in `ChannelFailPayload.diagnostics`; 13 tests; 650 pass, 0 lint errors |
 | 135 | glm-5.1 (z.ai) returns empty output for implementer role — model reliability issue | medium | Root cause: transient z.ai provider issue (13/16 failures during GR-024, 0/16 in post-hoc test). Mitigations: empty-output retry (configurable, default 1 retry / 3s delay); stderr capture in error message + `raw_stderr.txt`; 13 new tests |
 | 134 | run_jury observability gap — disagreement_rationale empty on all-error/all-timeout | medium | `jury.py` always populates `disagreement_rationale` when quorum not met; `[all_against]` tag distinguishes all-failure from split; `evaluate_jury()` produces tagged diagnostics; 3 new evaluate_jury tests |
