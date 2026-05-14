@@ -1,0 +1,8 @@
+{
+  "model": "mac-studio-lms/qwen/qwen3.6-27b",
+  "family": "qwen",
+  "role": "interface_architect",
+  "success": true,
+  "elapsed_seconds": 195.23,
+  "stderr_preview": "\u001b[0m\n> build \u00b7 qwen/qwen3.6-27b\n\u001b[0m\n"
+}

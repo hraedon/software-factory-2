@@ -1,0 +1,8 @@
+{
+  "model": "ollama-cloud/glm-5.1",
+  "family": "zhipu",
+  "role": "cross_family_reviewer",
+  "success": true,
+  "elapsed_seconds": 33.09,
+  "stderr_preview": "\u001b[0m\n> build \u00b7 glm-5.1\n\u001b[0m\n"
+}

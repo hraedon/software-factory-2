@@ -1,0 +1,8 @@
+{
+  "model": "ollama-cloud/glm-5.1",
+  "family": "zhipu",
+  "role": "implementer",
+  "success": true,
+  "elapsed_seconds": 357.43,
+  "stderr_preview": "\u001b[0m\n> build \u00b7 glm-5.1\n\u001b[0m\n\u001b[0m\u2731 \u001b[0mGlob \"**/clock*\"\u001b[90m in . \u00b7 0 matches\u001b[0m\n\u001b[0m\u2731 \u001b[0mGlob \"**/wi_rate_limiter*\"\u001b[90m in . \u00b7 1 match\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead tests/fixtures/capability-probe/wi_rate_limiter.md\n\u001b[0m\u2731 \u001b[0mGlob \"**/interface.py\"\u001b[90m in . \u00b7 0 matches\u001b[0m\n\u001b[0m\u2022 \u001b[0mFind clock module and interface files\u001b[90m Explore Agent\u001b[0m\n\u001b[0m\u2713 \u001b[0mFind clock module and interface files\u001b[90m Explore Agent\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead tests/fixtures/capability-probe/_defects.md\n"
+}

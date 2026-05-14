@@ -2,7 +2,7 @@
 number: "137"
 title: Model capability evaluation — flawed-spec probe for pipeline role suitability
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: principal
 date: "2026-05-14"
@@ -30,12 +30,13 @@ Design a single deliberately flawed spec fixture and run each candidate model th
 
 For each model × role combination, score:
 
-| Criterion | interface_architect | test_author | implementer | reviewer | jury |
-|-----------|--------------------|-------------|-------------|----------|------|
-| Spots contradictory ACs | N/A | Should flag | Should flag or handle | Must flag | Must flag |
+| Criterion | interface_architect | test_author | implementer | cross_family_reviewer | frontier_judge |
+|-----------|--------------------|-------------|-------------|-----------------------|----------------|
+| Spots contradictory ACs | Must resolve or reject | N/A | N/A | Must flag | Must flag |
 | Handles underspecified edge | Makes explicit | Tests the gap | Defensive impl | Notes the gap | Notes the gap |
-| Detects impossible dependency | Rejects or amends | Ignores or stubs | Fails gracefully | Must flag | Must flag |
+| Detects impossible dependency | Rejects or amends | N/A | N/A | Must flag | Must flag |
 | Type consistency | Produces coherent .pyi | Tests both paths | Matches .pyi | Validates | Validates |
+| Spots missing error cases | Makes explicit | Tests negatives | Defensive impl | Must flag | Must flag |
 | Output format compliance | Single code block | Single code block | Single code block | Single code block | Valid JSON |
 
 ### Methodology

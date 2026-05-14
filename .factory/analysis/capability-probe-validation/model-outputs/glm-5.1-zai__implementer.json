@@ -1,0 +1,8 @@
+{
+  "model": "zai-coding-plan/glm-5.1",
+  "family": "zhipu",
+  "role": "implementer",
+  "success": false,
+  "elapsed_seconds": 600.1,
+  "stderr_preview": "Timeout"
+}

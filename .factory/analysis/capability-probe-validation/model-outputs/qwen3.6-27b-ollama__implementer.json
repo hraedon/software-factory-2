@@ -1,0 +1,8 @@
+{
+  "model": "mac-studio-lms/qwen/qwen3.6-27b",
+  "family": "qwen",
+  "role": "implementer",
+  "success": false,
+  "elapsed_seconds": 600.14,
+  "stderr_preview": "Timeout"
+}

@@ -1,0 +1,8 @@
+{
+  "model": "ollama-cloud/deepseek-v4-pro",
+  "family": "deepseek",
+  "role": "frontier_judge",
+  "success": true,
+  "elapsed_seconds": 26.69,
+  "stderr_preview": "\u001b[0m\n> build \u00b7 deepseek-v4-pro\n\u001b[0m\n"
+}

@@ -1,0 +1,8 @@
+{
+  "model": "zai-coding-plan/glm-5.1",
+  "family": "zhipu",
+  "role": "test_author",
+  "success": true,
+  "elapsed_seconds": 282.81,
+  "stderr_preview": "\u001b[0m\n> build \u00b7 glm-5.1\n\u001b[0m\n\u001b[0m\u2731 \u001b[0mGrep \"ErrorCode\"\u001b[90m in . \u00b7 52 matches\u001b[0m\n"
+}

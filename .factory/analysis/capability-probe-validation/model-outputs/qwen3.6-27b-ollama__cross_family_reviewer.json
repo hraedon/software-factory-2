@@ -1,0 +1,8 @@
+{
+  "model": "mac-studio-lms/qwen/qwen3.6-27b",
+  "family": "qwen",
+  "role": "cross_family_reviewer",
+  "success": true,
+  "elapsed_seconds": 113.56,
+  "stderr_preview": "\u001b[0m\n> build \u00b7 qwen/qwen3.6-27b\n\u001b[0m\n"
+}

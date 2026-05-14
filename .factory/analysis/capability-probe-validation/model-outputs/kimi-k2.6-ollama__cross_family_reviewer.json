@@ -1,0 +1,8 @@
+{
+  "model": "ollama-cloud/kimi-k2.6",
+  "family": "moonshot",
+  "role": "cross_family_reviewer",
+  "success": true,
+  "elapsed_seconds": 35.32,
+  "stderr_preview": "\u001b[0m\n> build \u00b7 kimi-k2.6\n\u001b[0m\n"
+}

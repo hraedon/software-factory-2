@@ -1,0 +1,8 @@
+{
+  "model": "ollama-cloud/deepseek-v4-pro",
+  "family": "deepseek",
+  "role": "test_author",
+  "success": true,
+  "elapsed_seconds": 258.33,
+  "stderr_preview": "\u001b[0m\n> build \u00b7 deepseek-v4-pro\n\u001b[0m\n\u001b[0m\u2731 \u001b[0mGrep \"rate.limit|RateLimit\"\u001b[90m in tests/fixtures \u00b7 8 matches\u001b[0m\n\u001b[0m\n\u001b[0m$ \u001b[0mfind /projects/software-factory-2 -type f -name \"wi_rate_limiter*\" 2>/dev/null\n/projects/software-factory-2/tests/fixtures/capability-probe/wi_rate_limiter.md\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead tests/fixtures/capability-probe/wi_rate_limiter.md\n\u001b[0m\u2192 \u001b[0mRead tests/fixtures/capability-probe/_defects.md\n"
+}

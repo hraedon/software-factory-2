@@ -1,0 +1,8 @@
+{
+  "model": "ollama-cloud/deepseek-v4-pro",
+  "family": "deepseek",
+  "role": "implementer",
+  "success": true,
+  "elapsed_seconds": 261.69,
+  "stderr_preview": "\u001b[0m\n> build \u00b7 deepseek-v4-pro\n\u001b[0m\n\u001b[0m\u2731 \u001b[0mGrep \"monotonic_ns|monotonic_seconds\"\u001b[90m in . \u00b7 1 match\u001b[0m\n\u001b[0m\u2731 \u001b[0mGrep \"clock\"\u001b[90m in tests/fixtures/capability-probe \u00b7 8 matches\u001b[0m\n\u001b[0m\u2731 \u001b[0mGlob \"tests/fixtures/capability-probe/**\"\u001b[90m 5 matches\u001b[0m\n"
+}
