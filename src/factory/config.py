@@ -110,6 +110,7 @@ class FactoryConfig:
     empty_output_retries: int = 1
     empty_output_retry_delay_seconds: int = 3
     credentials_path: Path | None = None
+    invocation_cwd: Path | None = None
     gate_timeouts: GateTimeouts = field(default_factory=GateTimeouts)
     stage_topology: tuple[StageHandoff, ...] = (
         StageHandoff(
@@ -313,6 +314,8 @@ class FactoryConfig:
             kwargs["spec_file"] = Path(kwargs["spec_file"])
         if "credentials_path" in kwargs and isinstance(kwargs["credentials_path"], str):
             kwargs["credentials_path"] = Path(kwargs["credentials_path"])
+        if "invocation_cwd" in kwargs and isinstance(kwargs["invocation_cwd"], str):
+            kwargs["invocation_cwd"] = Path(kwargs["invocation_cwd"])
         if "roles" in kwargs:
             if isinstance(kwargs["roles"], dict):
                 raise TypeError("'roles' must be a list, got dict")

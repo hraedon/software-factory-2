@@ -196,7 +196,33 @@ def worker_loop(runtime: PipelineRuntime) -> None:
                     attempt=claim.attempt_number,
                     threshold=config.attempt_threshold,
                 )
-                sub.release_claim(wi.work_item_id, actor_id)
+                sub.transition(
+                    wi.work_item_id,
+                    TRANSITION_CLAIM,
+                    actor_id,
+                    actor_metadata=ActorMetadata(
+                        role=role_name,
+                        channel=channel.name,
+                    ).to_dict(),
+                )
+                sub.transition(
+                    wi.work_item_id,
+                    TRANSITION_ROUTE_TO_CANNOT_PROCEED,
+                    actor_id,
+                    actor_metadata=ActorMetadata(
+                        role=role_name,
+                        channel=channel.name,
+                    ).to_dict(),
+                    custom_fields={
+                        "diagnostics": {
+                            "message": (
+                                f"Escalated to cannot_proceed after {claim.attempt_number} "
+                                f"attempts (threshold={config.attempt_threshold})"
+                            ),
+                            "diagnostic_kind": "cannot_proceed_seam",
+                        }
+                    },
+                )
                 continue
             sub.transition(
                 wi.work_item_id,

@@ -78,6 +78,10 @@ class SubprocessChannel:
             invocation_family = self._derive_invocation_family(role_config)
         env_override = {**os.environ, **(extra_env or {})} if extra_env is not None else None
 
+        effective_cwd = str(outputs_dir)
+        if self._config.invocation_cwd is not None:
+            effective_cwd = str(self._config.invocation_cwd)
+
         max_empty_retries = self._config.empty_output_retries
         retry_delay = self._config.empty_output_retry_delay_seconds
         last_stderr = ""
@@ -90,7 +94,7 @@ class SubprocessChannel:
                     capture_output=True,
                     text=True,
                     timeout=effective_timeout,
-                    cwd=str(outputs_dir),
+                    cwd=effective_cwd,
                     env=env_override,
                 )
             except subprocess.TimeoutExpired:

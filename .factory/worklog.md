@@ -4,6 +4,44 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-14 — Session 32: GR-027 execution; opencode project-context bug; budget-limit escalation fix
+
+**Invocation:** OpenCode (fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo)
+
+**Focus:** Execute GR-027 (full cert-watch, Phase 4, dual-family jury K2+DeepSeek). Discovered and fixed 4 bugs along the way.
+
+### GR-027 Result
+
+- **30/34 locked (88%)** — near-miss on 90% target
+- **0 stuck items** — BC-139 fix validated
+- **4 cannot_proceed** — properly escalated via budget-limit
+- **jury_disagree exercised** — first time in golden run history
+- Wall clock: ~65 minutes
+
+### Bugs discovered and fixed
+
+1. **opencode project-context bug (BC-141):** `opencode run` returns empty output when cwd is not a recognized project directory. Root cause: `subprocess_channel.py:93` used `cwd=str(outputs_dir)` which was under `/tmp/`. Fix: added `invocation_cwd` to `FactoryConfig`, subprocess channel uses it for cwd.
+
+2. **agent_golden_run.py cwd issue (BC-142):** Wrapper script launched processes with `cwd="/tmp"` for isolation. Fix: changed to `cwd=REPO_ROOT` since workspace isolation is via config `workspace_root`, not process cwd.
+
+3. **Budget-limit zombie cycling (BC-143):** `claim_near_budget` released claim without transitioning to terminal state, creating endless claim→release→claim→release cycle. Fix: claim → cannot_proceed transition sequence.
+
+4. **Monitor idle timeout too short (BC-144):** 3 × interval (90-180s) killed working pipeline. Fix: increased to 10 × interval (10 minutes).
+
+### Files modified
+
+- `src/factory/config.py` — added `invocation_cwd: Path | None`
+- `src/factory/subprocess_channel.py` — use `invocation_cwd` for subprocess cwd
+- `src/factory/runner.py` — budget-limit escalation: claim → cannot_proceed
+- `scripts/agent_golden_run.py` — cwd=REPO_ROOT, git init, longer idle timeout, higher claim_near_budget threshold
+- `golden-run-027-config.yaml` — added `invocation_cwd`, absolute `hmac_key_path`
+
+### Tests
+
+688 pass, 0 lint errors (src/). Pre-existing lint errors in scripts/ (analysis utilities) not addressed.
+
+---
+
 ## 2026-05-14 — Session 31: GR-026 post-mortem; GLM session-deletion mistake
 
 **Invocation:** OpenCode (fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo) — **replacement session** after GLM cleanup deleted the prior working session.

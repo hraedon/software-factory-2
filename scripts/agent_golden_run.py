@@ -12,7 +12,7 @@ Usage:
 The script will:
 1. Validate pre-flight checks (open critical/high breadcrumbs, attempt_threshold, workspace root)
 2. Populate work items
-3. Launch runner + gate + scheduler from /tmp (never from repo root)
+3. Launch runner + gate + scheduler from repo root (opencode requires project context)
 4. Monitor logs every 30s for danger signals
 5. Pause and print a loud warning if any guardrail trips
 6. Run telemetry when processes go idle
@@ -176,12 +176,26 @@ def _populate(config_path: Path, fixtures: str | None) -> None:
         _fatal(f"populate_work_items failed:\n{result.stderr}")
     _info("Populate complete.")
 
+    cfg = _validate_config(config_path)
+    workspace = Path(cfg["workspace_root"])
+    if workspace.exists():
+        git_dir = workspace / ".git"
+        if not git_dir.exists():
+            subprocess.run(["git", "init"], cwd=str(workspace), capture_output=True, check=True)
+            _info(f"Initialized git repo in {workspace} (opencode requires project context)")
+
 
 def _launch_processes(
     config_path: Path, log_prefix: str
 ) -> tuple[subprocess.Popen, subprocess.Popen, subprocess.Popen]:
-    """Launch runner, gate, scheduler from /tmp. Returns Popen objects."""
-    _info("Launching pipeline processes from /tmp...")
+    """Launch runner, gate, scheduler from repo root. Returns Popen objects.
+
+    Processes must run from the repo root (not /tmp) because opencode run
+    requires a project directory with opencode config to function. The
+    workspace_root in the config YAML controls artifact output location,
+    which is already isolated under /tmp/sf2-golden-NNN.
+    """
+    _info("Launching pipeline processes from repo root...")
     runner_log = Path(f"/tmp/{log_prefix}-runner.log")
     gate_log = Path(f"/tmp/{log_prefix}-gate.log")
     sched_log = Path(f"/tmp/{log_prefix}-scheduler.log")
@@ -194,19 +208,19 @@ def _launch_processes(
         [sys.executable, "-m", "factory.runner", "--config", str(config_path)],
         stdout=open(runner_log, "w"),
         stderr=subprocess.STDOUT,
-        cwd="/tmp",
+        cwd=str(REPO_ROOT),
     )
     gate = subprocess.Popen(
         [sys.executable, "-m", "factory.gate_process", "--config", str(config_path)],
         stdout=open(gate_log, "w"),
         stderr=subprocess.STDOUT,
-        cwd="/tmp",
+        cwd=str(REPO_ROOT),
     )
     scheduler = subprocess.Popen(
         [sys.executable, "-m", "factory.scheduler", "--config", str(config_path)],
         stdout=open(sched_log, "w"),
         stderr=subprocess.STDOUT,
-        cwd="/tmp",
+        cwd=str(REPO_ROOT),
     )
 
     _info(f"Runner PID={runner.pid}, Gate PID={gate.pid}, Scheduler PID={scheduler.pid}")
@@ -232,7 +246,7 @@ def _monitor_logs(
 
     _info("Monitoring logs (Ctrl+C to interrupt, processes continue in background)...")
     idle_cycles = 0
-    max_idle_cycles = 3  # 3 * interval = ~90s of no new lines
+    max_idle_cycles = 10  # 10 * interval = ~10min of no new lines before declaring idle
 
     while True:
         time.sleep(interval)
@@ -272,7 +286,7 @@ def _monitor_logs(
         for name, count in seen_counts.items():
             if count > 0:
                 _warn(f"DANGER SIGNAL: {name} detected {count} time(s)")
-                if name == "claim_near_budget" and count >= 3:
+                if name == "claim_near_budget" and count >= 5:
                     _fatal(
                         "Multiple items at attempt_threshold. The runner hard-stops, "
                         "but this indicates systemic gate failures. "

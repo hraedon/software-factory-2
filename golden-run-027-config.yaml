@@ -2,8 +2,9 @@ workflow_name: software_factory
 workflow_version: 4
 dsn: postgresql://substrate_test:substrate_test@localhost:5432/substrate_test
 project_name: sf2_golden_027
-hmac_key_path: tests/test_keys.json
+hmac_key_path: /projects/software-factory-2/tests/test_keys.json
 workspace_root: /tmp/sf2-golden-027
+invocation_cwd: /projects/software-factory-2
 spec_file: null
 poll_interval_seconds: 5
 claim_ttl_seconds: 600
