@@ -203,4 +203,32 @@ The wrapper enforces the BC-140 safety protocol:
 
 The wrapper runs non-interactively (auto-cleans), making it suitable for unattended agent execution. The principal can check in periodically; if a guardrail trips, the script exits with a loud fatal message and the processes remain in background for inspection.
 
+### Post-run documentation
+
+Every golden run must leave an audit trail. After telemetry completes:
+
+1. **Preserve the workspace** (if the run is significant, failed in a novel way, or is the first of a new phase):
+   ```bash
+   cp -r /tmp/sf2-golden-NNN .factory/grNNN-workspace-backup
+   ```
+   Keep it outside git (add to `.gitignore` or just don't `git add` it). Workspaces are large and should not bloat the repo.
+
+2. **Write a golden-run log** at `.factory/golden-run-NNN-log.md` following the existing format:
+   - Result summary table (locked, stuck, cannot_proceed counts)
+   - Per-stage detail (interface_spec, test_suite, implementation, review, jury)
+   - Failure analysis with root cause
+   - Telemetry output
+   - Phase exit criteria assessment
+   - Comparison with prior runs
+   - Artifacts preserved list
+   - Lessons / next steps
+
+   See `.factory/golden-run-026-log.md` for a reference that includes failure-mode documentation (BC-139) and agent execution mistakes (BC-140).
+
+3. **Commit the log and config:**
+   ```bash
+   git add .factory/golden-run-NNN-log.md golden-run-NNN-config.yaml
+   git commit -m "GR-NNN log: <one-line summary>"
+   ```
+
 **Rule for agents:** If asked to execute a golden run, always use `scripts/agent_golden_run.py`. Never run `make golden-run` or the raw `python -m factory.runner` commands directly.
