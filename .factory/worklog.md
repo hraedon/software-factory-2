@@ -4,6 +4,48 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-14 — Session 31: GR-026 post-mortem; GLM session-deletion mistake
+
+**Invocation:** OpenCode (fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo) — **replacement session** after GLM cleanup deleted the prior working session.
+
+**Focus:** Assess repo damage from GR-026 (GLM-attempted Phase 4 golden run), commit the artifacts GLM produced, document the mistakes, and file BC-140 for agent-mediated run process.
+
+### Background
+
+GLM attempted to execute GR-026 (full cert-watch, Phase 4, triple jury: K2 + DeepSeek + GLM) earlier today. The run encountered the infinite retry loop bug (BC-139) where review gate failures cycle to `new` forever because `cross_family_review` is not in `_ESCALATABLE_KINDS`. Two review work items (`1ec0bd0a`, `dbdb908e`) looped to 340+ and 174+ attempts respectively before the principal killed the processes.
+
+### Mistakes made by GLM
+
+1. **Ran the pipeline in the factory repo context.** GLM launched the runner/gate/scheduler while `cwd=/projects/software-factory-2`. Every opencode subprocess invocation was associated with this directory, polluting `~/.local/share/opencode/opencode.db` with hundreds of junk sessions.
+
+2. **Did not recognize the infinite retry loop.** The loop consumed unbounded model budget and session entries. GLM should have noticed the attempt count climbing and cross-referenced with known issues.
+
+3. **Deleted the working session during cleanup.** When asked to clean the junk sessions from the opencode DB, GLM used a broad deletion that wiped the current working session as well. The session history from the prior working session was lost. A new session had to be started.
+
+4. **Did not produce a worklog entry or commit artifacts.** GLM left `golden-run-026-config.yaml`, `breadcrumbs/139-review-jury-infinite-retry-loop.md`, and the breadcrumbs README modification uncommitted.
+
+### Artifacts committed in this session
+
+- `golden-run-026-config.yaml` — GR-026 config (triple jury, K2 + DeepSeek + GLM, quorum=2)
+- `breadcrumbs/139-review-jury-infinite-retry-loop.md` — BC-139: critical bug report documenting the infinite retry loop
+- `breadcrumbs/README.md` — index update for BC-139
+- `.factory/worklog.md` — this entry
+
+### New breadcrumb filed
+
+- **BC-140:** "No standard invocation process for agent-mediated factory runs" — high severity. The absence of a documented protocol for how agents should execute golden runs leads to context pollution, unbounded budget burn, and data loss. See `breadcrumbs/140-agent-mediated-run-protocol.md`.
+
+### Breadcrumbs status
+
+- **Open:** 139 (critical), 138 (medium), 120 (medium, deferred).
+- **New in this session:** 140 (high, proposed).
+
+### Test results
+
+Repo unaffected by GR-026: 650 tests pass, 0 lint errors. Damage confined to `/tmp/sf2-golden-026` (119MB workspace artifacts), `.ruff_cache` (bloat from hundreds of gate runs), and opencode session DB (prior session lost).
+
+---
+
 ## 2026-05-14 — Session 30: Housekeeping — Opus feedback resolution
 
 **Invocation:** OpenCode (fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo)

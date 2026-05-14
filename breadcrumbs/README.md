@@ -44,6 +44,8 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 140 | No standard invocation process for agent-mediated factory runs | high | proposed |
+| 139 | Review and jury gate failures never escalate — infinite retry loop consumes unbounded sessions | critical | proposed |
 | 138 | Qwen 3.6-27b operational timeout on test_author and implementer roles (>600s) | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
