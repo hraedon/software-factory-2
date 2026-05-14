@@ -1,0 +1,8 @@
+{
+  "model": "gemini-2.5-flash-cli",
+  "family": "gemini",
+  "role": "implementer",
+  "success": true,
+  "elapsed_seconds": 160.5,
+  "stderr_preview": "Warning: True color (24-bit) support not detected. Using a terminal with true color enabled will result in a better visual experience.\nYOLO mode is enabled. All tool calls will be automatically approved.\nYOLO mode is enabled. All tool calls will be automatically approved.\nRipgrep is not available. Falling back to GrepTool.\n(node:2648180) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, onl"
+}

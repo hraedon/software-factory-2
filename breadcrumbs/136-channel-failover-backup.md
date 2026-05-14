@@ -2,7 +2,7 @@
 number: "136"
 title: Channel failover — automatic backup channel on empty output, API errors, and timeouts
 severity: high
-status: proposed
+status: implemented
 kind: improvement
 author: principal
 date: "2026-05-14"

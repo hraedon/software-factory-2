@@ -32,3 +32,14 @@ class PipelineRuntime:
         if self.channel is not None:
             return self.channel
         raise ValueError(f"No channel available for role {role}")
+
+    def fallback_channel_for_role(self, role: str) -> Channel | None:
+        role_config = self.config.get_role_config(role)
+        if role_config is None or not role_config.fallback_channel:
+            return None
+        fallback_name = role_config.fallback_channel
+        if self.channels and fallback_name in self.channels:
+            return self.channels[fallback_name]
+        if self.channel is not None and self.channel.name == fallback_name:
+            return self.channel
+        return None

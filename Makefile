@@ -18,7 +18,7 @@ cov:
 	$(PYTEST) tests/ -q --cov=factory --cov-report=term-missing
 
 audit:
-	$(VULTURE) src/factory/ tests/ .vulture_whitelist.py --min-confidence 80
+	$(VULTURE) src/factory/ tests/ .vulture_whitelist.py --min-confidence 80 --exclude "tests/fixtures/capability-probe"
 
 check: lint audit test
 

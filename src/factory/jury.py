@@ -51,8 +51,15 @@ def _invoke_juror(
     outputs_dir: Path,
     timeout: int,
     model_override: str | None = None,
+    fallback_channel: Channel | None = None,
+    fallback_model: str | None = None,
 ) -> JurorVote:
-    """Invoke a single juror channel and return its vote."""
+    """Invoke a single juror channel and return its vote.
+
+    If the primary channel fails and a fallback is configured, retries
+    on the fallback channel. The returned channel name reflects whichever
+    channel actually produced the response.
+    """
     ch_outputs = outputs_dir / ch_name
     ch_outputs.mkdir(parents=True, exist_ok=True)
     result = channel.invoke(
@@ -63,20 +70,48 @@ def _invoke_juror(
         model_override=model_override,
     )
     effective_family = result.family or channel.family
+    active_channel = ch_name
+
+    if not result.success and fallback_channel is not None:
+        log.info(
+            "juror_failover_attempt",
+            primary=ch_name,
+            fallback=fallback_channel.name,
+        )
+        fb_outputs = outputs_dir / f"{ch_name}_fb"
+        fb_outputs.mkdir(parents=True, exist_ok=True)
+        result = fallback_channel.invoke(
+            "frontier_judge",
+            prompt,
+            fb_outputs,
+            timeout,
+            model_override=fallback_model,
+        )
+        effective_family = result.family or fallback_channel.family
+        active_channel = f"{ch_name}_fb"
+        if not result.success:
+            log.warning(
+                "juror_failover_failed",
+                primary=ch_name,
+                fallback=fallback_channel.name,
+                error=result.error_message,
+            )
+
     if not result.success:
         return JurorVote(
             passed=False,
             rationale=result.error_message or "channel failure",
-            channel=ch_name,
+            channel=active_channel,
             family=effective_family,
         )
-    artifact_path = ch_outputs / result.artifact_name
+    outputs = fb_outputs if active_channel.endswith("_fb") else ch_outputs
+    artifact_path = outputs / result.artifact_name
     raw = artifact_path.read_text() if artifact_path.exists() else ""
     vote_data = _parse_vote(raw)
     return JurorVote(
         passed=bool(vote_data.get("passed")),
         rationale=str(vote_data.get("rationale", "")),
-        channel=ch_name,
+        channel=active_channel,
         family=effective_family,
     )
 
@@ -88,6 +123,8 @@ def run_jury(
     timeout: int,
     quorum: int = 2,
     models: dict[str, str | None] | None = None,
+    fallback_channels: dict[str, Channel | None] | None = None,
+    fallback_models: dict[str, str | None] | None = None,
 ) -> JuryVerdict:
     """Invoke each configured juror channel in parallel and compute a quorum verdict."""
     votes: list[JurorVote] = []
@@ -101,6 +138,8 @@ def run_jury(
                 outputs_dir,
                 timeout,
                 model_override=(models or {}).get(ch_name),
+                fallback_channel=(fallback_channels or {}).get(ch_name),
+                fallback_model=(fallback_models or {}).get(ch_name),
             ): ch_name
             for ch_name, ch in channels.items()
         }

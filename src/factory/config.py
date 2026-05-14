@@ -57,6 +57,8 @@ class RoleConfig:
     timeout_seconds: int = 600
     model: str | None = None
     provider: str | None = None
+    fallback_channel: str | None = None
+    fallback_model: str | None = None
 
     @property
     def family(self) -> str:

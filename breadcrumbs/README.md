@@ -44,7 +44,6 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 136 | Channel failover — automatic backup channel on empty output, API errors, and timeouts | high | proposed |
 | 138 | Qwen 3.6-27b operational timeout on test_author and implementer roles (>600s) | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed (deferred to Phase 4) |
 
@@ -81,7 +80,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
-| 137 | Model capability evaluation — flawed-spec probe for pipeline role suitability | medium | Probe framework built: flawed spec `wi_rate_limiter.md`, answer key `_defects.md`, rubric in `breadcrumbs/137-model-capability-evaluation.md`. 5 of 6 models evaluated; report at `.factory/analysis/2026-05-14-model-capability-evaluation.md`. Canonical flawed upstream artifacts added to `tests/fixtures/capability-probe/`. Rubric corrected: interface_architect must resolve/reject contradictory ACs; test_author D2/D3 marked N/A. |
+| 136 | Channel failover — automatic backup channel on empty output, API errors, and timeouts | high | `RoleConfig` extended with `fallback_channel`/`fallback_model`; `_should_failover()` triggers on empty output, timeout, non-zero exit, missing binary; runner primary→fallback immediate retry; inner gate retries use fallback; jury juror fallback with `_fb` channel key; telemetry records fallback in `ChannelFailPayload.diagnostics`; 13 tests; 650 pass, 0 lint errors |
 | 135 | glm-5.1 (z.ai) returns empty output for implementer role — model reliability issue | medium | Root cause: transient z.ai provider issue (13/16 failures during GR-024, 0/16 in post-hoc test). Mitigations: empty-output retry (configurable, default 1 retry / 3s delay); stderr capture in error message + `raw_stderr.txt`; 13 new tests |
 | 134 | run_jury observability gap — disagreement_rationale empty on all-error/all-timeout | medium | `jury.py` always populates `disagreement_rationale` when quorum not met; `[all_against]` tag distinguishes all-failure from split; `evaluate_jury()` produces tagged diagnostics; 3 new evaluate_jury tests |
 | 133 | Telemetry two-source-of-truth — inner-gate signal lives only in runner logs | high | `SubmitPayload.inner_gate_attempts` carries inner gate history in substrate events; `telemetry.py` reads inner gate attempts from submit payloads; separate inner gate first-pass rate in exit criteria; report label "Phase 3" → "Pipeline" |

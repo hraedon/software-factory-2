@@ -1,6 +1,6 @@
 # Software Factory v2 — Design Spec
 
-**Status:** Phase 3 (fleet integration). Spec §10 phasing governs what is implemented vs. deferred.
+**Status:** Phase 4 (jury and review validated). Spec §10 phasing governs what is implemented vs. deferred.
 **Authoritative:** this file. Machine-readable sidecar (`spec.yaml`) deferred until Phase 1.
 
 ---

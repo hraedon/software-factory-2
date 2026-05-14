@@ -1,0 +1,8 @@
+{
+  "model": "gemini-2.5-pro-cli",
+  "family": "gemini",
+  "role": "cross_family_reviewer",
+  "success": true,
+  "elapsed_seconds": 19.29,
+  "stderr_preview": "Warning: True color (24-bit) support not detected. Using a terminal with true color enabled will result in a better visual experience.\nYOLO mode is enabled. All tool calls will be automatically approved.\nYOLO mode is enabled. All tool calls will be automatically approved.\nRipgrep is not available. Falling back to GrepTool.\n"
+}

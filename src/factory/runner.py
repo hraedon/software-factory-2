@@ -71,6 +71,22 @@ _INNER_GATE_ROLES = frozenset(
 )
 
 
+def _should_failover(invoke_result) -> bool:
+    """Determine if a failed invocation warrants immediate fallback channel retry."""
+    if invoke_result.success:
+        return False
+    error = (invoke_result.error_message or "").lower()
+    if "empty output" in error:
+        return True
+    if invoke_result.timed_out:
+        return True
+    if invoke_result.exit_code not in (None, 0):
+        return True
+    if "not found in path" in error:
+        return True
+    return False
+
+
 def _role_for_type(work_item_type: str, config: FactoryConfig) -> str | None:
     for type_name, role_name in config.type_to_role:
         if type_name == work_item_type:
@@ -346,6 +362,41 @@ def process_work_item(
     invocation_end = time.monotonic()
     duration_seconds = round(invocation_end - invocation_start, 3)
     effective_family = invoke_result.family or channel.family
+    fallback_channel = None
+    fallback_model = None
+
+    if not invoke_result.success and _should_failover(invoke_result):
+        fb_channel = runtime.fallback_channel_for_role(role_name)
+        role_config = config.get_role_config(role_name)
+        if fb_channel is not None:
+            fallback_channel = fb_channel.name
+            fallback_model = role_config.fallback_model if role_config else None
+            log.info(
+                "channel_failover_attempt",
+                work_item_id=work_item_id,
+                primary=channel.name,
+                fallback=fallback_channel,
+            )
+            fb_start = time.monotonic()
+            invoke_result = fb_channel.invoke(
+                role_name,
+                prompt,
+                ad,
+                timeout,
+                extra_env=extra_env,
+                model_override=fallback_model,
+            )
+            duration_seconds += round(time.monotonic() - fb_start, 3)
+            if invoke_result.success:
+                effective_family = invoke_result.family or fb_channel.family
+            else:
+                log.warning(
+                    "channel_failover_failed",
+                    work_item_id=work_item_id,
+                    primary=channel.name,
+                    fallback=fallback_channel,
+                    error=invoke_result.error_message,
+                )
 
     if not invoke_result.success:
         _handle_invoke_failure(
@@ -360,6 +411,8 @@ def process_work_item(
             ctx,
             effective_family,
             duration_seconds,
+            fallback_channel=fallback_channel,
+            fallback_model=fallback_model,
         )
         return
 
@@ -635,6 +688,43 @@ def _inner_gate_loop(
             role_name, retry_prompt, retry_ad, timeout, extra_env=extra_env
         )
         duration_seconds += round(time.monotonic() - retry_start, 3)
+        retry_fb_channel = None
+        retry_fb_model = None
+
+        if not retry_result.success and _should_failover(retry_result):
+            fb_channel = runtime.fallback_channel_for_role(role_name)
+            role_config = config.get_role_config(role_name)
+            if fb_channel is not None:
+                retry_fb_channel = fb_channel.name
+                retry_fb_model = role_config.fallback_model if role_config else None
+                log.info(
+                    "inner_gate_failover_attempt",
+                    work_item_id=work_item_id,
+                    retry=retry,
+                    primary=channel.name,
+                    fallback=retry_fb_channel,
+                )
+                fb_start = time.monotonic()
+                retry_result = fb_channel.invoke(
+                    role_name,
+                    retry_prompt,
+                    retry_ad,
+                    timeout,
+                    extra_env=extra_env,
+                    model_override=retry_fb_model,
+                )
+                duration_seconds += round(time.monotonic() - fb_start, 3)
+                if retry_result.success:
+                    effective_family = retry_result.family or fb_channel.family
+                else:
+                    log.warning(
+                        "inner_gate_failover_failed",
+                        work_item_id=work_item_id,
+                        retry=retry,
+                        primary=channel.name,
+                        fallback=retry_fb_channel,
+                        error=retry_result.error_message,
+                    )
 
         if not retry_result.success:
             _handle_invoke_failure(
@@ -649,6 +739,8 @@ def _inner_gate_loop(
                 current_ctx,
                 effective_family,
                 duration_seconds,
+                fallback_channel=retry_fb_channel,
+                fallback_model=retry_fb_model,
             )
             return None, current_ctx, duration_seconds, inner_gate_attempts
         current_artifact = retry_ad / retry_result.artifact_name
@@ -673,6 +765,8 @@ def _handle_invoke_failure(
     ctx,
     effective_family: str,
     duration_seconds: float | None = None,
+    fallback_channel: str | None = None,
+    fallback_model: str | None = None,
 ) -> None:
     work_item_id = wi.work_item_id
     if invoke_result.error_message == "cannot_proceed":
@@ -696,6 +790,13 @@ def _handle_invoke_failure(
                 },
             )
         else:
+            diag_base = {
+                "error_message": "cannot_proceed without diagnostics file",
+                "duration_seconds": duration_seconds,
+            }
+            if fallback_channel:
+                diag_base["fallback_channel"] = fallback_channel
+                diag_base["fallback_model"] = fallback_model
             sub.transition(
                 work_item_id,
                 TRANSITION_CHANNEL_FAIL,
@@ -708,12 +809,7 @@ def _handle_invoke_failure(
                     context_hash=ctx.context_hash,
                     prompt_template_hash=ctx.prompt_template_hash,
                 ).to_dict(),
-                payload=ChannelFailPayload(
-                    diagnostics={
-                        "error_message": "cannot_proceed without diagnostics file",
-                        "duration_seconds": duration_seconds,
-                    }
-                ).to_dict(),
+                payload=ChannelFailPayload(diagnostics=diag_base).to_dict(),
             )
         return
     log.error(
@@ -721,6 +817,15 @@ def _handle_invoke_failure(
         work_item_id=str(work_item_id),
         error=invoke_result.error_message,
     )
+    diag = {
+        "error_message": invoke_result.error_message,
+        "timed_out": invoke_result.timed_out,
+        "exit_code": invoke_result.exit_code,
+        "duration_seconds": duration_seconds,
+    }
+    if fallback_channel:
+        diag["fallback_channel"] = fallback_channel
+        diag["fallback_model"] = fallback_model
     sub.transition(
         work_item_id,
         TRANSITION_CHANNEL_FAIL,
@@ -733,14 +838,7 @@ def _handle_invoke_failure(
             context_hash=ctx.context_hash,
             prompt_template_hash=ctx.prompt_template_hash,
         ).to_dict(),
-        payload=ChannelFailPayload(
-            diagnostics={
-                "error_message": invoke_result.error_message,
-                "timed_out": invoke_result.timed_out,
-                "exit_code": invoke_result.exit_code,
-                "duration_seconds": duration_seconds,
-            }
-        ).to_dict(),
+        payload=ChannelFailPayload(diagnostics=diag).to_dict(),
     )
 
 
@@ -777,10 +875,17 @@ def _resume_and_submit(
 def _resolve_jury_channels(
     runtime: PipelineRuntime,
     config: FactoryConfig,
-) -> tuple[dict[str, Channel], dict[str, str | None]]:
-    """Build a dict of juror channels and models from config."""
+) -> tuple[
+    dict[str, Channel],
+    dict[str, str | None],
+    dict[str, Channel | None],
+    dict[str, str | None],
+]:
+    """Build a dict of juror channels and models from config, including fallbacks."""
     jury_channels: dict[str, Channel] = {}
     jury_models: dict[str, str | None] = {}
+    jury_fallback_channels: dict[str, Channel | None] = {}
+    jury_fallback_models: dict[str, str | None] = {}
     for rc in config.roles:
         if rc.role == ROLE_FRONTIER_JUDGE:
             ch = runtime.channels.get(rc.channel) if runtime.channels else runtime.channel
@@ -789,7 +894,18 @@ def _resolve_jury_channels(
                 key = f"{rc.channel}-{model_id}"
                 jury_channels[key] = ch
                 jury_models[key] = rc.model
-    return jury_channels, jury_models
+                fb_ch = None
+                if rc.fallback_channel:
+                    fb_ch = runtime.channels.get(rc.fallback_channel) if runtime.channels else None
+                    if (
+                        fb_ch is None
+                        and runtime.channel
+                        and runtime.channel.name == rc.fallback_channel
+                    ):
+                        fb_ch = runtime.channel
+                jury_fallback_channels[key] = fb_ch
+                jury_fallback_models[key] = rc.fallback_model
+    return jury_channels, jury_models, jury_fallback_channels, jury_fallback_models
 
 
 def _process_jury_work_item(
@@ -808,7 +924,12 @@ def _process_jury_work_item(
     config = runtime.config
     work_item_id = str(wi.work_item_id)
     attempt_number = claim.attempt_number
-    jury_channels, jury_models = _resolve_jury_channels(runtime, config)
+    (
+        jury_channels,
+        jury_models,
+        jury_fallback_channels,
+        jury_fallback_models,
+    ) = _resolve_jury_channels(runtime, config)
     if not jury_channels:
         log.error("no_jury_channels_configured", work_item_id=work_item_id)
         sub.transition(
@@ -840,6 +961,8 @@ def _process_jury_work_item(
             timeout=timeout,
             quorum=getattr(config, "jury_quorum", 2),
             models=jury_models,
+            fallback_channels=jury_fallback_channels,
+            fallback_models=jury_fallback_models,
         )
     except Exception:
         log.exception("jury_invoke_failed", work_item_id=work_item_id)

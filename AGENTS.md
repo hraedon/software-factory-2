@@ -91,7 +91,7 @@ The phasing in `spec.md` §10 exists to prevent the v1 mistake of building the w
 - Mechanical gates + single-channel review/jury gates. Multi-family jury racing is validated in skeleton but awaiting first golden-run exercise.
 - Multi-model jury: parallel invocation of distinct models through same adapter via `model_override`; unique juror keys by channel+model suffix. Validated in GR-025 (K2 + glm-5.1).
 - No integration or outcome-verification stages until Phase 5.
-- Channel adapters for DeepSeek (standalone Ollama adapter) and Gemini (CLI has Node.js version issue on current host) exist but are not yet validated in golden runs.
+- Channel adapters for DeepSeek (standalone Ollama adapter) and Gemini exist but are not yet validated in golden runs. The Gemini CLI errors with `SyntaxError: Invalid regular expression flags` under the system Node (`/usr/bin/node` is v18); a newer Node is available via nvm at `~/.nvm/versions/node/v24.15.0/bin/node` — source `~/.nvm/nvm.sh && nvm use 24` (or invoke that node binary directly) before running `gemini`.
 If you find yourself wanting to skip ahead, file a breadcrumb explaining why and let the principal decide.
 
 ## Pointers

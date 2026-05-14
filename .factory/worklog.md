@@ -4,6 +4,42 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-14 — Session 29: Gemini capability probe; BC-136/138 triage
+
+**Invocation:** OpenCode (fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo)
+
+**Focus:** Run BC-137 flawed-spec capability probe against Gemini (Flash + Pro) to complete the model evaluation matrix. Validate Node.js fix for Gemini CLI. Triage open breadcrumbs.
+
+### Gemini capability probe results
+
+The Gemini CLI Node.js issue (v18 regex flags) was resolved by prepending `~/.nvm/versions/node/v24.15.0/bin` to PATH, matching the `GeminiCLIChannel._extra_env()` implementation.
+
+| Role | Flash (s) | Pro (s) | Notes |
+|---|---|---|---|
+| interface_architect | 38.1 | 72.6 | Pro fixed the `bool` flaw in `consume` → `float \| None` |
+| test_author | 64.6 | 33.9 | Both produced pytest suites |
+| implementer | 160.5 | 76.3 | Pro significantly faster; both returned runnable code |
+| cross_family_reviewer | 17.1 | 19.3 | Both flagged 5/5 planted defects (passed=false) |
+| frontier_judge | 21.8 | 27.0 | Both returned correct `passed: false` with rationale |
+
+**Key finding:** Gemini 2.5 Pro passes all 5 roles on the flawed-spec probe. It is operationally viable for every role in the pipeline, including code-generation roles where Qwen 3.6-27b timed out (BC-138). This makes Gemini the sixth validated model+provider combination (alongside K2-Fireworks, K2-Ollama, GLM-z.ai, GLM-Ollama, DeepSeek-Ollama).
+
+### Breadcrumb assessment
+
+- **BC-136 (channel failover):** Remains the highest-impact open item. No code changes this session; queued for implementation.
+- **BC-138 (Qwen timeout):** Recommendation confirmed — restrict Qwen to review/judge roles only. Gemini Pro is a viable alternative for code-gen roles if a third family is needed.
+- **BC-120 (interface amendment):** Deferred to post-BC-136.
+
+### Housekeeping
+
+- `spec.md` status updated: Phase 3 → Phase 4.
+- `AGENTS.md` uncommitted Node.js note committed.
+- New script: `scripts/capability_probe_gemini.py` (Node 24 PATH fix, dual-model support).
+
+### Test results: 637 pass, 13 skipped, 0 lint errors
+
+---
+
 ## 2026-05-13 — Session 28: v1+K2p6 control experiment on cert-watch
 
 **Invocation:** Opus 4.7 (remote-control session, no code changes to sf2)

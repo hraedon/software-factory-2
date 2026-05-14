@@ -1,0 +1,86 @@
+{
+  "gemini-2.5-flash-cli": {
+    "interface_architect": {
+      "model": "gemini-2.5-flash-cli",
+      "family": "gemini",
+      "role": "interface_architect",
+      "success": true,
+      "elapsed_seconds": 38.08,
+      "stderr_preview": "Warning: True color (24-bit) support not detected. Using a terminal with true color enabled will result in a better visual experience.\nYOLO mode is enabled. All tool calls will be automatically approved.\nYOLO mode is enabled. All tool calls will be automatically approved.\nRipgrep is not available. Falling back to GrepTool.\n"
+    },
+    "test_author": {
+      "model": "gemini-2.5-flash-cli",
+      "family": "gemini",
+      "role": "test_author",
+      "success": true,
+      "elapsed_seconds": 64.58,
+      "stderr_preview": "Warning: True color (24-bit) support not detected. Using a terminal with true color enabled will result in a better visual experience.\nYOLO mode is enabled. All tool calls will be automatically approved.\nYOLO mode is enabled. All tool calls will be automatically approved.\nRipgrep is not available. Falling back to GrepTool.\n"
+    },
+    "implementer": {
+      "model": "gemini-2.5-flash-cli",
+      "family": "gemini",
+      "role": "implementer",
+      "success": true,
+      "elapsed_seconds": 160.5,
+      "stderr_preview": "Warning: True color (24-bit) support not detected. Using a terminal with true color enabled will result in a better visual experience.\nYOLO mode is enabled. All tool calls will be automatically approved.\nYOLO mode is enabled. All tool calls will be automatically approved.\nRipgrep is not available. Falling back to GrepTool.\n(node:2648180) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, onl"
+    },
+    "cross_family_reviewer": {
+      "model": "gemini-2.5-flash-cli",
+      "family": "gemini",
+      "role": "cross_family_reviewer",
+      "success": true,
+      "elapsed_seconds": 17.07,
+      "stderr_preview": "Warning: True color (24-bit) support not detected. Using a terminal with true color enabled will result in a better visual experience.\nYOLO mode is enabled. All tool calls will be automatically approved.\nYOLO mode is enabled. All tool calls will be automatically approved.\nRipgrep is not available. Falling back to GrepTool.\n"
+    },
+    "frontier_judge": {
+      "model": "gemini-2.5-flash-cli",
+      "family": "gemini",
+      "role": "frontier_judge",
+      "success": true,
+      "elapsed_seconds": 21.83,
+      "stderr_preview": "Warning: True color (24-bit) support not detected. Using a terminal with true color enabled will result in a better visual experience.\nYOLO mode is enabled. All tool calls will be automatically approved.\nYOLO mode is enabled. All tool calls will be automatically approved.\nRipgrep is not available. Falling back to GrepTool.\n"
+    }
+  },
+  "gemini-2.5-pro-cli": {
+    "interface_architect": {
+      "model": "gemini-2.5-pro-cli",
+      "family": "gemini",
+      "role": "interface_architect",
+      "success": true,
+      "elapsed_seconds": 72.57,
+      "stderr_preview": "Warning: True color (24-bit) support not detected. Using a terminal with true color enabled will result in a better visual experience.\nYOLO mode is enabled. All tool calls will be automatically approved.\nYOLO mode is enabled. All tool calls will be automatically approved.\nRipgrep is not available. Falling back to GrepTool.\n"
+    },
+    "test_author": {
+      "model": "gemini-2.5-pro-cli",
+      "family": "gemini",
+      "role": "test_author",
+      "success": true,
+      "elapsed_seconds": 33.85,
+      "stderr_preview": "Warning: True color (24-bit) support not detected. Using a terminal with true color enabled will result in a better visual experience.\nYOLO mode is enabled. All tool calls will be automatically approved.\nYOLO mode is enabled. All tool calls will be automatically approved.\nRipgrep is not available. Falling back to GrepTool.\n"
+    },
+    "implementer": {
+      "model": "gemini-2.5-pro-cli",
+      "family": "gemini",
+      "role": "implementer",
+      "success": true,
+      "elapsed_seconds": 76.25,
+      "stderr_preview": "Warning: True color (24-bit) support not detected. Using a terminal with true color enabled will result in a better visual experience.\nYOLO mode is enabled. All tool calls will be automatically approved.\nYOLO mode is enabled. All tool calls will be automatically approved.\nRipgrep is not available. Falling back to GrepTool.\n"
+    },
+    "cross_family_reviewer": {
+      "model": "gemini-2.5-pro-cli",
+      "family": "gemini",
+      "role": "cross_family_reviewer",
+      "success": true,
+      "elapsed_seconds": 19.29,
+      "stderr_preview": "Warning: True color (24-bit) support not detected. Using a terminal with true color enabled will result in a better visual experience.\nYOLO mode is enabled. All tool calls will be automatically approved.\nYOLO mode is enabled. All tool calls will be automatically approved.\nRipgrep is not available. Falling back to GrepTool.\n"
+    },
+    "frontier_judge": {
+      "model": "gemini-2.5-pro-cli",
+      "family": "gemini",
+      "role": "frontier_judge",
+      "success": true,
+      "elapsed_seconds": 26.96,
+      "stderr_preview": "Warning: True color (24-bit) support not detected. Using a terminal with true color enabled will result in a better visual experience.\nYOLO mode is enabled. All tool calls will be automatically approved.\nYOLO mode is enabled. All tool calls will be automatically approved.\nRipgrep is not available. Falling back to GrepTool.\n"
+    }
+  }
+}
