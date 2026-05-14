@@ -1,51 +1,51 @@
 ---
 model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
-datetime: 2026-05-14T03:30 UTC
+datetime: 2026-05-14T19:25Z
 project: software-factory-2
 ---
 
 # Session Reflection — 2026-05-14
 
-**Work summary:** Validated and corrected the BC-137 capability-probe framework, then ran it against 5 of 6 requested models (Kimi K2.6 Ollama, GLM-5.1 z.ai, GLM-5.1 Ollama, DeepSeek v4 Pro Ollama, Qwen 3.6-27b Ollama). Produced per-role outputs, self-scored against the rubric, and wrote the deliverable report at `.factory/analysis/2026-05-14-model-capability-evaluation.md`. Fixed three probe inconsistencies: interface_architect rubric said `N/A` for contradictory ACs (wrong), test_author rubric said `Ignores or stubs` for impossible dependency (wrong), and test_author/implementer prompts lacked structured-failure channels (documented, not fixed in prompts). Added canonical flawed upstream artifacts to the fixture.
+**Work summary:** Post-mortem and remediation of GR-026 (GLM-attempted Phase 4 golden run). Resolved BC-139 (critical: review/jury infinite retry loop), filed BC-140 (agent-mediated run protocol), implemented `agent_golden_run.py` wrapper, preserved workspace and drafted golden-run report. 670 tests pass, 13 skipped.
 
 ---
 
 ## On the project
 
-The pipeline is impressively instrumented — 637 tests, telemetry, inner gates, multi-model jury. But the model-placement decisions in `spec.md` §5 are still largely theoretical. This session is the first time anyone has systematically evaluated whether the models assigned to roles can actually do those roles. The fact that GLM-5.1 (assigned to `cross_family_reviewer` and `frontier_judge` in the spec) **fails the hard floor on `interface_architect`** is not a surprise — it's not assigned to that role — but it's a data point the spec didn't have before.
+This codebase is impressively hardened for its phase. The architecture (runner/gate/scheduler/telemetry) cleanly separates concerns, and the breadcrumb discipline is real — not just issue tracking but an explicit refusal to let v1's "string constant gravity" recur. The constants.py centralization, the `FactoryConfig` single-source-of-truth, and the per-session worklog all signal a team that learned from prior pain.
 
-The more uncomfortable finding: **Qwen 3.6-27b times out on code-generation roles even at 600s.** This means the "six validated model+provider combinations" claim in BC-137 is actually "five available, one broken (Gemini), one operationally unfit for half its potential roles (Qwen)." The pipeline's redundancy story is thinner than the spec suggests.
+What's fragile is the boundary between the pipeline's internal retry logic and external agent execution. BC-139 revealed that the router's `_ESCALATABLE_KINDS` is a closed set that must be manually kept in sync with every new gate kind. The `GENERIC` fallback to `Route(target_state=STATE_NEW)` is a footgun — any new diagnostic kind that isn't explicitly added to both the classification logic and the escalation set will loop forever. This is the v1 pattern of "imperative if/elif chain grew unbounded" (RFC-005) playing out in miniature.
+
+The telemetry system is solid but has a data-quality gap: the "unknown" gate name in GR-026's telemetry came from looping items where the runner skipped resume, creating unmatched gate events. This is a subtle signal that the telemetry event pairing isn't robust to the runner bypassing its normal submit path.
 
 ## On the work done
 
-**What went well:**
-- The probe design is sound. All five models that completed review/judge roles flagged all five planted defects. The cross-family reviewer role is genuinely the most reliable gate.
-- DeepSeek v4 Pro's test_author output was the most rigorous — negative capacity, negative refill rate, tokens>capacity, negative tokens. That validated the probe's ability to discriminate rigorous from superficial.
-- The canonical flawed upstream artifacts (`reference_flawed_interface.pyi`, `reference_flawed_tests.py`, `reference_flawed_implementation.py`) make the probe reproducible. Any future model can be run through the same inputs.
+The BC-139 fix is clean and minimal — two new `DiagnosticKind` values, classification logic updates, escalation set membership, and a hard stop in the runner. I'm confident it's correct. The 8 new tests cover both classification and escalation at/below threshold.
 
-**What I'm unsure about:**
-- **Self-scoring bias.** I (K2.6) scored all outputs, including my own and competitors'. I tried to be objective, but there's no external validator. The principal should spot-check 2-3 cells.
-- **The "amend vs reject" gray zone.** GLM-5.1 amended the spec (changed `consume -> float | None`) rather than rejecting it. I scored this as "fail" on the hard floor because D2/D3 were not resolved. But a principal might disagree — the amended interface is arguably more useful than a rejection. The rubric should clarify whether amendment counts as resolution.
-- **Prompt mismatch for test_author/implementer.** I identified that these roles have no `cannot_proceed` channel, so they can't formally refuse flawed specs. I documented this but didn't fix the production prompts. Fixing it would require adding JSON escape hatches to `test_author.md` and `implementer.md`, which is a real change with unknown side effects.
+The `agent_golden_run.py` wrapper is a pragmatic band-aid, not architecture. It duplicates some runner logic (attempt threshold checking, log tailing) because the pipeline lacks a proper event bus or status endpoint. If this project moves to Phase 5 and gets real workloads, the wrapper will become a maintenance burden — but for now it prevents the exact failure mode that just cost 32M tokens and a working session.
 
-**What was awkward:**
-- Running the evaluation was manual and slow. Each model×role invocation took 20–600s. The script I wrote (`scripts/capability_probe_eval.py`) is a one-off; it's not integrated into the runner or `make golden-run`. If the principal wants to re-run this monthly, it'll need babysitting.
-- `ollama-cloud/kimi-k2.6:cloud` doesn't exist. The user requested it; I used `ollama-cloud/kimi-k2.6` instead. This is a small thing but it shows the model ID landscape is volatile.
+The golden-run report for GR-026 captures what matters: the loop dynamics, the token burn analysis, the comparison with prior runs, and the post-run fix. I wrote it following the GR-008 format which has proven useful for cross-run comparison.
+
+What I'm less confident about: the `agent_golden_run.py` pre-flight breadcrumb scanner is regex-based and brittle. If the breadcrumbs README format changes, the scanner will silently fail open. It needs a test, but that's out of scope for this session.
 
 ## On what remains
 
-1. **Evaluate Claude on the probe.** The spec assumes Claude is the best interface_architect. This is untested by the probe. Running Claude (CC headless) through the same 5 roles would either validate or challenge the current default bindings.
-2. **Fix or replace Gemini CLI.** The Node.js regex error blocks all Gemini evaluation. This is a harness issue, not a model issue, but it means Gemini is unavailable for any role.
-3. **Integrate findings into `FactoryConfig` defaults.** The report recommends binding changes (DeepSeek for test_author, GLM-5.1 Ollama for implementer). These are in the report but not in the config YAMLs yet.
-4. **Decide on "amend" scoring.** If a model amends a flawed spec instead of rejecting it, does that count as Pass, Partial, or Fail? The current rubric says "Must resolve or reject" — amendment is a form of resolution. But the amendment may introduce new ambiguities. This needs a principal decision.
-5. **Expand the probe (optional).** D6 (security flaw) or D7 (concurrency bug) would increase discrimination power, especially for frontier_judge selection.
+Immediate (before next GR):
+1. **GR-027 re-run with BC-139 fix and agent wrapper** — validate that review/jury failures now escalate cleanly.
+2. **Exercise `jury_disagree` path** — GR-026 had 0 disagreement cases. Need a fixture with intentional defects to force multi-family divergence.
+
+Short-term (Phase 4 validation):
+3. **Gemini CLI validation** — adapter exists but disabled. The Node 24 PATH fix is documented; needs a smoke test.
+4. **BC-140 hardening** — Add `--no-cleanup` flag preservation, wrapper timeout, and maybe a JSON status output for programmatic monitoring.
+
+Medium-term (Phase 5 prep):
+5. **RFC-002 (observer/event system)** — The wrapper's log-grep monitoring is a hack. A real event bus would make BC-140's guardrails machine-implementable rather than regex-based.
+6. **RFC-005 (composable failure/escalation architecture)** — `_ESCALATABLE_KINDS` should not be a hand-maintained set. The router should derive escalatability from gate metadata or config.
 
 ## Gaps to flag
 
-- **Self-scoring without validator:** `.factory/analysis/2026-05-14-model-capability-evaluation.md` §6 is scored by K2.6. No independent scorer reviewed the outputs. High risk of scorer bias on borderline cases (e.g., GLM-5.1's Partial vs Fail on D2).
-- **No automated probe runner:** `scripts/capability_probe_eval.py` is a standalone script, not a pytest test or CI gate. If models change behavior, the probe won't catch drift automatically.
-- **Qwen timeouts not investigated at longer durations:** `.factory/analysis/2026-05-14-model-capability-evaluation.md` §8.4 notes Qwen timed out at 600s. I did not test at 900s or 1200s. If it completes at 900s, the "operationally unfit" verdict may be too harsh.
-- **DeepSeek implementer returned `None` from `-> bool`:** This is a mypy failure that the inner gate would catch in production. In the probe, I scored it as Partial (not Fail) because the model correctly used `clock.monotonic_ns`. But in production, this would trigger an inner gate retry, wasting budget.
-- **GLM-5.1 z.ai vs Ollama provider difference:** Same model weights, different timeout behavior on implementer. This validates BC-135's lesson (provider reliability is a separate axis from model capability) but also means the probe should be run against both providers for any model that has multiple.
-- **Gemini CLI still broken:** `breadcrumbs/108` documents this. No progress. The CLI crashes with `SyntaxError: Invalid regular expression flags` on current Node.js.
-- **Missing fixture files in git:** `tests/fixtures/capability-probe/reference_flawed_*.py` are new. If not committed, future agents won't have the canonical upstream artifacts.
+- **`src/factory/router.py:64`**: The `GENERIC` fallback is a trap. Any new gate kind that forgets to add itself to `_classify_diagnostic` and `_ESCALATABLE_KINDS` will loop. Consider a default `cannot_proceed` for unknown kinds beyond threshold, or a CI test that asserts every gate name emitted by `gate.py` has a matching `DiagnosticKind`.
+- **`scripts/agent_golden_run.py:85-100`**: Breadcrumb scanning is regex-based. No test coverage. If README format drifts, pre-flight checks will silently pass dangerous runs.
+- **`src/factory/runner.py:192-198`**: The `claim_near_budget` hard stop is a belt-and-suspenders fix, but the runner still transitions the claim before checking. The ordering (claim → check → release) is correct but a race condition exists if the gate process claims the same item between release and next poll. In practice negligible at 5s poll interval, but worth noting.
+- **Telemetry unknown gate**: `cross_family_review` appeared as "unknown" in telemetry because looping items produced gate events without matching submit events. The telemetry pairing logic (`test_telemetry.py`) doesn't account for runner-bypassed submits.
+- **Workspace backup is uncommitted**: `.factory/gr026-workspace-backup/` is 119MB and not in git. This is correct (don't bloat repo), but there's no `.gitignore` entry for `.factory/gr*-workspace-backup/`. Add it.
