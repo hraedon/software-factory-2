@@ -2,7 +2,7 @@
 number: "140"
 title: No standard invocation process for agent-mediated factory runs
 severity: high
-status: proposed
+status: implemented
 kind: design
 author: agent
 date: "2026-05-14"

@@ -214,14 +214,21 @@ def _launch_processes(
     return runner, gate, scheduler
 
 
-def _monitor_logs(log_prefix: str, interval: int = 30) -> None:
-    """Tail logs every N seconds and check for danger signals."""
+def _monitor_logs(
+    log_prefix: str,
+    interval: int = 30,
+    procs: tuple[subprocess.Popen, ...] | None = None,
+) -> None:
+    """Tail logs every N seconds and check for danger signals.
+
+    If *procs* is provided, detects early process exit and returns.
+    """
     runner_log = Path(f"/tmp/{log_prefix}-runner.log")
     gate_log = Path(f"/tmp/{log_prefix}-gate.log")
     sched_log = Path(f"/tmp/{log_prefix}-scheduler.log")
 
     seen_counts: dict[str, int] = {name: 0 for name, _ in DANGER_SIGNALS}
-    last_line_counts: dict[str, int] = {}
+    file_offsets: dict[str, int] = {}
 
     _info("Monitoring logs (Ctrl+C to interrupt, processes continue in background)...")
     idle_cycles = 0
@@ -230,21 +237,29 @@ def _monitor_logs(log_prefix: str, interval: int = 30) -> None:
     while True:
         time.sleep(interval)
 
-        # Check for new lines and danger signals
+        if procs:
+            for p in procs:
+                if p.poll() is not None:
+                    _warn(f"Process PID={p.pid} exited with code {p.returncode}")
+
         any_new_lines = False
         for log_path in (runner_log, gate_log, sched_log):
             if not log_path.exists():
                 continue
-            lines = log_path.read_text().splitlines()
-            prev = last_line_counts.get(str(log_path), 0)
-            new_lines = lines[prev:]
-            if new_lines:
-                any_new_lines = True
-                last_line_counts[str(log_path)] = len(lines)
-                for name, pattern in DANGER_SIGNALS:
-                    count = sum(1 for line in new_lines if pattern.search(line))
-                    if count:
-                        seen_counts[name] += count
+            key = str(log_path)
+            offset = file_offsets.get(key, 0)
+            with open(log_path) as fh:
+                fh.seek(offset)
+                new_text = fh.read()
+                file_offsets[key] = fh.tell()
+            if not new_text:
+                continue
+            any_new_lines = True
+            new_lines = new_text.splitlines()
+            for name, pattern in DANGER_SIGNALS:
+                count = sum(1 for line in new_lines if pattern.search(line))
+                if count:
+                    seen_counts[name] += count
 
         if not any_new_lines:
             idle_cycles += 1
@@ -254,7 +269,6 @@ def _monitor_logs(log_prefix: str, interval: int = 30) -> None:
         else:
             idle_cycles = 0
 
-        # Alert on danger signals
         for name, count in seen_counts.items():
             if count > 0:
                 _warn(f"DANGER SIGNAL: {name} detected {count} time(s)")
@@ -263,6 +277,17 @@ def _monitor_logs(log_prefix: str, interval: int = 30) -> None:
                         "Multiple items at attempt_threshold. The runner hard-stops, "
                         "but this indicates systemic gate failures. "
                         "Kill processes and investigate before re-running."
+                    )
+                if name in ("gate_fail_cross_family_review", "gate_fail_jury") and count >= 3:
+                    _fatal(
+                        f"Multiple {name} failures detected. "
+                        "Review/jury items are cycling. Kill processes and check BC-139 fix."
+                    )
+                if name == "channel_invoke_failed" and count >= 5:
+                    _fatal(
+                        "Multiple channel invoke failures. "
+                        "Model channel may be down or rate-limited. "
+                        "Kill processes and verify channel health."
                     )
                 if name in ("gate_fail_cross_family_review", "gate_fail_jury") and count >= 3:
                     _fatal(
@@ -290,10 +315,12 @@ def _run_telemetry(config_path: Path) -> None:
             _warn(f"telemetry {'--verify ' if flag else ''} exited {result.returncode}")
 
 
-def _cleanup_offered(workspace_root: str, log_prefix: str) -> None:
+def _cleanup_offered(
+    workspace_root: str, log_prefix: str, log_dir: str = "/tmp"
+) -> None:
     """Offer to clean workspace and logs. Never touch opencode DB."""
     wr = Path(workspace_root)
-    logs = [Path(f"/tmp/{log_prefix}-{suffix}.log") for suffix in ("runner", "gate", "scheduler")]
+    logs = [Path(f"{log_dir}/{log_prefix}-{suffix}.log") for suffix in ("runner", "gate", "scheduler")]
     _info("=== Cleanup ===")
     _info(f"Workspace: {wr}")
     _info(f"Logs: {', '.join(str(log) for log in logs)}")
@@ -339,12 +366,22 @@ def main() -> None:
 
     _preflight(config_path, args.fixtures)
     _populate(config_path, args.fixtures)
-    _runner, _gate, _scheduler = _launch_processes(config_path, log_prefix)
+    runner, gate, scheduler = _launch_processes(config_path, log_prefix)
+    procs = (runner, gate, scheduler)
 
     try:
-        _monitor_logs(log_prefix, interval=args.monitor_interval)
+        _monitor_logs(log_prefix, interval=args.monitor_interval, procs=procs)
     except KeyboardInterrupt:
         _info("Monitoring interrupted by user. Processes continue in background.")
+
+    _info("Waiting for pipeline processes to finish...")
+    for p in procs:
+        try:
+            rc = p.wait(timeout=30)
+            _info(f"PID={p.pid} exited with code {rc}")
+        except subprocess.TimeoutExpired:
+            _warn(f"PID={p.pid} still running after 30s — sending SIGTERM")
+            p.terminate()
 
     _run_telemetry(config_path)
 
