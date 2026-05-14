@@ -364,11 +364,41 @@ def _check_assertion_count(artifact_path: Path) -> GateResult:
     return GateResult(passed=True, gate_name=GATE_NAME_TEST_SUITE_ASSERTIONS)
 
 
+_PYTEST_ASSERT_NAMES = frozenset({"raises", "warns", "deprecated_call"})
+
+
+def _call_name(call: ast.Call) -> str | None:
+    func = call.func
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return None
+
+
 def _count_asserts(node: ast.AST) -> int:
     count = 0
+    with_context_calls: set[int] = set()
+    for child in ast.walk(node):
+        if isinstance(child, ast.With):
+            for item in child.items:
+                expr = item.context_expr
+                if isinstance(expr, ast.Call):
+                    with_context_calls.add(id(expr))
+                    if _call_name(expr) in _PYTEST_ASSERT_NAMES:
+                        count += 1
     for child in ast.walk(node):
         if isinstance(child, ast.Assert):
             count += 1
+            continue
+        if isinstance(child, ast.Call) and id(child) not in with_context_calls:
+            name = _call_name(child)
+            if name is None:
+                continue
+            if name in _PYTEST_ASSERT_NAMES and isinstance(child.func, ast.Attribute):
+                count += 1
+            elif isinstance(child.func, ast.Attribute) and child.func.attr.startswith("assert"):
+                count += 1
     return count
 
 

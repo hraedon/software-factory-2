@@ -72,6 +72,79 @@ def test_syntax_error_fails_not_passes(tmp_path: Path) -> None:
     assert "syntax" in result.diagnostic_kind.lower() or result.gate_name == "test_suite_assertions"
 
 
+def test_pytest_raises_with_block_counts_as_assertion(tmp_path: Path) -> None:
+    content = """
+import pytest
+
+def test_frozen():
+    with pytest.raises(AttributeError):
+        obj.attr = 1
+"""
+    path = tmp_path / "test_pytest_raises_with.py"
+    path.write_text(content)
+    result = evaluate_test_suite(path)
+    assert result.passed is True
+
+
+def test_pytest_raises_with_match_counts_as_assertion(tmp_path: Path) -> None:
+    content = """
+import pytest
+
+def test_message():
+    with pytest.raises(ValueError, match="bad"):
+        do_thing()
+"""
+    path = tmp_path / "test_pytest_raises_match.py"
+    path.write_text(content)
+    result = evaluate_test_suite(path)
+    assert result.passed is True
+
+
+def test_bare_pytest_raises_call_counts_as_assertion(tmp_path: Path) -> None:
+    content = """
+import pytest
+
+def test_bare():
+    pytest.raises(ValueError, int, "x")
+"""
+    path = tmp_path / "test_bare_pytest_raises.py"
+    path.write_text(content)
+    result = evaluate_test_suite(path)
+    assert result.passed is True
+
+
+def test_unittest_assert_methods_count_as_assertions(tmp_path: Path) -> None:
+    content = """
+import unittest
+
+class T(unittest.TestCase):
+    def test_unit(self):
+        self.assertEqual(1, 1)
+"""
+    path = tmp_path / "test_unittest_style.py"
+    path.write_text(content)
+    result = evaluate_test_suite(path)
+    assert result.passed is True
+
+
+def test_pytest_raises_counted_once_not_twice(tmp_path: Path) -> None:
+    content = """
+import pytest
+
+def test_a():
+    with pytest.raises(ValueError):
+        do_thing()
+
+def test_b():
+    pass
+"""
+    path = tmp_path / "test_count_once.py"
+    path.write_text(content)
+    result = evaluate_test_suite(path)
+    assert not result.passed
+    assert "test_b" in result.diagnostics[0]
+
+
 def test_no_test_functions_skips_assertion_check(tmp_path: Path) -> None:
     content = """
 def helper():
