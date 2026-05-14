@@ -4,7 +4,64 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
-## 2026-05-14 — Session 32: GR-027 execution; opencode project-context bug; budget-limit escalation fix
+## 2026-05-14 — Session 33: Phase 4 exit; Phase 5 planning
+
+**Invocation:** OpenCode (kimi-k2.6)
+
+**Focus:** Log GR-027 as Phase 4 exit artifact. Update spec.md, breadcrumbs, AGENTS.md. Plan Phase 5 work.
+
+### Phase 4 exit
+
+- **GR-027 accepted as exit artifact** per Opus directive: "88% number is technically below threshold but the cause analysis (one gate bug now fixed, two correct-but-terminal review escalations, one model-ceiling) is the substantive exit criterion."
+- Updated `spec.md` §10: Phase 4 marked complete, Phase 5 marked current.
+- Updated `AGENTS.md` status section with Phase 5 state, GR-027 results, and open breadcrumbs.
+- Moved BC-145 to `in_progress` (was `proposed`).
+
+### Phase 5 scope (per spec §10 and Opus direction)
+
+Phase 5 implements Stage 8 (integration) and Stage 9 (outcome verification). BC-145 (review/jury verdict routing) is treated as Phase 5 work — shaped alongside pipeline-flow changes, not retrofitted.
+
+**Concrete tasks:**
+
+1. **Integration stage skeleton** — `integrator` role, `integration` work item type, workflow YAML v5 (phase5.yaml)
+   - Integration work items are created after jury locks on a work-item subgraph
+   - Scheduler creates integration items linking all locked implementations in a feature group
+   - Integrator assembles modules into a runnable tree, produces `__init__.py` where needed
+   - Mechanical gates: cross-module import, assembled-tree mypy, cross-cutting pytest
+
+2. **Outcome verification stage skeleton** — `outcome_verifier` role, outcome-verification work items
+   - Created after integration locks
+   - Runs assembled software end-to-end against AC
+   - Produces artifact bundle for principal
+
+3. **BC-145 design** — review/jury verdict upstream routing
+   - Current: review failure → `new` (retry same review) or `cannot_proceed` (terminal)
+   - Target: review finds substantive defect → route structured feedback to implementer/interface_architect for targeted revision
+   - Design decision: diagnostic-kind taxonomy distinguishing "review found upstream defect" from "review itself was malformed"
+   - Interacts with Stage 8: if review finds defect in a module that is already integrated, the integration item may need invalidation
+
+4. **Synthetic fixture validation**
+   - Before first real workload, validate integration on cert-watch full DAG
+   - Goal: integration mechanical gates pass on correctly assembled modules; fail on broken cross-module imports
+
+**Deferred (post-Phase 5 skeleton validation):**
+- First real workload (Opus: "Pick a small LoB tool" — deferred until RFC-017, RFC-019, RFC-020, RFC-021 addressed)
+- RFC-022 (initiative primitive)
+
+### Files modified
+
+- `spec.md` — Phase 4/5 status update with exit criteria table
+- `breadcrumbs/README.md` — BC-145 status `proposed` → `in_progress`
+- `breadcrumbs/145-review-failure-routing.md` — status update
+- `AGENTS.md` — Full status rewrite for Phase 5
+- `.factory/worklog.md` — this entry
+
+### Breadcrumbs status
+
+- **Open:** 145 (high, in_progress), 138 (medium, proposed), 120 (medium, deferred)
+- **Resolved in prior sessions:** 144, 143, 142, 141, 140, 139, 136, 135, 134, 133, 132, 131, 130, 129, 128, 127, 126, 125, 124, 123, 122, 121, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100, 099, 098, 097, 096, 095, 094, 093, 092, 091, 090, 089, 088, 087, 086, 085, 084, 083, 082, 081, 080, 079, 078, 077, 076, 075, 074, 073, 072, 071, 070, 069, 068, 067, 066, 065, 064, 063, 062, 061, 060, 059, 058, 057, 056, 055, 054, 053, 051, 050, 049, 048, 047, 046, 045, 044, 043, 042, 041, 040, 039, 038, 037, 036, 035, 034, 033, 032, 031, 030, 029, 028, 027, 026, 025, 024, 023, 022, 021, 020, 019, 018, 017, 016, 015, 014, 013, 012, 011, 010, 009, 008, 007, 006, 005, 004, 003, 002, 001
+
+---
 
 **Invocation:** OpenCode (fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo)
 
