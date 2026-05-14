@@ -10,14 +10,19 @@ from factory.constants import (
     TRANSITION_CLAIM,
     TRANSITION_GATE_FAIL,
     TRANSITION_GATE_PASS,
+    TRANSITION_ROUTE_TO_CANNOT_PROCEED,
     TRANSITION_SUBMIT,
     WORK_ITEM_TYPE_INTERFACE_SPEC,
 )
 from factory.telemetry import (
+    ContractComplaintMetrics,
     GateAttempt,
     PassRateRow,
+    _looks_like_contract_complaint,
+    collect_contract_complaints,
     collect_gate_attempts,
     compute_pass_rates,
+    format_contract_complaint_summary,
     format_pass_rate_table,
 )
 
@@ -646,3 +651,131 @@ class TestComputeExitCriteria:
         assert metrics.inner_gate_evaluations == 1
         assert metrics.inner_gate_first_passes == 0
         assert metrics.inner_gate_first_pass_rate == 0.0
+
+
+class TestContractComplaintPatterns:
+    def test_signature_match(self):
+        assert _looks_like_contract_complaint("function signature is wrong") is True
+        assert _looks_like_contract_complaint("signature mismatch") is True
+
+    def test_parameter_missing_match(self):
+        assert _looks_like_contract_complaint("parameter missing from interface") is True
+        assert _looks_like_contract_complaint("parameter wrong type") is True
+        assert _looks_like_contract_complaint("parameter extra") is True
+
+    def test_interface_broken_match(self):
+        assert _looks_like_contract_complaint("interface broken") is True
+        assert (
+            _looks_like_contract_complaint("interface is invalid") is False
+        )  # pattern requires keyword directly after whitespace
+        assert _looks_like_contract_complaint("interface wrong") is True
+        assert _looks_like_contract_complaint("interface mismatch") is True
+
+    def test_wrong_return_type_match(self):
+        assert _looks_like_contract_complaint("wrong return type") is True
+        assert (
+            _looks_like_contract_complaint("return type mismatch") is True
+        )  # "type mismatch" pattern covers this
+
+    def test_should_return_match(self):
+        assert _looks_like_contract_complaint("function should return int") is True
+
+    def test_contract_broken_match(self):
+        assert _looks_like_contract_complaint("contract broken") is True
+        assert _looks_like_contract_complaint("contract is wrong") is True
+
+    def test_type_mismatch_match(self):
+        assert _looks_like_contract_complaint("type mismatch") is True
+
+    def test_incompatible_signature_match(self):
+        assert _looks_like_contract_complaint("incompatible signature") is True
+
+    def test_function_signature_match(self):
+        assert _looks_like_contract_complaint("function signature changed") is True
+
+    def test_negative_cases(self):
+        assert _looks_like_contract_complaint("import error") is False
+        assert _looks_like_contract_complaint("syntax error at line 5") is False
+        assert _looks_like_contract_complaint("mypy failed") is False
+        assert _looks_like_contract_complaint("test timed out") is False
+        assert _looks_like_contract_complaint("") is False
+        assert (
+            _looks_like_contract_complaint("wrong parameter name") is False
+        )  # pattern requires "parameter" prefix
+
+    def test_collects_contract_complaints(self, mock_substrate):
+        config = _make_config(mock_substrate)
+        wi, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            actor_id="test-actor",
+            actor_kind="agent",
+            custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
+        )
+        mock_substrate.transition(
+            wi.work_item_id,
+            TRANSITION_CLAIM,
+            "test-actor",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.transition(
+            wi.work_item_id,
+            TRANSITION_ROUTE_TO_CANNOT_PROCEED,
+            "test-actor",
+            actor_metadata={"role": "interface_architect", "attempt_n": 1},
+            custom_fields={"diagnostics": {"rationale": "function signature is wrong"}},
+        )
+        metrics = collect_contract_complaints(mock_substrate, config)
+        assert metrics.total_cannot_proceed == 1
+        assert metrics.contract_shaped == 1
+        assert len(metrics.samples) == 1
+
+    def test_no_contract_complaint_for_generic_failure(self, mock_substrate):
+        config = _make_config(mock_substrate)
+        wi, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            actor_id="test-actor",
+            actor_kind="agent",
+            custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
+        )
+        mock_substrate.transition(
+            wi.work_item_id,
+            TRANSITION_CLAIM,
+            "test-actor",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.transition(
+            wi.work_item_id,
+            TRANSITION_ROUTE_TO_CANNOT_PROCEED,
+            "test-actor",
+            actor_metadata={"role": "interface_architect", "attempt_n": 1},
+            custom_fields={"diagnostics": {"rationale": "import error"}},
+        )
+        metrics = collect_contract_complaints(mock_substrate, config)
+        assert metrics.total_cannot_proceed == 1
+        assert metrics.contract_shaped == 0
+
+    def test_format_summary(self):
+        metrics = ContractComplaintMetrics(
+            total_cannot_proceed=2,
+            contract_shaped=1,
+            cross_family_review_agreed=0,
+            samples=["function signature is wrong"],
+        )
+        summary = format_contract_complaint_summary(metrics)
+        assert "Contract Complaint Telemetry" in summary
+        assert "Total cannot_proceed events:        2" in summary
+        assert "Contract-shaped rationales:         1" in summary
+        assert "function signature is wrong" in summary
+
+    def test_zero_events_summary(self):
+        metrics = ContractComplaintMetrics(
+            total_cannot_proceed=0,
+            contract_shaped=0,
+            cross_family_review_agreed=0,
+            samples=[],
+        )
+        summary = format_contract_complaint_summary(metrics)
+        assert "Total cannot_proceed events:        0" in summary
+        assert "Contract-shaped rationales:         0" in summary

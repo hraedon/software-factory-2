@@ -1,6 +1,6 @@
 # Software Factory v2 — Design Spec
 
-**Status:** Phase 4 (jury and review validated). Spec §10 phasing governs what is implemented vs. deferred.
+**Status:** Phase 4 (skeleton validated at GR-022; multi-family jury + failover added; exit criteria pending a clean full-DAG run). Spec §10 phasing governs what is implemented vs. deferred.
 **Authoritative:** this file. Machine-readable sidecar (`spec.yaml`) deferred until Phase 1.
 
 ---
@@ -273,16 +273,16 @@ If the work-item is still in `in_progress` because the prior claim's TTL has not
 - 383 tests, 0 lint errors, 14 golden runs executed (GR-001 through GR-014).
 - Best result: GR-014, 91% lock rate (20/22 items) on cert-watch full DAG.
 
-**Phase 3 — Fleet integration. ← CURRENT**
+**Phase 3 — Fleet integration. ✓ COMPLETE**
 - Multi-channel dispatch: runner creates channel per role based on config binding.
 - Channel adapters: ClaudeCodeChannel, OpenCodeChannel (K2/GLM/DeepSeek via model selection), GeminiCLIChannel.
 - Per-role per-channel telemetry collected on the same workload as Phase 2.
 - Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys.
 - Phase 3 config: interface_architect→Claude, test_author→K2 (Fireworks), implementer→GLM (z.ai).
-- Begin role promotion based on data (not vibes, not cost).
-- 405 tests, 0 lint errors.
+- Began role promotion based on data (not vibes, not cost).
+- Exit criteria met at GR-020 (commit 105c977).
 
-**Phase 3 exit criteria (shall be met by a single clean golden run on cert-watch full DAG):**
+**Phase 3 exit criteria (met by GR-020 on cert-watch full DAG):**
 
 | Layer | Metric | Target | Rationale |
 |---|---|---|---|
@@ -298,9 +298,34 @@ If the work-item is still in `in_progress` because the prior claim's TTL has not
 - No breadcrumb status drift between files and README index.
 - Default config binds only validated channels (K2 and Claude CC).
 
-**Phase 4 — Jury and race.**
-- Add multi-channel judge gates.
-- A/B race for load-bearing roles where Phase 3 telemetry shows uncertainty.
+**Phase 4 — Jury and race. ← CURRENT**
+- Pipeline extended to 5 stages: interface_spec → test_suite → implementation → review → jury (workflow version 4, `workflows/phase4.yaml`).
+- `cross_family_reviewer` role: different-family model reviews skeleton + tests against AC + interface.
+- `frontier_judge` role with multi-channel jury: 2-3 Tier-A models independently judge; quorum advances, disagreement is recorded with rationale and the `[all_against]` tag distinguishes unanimous-fail from split votes.
+- Multi-model jury: `model_override` on the Channel protocol allows distinct (channel, model) jurors in the same role; unique juror keys by channel+model; family derived from the actual model.
+- Per-role channel failover: `fallback_channel`/`fallback_model` on RoleConfig; failover triggers on empty output, timeout, non-zero exit, or missing binary. Runner, inner gate, and jury jurors all honor the fallback. Telemetry records fallback in `ChannelFailPayload.diagnostics`.
+- Capability-probe framework (BC-137) evaluates new models on all 5 roles before pipeline use. Gemini 2.5 Pro and Flash validated; Qwen 3.6-27b qualified for review/judge only (BC-138).
+- Phase 4 skeleton validated at GR-022 (K2-only, 3-spec mini, 15/15 locked). Multi-family jury and jury_disagree exercised at GR-023/024/025.
+
+**Phase 4 exit criteria (shall be met by a single clean golden run on cert-watch full DAG with multi-family jury):**
+
+| Layer | Metric | Target | Rationale |
+|---|---|---|---|
+| Operational success | Lock-within-budget rate, 5 stages | ≥90% | Did the extended pipeline still deliver? Carries Phase 3's bar across the two new stages. |
+| Efficiency | Mean attempts to lock | ≤2.0 | Review and jury must not require brute-force retries to succeed. |
+| Contract quality | Inner-gate first-pass rate | ≥60% | Carry-through from Phase 3; the new stages should not regress upstream artifact quality. |
+| Review reliability | Review first-attempt pass rate | ≥80% | Review is a Tier-A judgment; if it's failing >20% on first pass the prompt or contract is broken, not the implementation. |
+| Jury reliability | Jury quorum-met rate | ≥90% | Routine `jury_disagree` indicates either contract ambiguity or model-fitness mismatch; it should be the exception. |
+| Telemetry integrity (review/jury) | Unknown gate-name rate for review/jury events | 0% | The Phase 4 stages are new; their events must be matched cleanly by the telemetry reporter, not bucketed as "unknown." |
+
+**Additional exit constraints:**
+- **Multi-family jury exercised:** at least 2 distinct channel families participate in jury work items under `jury_quorum ≥ 2`.
+- **Jury disagreement path exercised:** at least one `jury_disagree` transition occurs in the run corpus (synthetic if needed) and routes back to interface revision per §4, with `disagreement_rationale` populated and `[all_against]` correctly applied.
+- **Review rejection path exercised:** at least one `review_fail → new` retry occurs (synthetic if needed) with structured diagnostics consumed by the implementer on retry.
+- **Channel failover exercised:** at least one fallback invocation is recorded in `ChannelFailPayload.diagnostics` without manual intervention; the run still meets the lock-rate target.
+- **Gate budget:** total mechanical-gate count ≤15 (Phase 4 budget, §10). A jury gate counts as one regardless of juror count.
+- **Capability gate for new channels:** any model added to a load-bearing role since the prior golden run has a recorded capability-probe result (BC-137 framework) covering that role.
+- **Run-log discipline:** every GR-NNN referenced in commits has a corresponding `golden-run-NNN-log.md` in the repo root.
 
 **Phase 5 — First real workload.** *(Requires RFC-017, RFC-019, RFC-020, RFC-021)*
 - Pick a small LoB tool to build end-to-end.

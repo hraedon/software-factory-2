@@ -45,7 +45,7 @@ Reusable tags:
 | # | Title | Severity | Status |
 |---|---|---|---|
 | 138 | Qwen 3.6-27b operational timeout on test_author and implementer roles (>600s) | medium | proposed |
-| 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | high | proposed (deferred to Phase 4) |
+| 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
 ### RFCs (awaiting upstream phases)
 

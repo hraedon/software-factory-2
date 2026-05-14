@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -16,6 +17,7 @@ from factory.constants import (
     TRANSITION_CHANNEL_FAIL,
     TRANSITION_GATE_FAIL,
     TRANSITION_GATE_PASS,
+    TRANSITION_ROUTE_TO_CANNOT_PROCEED,
     TRANSITION_SUBMIT,
 )
 from factory.event_schemas import (
@@ -509,6 +511,121 @@ def format_pass_rate_table(rows: list[PassRateRow]) -> str:
     return "\n".join(lines)
 
 
+# Regex patterns for contract-shaped complaints in cannot_proceed rationales.
+# Used by telemetry to count BC-120 trigger instances empirically.
+CONTRACT_COMPLAINT_PATTERNS: frozenset[str] = frozenset(
+    {
+        r"signature",
+        r"parameter\s+(?:missing|wrong|extra)",
+        r"interface\s+(?:wrong|broken|invalid|mismatch)",
+        r"wrong\s+(?:type|return\s*type)",
+        r"should\s+(?:return|accept|take)",
+        r"contract\s+(?:broken|wrong|invalid)",
+        r"contract\s+is\s+(?:wrong|invalid|broken)",
+        r"missing\s+(?:return|parameter|arg)",
+        r"type\s+mismatch",
+        r"incompatible\s+signature",
+        r"function\s+signature",
+    }
+)
+
+
+def _looks_like_contract_complaint(rationale: str) -> bool:
+    """Return True if a cannot_proceed rationale appears contract-shaped."""
+    text = rationale.lower()
+    return any(re.search(pat, text) for pat in CONTRACT_COMPLAINT_PATTERNS)
+
+
+@dataclass
+class ContractComplaintMetrics:
+    total_cannot_proceed: int
+    contract_shaped: int
+    cross_family_review_agreed: int
+    samples: list[str]
+
+
+def collect_contract_complaints(sub: Substrate, config: FactoryConfig) -> ContractComplaintMetrics:
+    """Scan cannot_proceed events for contract-shaped complaints.
+
+    This is the cheap instrumentation for BC-120: instead of building a
+    structured amendment artifact, we regex-scan rationales and count hits.
+    Reactivation trigger: ≥3 instances where cross-family reviewer agreed
+    contract was proximate cause AND inner gate (post-RFC-013) could not
+    resolve via richer diagnostics.
+    """
+    page = sub.query_work_items(
+        workflow_name=config.workflow_name,
+        workflow_version=config.workflow_version,
+        page_size=config.query_page_size,
+    )
+    total = 0
+    contract_shaped = 0
+    cross_family_agreed = 0
+    samples: list[str] = []
+
+    for wi in page.items:
+        if wi.current_state != STATE_CANNOT_PROCEED:
+            continue
+        events = sub.read_events(work_item_id=wi.work_item_id, limit=config.telemetry_event_limit)
+        for ev in events:
+            if ev.transition != TRANSITION_ROUTE_TO_CANNOT_PROCEED:
+                continue
+            total += 1
+            # Try payload first, then fallback to ev.custom_fields (future compat)
+            payload = ev.payload or {}
+            if "custom_fields_update" in payload:
+                diagnostics = payload["custom_fields_update"].get("diagnostics", {})
+            else:
+                cf = getattr(ev, "custom_fields", None) or {}
+                diagnostics = cf.get("diagnostics", {})
+            rationale = diagnostics.get("rationale", "")
+            if not rationale and isinstance(diagnostics, dict):
+                rationale = str(diagnostics.get("message", diagnostics.get("reason", "")))
+            if _looks_like_contract_complaint(rationale):
+                contract_shaped += 1
+                if len(samples) < 5:
+                    samples.append(rationale[:200])
+            # Cross-family reviewer agreement: look for a preceding review_fail
+            # with diagnostics citing the contract. This is approximate — the
+            # full check requires reading linked review work items.
+            for rev_ev in events:
+                if rev_ev.transition == "review_fail":
+                    rev_diagnostics = (rev_ev.payload or {}).get("diagnostics", {})
+                    rev_msg = str(rev_diagnostics.get("message", "")).lower()
+                    if any(k in rev_msg for k in ("contract", "interface", "signature")):
+                        cross_family_agreed += 1
+                        break
+
+    return ContractComplaintMetrics(
+        total_cannot_proceed=total,
+        contract_shaped=contract_shaped,
+        cross_family_review_agreed=cross_family_agreed,
+        samples=samples,
+    )
+
+
+def format_contract_complaint_summary(metrics: ContractComplaintMetrics) -> str:
+    lines: list[str] = []
+    lines.append("-" * 70)
+    lines.append("Contract Complaint Telemetry (BC-120 trigger watch)")
+    lines.append("-" * 70)
+    lines.append(f"  Total cannot_proceed events:        {metrics.total_cannot_proceed}")
+    lines.append(
+        f"  Contract-shaped rationales:         {metrics.contract_shaped}  (trigger threshold: ≥3)"
+    )
+    lines.append(
+        f"  Cross-family reviewer agreed:       {metrics.cross_family_review_agreed}  "
+        f"(trigger threshold: ≥3)"
+    )
+    if metrics.samples:
+        lines.append("")
+        lines.append("  Sample rationales (first 200 chars):")
+        for s in metrics.samples:
+            lines.append(f"    • {s!r}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def run_telemetry_report(config: FactoryConfig) -> str:
     sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
     try:
@@ -517,7 +634,9 @@ def run_telemetry_report(config: FactoryConfig) -> str:
         metrics = compute_exit_criteria(sub, config, attempts)
         detail = format_pass_rate_table(rows)
         summary = format_exit_criteria_summary(metrics)
-        return summary + "\n" + detail
+        complaint_metrics = collect_contract_complaints(sub, config)
+        complaint_summary = format_contract_complaint_summary(complaint_metrics)
+        return summary + "\n" + complaint_summary + "\n" + detail
     finally:
         sub.close()
 

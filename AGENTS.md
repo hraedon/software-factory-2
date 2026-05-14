@@ -52,7 +52,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys
 - 5 workflow YAMLs: phase1.yaml, phase2.yaml, phase3.yaml, phase4.yaml (review + jury), full_pipeline.yaml
 - Spec lint integrated into `populate_work_items.py` (BC-127)
-- 620 passing tests, 0 lint errors
+- 650 passing tests, 0 lint errors
 - Inner gate telemetry: submit payloads carry `inner_gate_attempts`; telemetry reports inner gate first-pass rate (BC-133)
 - Jury observability: `disagreement_rationale` always populated when quorum not met; `[all_against]` tag for all-failure cases (BC-134)
 - 25 golden runs executed (GR-001 through GR-025)

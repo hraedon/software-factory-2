@@ -4,6 +4,38 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-14 — Session 30: Housekeeping — Opus feedback resolution
+
+**Invocation:** OpenCode (fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo)
+
+**Focus:** Resolve loose ends identified by Opus in adversarial review: backfill missing golden-run logs, move resolved breadcrumb, update AGENTS.md stale counts.
+
+### Items completed
+
+1. **Golden-run log backfill (023/024/025):** Created standalone `golden-run-NNN-log.md` files for GR-023 (broken-impl fixture, K2-only, 5/5 locked), GR-024 (GLM-5.1 isolated validation, implementer empty-output failure), and GR-025 (mixed-family K2 + GLM jury, jury_disagree exercised, quorum=0%). Restores run-log auditability without reverting to `git log`.
+
+2. **BC-136 moved to `breadcrumbs/resolved/`:** `136-channel-failover-backup.md` relocated; README.md index updated. BC-136 was implemented in commit `224aaff` (Session 29) but remained in open breadcrumbs due to oversight.
+
+3. **AGENTS.md updated:**
+   - Test count updated: 620 → 650 (Session 29 added 13 channel-failover tests)
+   - Open breadcrumb count: 2 → 1 (BC-136 resolved). Now reads: "1 open breadcrumb (0 critical, 0 high, 1 medium, 0 low) + 1 proposed (deferred to Phase 4) + 18 RFCs."
+   - Breadcrumb status in README.md already correct.
+
+### Items already correct (no change needed)
+
+- **Spec.md Phase 4 exit criteria:** Already present in §10 (lines 310–329) from a prior edit. Telemetry header already reads "Pipeline Exit Criteria Summary" in commit `48ad1fe` (BC-133 resolution).
+- **Telemetry header:** "Pipeline Exit Criteria Summary" is correct and phase-agnostic.
+
+### Breadcrumbs status
+
+- **Open:** 138 (medium), 120 (high, proposed).
+- **Resolved in this session:** 136 (high).
+
+### Test results: 650 pass, 13 skipped, 0 lint errors
+
+---
+
+
 ## 2026-05-14 — Session 29: Gemini capability probe; BC-136/138 triage
 
 **Invocation:** OpenCode (fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo)
