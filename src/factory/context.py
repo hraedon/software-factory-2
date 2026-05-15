@@ -14,6 +14,7 @@ from factory.constants import (
     CUSTOM_FIELD_ARTIFACT_PATH,
     CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_IMPLEMENTATION_REF,
+    CUSTOM_FIELD_INTEGRATION_REF,
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_REVIEW_FEEDBACK,
     CUSTOM_FIELD_REVIEW_REF,
@@ -65,7 +66,8 @@ def derive_context(
     stub_only_deps: list[str] | None = None,
     export_map: dict[str, set[str]] | None = None,
 ) -> PromptContext:
-    wi = substrate.get_work_item(work_item_id)
+    wi_id = _to_uuid(work_item_id)
+    wi = substrate.get_work_item(wi_id)
     if wi is None:
         raise ValueError(f"Work item {work_item_id} not found")
     custom = wi.custom_fields or {}
@@ -389,19 +391,64 @@ def derive_integrator_context(
 ) -> PromptContext:
     """Derive context for the integrator role.
 
-    Reads linked implementation artifacts through derived_from links on the
-    integration work item.  Skeleton for Phase 5 — link resolution deferred to
-    full scheduler wiring.
+    Chases the work-item chain (integration -> jury -> review -> implementation)
+    to inject the focal implementation, interface, and test suite plus all
+    dependency module contents into the prompt.
     """
-    # For Phase 5 skeleton: basic context only.  Full multi-link resolution
-    # (integration -> jury -> review -> implementation) requires substrate link
-    # traversal which is not yet implemented in context.py.
+    wi_id = _to_uuid(work_item_id)
+    wi = substrate.get_work_item(wi_id)
+    if wi is None:
+        raise ValueError(f"Work item {work_item_id} not found")
+    custom = wi.custom_fields or {}
+
+    extra_artifacts: dict[str, str] = {}
+    stub_only: list[str] = []
+    export_map: dict[str, set[str]] = {}
+
+    integration_ref = custom.get(CUSTOM_FIELD_INTEGRATION_REF)
+    if integration_ref:
+        jury_wi = substrate.get_work_item(_to_uuid(integration_ref))
+        if jury_wi and jury_wi.custom_fields:
+            review_ref = jury_wi.custom_fields.get(CUSTOM_FIELD_REVIEW_REF)
+            if review_ref:
+                review_wi = substrate.get_work_item(_to_uuid(review_ref))
+                if review_wi and review_wi.custom_fields:
+                    review_custom = review_wi.custom_fields
+                    focal_impl = _resolve_ref_artifact(
+                        substrate, review_custom.get(CUSTOM_FIELD_IMPLEMENTATION_REF)
+                    )
+                    focal_iface = _resolve_ref_artifact(
+                        substrate, review_custom.get(CUSTOM_FIELD_INTERFACE_REF)
+                    )
+                    focal_tests = _resolve_ref_artifact(
+                        substrate, review_custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
+                    )
+                    if focal_impl:
+                        extra_artifacts["focal_implementation"] = focal_impl
+                    if focal_iface:
+                        extra_artifacts["focal_interface"] = focal_iface
+                    if focal_tests:
+                        extra_artifacts["focal_test_suite"] = focal_tests
+
+                    impl_ref = review_custom.get(CUSTOM_FIELD_IMPLEMENTATION_REF)
+                    if impl_ref:
+                        impl_wi = substrate.get_work_item(_to_uuid(impl_ref))
+                        if impl_wi and impl_wi.custom_fields:
+                            dep_contents, stub_only = _resolve_dependency_contents(
+                                substrate, impl_wi.custom_fields
+                            )
+                            extra_artifacts.update(dep_contents)
+                            export_map = _build_export_map_from_contents(dep_contents)
+
     return derive_context(
         substrate,
         work_item_id,
         role=ROLE_INTEGRATOR,
         spec_content=spec_content,
         spec_glossary=spec_glossary,
+        extra_artifacts=extra_artifacts,
+        stub_only_deps=stub_only,
+        export_map=export_map,
     )
 
 
@@ -413,15 +460,42 @@ def derive_outcome_verifier_context(
 ) -> PromptContext:
     """Derive context for the outcome_verifier role.
 
-    Reads the integration artifact referenced by integration_ref.  Skeleton for
-    Phase 5 — link resolution deferred to full scheduler wiring.
+    Reads the integration artifact referenced by integration_ref and injects
+    the assembled module tree and integration tests into the prompt.
     """
+    wi_id = _to_uuid(work_item_id)
+    wi = substrate.get_work_item(wi_id)
+    if wi is None:
+        raise ValueError(f"Work item {work_item_id} not found")
+    custom = wi.custom_fields or {}
+
+    extra_artifacts: dict[str, str] = {}
+    integration_ref = custom.get(CUSTOM_FIELD_INTEGRATION_REF)
+    if integration_ref:
+        integration_wi = substrate.get_work_item(_to_uuid(integration_ref))
+        if integration_wi and integration_wi.custom_fields:
+            artifact_path = integration_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
+            if artifact_path:
+                p = Path(artifact_path)
+                if p.exists():
+                    try:
+                        data = json.loads(p.read_text())
+                    except Exception:
+                        data = {}
+                    assembled_tree = data.get("assembled_tree") or {}
+                    for filename, source in assembled_tree.items():
+                        extra_artifacts[f"assembled_module_{filename}"] = str(source)
+                    integration_tests = data.get("integration_tests")
+                    if integration_tests:
+                        extra_artifacts["integration_tests"] = str(integration_tests)
+
     return derive_context(
         substrate,
         work_item_id,
         role=ROLE_OUTCOME_VERIFIER,
         spec_content=spec_content,
         spec_glossary=spec_glossary,
+        extra_artifacts=extra_artifacts,
     )
 
 

@@ -298,7 +298,11 @@ def process_gate_item(
         gate_result = evaluate_jury(artifact_path)
     elif wi.work_item_type == WORK_ITEM_TYPE_INTEGRATION:
         # Integration artifacts are JSON manifests with assembled_tree
-        gate_result = evaluate_integration(artifact_path)
+        gate_result = evaluate_integration(
+            artifact_path,
+            python_executable=python_executable,
+            gate_timeouts=config.gate_timeouts,
+        )
     elif wi.work_item_type == WORK_ITEM_TYPE_OUTCOME_VERIFICATION:
         # Outcome verification artifacts are JSON verdicts
         gate_result = evaluate_outcome_verification(artifact_path)

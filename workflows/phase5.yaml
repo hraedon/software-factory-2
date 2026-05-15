@@ -306,6 +306,11 @@ work_item_types:
         target_work_item_type: integration
         required: false
         ui_visible: true
+      - name: integration_ref
+        type: work_item_ref
+        target_work_item_type: jury
+        required: false
+        ui_visible: true
 
   - name: outcome_verification
     custom_fields:
@@ -352,14 +357,8 @@ link_types:
   - name: judges
     source_type: jury
     target_type: review
-  - name: derived_from
-    source_type: integration
-    target_type: implementation
   - name: supersedes
     source_type: integration
-    target_type: integration
-  - name: derived_from
-    source_type: outcome_verification
     target_type: integration
 
 attempt_threshold: 3

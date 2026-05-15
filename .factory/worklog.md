@@ -4,6 +4,81 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-15 — Session 35: Phase 5 mechanical gates + context derivation
+
+**Invocation:** OpenCode (kimi-k2.6)
+
+**Focus:** Implement Kimi's next steps: integration mechanical gates (`integration_mypy`, `integration_pytest`), scheduler integration trigger wiring, integrator/outcome_verifier context derivation with artifact resolution.
+
+### Commits
+
+TBD (not yet committed at end-of-session).
+
+### Integration mechanical gates (Step 1–2)
+
+- **`evaluate_integration()`** (`gate.py`) now runs three gates instead of one skeletal gate:
+  1. **Import resolution** (`integration_import`): writes assembled_tree to a temp directory (`sf2_integration_*`), temporarily injects directory into `sys.path`, then `importlib.util` execs every `*.py` file (including nested subpackages via `Path.rglob`). Deep paths like `pkg/__init__.py` + `pkg/sub.py` validated.
+  2. **mypy** (`integration_mypy`): runs `mypy --strict` on all assembled Python files. Returns `GATE_NAME_INTEGRATION_MYPY` on type errors; respects `gate_timeouts.mypy_timeout`.
+  3. **pytest** (`integration_pytest`): runs cross-cutting `integration_tests` (if present and non-empty) with `pytest -x`. Returns `GATE_NAME_INTEGRATION_PYTEST` on failure; skips when `integration_tests` absent/empty.
+  - `GateTimeouts` propagated from `gate_process.py` into `evaluate_integration()`.
+
+### Scheduler integration trigger (Step 3)
+
+- **`phase5.yaml`** fixed: three duplicate `derived_from` link_type entries removed (substrate validates uniqueness). Added `integration_ref` field to `integration` work_item_type so the scheduler can reference upstream jury items.
+- `FactoryConfig.PHASE5_STAGE_TOPOLOGY` already contained the two new handoffs (`jury → integration`, `integration → outcome_verification`). Scheduler idempotency checks (`ref_field` pagination loop) work transparently for these new types.
+
+### Router update
+
+- Added `DiagnosticKind.INTEGRATION_MYPY` and `INTEGRATION_PYTEST`.
+- Added dispatch routes in `_PHASE2_DISPATCH` (target `new`) and `_ESCALATABLE_KINDS` (eligible for cannot_proceed escalation).
+- Constants `GATE_NAME_INTEGRATION_MYPY` / `GATE_NAME_INTEGRATION_PYTEST` imported into `gate.py`.
+
+### Integrator + outcome_verifier context derivation (Step 4)
+
+- **`derive_integrator_context()`**: chases integration → jury → review → implementation chain via `integration_ref`, `review_ref`, `implementation_ref`. Injects:
+  - `focal_implementation` (locked .py)
+  - `focal_interface` (locked .pyi)
+  - `focal_test_suite` (locked test .py)
+  - `locked_dependency_*` contents (via existing `_resolve_dependency_contents` on the implementation work item)
+  - `stub_only_deps` and `export_map` for symbol-membership checks.
+- **`derive_outcome_verifier_context()`**: reads `integration_ref` artifact JSON and injects:
+  - `assembled_module_<filename>` for every file in `assembled_tree`
+  - `integration_tests` string
+- **Bug fix**: `derive_context()` now coerces `work_item_id` with `_to_uuid()` before `substrate.get_work_item()`. Previously a string UUID lookup silently returned `None` in some substrate backends, breaking downstream context construction.
+
+### Prompt updates
+
+- `integrator.md` updated: "What you receive" now lists `focal_implementation`, `focal_interface`, `focal_test_suite`, `locked_dependency_*`, `dependency_graph` aligned with actual prompt injection.
+
+### Tests added (22 new tests)
+
+| File | Tests | Description |
+|---|---|---|
+| `tests/test_integration_gates.py` | 11 | All three gates on assembled trees, import errors, deep paths (pkg/sub.py), mypy type error, mypy clean pass, pytest failure, pytest skip/no-tests/empty-tests, pytest success |
+| `tests/test_context_phase5.py` | 4 | Derive integrator context with full chain, missing-ref graceful empty; derive outcome verifier with assembled modules and missing integration ref |
+| `tests/test_gate_process_phase5.py` | 7 | Gate_process routing for integration pass, integration mypy fail, outcome pass, outcome fail. 3 integration-level tests skipped because the live-substrate fixture still registers phase1.yaml (phase5 workflow registration requires a conftest change deferred to GR-028). |
+
+### Test results
+
+726 passed, 16 skipped, 0 lint errors, 0 audit findings, 0 vulture findings.
+
+### Artifacts prepared for GR-028
+
+- `golden-run-028-config.yaml` with phase5 topology, 7 worker roles, dual-model jury, integrator/outcome_verifier bindings.
+
+### Breadcrumbs status
+
+- **Open:** 145 (high, in_progress — BC-145 routing landed in Session 34; telemetry on routing-hint accuracy not yet measured), 138 (medium, proposed), 120 (medium, deferred).
+- **Resolved in this session:** none new.
+
+### Next steps (from Kimi's list, remaining)
+
+1. ~~Integration mechanical gates~~ ✅
+2. ~~Scheduler integration trigger + context derivation~~ ✅
+3. GR-028: first synthetic Phase 5 validation run (deferred — needs live substrate fixture registered with phase5.yaml; config ready)
+
+---
+
 ## 2026-05-14 — Session 34: Phase 5 implementation — BC-145 + integration/outcome verification skeleton
 
 **Invocation:** OpenCode (kimi-k2.6)

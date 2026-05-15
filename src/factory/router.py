@@ -42,6 +42,8 @@ class DiagnosticKind(StrEnum):
     REVIEW_MALFORMED = "review_malformed"
     REVIEW_FOUND_DEFECT = "review_found_defect"
     INTEGRATION_IMPORT = "integration_import"
+    INTEGRATION_MYPY = "integration_mypy"
+    INTEGRATION_PYTEST = "integration_pytest"
     OUTCOME_E2E = "outcome_e2e"
 
 
@@ -171,6 +173,12 @@ _PHASE2_DISPATCH = {
     DiagnosticKind.INTEGRATION_IMPORT: Route(
         target_state=STATE_NEW,
     ),
+    DiagnosticKind.INTEGRATION_MYPY: Route(
+        target_state=STATE_NEW,
+    ),
+    DiagnosticKind.INTEGRATION_PYTEST: Route(
+        target_state=STATE_NEW,
+    ),
     DiagnosticKind.OUTCOME_E2E: Route(
         target_state=STATE_NEW,
     ),
@@ -200,6 +208,8 @@ _ESCALATABLE_KINDS = {
     DiagnosticKind.REVIEW_MALFORMED,
     DiagnosticKind.JURY,
     DiagnosticKind.INTEGRATION_IMPORT,
+    DiagnosticKind.INTEGRATION_MYPY,
+    DiagnosticKind.INTEGRATION_PYTEST,
     DiagnosticKind.OUTCOME_E2E,
 }
 

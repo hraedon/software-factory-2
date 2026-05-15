@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import os
 import shutil
 import subprocess
 import sys
@@ -21,6 +22,8 @@ from factory.constants import (
     GATE_NAME_IMPLEMENTATION_PYTEST,
     GATE_NAME_IMPLEMENTATION_SYNTAX,
     GATE_NAME_INTEGRATION_IMPORT,
+    GATE_NAME_INTEGRATION_MYPY,
+    GATE_NAME_INTEGRATION_PYTEST,
     GATE_NAME_INTERFACE_SPEC,
     GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
     GATE_NAME_INTERFACE_SPEC_NOT_EMPTY,
@@ -1045,13 +1048,22 @@ def evaluate_jury(artifact_path: Path) -> GateResult:
 # ---------------------------------------------------------------------------
 
 
-def evaluate_integration(artifact_path: Path) -> GateResult:
+def evaluate_integration(
+    artifact_path: Path,
+    python_executable: str | None = None,
+    gate_timeouts: GateTimeouts | None = None,
+) -> GateResult:
     """Evaluate an integration artifact.
 
     Expects a JSON object with `assembled_tree` (dict of filename -> source).
     Mechanical gates: import resolution, mypy, pytest on assembled tree.
     """
     import json
+    import subprocess
+    import tempfile
+
+    t = gate_timeouts or GateTimeouts()
+    exe = python_executable or sys.executable
 
     size_guard = _guard_artifact_size(artifact_path)
     if size_guard is not None:
@@ -1084,13 +1096,11 @@ def evaluate_integration(artifact_path: Path) -> GateResult:
             diagnostic_kind="integration_import",
         )
 
-    # Write assembled tree to a temp directory and run import check
-    import tempfile
-
     with tempfile.TemporaryDirectory(prefix="sf2_integration_") as tmpdir:
         tmp_path = Path(tmpdir)
         for filename, source in assembled_tree.items():
             dest = tmp_path / filename
+            dest.parent.mkdir(parents=True, exist_ok=True)
             try:
                 dest.write_text(str(source))
             except Exception as exc:
@@ -1103,16 +1113,23 @@ def evaluate_integration(artifact_path: Path) -> GateResult:
 
         # Gate 1: import resolution
         import_errors: list[str] = []
-        for py_file in tmp_path.glob("*.py"):
-            module_name = py_file.stem
-            try:
-                spec = __import__("importlib.util").util.spec_from_file_location(
-                    module_name, py_file
-                )
-                mod = __import__("importlib.util").util.module_from_spec(spec)
-                spec.loader.exec_module(mod)
-            except Exception as exc:
-                import_errors.append(f"{py_file.name}: {exc}")
+        py_files = sorted(tmp_path.rglob("*.py"))
+        # Temporarily add tmp_path to sys.path for intra-package imports
+        _original_sys_path = list(sys.path)
+        sys.path.insert(0, str(tmp_path))
+        try:
+            for py_file in py_files:
+                module_name = py_file.stem
+                try:
+                    spec = __import__("importlib.util").util.spec_from_file_location(
+                        module_name, py_file
+                    )
+                    mod = __import__("importlib.util").util.module_from_spec(spec)
+                    spec.loader.exec_module(mod)
+                except Exception as exc:
+                    import_errors.append(f"{py_file.name}: {exc}")
+        finally:
+            sys.path[:] = _original_sys_path
 
         if import_errors:
             return GateResult(
@@ -1125,8 +1142,64 @@ def evaluate_integration(artifact_path: Path) -> GateResult:
                 diagnostic_kind="integration_import",
             )
 
-        # Gate 2: mypy on assembled tree (deferred to Phase 5 gating — skeletal)
-        # Gate 3: integration pytest (deferred to Phase 5 gating — skeletal)
+        # Gate 2: mypy on assembled tree
+        mypy_targets = [str(f) for f in py_files]
+        if mypy_targets:
+            mypy_result = subprocess.run(
+                [exe, "-m", "mypy", "--strict", "--no-error-summary", *mypy_targets],
+                capture_output=True,
+                text=True,
+                timeout=t.mypy_timeout,
+                cwd=str(tmp_path),
+                env={**os.environ, "MYPYPATH": str(tmp_path)},
+            )
+            if "No module named mypy" in mypy_result.stderr:
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_INTEGRATION_MYPY,
+                    diagnostics=["mypy not installed"],
+                    diagnostic_kind="tool_not_found",
+                )
+            if mypy_result.returncode != 0:
+                lines = mypy_result.stdout.strip().splitlines()
+                diagnostics = lines[:10] if lines else ["mypy reported errors on assembled tree"]
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_INTEGRATION_MYPY,
+                    diagnostics=diagnostics,
+                    diagnostic_kind="integration_mypy",
+                )
+
+        # Gate 3: integration pytest
+        integration_tests = data.get("integration_tests")
+        if integration_tests:
+            test_path = tmp_path / "integration_tests.py"
+            test_path.write_text(str(integration_tests))
+            pytest_result = subprocess.run(
+                [exe, "-m", "pytest", str(test_path), "-x", "--tb=short", "-q"],
+                capture_output=True,
+                text=True,
+                timeout=t.pytest_timeout,
+                cwd=str(tmp_path),
+                env={**os.environ, "PYTHONPATH": str(tmp_path)},
+            )
+            if "No module named pytest" in pytest_result.stderr:
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_INTEGRATION_PYTEST,
+                    diagnostics=["pytest not installed"],
+                    diagnostic_kind="tool_not_found",
+                )
+            if pytest_result.returncode != 0:
+                lines = pytest_result.stdout.strip().splitlines()
+                err_lines = pytest_result.stderr.strip().splitlines()
+                diagnostics = (lines + err_lines)[:10] or ["integration pytest reported failures"]
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_INTEGRATION_PYTEST,
+                    diagnostics=diagnostics,
+                    diagnostic_kind="integration_pytest",
+                )
 
     return GateResult(
         passed=True,
