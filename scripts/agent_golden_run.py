@@ -3,7 +3,9 @@
 
 Encapsulates the pre-flight checklist, workspace isolation, process supervision,
 and monitoring guardrails required for unattended agent execution of factory
-golden runs. Never touches application state stores (e.g. opencode DB).
+golden runs. Never touches the principal's persistent application state stores:
+- ~/.local/share/opencode/opencode.db is isolated via XDG_DATA_HOME per run
+- The isolated opencode session DB is written to a temp dir and cleaned up after
 
 Usage:
     python scripts/agent_golden_run.py --config golden-run-NNN-config.yaml \
@@ -13,15 +15,17 @@ The script will:
 1. Validate pre-flight checks (open critical/high breadcrumbs, attempt_threshold, workspace root)
 2. Populate work items
 3. Launch runner + gate + scheduler from repo root (opencode requires project context)
-4. Monitor logs every 30s for danger signals
-5. Pause and print a loud warning if any guardrail trips
-6. Run telemetry when processes go idle
-7. Offer to clean up workspace + logs (never the opencode DB)
+4. Isolate opencode session DB via XDG_DATA_HOME to a temp directory per run
+5. Monitor logs every 30s for danger signals
+6. Pause and print a loud warning if any guardrail trips
+7. Run telemetry when processes go idle
+8. Clean up workspace, logs, and isolated opencode DB (never the principal's DB)
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -186,7 +190,7 @@ def _populate(config_path: Path, fixtures: str | None) -> None:
 
 
 def _launch_processes(
-    config_path: Path, log_prefix: str
+    config_path: Path, log_prefix: str, xdg_data_home: Path | None = None
 ) -> tuple[subprocess.Popen, subprocess.Popen, subprocess.Popen]:
     """Launch runner, gate, scheduler from repo root. Returns Popen objects.
 
@@ -194,6 +198,10 @@ def _launch_processes(
     requires a project directory with opencode config to function. The
     workspace_root in the config YAML controls artifact output location,
     which is already isolated under /tmp/sf2-golden-NNN.
+
+    If *xdg_data_home* is provided, it is injected into the child environment
+    as XDG_DATA_HOME so that opencode stores its session DB there instead of
+    the principal's persistent store (~/.local/share/opencode).
     """
     _info("Launching pipeline processes from repo root...")
     runner_log = Path(f"/tmp/{log_prefix}-runner.log")
@@ -204,23 +212,31 @@ def _launch_processes(
     for p in (runner_log, gate_log, sched_log):
         p.unlink(missing_ok=True)
 
+    env = os.environ.copy()
+    if xdg_data_home is not None:
+        env["XDG_DATA_HOME"] = str(xdg_data_home)
+        _info(f"XDG_DATA_HOME={xdg_data_home} (isolated opencode DB)")
+
     runner = subprocess.Popen(
         [sys.executable, "-m", "factory.runner", "--config", str(config_path)],
         stdout=open(runner_log, "w"),
         stderr=subprocess.STDOUT,
         cwd=str(REPO_ROOT),
+        env=env,
     )
     gate = subprocess.Popen(
         [sys.executable, "-m", "factory.gate_process", "--config", str(config_path)],
         stdout=open(gate_log, "w"),
         stderr=subprocess.STDOUT,
         cwd=str(REPO_ROOT),
+        env=env,
     )
     scheduler = subprocess.Popen(
         [sys.executable, "-m", "factory.scheduler", "--config", str(config_path)],
         stdout=open(sched_log, "w"),
         stderr=subprocess.STDOUT,
         cwd=str(REPO_ROOT),
+        env=env,
     )
 
     _info(f"Runner PID={runner.pid}, Gate PID={gate.pid}, Scheduler PID={scheduler.pid}")
@@ -330,23 +346,36 @@ def _run_telemetry(config_path: Path) -> None:
 
 
 def _cleanup_offered(
-    workspace_root: str, log_prefix: str, log_dir: str = "/tmp"
+    workspace_root: str,
+    log_prefix: str,
+    log_dir: str = "/tmp",
+    xdg_data_home: Path | None = None,
 ) -> None:
-    """Offer to clean workspace and logs. Never touch opencode DB."""
+    """Clean workspace, logs, and isolated opencode DB.
+
+    The principal's persistent opencode store (~/.local/share/opencode/)
+    is never touched. If *xdg_data_home* was provided, that temp directory
+    (and the isolated opencode DB inside it) is also removed.
+    """
     wr = Path(workspace_root)
     logs = [Path(f"{log_dir}/{log_prefix}-{suffix}.log") for suffix in ("runner", "gate", "scheduler")]
     _info("=== Cleanup ===")
     _info(f"Workspace: {wr}")
     _info(f"Logs: {', '.join(str(log) for log in logs)}")
+    if xdg_data_home is not None:
+        _info(f"Isolated opencode DB: {xdg_data_home}")
     _info("NOTE: This script NEVER touches ~/.local/share/opencode/ or any application DB.")
     # In non-interactive mode (agent), just clean up automatically
-    _info("Auto-cleaning workspace + logs (non-interactive mode)...")
+    _info("Auto-cleaning workspace + logs + isolated DB (non-interactive mode)...")
     if wr.exists():
         shutil.rmtree(wr)
         _info(f"Removed {wr}")
     for log in logs:
         log.unlink(missing_ok=True)
         _info(f"Removed {log}")
+    if xdg_data_home is not None and xdg_data_home.exists():
+        shutil.rmtree(xdg_data_home)
+        _info(f"Removed {xdg_data_home}")
 
 
 def main() -> None:
@@ -378,9 +407,15 @@ def main() -> None:
 
     log_prefix = args.log_prefix or config_path.stem
 
+    # Isolate opencode session DB so factory runs don't clutter the principal's UI.
+    xdg_data_home = Path(f"/tmp/sf2-golden-{log_prefix}-opencode-data")
+    xdg_data_home.mkdir(parents=True, exist_ok=True)
+
     _preflight(config_path, args.fixtures)
     _populate(config_path, args.fixtures)
-    runner, gate, scheduler = _launch_processes(config_path, log_prefix)
+    runner, gate, scheduler = _launch_processes(
+        config_path, log_prefix, xdg_data_home=xdg_data_home
+    )
     procs = (runner, gate, scheduler)
 
     try:
@@ -401,7 +436,11 @@ def main() -> None:
 
     if not args.no_cleanup:
         cfg = _validate_config(config_path)
-        _cleanup_offered(cfg["workspace_root"], log_prefix)
+        _cleanup_offered(
+            cfg["workspace_root"],
+            log_prefix,
+            xdg_data_home=xdg_data_home,
+        )
 
     _info("Done.")
 

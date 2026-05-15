@@ -1,0 +1,106 @@
+workflow_name: software_factory
+workflow_version: 5
+dsn: postgresql://substrate_test:substrate_test@localhost:5432/substrate_test
+project_name: sf2_golden_029
+hmac_key_path: /projects/software-factory-2/tests/test_keys.json
+workspace_root: /tmp/sf2-golden-029
+invocation_cwd: /projects/software-factory-2
+spec_file: null
+poll_interval_seconds: 5
+claim_ttl_seconds: 600
+attempt_threshold: 3
+use_project_venv: true
+inner_gate_retries: 2
+jury_quorum: 1
+stage_topology:
+  - source_type: interface_spec
+    source_state: locked
+    target_type: test_suite
+    link_type: derived_from
+    ref_field: interface_ref
+  - source_type: test_suite
+    source_state: locked
+    target_type: implementation
+    link_type: tested_by
+    additional_links:
+      - implements
+    ref_field: test_suite_ref
+    propagate_fields:
+      - interface_ref
+  - source_type: implementation
+    source_state: locked
+    target_type: review
+    link_type: reviews
+    ref_field: implementation_ref
+    propagate_fields:
+      - interface_ref
+      - test_suite_ref
+  - source_type: review
+    source_state: locked
+    target_type: jury
+    link_type: judges
+    ref_field: review_ref
+  - source_type: jury
+    source_state: locked
+    target_type: integration
+    link_type: derived_from
+    ref_field: integration_ref
+  - source_type: integration
+    source_state: locked
+    target_type: outcome_verification
+    link_type: derived_from
+    ref_field: integration_ref
+worker_roles:
+  - interface_architect
+  - test_author
+  - implementer
+  - cross_family_reviewer
+  - frontier_judge
+  - integrator
+  - outcome_verifier
+gate_roles:
+  - mechanical_gate
+type_to_role:
+  - [interface_spec, interface_architect]
+  - [test_suite, test_author]
+  - [implementation, implementer]
+  - [review, cross_family_reviewer]
+  - [jury, frontier_judge]
+  - [integration, integrator]
+  - [outcome_verification, outcome_verifier]
+roles:
+  - role: interface_architect
+    channel: opencode
+    timeout_seconds: 600
+    model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
+  - role: test_author
+    channel: opencode
+    timeout_seconds: 600
+    model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
+  - role: implementer
+    channel: opencode
+    timeout_seconds: 600
+    model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
+  - role: cross_family_reviewer
+    channel: opencode
+    timeout_seconds: 600
+    model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
+  - role: frontier_judge
+    channel: opencode
+    timeout_seconds: 600
+    model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
+  - role: frontier_judge
+    channel: opencode
+    timeout_seconds: 600
+    model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
+  - role: integrator
+    channel: opencode
+    timeout_seconds: 600
+    model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
+  - role: outcome_verifier
+    channel: opencode
+    timeout_seconds: 600
+    model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
+  - role: mechanical_gate
+    channel: code
+    timeout_seconds: 120

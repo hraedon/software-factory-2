@@ -184,8 +184,8 @@ The wrapper enforces the BC-140 safety protocol:
    - Validates fixtures path exists.
 
 2. **Workspace isolation**:
-   - Launches runner/gate/scheduler from `/tmp`, never from the repo root.
-   - Prevents opencode session DB pollution (the GR-026 failure mode).
+   - Launches runner/gate/scheduler from repo root (opencode requires project context).
+   - Sets `XDG_DATA_HOME` to a temp directory per run so opencode session state is isolated from the principal's persistent store. No factory sessions clutter the principal's UI. If `--no-cleanup` is passed, that isolated DB dir is preserved and can be captured alongside the workspace for post-run forensics.
 
 3. **Process supervision**:
    - Runs `populate_work_items.py` with `--reset`.
@@ -202,7 +202,8 @@ The wrapper enforces the BC-140 safety protocol:
 5. **Cleanup** (never touches application state):
    - Removes workspace directory (`/tmp/sf2-golden-NNN`).
    - Removes log files (`/tmp/grNNN-*.log`).
-   - **Never** touches `~/.local/share/opencode/opencode.db` or any other application state store.
+   - Removes isolated opencode DB directory (`/tmp/sf2-golden-grNNN-opencode-data/opencode/`).
+   - **Never** touches the principal's persistent store at `~/.local/share/opencode/`.
 
 The wrapper runs non-interactively (auto-cleans), making it suitable for unattended agent execution. The principal can check in periodically; if a guardrail trips, the script exits with a loud fatal message and the processes remain in background for inspection.
 

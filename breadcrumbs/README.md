@@ -44,6 +44,8 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 149 | Model availability regression — DeepSeek and GLM both dead in opencode channel | high | proposed |
+| 148 | Scheduler crashes with exit code 1 during golden run — blocks outcome_verification stage | high | proposed |
 | 147 | Scheduler stuck-item handling for small DAGs — review item orphaned in gating | medium | proposed |
 | 145 | cross_family_review failure is terminal — no route back to implementer for legitimate review-found defects | high | in_progress |
 | 138 | Qwen 3.6-27b operational timeout on test_author and implementer roles (>600s) | medium | proposed |
@@ -141,6 +143,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | 092 | SyntaxError swallowed in gate import checks | high | Replaced `except SyntaxError: pass` with explicit failure GateResults in both test-suite and implementation import gates |
 | 093 | Command injection in pre_gate import smoke check | high | Added `str.isidentifier()` validation in `_run_import_check` before constructing import statement |
 | 094 | Tests write to hardcoded /tmp paths | medium | Replaced hardcoded `/tmp` with `tmp_path` pytest fixture in `test_gate_assertion_count.py` |
+| 150 | Isolate opencode session DB per golden run via XDG_DATA_HOME | medium | `scripts/agent_golden_run.py` sets `XDG_DATA_HOME` per run, cleans up isolated DB; `tests/test_agent_golden_run.py` coverage; docs updated |
 | 095 | No artifact size limits anywhere | high | Added `MAX_ARTIFACT_SIZE_BYTES = 1_000_000` and size checks in runner and subprocess_channel |
 | 086 | Test suite inner gate — pytest --collect-only before outer submission | medium | Added `pre_gate_test_suite()` to `pre_gate.py` running ruff + `pytest --collect-only`; inner gate loop now runs for all three worker roles; gate labels use `GATE_NAME_INNER_*` constants; 7 new tests |
 | 085 | Interface spec inner gate — import smoke check before outer submission | medium | Added `pre_gate_interface_spec()` to `pre_gate.py` running ruff + `python -c "import <module>"` smoke check; prevents locked interface_specs with invalid Python from blocking downstream; 7 new tests |

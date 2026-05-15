@@ -235,3 +235,23 @@ class TestCleanup:
         _cleanup_offered(str(workspace), "gr-test", log_dir=str(tmp_path))
 
         assert not log1.exists()
+
+    def test_cleanup_removes_isolated_opencode_db(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        log1 = tmp_path / "gr-test-runner.log"
+        log1.write_text("log")
+        isolated_db = tmp_path / "isolated-opencode-data"
+        isolated_db.mkdir()
+        (isolated_db / "opencode.db").write_text("db")
+
+        _cleanup_offered(
+            str(workspace),
+            "gr-test",
+            log_dir=str(tmp_path),
+            xdg_data_home=isolated_db,
+        )
+
+        assert not workspace.exists()
+        assert not log1.exists()
+        assert not isolated_db.exists()
