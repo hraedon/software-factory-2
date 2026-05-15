@@ -70,6 +70,8 @@ CUSTOM_FIELD_REVIEW_REF = "review_ref"
 CUSTOM_FIELD_REVIEW_FEEDBACK = "review_feedback"
 CUSTOM_FIELD_REVIEW_FEEDBACK_PENDING = "review_feedback_pending"
 CUSTOM_FIELD_JURY_REF = "jury_ref"
+CUSTOM_FIELD_INTEGRATION_REF = "integration_ref"
+CUSTOM_FIELD_SUPERSEDES_REF = "supersedes_ref"
 
 ACTOR_ID_WORKER_PREFIX = "factory-worker"
 ACTOR_ID_GATE = "factory-gate-code"
@@ -125,6 +127,12 @@ GATE_NAME_CROSS_FAMILY_REVIEW = "cross_family_review"
 GATE_NAME_JURY = "jury"
 GATE_NAME_JURY_QUORUM = "jury_quorum"
 GATE_NAME_JURY_DISAGREE = "jury_disagree"
+
+GATE_NAME_INTEGRATION_IMPORT = "integration_import"
+GATE_NAME_INTEGRATION_MYPY = "integration_mypy"
+GATE_NAME_INTEGRATION_PYTEST = "integration_pytest"
+
+GATE_NAME_OUTCOME_E2E = "outcome_e2e"
 
 GATE_NAME_UNKNOWN_TYPE = "unknown_type"
 GATE_NAME_BEHAVIORAL = "behavioral"

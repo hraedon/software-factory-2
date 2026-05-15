@@ -1,0 +1,365 @@
+name: software_factory
+version: 5
+substrate_version: "0.1.0"
+
+states:
+  - name: new
+    initial: true
+  - name: in_progress
+  - name: gating
+  - name: locked
+    terminal: true
+  - name: cannot_proceed
+    terminal: true
+
+transitions:
+  - name: claim
+    from: new
+    to: in_progress
+    allowed_roles:
+      - interface_architect
+      - test_author
+      - implementer
+      - cross_family_reviewer
+      - frontier_judge
+      - integrator
+      - outcome_verifier
+
+  - name: submit
+    from: in_progress
+    to: gating
+    allowed_roles:
+      - interface_architect
+      - test_author
+      - implementer
+      - cross_family_reviewer
+      - frontier_judge
+      - integrator
+      - outcome_verifier
+
+  - name: cannot_proceed
+    from: in_progress
+    to: cannot_proceed
+    allowed_roles:
+      - interface_architect
+      - test_author
+      - implementer
+      - cross_family_reviewer
+      - frontier_judge
+      - integrator
+      - outcome_verifier
+
+  - name: release
+    from: in_progress
+    to: new
+    allowed_roles:
+      - interface_architect
+      - test_author
+      - implementer
+      - cross_family_reviewer
+      - frontier_judge
+      - integrator
+      - outcome_verifier
+
+  - name: gate_pass
+    from: gating
+    to: locked
+    allowed_roles: [mechanical_gate]
+
+  - name: gate_fail
+    from: gating
+    to: new
+    allowed_roles: [mechanical_gate]
+
+  - name: gate_escalation
+    from: gating
+    to: cannot_proceed
+    allowed_roles: [mechanical_gate]
+
+  - name: channel_fail
+    from: in_progress
+    to: new
+    allowed_roles:
+      - interface_architect
+      - test_author
+      - implementer
+      - cross_family_reviewer
+      - frontier_judge
+      - integrator
+      - outcome_verifier
+
+roles:
+  - name: interface_architect
+  - name: test_author
+  - name: implementer
+  - name: mechanical_gate
+  - name: cross_family_reviewer
+  - name: frontier_judge
+  - name: integrator
+  - name: outcome_verifier
+
+work_item_types:
+  - name: interface_spec
+    custom_fields:
+      - name: spec_section
+        type: string
+        required: true
+        ui_visible: true
+      - name: ac_ids
+        type: json
+        required: true
+        ui_visible: true
+      - name: module_name
+        type: string
+        required: false
+        ui_visible: true
+      - name: shape
+        type: string
+        required: false
+        ui_visible: true
+      - name: dependency_refs
+        type: json
+        required: false
+        ui_visible: true
+      - name: artifact_path
+        type: string
+        ui_visible: true
+      - name: artifact_hash
+        type: string
+        ui_visible: false
+      - name: diagnostics
+        type: json
+        ui_visible: false
+
+  - name: test_suite
+    custom_fields:
+      - name: spec_section
+        type: string
+        required: true
+        ui_visible: true
+      - name: ac_ids
+        type: json
+        required: true
+        ui_visible: true
+      - name: module_name
+        type: string
+        required: false
+        ui_visible: true
+      - name: interface_ref
+        type: work_item_ref
+        target_work_item_type: interface_spec
+        required: true
+        ui_visible: true
+      - name: dependency_refs
+        type: json
+        required: false
+        ui_visible: true
+      - name: artifact_path
+        type: string
+        ui_visible: true
+      - name: artifact_hash
+        type: string
+        ui_visible: false
+      - name: diagnostics
+        type: json
+        ui_visible: false
+
+  - name: implementation
+    custom_fields:
+      - name: spec_section
+        type: string
+        required: true
+        ui_visible: true
+      - name: ac_ids
+        type: json
+        required: true
+        ui_visible: true
+      - name: module_name
+        type: string
+        required: false
+        ui_visible: true
+      - name: interface_ref
+        type: work_item_ref
+        target_work_item_type: interface_spec
+        required: true
+        ui_visible: true
+      - name: test_suite_ref
+        type: work_item_ref
+        target_work_item_type: test_suite
+        required: true
+        ui_visible: true
+      - name: dependency_refs
+        type: json
+        required: false
+        ui_visible: true
+      - name: artifact_path
+        type: string
+        ui_visible: true
+      - name: artifact_hash
+        type: string
+        ui_visible: false
+      - name: diagnostics
+        type: json
+        ui_visible: false
+
+  - name: review
+    custom_fields:
+      - name: spec_section
+        type: string
+        required: true
+        ui_visible: true
+      - name: ac_ids
+        type: json
+        required: true
+        ui_visible: true
+      - name: module_name
+        type: string
+        required: false
+        ui_visible: true
+      - name: interface_ref
+        type: work_item_ref
+        target_work_item_type: interface_spec
+        required: true
+        ui_visible: true
+      - name: test_suite_ref
+        type: work_item_ref
+        target_work_item_type: test_suite
+        required: true
+        ui_visible: true
+      - name: implementation_ref
+        type: work_item_ref
+        target_work_item_type: implementation
+        required: true
+        ui_visible: true
+      - name: dependency_refs
+        type: json
+        required: false
+        ui_visible: true
+      - name: artifact_path
+        type: string
+        ui_visible: true
+      - name: artifact_hash
+        type: string
+        ui_visible: false
+      - name: diagnostics
+        type: json
+        ui_visible: false
+
+  - name: jury
+    custom_fields:
+      - name: spec_section
+        type: string
+        required: false
+        ui_visible: true
+      - name: ac_ids
+        type: json
+        required: false
+        ui_visible: true
+      - name: module_name
+        type: string
+        required: false
+        ui_visible: true
+      - name: review_ref
+        type: work_item_ref
+        target_work_item_type: review
+        required: true
+        ui_visible: true
+      - name: dependency_refs
+        type: json
+        required: false
+        ui_visible: true
+      - name: artifact_path
+        type: string
+        ui_visible: true
+      - name: artifact_hash
+        type: string
+        ui_visible: false
+      - name: diagnostics
+        type: json
+        ui_visible: false
+
+  - name: integration
+    custom_fields:
+      - name: spec_section
+        type: string
+        required: true
+        ui_visible: true
+      - name: ac_ids
+        type: json
+        required: true
+        ui_visible: true
+      - name: module_name
+        type: string
+        required: false
+        ui_visible: true
+      - name: artifact_path
+        type: string
+        ui_visible: true
+      - name: artifact_hash
+        type: string
+        ui_visible: false
+      - name: diagnostics
+        type: json
+        ui_visible: false
+      - name: supersedes_ref
+        type: work_item_ref
+        target_work_item_type: integration
+        required: false
+        ui_visible: true
+
+  - name: outcome_verification
+    custom_fields:
+      - name: spec_section
+        type: string
+        required: true
+        ui_visible: true
+      - name: ac_ids
+        type: json
+        required: true
+        ui_visible: true
+      - name: module_name
+        type: string
+        required: false
+        ui_visible: true
+      - name: integration_ref
+        type: work_item_ref
+        target_work_item_type: integration
+        required: true
+        ui_visible: true
+      - name: artifact_path
+        type: string
+        ui_visible: true
+      - name: artifact_hash
+        type: string
+        ui_visible: false
+      - name: diagnostics
+        type: json
+        ui_visible: false
+
+link_types:
+  - name: implements
+    source_type: implementation
+    target_type: interface_spec
+  - name: tested_by
+    source_type: implementation
+    target_type: test_suite
+  - name: derived_from
+    source_type: test_suite
+    target_type: interface_spec
+  - name: reviews
+    source_type: review
+    target_type: implementation
+  - name: judges
+    source_type: jury
+    target_type: review
+  - name: derived_from
+    source_type: integration
+    target_type: implementation
+  - name: supersedes
+    source_type: integration
+    target_type: integration
+  - name: derived_from
+    source_type: outcome_verification
+    target_type: integration
+
+attempt_threshold: 3

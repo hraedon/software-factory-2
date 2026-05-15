@@ -65,6 +65,9 @@ DETERMINISTIC_GATES = frozenset(
         "jury",
         "jury_quorum",
         "jury_disagree",
+        "integration_import",
+        "integration_mypy",
+        "integration_pytest",
     }
 )
 
