@@ -358,11 +358,11 @@ link_types:
     source_type: jury
     target_type: review
   - name: integrates
-    source_type: jury
-    target_type: integration
-  - name: verified_by
     source_type: integration
-    target_type: outcome_verification
+    target_type: jury
+  - name: verified_by
+    source_type: outcome_verification
+    target_type: integration
   - name: supersedes
     source_type: integration
     target_type: integration

@@ -94,6 +94,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 168 | Phase 5 link types had reversed source/target direction — scheduler create_link failed for integrates and verified_by | high | Reversed source/target in workflows/phase5.yaml; changed golden-run stage_topology link_type from derived_from to integrates/verified_by; validated in GR-030 |
 | RFC-016 | Defect-class taxonomy — evolve breadcrumbs from per-defect entries to class-based corpus | medium | 9 CLASS-NNN files created; filing rule and promotion rule added to README schema; 24 classes identified across 171 resolved BCs |
 | RFC-014 | Staff engineer summarizer — compress outer-path failure history into actionable constraints | medium | failure_summarizer.py with local constraint extraction (import refs, type mismatches, missing symbols, recurring errors); integrated into render_prompt for >=2 prior failures |
 | RFC-004 | Auto-generated pipeline documentation — v1 docs froze while pipeline grew | medium | pipeline_docs.py generates documentation from workflow YAML, router dispatch table, and prompt templates; format_full_doc() produces complete pipeline reference |
