@@ -44,6 +44,7 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 147 | Scheduler stuck-item handling for small DAGs — review item orphaned in gating | medium | proposed |
 | 145 | cross_family_review failure is terminal — no route back to implementer for legitimate review-found defects | high | in_progress |
 | 138 | Qwen 3.6-27b operational timeout on test_author and implementer roles (>600s) | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
