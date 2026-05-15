@@ -4,6 +4,65 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-14 — Session 34: Phase 5 implementation — BC-145 + integration/outcome verification skeleton
+
+**Invocation:** OpenCode (kimi-k2.6)
+
+**Focus:** Execute Phase 5 steps 1–3 per plan: BC-145 routing, outcome_verifier capability probe, integration + outcome verification skeleton.
+
+### Commits
+
+| Commit | Description |
+|---|---|
+| `c1920c4` | spec: split gate budget deterministic vs model-mediated; Phase 4 retroactive accounting (13+2) |
+| `5d88cfe` | BC-145: review/jury verdict upstream routing — structured findings, diagnostic taxonomy, feedback injection |
+| `96a91f1` | BC-137: outcome_verifier capability probe — prompt, fixtures, rubric, all 3 Tier-A models pass |
+| `0297024` | Phase 5 skeleton: phase5.yaml, config.phase5(), constants, telemetry |
+| `90078d7` | Phase 5 skeleton: integration + outcome verification gates, prompts, runner/gate_process wiring |
+
+### BC-145 implementation
+
+- **Structured findings schema** — `ReviewFinding(ac_id, kind, severity, body)`; backward-compatible legacy string parsing
+- **Diagnostic taxonomy** — `review_malformed` (retry reviewer) vs `review_found_defect` (route upstream)
+- **Router dispatch** — `REVIEW_FOUND_DEFECT` routes to `new` with `review_feedback_pending=True`; not in `_ESCALATABLE_KINDS`
+- **Context injection** — `_format_review_feedback()` renders findings into implementer prompt; `render_prompt()` injects `## review_feedback`
+- **Tests** — 14 tests in `test_bc145_routing.py`; 707 pass total
+
+### BC-137 outcome_verifier capability probe
+
+- **Prompt** — `src/factory/prompts/outcome_verifier.md` with `verdict`/`rationale`/`routing_hint` schema
+- **Fixtures** — flawed assembly + weak integration tests with 6 planted defects
+- **Rubric** — 12-point scoring, pass threshold >= 8
+- **Results** — K2, DeepSeek, GLM all score 12/12; all qualified for role
+- **Probe script** — `scripts/capability_probe_outcome_verifier.py`
+
+### Phase 5 skeleton
+
+- **Workflow** — `phase5.yaml` (v5) with `integration` + `outcome_verification` work items, `supersedes` link type
+- **Config** — `FactoryConfig.phase5()` with `ROLE_INTEGRATOR`, `ROLE_OUTCOME_VERIFIER`, stage topology
+- **Gates** — `evaluate_integration()` (import resolution, skeletal), `evaluate_outcome_verification()` (JSON verdict)
+- **Prompts** — `integrator.md` + `outcome_verifier.md`
+- **Runner** — `derive_integrator_context()`, `derive_outcome_verifier_context()`, `_INNER_GATE_ROLES` unchanged
+- **Router** — `INTEGRATION_IMPORT`, `OUTCOME_E2E` diagnostic kinds with dispatch to `new`
+
+### Test results
+
+707 passed, 13 skipped, lint clean, audit clean.
+
+### Breadcrumbs status
+
+- **Open:** 145 (high, in_progress — BC-145 routing landed but telemetry on routing-hint accuracy not yet measured), 138 (medium, proposed), 120 (medium, deferred)
+- **Resolved:** BC-146 (pytest.raises assertion count)
+
+### Next steps
+
+1. Integration mechanical gates: `integration_mypy`, `integration_pytest` (need per-DAG venv assembly)
+2. Scheduler integration trigger: link traversal for multi-impl aggregation
+3. Context derivation for integrator: read linked implementation artifacts
+4. GR-028: first synthetic Phase 5 validation run
+
+---
+
 ## 2026-05-14 — Session 33: Phase 4 exit; Phase 5 planning
 
 **Invocation:** OpenCode (kimi-k2.6)
