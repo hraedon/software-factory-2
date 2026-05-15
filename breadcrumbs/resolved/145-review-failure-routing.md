@@ -2,7 +2,7 @@
 number: "145"
 title: "cross_family_review failure is terminal — no route back to implementer for legitimate review-found defects"
 severity: high
-status: implemented
+status: resolved
 kind: design
 author: agent
 date: "2026-05-14"
@@ -54,3 +54,7 @@ Phase 1 routes the REVIEW item back to STATE_NEW with feedback metadata, but doe
 ## Not in scope here
 
 - The single-juror disagreement case (GR-027 item `06a56e11`) is a separate, healthier case: there, escalation is the right outcome because jurors disagree and quorum can't be reached. This breadcrumb is specifically about *successful* review verdicts that find defects, not about indeterminate ones.
+
+## Resolution
+
+Phase 1 implemented: diagnostic taxonomy (REVIEW_FOUND_DEFECT vs REVIEW_MALFORMED), ReviewFinding schema, router dispatch to STATE_NEW with review_feedback_pending, context injection via _format_review_feedback(). Phase 2 (upstream work-item creation for implementer/interface_architect) deferred to RFC-025.

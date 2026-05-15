@@ -44,8 +44,6 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 164 | Scheduler may go idle before completing all stage handoffs — outcome_verification unreachable on small DAGs | medium | resolved (scheduler drain cycles) |
-| 145 | cross_family_review failure is terminal — no route back to implementer for legitimate review-found defects | high | implemented (phase 1; phase 2 deferred to RFC-025) |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
 ### RFCs (awaiting upstream phases)
@@ -71,9 +69,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-010 | Fixture taxonomy — classify fixtures by architectural complexity class and gate Phase N exit criteria on the hardest exercised class | high | Phase 2 exit criteria |
 | RFC-011 | Unified gate evaluation — extract shared subprocess execution layer to eliminate drift between outer and inner gate implementations | medium | Phase 3 (multi-channel gates) |
 | RFC-012 | Gate subprocess credential stripping and sandboxing — defense-in-depth against model output executing in gate context | medium | Phase 5+ (untrusted specs) |
-| RFC-013 | Expanded inner-gate feedback for implementer retries — richer failure signal without infra overhead | medium | Phase 3 (inner gate loop) |
 | RFC-014 | Staff engineer summarizer — compress outer-path failure history into actionable constraints | medium | Phase 4 (outer retry path) |
-| RFC-015 | Dependency import manifest + gate-level import validation — implemented | high | Phase 3 (prompt + gate) |
 | RFC-016 | Defect-class taxonomy — evolve breadcrumbs from per-defect entries to class-based corpus | medium | Phase 3 (process) — BC-128 resolved; unblocked |
 | RFC-017 | Operational survivability — resource limits, disk monitoring, log rotation, workspace lifecycle | high | Phase 5 (first real workload) |
 | RFC-018 | Live state reporter — substrate-derived project snapshot | medium | Phase 4–5 |
@@ -86,6 +82,10 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 164 | Scheduler may go idle before completing all stage handoffs — outcome_verification unreachable on small DAGs | medium | Scheduler runs 3 drain cycles after SIGTERM/SIGINT to complete pending handoffs (scheduler.py:56-62) |
+| 145 | cross_family_review failure is terminal — no route back to implementer for legitimate review-found defects | high | Phase 1: REVIEW_FOUND_DEFECT/REVIEW_MALFORMED taxonomy, ReviewFinding schema, router dispatch to STATE_NEW with review_feedback_pending, context injection. Phase 2 deferred to RFC-025 |
+| RFC-015 | Dependency import manifest + gate-level import validation | high | extract_exports() AST-walk, import symbol validation gate, manifest in prompts, stub-only tags. 491 tests pass |
+| RFC-013 | Expanded inner-gate feedback for implementer retries — richer failure signal without infra overhead | medium | inner_gate_max_feedback_chars config, FailureEntry accumulation, gate output fed back to model in retry prompt |
 | 166 | Interface architect inner_pytest first-pass rate dropped from 50% (GR-027) to 38% (GR-029) | medium | Closed as stochastic noise — 4/8 vs 3/8 is a difference of 1 item, consistent with K2 variance |
 | 158 | Outcome-verifier routing_hint extracted in gate but never consumed by scheduler or router | high | OUTCOME_E2E with routing_hint routes directly to CANNOT_PROCEED; full upstream routing deferred to RFC-025 |
 | 154 | _run_ruff_fast modifies artifact in-place inside inner gate — original model output lost | high | `_run_ruff_fast` is now side-effect-free; calling functions apply fixes via `_apply_ruff_fix()` |

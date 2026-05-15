@@ -2,7 +2,7 @@
 number: "RFC-013"
 title: "Expanded inner-gate feedback for implementer retries — richer failure signal without infra overhead"
 severity: medium
-status: proposed
+status: resolved
 kind: design
 author: glm-5-1
 date: "2026-05-11"
@@ -89,3 +89,7 @@ Phase 3. The inner gate loop exists, `PreGateResult` carries output, the change 
 - Give the agent tool-use access during generation (that's RFC-009)
 - Provide a development environment with dependency isolation (that's Phase 5)
 - Address the interface-first rigidity (that's a spec-level design choice, not a tooling gap)
+
+## Resolution
+
+Implemented: inner gate loop captures PreGateResult.output (gate stdout/stderr), truncates to configurable `inner_gate_max_feedback_chars` (default 2000), accumulates FailureEntry history across retries, and injects prior failures into retry prompt via `render_prompt()`. See `src/factory/runner.py` lines 700-740 and `src/factory/config.py` line 113.

@@ -2,7 +2,7 @@
 number: "164"
 title: "Scheduler may go idle before completing all stage handoffs — outcome_verification unreachable on small DAGs"
 severity: medium
-status: proposed
+status: resolved
 kind: design
 author: agent
 date: "2026-05-15"
@@ -37,3 +37,7 @@ Options:
 1. **Scheduler-driven wave control** — Instead of passive polling, the scheduler should create ALL downstream items in one pass before releasing items to the runner.
 2. **Run scheduler `--once` mode** — Create all items at once via `populate_work_items --create-downstream`, then let the runner process them all.
 3. **Runner checks for new items after processing** — Add a `time.sleep(0)` to yield the scheduler a chance to create items between claims.
+
+## Resolution
+
+Implemented option A (minimal): scheduler runs 3 drain cycles after SIGTERM/SIGINT to complete pending handoffs before exiting. See `src/factory/scheduler.py` lines 56-62. Subsumes BC-147.
