@@ -4,6 +4,39 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-15 — Session 36: Phase 5 test fixtures + BC-145 routing_hint telemetry
+
+**Invocation:** OpenCode (kimi-k2.6)
+
+**Focus:** Register Phase 5 workflow in test fixtures, build synthetic multi-module fixture, instrument `routing_hint` telemetry for BC-145.
+
+### Commits
+
+- `256e042` Phase5 conftest fixtures + routing_hint telemetry + integration tests
+
+### Changes
+
+- **`tests/conftest.py`**: added `WORKFLOW_V5_PATH`, `phase5_substrate` (live PostgreSQL, module scope), `phase5_factory_config` (live config wired to `phase5_substrate`), and `mock_phase5_substrate` (`InMemorySubstrate` with `phase5.yaml`) fixtures.
+- **`tests/test_gate_process_phase5.py`**: replaced skipped integration tests with real gated assertions:
+  - `test_gate_passes_integration_artifact` — validates assembled mathlib passes import+mypy+pytest gates via real substrate.
+  - `test_gate_fails_integration_mypy` — validates mypy strict failure on `typed.greet(123)` (wrong type).
+  - `test_gate_fails_outcome_verification_routing_hint` — asserts `routing_hint` preserved in gate diagnostics.
+- **`src/factory/gate.py`**: `evaluate_outcome_verification()` now extracts `routing_hint` from the verdict JSON and stores it in `GateResult.routing_hint` (new optional field), separate from `custom_fields` to avoid substrate custom-field validation errors.
+- **`src/factory/gate_process.py`**: on outcome-verification gate fail, injects `routing_hint` into the payload diagnostics dictionary so telemetry can read it from events.
+- **`src/factory/telemetry.py`**:
+  - Added `RoutingHintMetrics` dataclass and `collect_routing_hints()` / `format_routing_hint_summary()` functions.
+  - Wires routing-hint summary into `run_telemetry_report()`.
+- **`tests/test_telemetry.py`**: added `TestRoutingHintTelemetry` with five tests:
+  - collect/present/missing/ignored-item/format coverage.
+- **`tests/fixtures/phase5-mini/`**: created three simple .md fixtures (`mathlib`, `calculator`, `geometry`) with explicit dependency declarations for future populate+gate validation.
+
+### Test results
+
+- `make check`: 734 passed, 13 skipped, 0 lint errors, 0 vulture findings.
+- Phase 5 integration tests verified on mock substrate + InMemorySubstrate fixtures.
+
+---
+
 ## 2026-05-15 — Session 35: Phase 5 mechanical gates + context derivation
 
 **Invocation:** OpenCode (kimi-k2.6)
