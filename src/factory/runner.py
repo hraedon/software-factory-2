@@ -71,6 +71,8 @@ _INNER_GATE_ROLES = frozenset(
         ROLE_INTERFACE_ARCHITECT,
         ROLE_TEST_AUTHOR,
         ROLE_IMPLEMENTER,
+        ROLE_INTEGRATOR,
+        ROLE_OUTCOME_VERIFIER,
     }
 )
 
@@ -158,6 +160,7 @@ def worker_loop(runtime: PipelineRuntime) -> None:
     backoff_base = config.channel_backoff_base_seconds
     shutting_down = False
     channel_consecutive_failures: dict[str, int] = {}
+    channel_backoff_until: dict[str, float] = {}
 
     def _handle_signal(signum, frame):
         nonlocal shutting_down
@@ -185,17 +188,22 @@ def worker_loop(runtime: PipelineRuntime) -> None:
             channel = runtime.channel_for_role(role_name)
             backoff = channel_consecutive_failures.get(channel.name, 0)
             if backoff >= max_attempts:
-                backoff_seconds = min(
-                    backoff_base * (2 ** (backoff - max_attempts)),
-                    300,
-                )
-                log.warning(
-                    "channel_backoff",
+                now = time.monotonic()
+                deadline = channel_backoff_until.get(channel.name, 0)
+                if now < deadline:
+                    log.warning(
+                        "channel_backoff",
+                        channel=channel.name,
+                        consecutive_failures=backoff,
+                        remaining_seconds=round(deadline - now, 1),
+                    )
+                    continue
+                log.info(
+                    "channel_backoff_probe",
                     channel=channel.name,
                     consecutive_failures=backoff,
-                    backoff_seconds=backoff_seconds,
+                    message="Cooldown elapsed, probing one item",
                 )
-                continue
             claim = sub.acquire_claim(wi.work_item_id, actor_id, config.claim_ttl_seconds)
             if claim.attempt_number >= config.attempt_threshold:
                 log.warning(
@@ -252,11 +260,25 @@ def worker_loop(runtime: PipelineRuntime) -> None:
                 process_work_item(runtime, wi, actor_id, claim, role_name)
                 claimed = True
                 channel_consecutive_failures.pop(channel.name, None)
+                channel_backoff_until.pop(channel.name, None)
             except Exception:
                 log.exception("process_error", work_item_id=str(wi.work_item_id))
                 sub.release_claim(wi.work_item_id, actor_id)
                 prev = channel_consecutive_failures.get(channel.name, 0)
-                channel_consecutive_failures[channel.name] = prev + 1
+                new_count = prev + 1
+                channel_consecutive_failures[channel.name] = new_count
+                if new_count >= max_attempts:
+                    backoff_seconds = min(
+                        backoff_base * (2 ** (new_count - max_attempts)),
+                        300,
+                    )
+                    channel_backoff_until[channel.name] = time.monotonic() + backoff_seconds
+                    log.warning(
+                        "channel_backoff_set",
+                        channel=channel.name,
+                        consecutive_failures=new_count,
+                        backoff_seconds=backoff_seconds,
+                    )
             break
         if not claimed and not shutting_down:
             time.sleep(poll_interval)
@@ -393,7 +415,6 @@ def process_work_item(
         timeout = config.per_channel_timeout[channel.name]
     prompt = render_prompt(ctx)
     invocation_start = time.monotonic()
-    extra_env = _resolve_extra_env(config, role_name)
     invoke_result = channel.invoke(role_name, prompt, ad, timeout, extra_env=extra_env)
     invocation_end = time.monotonic()
     duration_seconds = round(invocation_end - invocation_start, 3)

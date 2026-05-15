@@ -89,17 +89,13 @@ class TestImplementationRuffGate:
         impl_path = _write(
             tmp_path,
             "impl.py",
-            """
-import os
-import json
-def compute(x: int) -> str:
-    return str(x)
-""",
+            "x = undefined_name\n",
         )
         result = evaluate_implementation(impl_path)
-        if not result.passed and result.gate_name == GATE_NAME_IMPLEMENTATION_LINT:
-            assert result.diagnostic_kind == "impl_lint"
-            assert len(result.diagnostics) > 0
+        assert not result.passed
+        assert result.gate_name == GATE_NAME_IMPLEMENTATION_LINT
+        assert result.diagnostic_kind == "impl_lint"
+        assert len(result.diagnostics) > 0
 
     @pytest.mark.skipif(not shutil.which("ruff"), reason="ruff not installed")
     def test_clean_impl_passes_ruff(self, tmp_path):

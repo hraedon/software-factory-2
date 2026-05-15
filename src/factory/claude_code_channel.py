@@ -7,11 +7,7 @@ from factory.constants import (
     CHANNEL_CLAUDE_CODE,
     FAMILY_ANTHROPIC,
 )
-from factory.output_extraction import extract_artifact_from_output, extract_json_from_output
 from factory.subprocess_channel import SubprocessChannel
-
-_extract_artifact_from_output = extract_artifact_from_output
-_extract_json_from_output = extract_json_from_output
 
 
 class ClaudeCodeChannel(SubprocessChannel):

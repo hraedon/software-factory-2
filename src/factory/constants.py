@@ -133,6 +133,7 @@ GATE_NAME_JURY_DISAGREE = "jury_disagree"
 GATE_NAME_INTEGRATION_IMPORT = "integration_import"
 GATE_NAME_INTEGRATION_MYPY = "integration_mypy"
 GATE_NAME_INTEGRATION_PYTEST = "integration_pytest"
+GATE_NAME_INTEGRATION = "integration"
 
 GATE_NAME_OUTCOME_E2E = "outcome_e2e"
 

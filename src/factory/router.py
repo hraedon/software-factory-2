@@ -69,18 +69,6 @@ def _classify_diagnostic(gate_result: GateResult) -> DiagnosticKind:
         return DiagnosticKind.CANNOT_PROCEED
     if "unknown_type" in name:
         return DiagnosticKind.UNKNOWN_TYPE
-    if gate_result.diagnostic_kind == "cross_family_review":
-        return DiagnosticKind.CROSS_FAMILY_REVIEW
-    if gate_result.diagnostic_kind == "jury":
-        return DiagnosticKind.JURY
-    if gate_result.diagnostic_kind == "review_malformed":
-        return DiagnosticKind.REVIEW_MALFORMED
-    if gate_result.diagnostic_kind == "review_found_defect":
-        return DiagnosticKind.REVIEW_FOUND_DEFECT
-    if gate_result.diagnostic_kind == "integration_import":
-        return DiagnosticKind.INTEGRATION_IMPORT
-    if gate_result.diagnostic_kind == "outcome_e2e":
-        return DiagnosticKind.OUTCOME_E2E
     return DiagnosticKind.GENERIC
 
 

@@ -403,6 +403,19 @@ class FactoryConfig:
     def gate_actor_id(self) -> str:
         return ACTOR_ID_GATE
 
+    def validate_jury_config(self) -> list[str]:
+        warnings: list[str] = []
+        judge_roles = [r for r in self.roles if r.role == ROLE_FRONTIER_JUDGE]
+        if judge_roles and self.jury_quorum > 1:
+            distinct_models = len({(r.channel, r.model) for r in judge_roles})
+            if distinct_models < self.jury_quorum:
+                warnings.append(
+                    f"jury_quorum={self.jury_quorum} but only {distinct_models} distinct "
+                    f"model(s) for frontier_judge — same-model jurors will systematically "
+                    f"disagree. Set jury_quorum=1 for single-family configs."
+                )
+        return warnings
+
     @property
     def scheduler_actor_id(self) -> str:
         return ACTOR_ID_SCHEDULER
@@ -468,7 +481,12 @@ class FactoryConfig:
                     elif isinstance(item, StageHandoff):
                         handoffs.append(item)
                 kwargs["stage_topology"] = tuple(handoffs)
-        return cls(**kwargs)
+        cfg = cls(**kwargs)
+        jury_warnings = cfg.validate_jury_config()
+        for w in jury_warnings:
+            import logging
+            logging.getLogger(__name__).warning(w)
+        return cfg
 
     @classmethod
     def from_yaml_or_default(cls, path: str | Path | None) -> FactoryConfig:

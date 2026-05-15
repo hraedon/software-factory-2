@@ -270,7 +270,17 @@ def _monitor_logs(
         if procs:
             for p in procs:
                 if p.poll() is not None:
-                    _warn(f"Process PID={p.pid} exited with code {p.returncode}")
+                    code = p.returncode
+                    _warn(f"Process PID={p.pid} exited with code {code}")
+                    if code is not None and code != 0:
+                        for other in procs:
+                            if other is not p and other.poll() is None:
+                                _warn(f"Killing PID={other.pid} after crash")
+                                other.terminate()
+                        _fatal(
+                            f"Pipeline process PID={p.pid} crashed (exit {code}). "
+                            "Remaining processes terminated. Logs preserved for forensics."
+                        )
 
         any_new_lines = False
         for log_path in (runner_log, gate_log, sched_log):
@@ -319,17 +329,6 @@ def _monitor_logs(
                         "Model channel may be down or rate-limited. "
                         "Kill processes and verify channel health."
                     )
-                if name in ("gate_fail_cross_family_review", "gate_fail_jury") and count >= 3:
-                    _fatal(
-                        f"Multiple {name} failures detected. "
-                        "Review/jury items are cycling. Kill processes and check BC-139 fix."
-                    )
-                if name == "channel_invoke_failed" and count >= 5:
-                    _fatal(
-                        "Multiple channel invoke failures. "
-                        "Model channel may be down or rate-limited. "
-                        "Kill processes and verify channel health."
-                    )
 
 
 def _run_telemetry(config_path: Path) -> None:
@@ -358,7 +357,10 @@ def _cleanup_offered(
     (and the isolated opencode DB inside it) is also removed.
     """
     wr = Path(workspace_root)
-    logs = [Path(f"{log_dir}/{log_prefix}-{suffix}.log") for suffix in ("runner", "gate", "scheduler")]
+    logs = [
+        Path(f"{log_dir}/{log_prefix}-{suffix}.log")
+        for suffix in ("runner", "gate", "scheduler")
+    ]
     _info("=== Cleanup ===")
     _info(f"Workspace: {wr}")
     _info(f"Logs: {', '.join(str(log) for log in logs)}")
@@ -424,10 +426,13 @@ def main() -> None:
         _info("Monitoring interrupted by user. Processes continue in background.")
 
     _info("Waiting for pipeline processes to finish...")
+    any_crash = False
     for p in procs:
         try:
             rc = p.wait(timeout=30)
             _info(f"PID={p.pid} exited with code {rc}")
+            if rc != 0:
+                any_crash = True
         except subprocess.TimeoutExpired:
             _warn(f"PID={p.pid} still running after 30s — sending SIGTERM")
             p.terminate()
@@ -436,11 +441,22 @@ def main() -> None:
 
     if not args.no_cleanup:
         cfg = _validate_config(config_path)
-        _cleanup_offered(
-            cfg["workspace_root"],
-            log_prefix,
-            xdg_data_home=xdg_data_home,
-        )
+        if any_crash:
+            _warn("Process crash detected — preserving logs for forensics.")
+            _warn(f"Log files: /tmp/{log_prefix}-{{runner,gate,scheduler}}.log")
+            wr = Path(cfg["workspace_root"])
+            if wr.exists():
+                shutil.rmtree(wr)
+                _info(f"Removed workspace: {wr}")
+            if xdg_data_home is not None and xdg_data_home.exists():
+                shutil.rmtree(xdg_data_home)
+                _info(f"Removed isolated DB: {xdg_data_home}")
+        else:
+            _cleanup_offered(
+                cfg["workspace_root"],
+                log_prefix,
+                xdg_data_home=xdg_data_home,
+            )
 
     _info("Done.")
 

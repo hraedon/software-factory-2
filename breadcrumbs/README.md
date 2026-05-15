@@ -44,6 +44,10 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 166 | Interface architect inner_pytest first-pass rate dropped from 50% (GR-027) to 38% (GR-029) | medium | proposed |
+| 164 | Scheduler may go idle before completing all stage handoffs — outcome_verification unreachable on small DAGs | medium | proposed |
+| 158 | Outcome-verifier routing_hint extracted in gate but never consumed by scheduler or router | high | proposed |
+| 154 | _run_ruff_fast modifies artifact in-place inside inner gate — original model output lost | high | proposed |
 | 149 | Model availability regression — DeepSeek and GLM both dead in opencode channel | high | proposed |
 | 148 | Scheduler crashes with exit code 1 during golden run — blocks outcome_verification stage | high | proposed |
 | 147 | Scheduler stuck-item handling for small DAGs — review item orphaned in gating | medium | proposed |
@@ -56,7 +60,12 @@ Reusable tags:
 RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that cannot be acted on until later phases. They are candidates for improvement, not actionable defects.
 
 | # | Title | Severity | Phase Needed |
-|---|---|---|---|
+|---|---|---|---|---|
+| RFC-027 | Test efficacy — no mechanical verification that tests actually validate behavior | high | Phase 6 |
+| RFC-026 | Principal review surface — pipeline needs artifact bundle format and feedback intake | high | Phase 6 (first real workload) |
+| RFC-025 | Stateful upstream routing — route() and scheduler need role-targeted work-item creation | high | Phase 5–6 |
+| RFC-024 | Coherence reviewer — declared role with zero design or implementation | high | Phase 6 |
+| RFC-023 | Decomposer role — Stage 1 pipeline cannot consume arbitrary specs | high | Phase 6 (generalization) |
 | RFC-001 | Prompt conflict detection — v1 BC-383 shows silent failure when role prompts contradict | high | Phase 3 (multi-role prompts) |
 | RFC-002 | Critical observer degradation — v1 BC-359 shows silent swallowing loses telemetry data | high | Phase 3 (hooks/observers) |
 | RFC-003 | Channel adapter auth-mode detection — v1 BC-376 shows env var injection breaks native auth | high | Phase 3 (multi-channel adapters) |
@@ -84,6 +93,20 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 167 | Monitor does not kill remaining processes on pipeline process crash | medium | Monitor now kills remaining processes and calls `_fatal()` when any process exits with non-zero code |
+| 165 | Single-family jury with quorum=2 produces systematic disagreement | medium | Added `validate_jury_config()` to `FactoryConfig`; warns when `jury_quorum > distinct_models` |
+| 163 | agent_golden_run.py danger signal checks have duplicate unreachable code blocks | low | Removed duplicate `gate_fail_*` and `channel_invoke_failed` checks |
+| 162 | agent_golden_run.py auto-cleanup destroys scheduler crash forensics | high | Logs are now preserved when any process exits with non-zero code; workspace and opencode DB still cleaned |
+| 161 | Scheduler main loop has no exception handler | high | Wrapped scheduler poll loop body in `try/except Exception` with `log.exception()` before continuing |
+| 160 | ClaudeCodeChannel unused local alias re-exports | low | Removed unused `_extract_artifact_from_output` and `_extract_json_from_output` aliases; tests updated to import from `output_extraction` directly |
+| 159 | _resolve_extra_env called twice with same arguments in process_work_item | low | Removed duplicate call at line 376; single call at line 396 serves both jury and non-jury paths |
+| 157 | Scheduler propagate_fields access uses hardcoded index 0 instead of field name | medium | Changed `pf[0]` to explicit `CUSTOM_FIELD_INTERFACE_REF in pf` check followed by `custom.get(CUSTOM_FIELD_INTERFACE_REF)` |
+| 156 | _find_locked_impl uses hardcoded page_size=200 instead of config value | medium | Added `page_size` parameter to `_find_locked_impl()` and `resolve_dep_artifacts()`; gate_process passes `config.query_page_size` |
+| 155 | Integrator and OutcomeVerifier excluded from inner gate retries in Phase 5 | high | Added `ROLE_INTEGRATOR` and `ROLE_OUTCOME_VERIFIER` to `_INNER_GATE_ROLES` frozenset |
+| 153 | Three test files have conditionally-skipped assertions — silently pass without testing | high | Changed `if not result.passed:` guards to `assert not result.passed`; updated test input to use unfixable F821 error |
+| 152 | router.py _classify_diagnostic has unreachable dead code branches | low | Removed lines 72-83 — the enum-iteration loop at lines 51-54 already matches all `DiagnosticKind` values |
+| 151 | Integration success reports wrong gate name | high | Added `GATE_NAME_INTEGRATION` constant; `evaluate_integration()` returns it on success instead of `GATE_NAME_INTEGRATION_IMPORT` |
+| 150 | Channel backoff creates permanent deadlock | critical | Implemented time-based backoff with `channel_backoff_until` dict; after cooldown, one probe item is attempted; counter resets on success |
 | 144 | agent_golden_run.py idle timeout too aggressive — killed working pipeline | medium | Increased `max_idle_cycles` from 3 to 10 (10min idle before declaring done); increased `claim_near_budget` fatal threshold from 3 to 5 |
 | 143 | claim_near_budget releases claim without terminal transition — zombie items cycle forever | high | `claim_near_budget` now transitions claim → cannot_proceed (terminal) instead of just releasing; 4 items properly escalated in GR-027 |
 | 142 | agent_golden_run.py launched processes from /tmp — broke opencode project context | high | Changed `_launch_processes()` to use `cwd=REPO_ROOT`; workspace isolation via config YAML workspace_root, not process cwd |

@@ -215,8 +215,8 @@ class TestInnerGateToolNotFound:
             interface_pyi_path=interface_pyi,
             python_executable="/nonexistent/python",
         )
-        if not result["passed"]:
-            assert any("mypy" in d.lower() for d in result["diagnostics"])
+        assert not result["passed"]
+        assert any("mypy" in d.lower() for d in result["diagnostics"])
 
     def test_pytest_missing_returns_failure(self, tmp_path):
         from factory.pre_gate import _run_pytest_fast
@@ -230,10 +230,10 @@ class TestInnerGateToolNotFound:
             test_suite_path=test_suite,
             python_executable="/nonexistent/python",
         )
-        if not result["passed"]:
-            assert any(
-                "pytest" in d.lower() or "failed" in d.lower() for d in result["diagnostics"]
-            )
+        assert not result["passed"]
+        assert any(
+            "pytest" in d.lower() or "failed" in d.lower() for d in result["diagnostics"]
+        )
 
 
 class TestCopyDependencyPyis:

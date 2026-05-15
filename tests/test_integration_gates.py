@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from factory.constants import (
+    GATE_NAME_INTEGRATION,
     GATE_NAME_INTEGRATION_IMPORT,
     GATE_NAME_INTEGRATION_MYPY,
     GATE_NAME_INTEGRATION_PYTEST,
@@ -41,7 +42,7 @@ class TestEvaluateIntegrationImport:
         )
         result = evaluate_integration(artifact)
         assert result.passed is True
-        assert result.gate_name == GATE_NAME_INTEGRATION_IMPORT
+        assert result.gate_name == GATE_NAME_INTEGRATION
 
     def test_invalid_json_fails(self, tmp_path: Path):
         artifact = tmp_path / "integration.json"
@@ -134,7 +135,7 @@ class TestEvaluateIntegrationMypy:
         )
         result = evaluate_integration(artifact)
         assert result.passed is True
-        assert result.gate_name == GATE_NAME_INTEGRATION_IMPORT
+        assert result.gate_name == GATE_NAME_INTEGRATION
 
 
 class TestEvaluateIntegrationPytest:
@@ -238,7 +239,7 @@ class TestEvaluateIntegrationPromotion:
         )
         result = evaluate_integration(artifact)
         assert result.passed is True
-        assert result.gate_name == GATE_NAME_INTEGRATION_IMPORT
+        assert result.gate_name == GATE_NAME_INTEGRATION
 
     def test_flat_init_without_relative_imports_stays_flat(self, tmp_path: Path):
         artifact = tmp_path / "integration.json"
@@ -261,4 +262,4 @@ class TestEvaluateIntegrationPromotion:
         )
         result = evaluate_integration(artifact)
         assert result.passed is True
-        assert result.gate_name == GATE_NAME_INTEGRATION_IMPORT
+        assert result.gate_name == GATE_NAME_INTEGRATION

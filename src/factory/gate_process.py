@@ -123,6 +123,7 @@ def _resolve_ref_artifact(sub: Substrate, ref: str) -> Path | None:
 def _resolve_dependency_refs(
     sub: Substrate,
     custom: dict,
+    page_size: int = 200,
 ) -> tuple[list[tuple[str, Path]], list[tuple[str, Path]] | None]:
 
     dep_refs_raw = custom.get(CUSTOM_FIELD_DEPENDENCY_REFS) or []
@@ -130,7 +131,7 @@ def _resolve_dependency_refs(
         dep_refs_raw = [dep_refs_raw]
     if not dep_refs_raw:
         return [], None
-    dep_artifacts = resolve_dep_artifacts(sub, dep_refs_raw)
+    dep_artifacts = resolve_dep_artifacts(sub, dep_refs_raw, page_size=page_size)
     primary_paths: list[tuple[str, Path]] = []
     spec_paths: list[tuple[str, Path]] = []
     has_impl = False
@@ -208,7 +209,9 @@ def process_gate_item(
                     diagnostic_kind="missing_artifact",
                 )
             else:
-                dep_pyi_paths, dep_spec_paths = _resolve_dependency_refs(sub, custom)
+                dep_pyi_paths, dep_spec_paths = _resolve_dependency_refs(
+                    sub, custom, page_size=config.query_page_size,
+                )
                 gate_result = evaluate_test_suite(
                     artifact_path,
                     interface_ref_pyi_path=interface_pyi_path,
@@ -282,7 +285,9 @@ def process_gate_item(
                     diagnostic_kind="missing_artifact",
                 )
             else:
-                dep_pyi_paths, dep_spec_paths = _resolve_dependency_refs(sub, custom)
+                dep_pyi_paths, dep_spec_paths = _resolve_dependency_refs(
+                    sub, custom, page_size=config.query_page_size,
+                )
                 gate_result = evaluate_implementation(
                     artifact_path,
                     test_suite_path=test_suite_path,

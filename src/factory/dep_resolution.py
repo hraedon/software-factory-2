@@ -55,6 +55,7 @@ def _safe_artifact_path(raw: str | None) -> Path | None:
 def resolve_dep_artifacts(
     substrate: Substrate,
     dep_refs: list[str],
+    page_size: int = 200,
 ) -> list[DepArtifact]:
     result: list[DepArtifact] = []
     for ref in dep_refs:
@@ -76,7 +77,7 @@ def resolve_dep_artifacts(
         is_stub_only = True
 
         if dep_wi.work_item_type == WORK_ITEM_TYPE_INTERFACE_SPEC:
-            impl_wi = _find_locked_impl(substrate, str(ref_uuid))
+            impl_wi = _find_locked_impl(substrate, str(ref_uuid), page_size=page_size)
             if impl_wi and impl_wi.custom_fields:
                 raw_impl = impl_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
                 impl_path = _safe_artifact_path(raw_impl)
@@ -97,11 +98,11 @@ def resolve_dep_artifacts(
     return result
 
 
-def _find_locked_impl(substrate: Substrate, spec_id: str) -> object | None:
+def _find_locked_impl(substrate: Substrate, spec_id: str, page_size: int = 200) -> object | None:
     impls = substrate.query_work_items(
         work_item_types=[WORK_ITEM_TYPE_IMPLEMENTATION],
         current_states=[STATE_LOCKED],
-        page_size=200,
+        page_size=page_size,
     )
     for item in impls.items:
         custom = item.custom_fields or {}

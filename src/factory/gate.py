@@ -21,6 +21,7 @@ from factory.constants import (
     GATE_NAME_IMPLEMENTATION_NOT_EMPTY,
     GATE_NAME_IMPLEMENTATION_PYTEST,
     GATE_NAME_IMPLEMENTATION_SYNTAX,
+    GATE_NAME_INTEGRATION,
     GATE_NAME_INTEGRATION_IMPORT,
     GATE_NAME_INTEGRATION_MYPY,
     GATE_NAME_INTEGRATION_PYTEST,
@@ -1246,7 +1247,7 @@ def evaluate_integration(
 
     return GateResult(
         passed=True,
-        gate_name=GATE_NAME_INTEGRATION_IMPORT,
+        gate_name=GATE_NAME_INTEGRATION,
         diagnostics=[],
     )
 

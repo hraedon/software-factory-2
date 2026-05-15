@@ -68,6 +68,7 @@ DETERMINISTIC_GATES = frozenset(
         "integration_import",
         "integration_mypy",
         "integration_pytest",
+        "integration",
     }
 )
 

@@ -9,6 +9,7 @@ from factory.constants import (
     ACTOR_KIND_AGENT,
     CUSTOM_FIELD_AC_IDS,
     CUSTOM_FIELD_DEPENDENCY_REFS,
+    CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_SPEC_SECTION,
     LINK_TYPE_IMPLEMENTS,
     STATE_LOCKED,
@@ -46,18 +47,20 @@ def scheduler_loop(runtime: PipelineRuntime) -> None:
     signal_mod.signal(signal_mod.SIGINT, _handle_signal)
 
     while not shutting_down:
-        for handoff in config.stage_topology:
-            page = sub.query_work_items(
-                workflow_name=config.workflow_name,
-                workflow_version=config.workflow_version,
-                current_states=[handoff.source_state],
-                page_size=config.query_page_size,
-            )
-            for wi in page.items:
-                if wi.work_item_type != handoff.source_type:
-                    continue
-                _ensure_downstream_item(runtime, wi, handoff)
-
+        try:
+            for handoff in config.stage_topology:
+                page = sub.query_work_items(
+                    workflow_name=config.workflow_name,
+                    workflow_version=config.workflow_version,
+                    current_states=[handoff.source_state],
+                    page_size=config.query_page_size,
+                )
+                for wi in page.items:
+                    if wi.work_item_type != handoff.source_type:
+                        continue
+                    _ensure_downstream_item(runtime, wi, handoff)
+        except Exception:
+            log.exception("scheduler_poll_error")
         if not shutting_down:
             time.sleep(poll_interval)
     log.info("scheduler_loop_exiting")
@@ -151,7 +154,9 @@ def _ensure_downstream_item(
     for extra_link_type in additional_links:
         if extra_link_type == LINK_TYPE_IMPLEMENTS:
             pf = handoff.propagate_fields
-            interface_ref = custom.get(pf[0]) if pf else None
+            interface_ref = None
+            if CUSTOM_FIELD_INTERFACE_REF in pf:
+                interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
             if interface_ref:
                 import uuid as _uuid
 
