@@ -55,6 +55,8 @@ LINK_TYPE_IMPLEMENTS = "implements"
 LINK_TYPE_REVIEWS = "reviews"
 LINK_TYPE_JUDGES = "judges"
 LINK_TYPE_SUPERCEDES = "supersedes"
+LINK_TYPE_INTEGRATES = "integrates"
+LINK_TYPE_VERIFIED_BY = "verified_by"
 
 CUSTOM_FIELD_ARTIFACT_PATH = "artifact_path"
 CUSTOM_FIELD_ARTIFACT_HASH = "artifact_hash"

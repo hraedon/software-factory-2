@@ -121,7 +121,10 @@ def _ensure_downstream_item(
     if dep_refs and not _all_dep_specs_locked(sub, dep_refs):
         return
 
-    if dep_refs:
+    # Only propagate dependency_refs if the downstream work_item_type
+    # actually declares it (jury/integration/outcome_verification do not).
+    _has_dep_field = _downstream_has_field(sub, config, next_type, CUSTOM_FIELD_DEPENDENCY_REFS)
+    if dep_refs and _has_dep_field:
         extra[CUSTOM_FIELD_DEPENDENCY_REFS] = dep_refs
 
     downstream, _ = sub.create_work_item(
@@ -180,6 +183,18 @@ def _all_dep_specs_locked(sub, dep_refs: list[str]) -> bool:
         if not dep_wi or dep_wi.current_state != STATE_LOCKED:
             return False
     return True
+
+
+def _downstream_has_field(sub, config: FactoryConfig, work_item_type: str, field_name: str) -> bool:
+    """Return True if the workflow defines field_name for work_item_type."""
+    try:
+        wf = sub.get_workflow(config.workflow_name, config.workflow_version)
+        for wit in wf.work_item_types:
+            if wit.name == work_item_type:
+                return any(cf.name == field_name for cf in wit.custom_fields)
+    except Exception:
+        pass
+    return False
 
 
 def _main(argv: list[str] | None = None) -> None:

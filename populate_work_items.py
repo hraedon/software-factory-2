@@ -227,7 +227,7 @@ def main():
     if args.workflow is not None:
         workflow_name = args.workflow
     elif config is not None:
-        workflow_name = {1: "phase1", 2: "phase2", 3: "phase3", 4: "phase4"}.get(
+        workflow_name = {1: "phase1", 2: "phase2", 3: "phase3", 4: "phase4", 5: "phase5"}.get(
             config.workflow_version, "phase2"
         )
     else:
@@ -250,6 +250,8 @@ def main():
         workflow_version = 3
     elif workflow_name == "phase4":
         workflow_version = 4
+    elif workflow_name == "phase5":
+        workflow_version = 5
     else:
         workflow_version = 2
 
