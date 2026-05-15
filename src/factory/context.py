@@ -15,6 +15,7 @@ from factory.constants import (
     CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_IMPLEMENTATION_REF,
     CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_REVIEW_FEEDBACK,
     CUSTOM_FIELD_REVIEW_REF,
     CUSTOM_FIELD_SPEC_SECTION,
     CUSTOM_FIELD_TEST_SUITE_REF,
@@ -205,6 +206,10 @@ def derive_implementer_context(
     extra_artifacts.update(dep_contents)
     export_map = _build_export_map_from_contents(dep_contents)
 
+    review_feedback = custom.get(CUSTOM_FIELD_REVIEW_FEEDBACK)
+    if review_feedback:
+        extra_artifacts["review_feedback"] = _format_review_feedback(review_feedback)
+
     return derive_context(
         substrate,
         work_item_id,
@@ -374,6 +379,26 @@ def _serialize_bundle(
     return json.dumps(data, sort_keys=True)
 
 
+def _format_review_feedback(raw: list[dict] | dict | str) -> str:
+    """Render review feedback from gate-process custom_fields into a prompt section."""
+    if isinstance(raw, str):
+        return raw
+    if isinstance(raw, dict):
+        raw = [raw]
+    if not isinstance(raw, list):
+        return str(raw)
+    lines: list[str] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        severity = item.get("severity", "block")
+        kind = item.get("kind", "impl")
+        ac_id = item.get("ac_id", "")
+        body = item.get("body", "")
+        lines.append(f"- [{severity}] {ac_id} ({kind}): {body}")
+    return "\n".join(lines)
+
+
 def render_prompt(ctx: PromptContext) -> str:
     """Render a channel-ready prompt string from a PromptContext."""
     parts = [ctx.prompt_template, "", "---", ""]
@@ -439,5 +464,16 @@ def render_prompt(ctx: PromptContext) -> str:
         )
         for dep_name in sorted(ctx.stub_only_deps):
             parts.append(f"- {dep_name}")
+        parts.append("")
+    if "review_feedback" in ctx.extra_artifacts:
+        parts.append("## review_feedback")
+        parts.append("")
+        parts.append(
+            "A prior cross-family reviewer found the following defects in upstream artifacts. "
+            "Address every block-severity finding before returning. "
+            "Advise-severity findings are optional but improve quality."
+        )
+        parts.append("")
+        parts.append(ctx.extra_artifacts["review_feedback"])
         parts.append("")
     return "\n".join(parts)

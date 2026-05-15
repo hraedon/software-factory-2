@@ -27,7 +27,11 @@ A single JSON object in a fenced code block. **No other output.** The JSON must 
 Field semantics:
 
 - **`passed`** (boolean, required): `true` only if you are confident the bundle satisfies every `ac_ids` value. `false` if any AC is missing, under-tested, or mis-implemented.
-- **`findings`** (list of strings, required): Empty when `passed` is `true`. When `passed` is `false`, each string is a specific, actionable finding. Examples: "AC-02 is not tested: no test exercises the `INVALID_DATE` error path.", "Implementation imports `typing.Optional` but interface uses `| None` — mismatch.", "Interface declares `parse_range` but test suite only tests `parse_date` — missing coverage."
+- **`findings`** (list of objects, required): Empty `[]` when `passed` is `true`. When `passed` is `false`, each object must have:
+  - `ac_id` (string): the acceptance-criteria ID affected.
+  - `kind` (string, either `"impl"` or `"test"`): `"impl"` if the defect is in the implementation code; `"test"` if the defect is in the test suite (missing coverage, tautological test, etc.).
+  - `severity` (string, either `"block"` or `"advise"`): `"block"` if this finding alone would prevent shipping; `"advise"` if it is a quality issue but not a correctness gap.
+  - `body` (string): a specific, actionable description. Example: "AC-02 error path `INVERTED_RANGE` is not tested: no test asserts on end-before-start input.", "Implementation imports `typing.Optional` but interface uses `| None` — mismatch.", "Interface declares `parse_range` but test suite only tests `parse_date` — missing coverage."
 - **`rationale`** (string, required): One or two sentences summarizing your judgment. When `passed` is `false`, explain the most important finding.
 
 ## What you must NOT do

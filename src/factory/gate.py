@@ -52,6 +52,7 @@ class GateResult:
     artifact_valid: bool = True
     diagnostic_kind: str = ""
     skipped: bool = False
+    custom_fields: dict = field(default_factory=dict)
 
 
 def _guard_artifact_size(artifact_path: Path) -> GateResult | None:
@@ -955,27 +956,57 @@ def _extract_json_vote(path: Path) -> dict:
 def evaluate_review(artifact_path: Path) -> GateResult:
     """Evaluate a cross-family review artifact.
 
-    Expects a JSON object with `passed` (boolean) and `findings` (list).
+    Expects a JSON object with `passed` (boolean), `findings` (list of dicts with
+    ac_id/kind/severity/body), and `rationale` (string).
+
+    Emits `diagnostic_kind`:
+    - "review_malformed" — reviewer output was empty, unparseable, or missing required fields.
+    - "review_found_defect" — reviewer produced a valid verdict that found substantive defects.
     """
     vote = _extract_json_vote(artifact_path)
+    if not vote:
+        return GateResult(
+            passed=False,
+            gate_name=GATE_NAME_CROSS_FAMILY_REVIEW,
+            diagnostics=["Reviewer produced no parseable JSON output"],
+            diagnostic_kind="review_malformed",
+        )
     passed = bool(vote.get("passed"))
-    findings = vote.get("findings", [])
-    if not isinstance(findings, list):
-        findings = []
+    raw_findings = vote.get("findings", [])
+    if not isinstance(raw_findings, list):
+        raw_findings = []
     rationale = str(vote.get("rationale", ""))
     diagnostics: list[str] = []
+    structured_findings: list[dict] = []
+    has_structured_findings = False
     if not passed:
-        if findings:
-            diagnostics.extend(str(f) for f in findings)
+        if raw_findings:
+            for item in raw_findings:
+                if isinstance(item, dict) and "body" in item:
+                    has_structured_findings = True
+                    structured_findings.append(item)
+                    diagnostics.append(
+                        f"[{item.get('severity', 'block')}] "
+                        f"{item.get('ac_id', '')} "
+                        f"({item.get('kind', 'impl')}): {item['body']}"
+                    )
+                else:
+                    diagnostics.append(str(item))
         else:
             diagnostics.append("Review did not pass and provided no findings.")
         if rationale:
             diagnostics.append(f"Rationale: {rationale}")
+    # Malformed: no parseable JSON at all, or valid JSON but missing required shape on failure
+    malformed = not passed and not has_structured_findings and not rationale
+    diagnostic_kind = ""
+    if not passed:
+        diagnostic_kind = "review_malformed" if malformed else "review_found_defect"
     return GateResult(
         passed=passed,
         gate_name=GATE_NAME_CROSS_FAMILY_REVIEW,
         diagnostics=diagnostics,
-        diagnostic_kind="cross_family_review" if not passed else "",
+        diagnostic_kind=diagnostic_kind,
+        custom_fields={"findings": structured_findings} if structured_findings else {},
     )
 
 

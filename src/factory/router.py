@@ -39,6 +39,8 @@ class DiagnosticKind(StrEnum):
     TOOL_NOT_FOUND = "tool_not_found"
     CROSS_FAMILY_REVIEW = "cross_family_review"
     JURY = "jury"
+    REVIEW_MALFORMED = "review_malformed"
+    REVIEW_FOUND_DEFECT = "review_found_defect"
 
 
 def _classify_diagnostic(gate_result: GateResult) -> DiagnosticKind:
@@ -67,6 +69,10 @@ def _classify_diagnostic(gate_result: GateResult) -> DiagnosticKind:
         return DiagnosticKind.CROSS_FAMILY_REVIEW
     if gate_result.diagnostic_kind == "jury":
         return DiagnosticKind.JURY
+    if gate_result.diagnostic_kind == "review_malformed":
+        return DiagnosticKind.REVIEW_MALFORMED
+    if gate_result.diagnostic_kind == "review_found_defect":
+        return DiagnosticKind.REVIEW_FOUND_DEFECT
     return DiagnosticKind.GENERIC
 
 
@@ -144,6 +150,14 @@ _PHASE2_DISPATCH = {
     ),
     DiagnosticKind.CROSS_FAMILY_REVIEW: Route(
         target_state=STATE_NEW,
+        custom_fields_update={"review_feedback_pending": True},
+    ),
+    DiagnosticKind.REVIEW_MALFORMED: Route(
+        target_state=STATE_NEW,
+    ),
+    DiagnosticKind.REVIEW_FOUND_DEFECT: Route(
+        target_state=STATE_NEW,
+        custom_fields_update={"review_feedback_pending": True},
     ),
     DiagnosticKind.JURY: Route(
         target_state=STATE_NEW,
@@ -157,6 +171,11 @@ _PHASE2_DISPATCH = {
 # Deterministic gate failures (syntax, stub, structural_semantics, file_exists,
 # not_empty, channel_fail, cannot_proceed, unknown_type) are NOT escalatable — they
 # always route directly to the originating role for immediate correction.
+#
+# REVIEW_FOUND_DEFECT is NOT in this set because it routes upstream to the implementer
+# or test_author for revision, not to retry the reviewer.
+# CROSS_FAMILY_REVIEW (legacy string-diagnostic from Phase 4) IS still escalatable
+# because it lacks structured findings — we cannot distinguish malformed from defect.
 _ESCALATABLE_KINDS = {
     DiagnosticKind.IMPL_MYPY,
     DiagnosticKind.IMPL_PYTEST,
@@ -166,6 +185,7 @@ _ESCALATABLE_KINDS = {
     DiagnosticKind.TEST_COLLECT,
     DiagnosticKind.TEST_IMPORT_FORBIDDEN,
     DiagnosticKind.CROSS_FAMILY_REVIEW,
+    DiagnosticKind.REVIEW_MALFORMED,
     DiagnosticKind.JURY,
 }
 
@@ -209,13 +229,16 @@ def route(
                 diagnostics=gate_result.diagnostics,
                 diagnostic_kind=kind,
                 custom_fields_update={
-                    "diagnostics": {
-                        "gate_name": gate_result.gate_name,
-                        "passed": gate_result.passed,
-                        "messages": gate_result.diagnostics,
-                        "message": "; ".join(gate_result.diagnostics),
-                        "diagnostic_kind": kind.value,
-                    }
+                    **base.custom_fields_update,
+                    **{
+                        "diagnostics": {
+                            "gate_name": gate_result.gate_name,
+                            "passed": gate_result.passed,
+                            "messages": gate_result.diagnostics,
+                            "message": "; ".join(gate_result.diagnostics),
+                            "diagnostic_kind": kind.value,
+                        }
+                    },
                 },
             )
         return Route(target_state=STATE_NEW, diagnostic_kind=DiagnosticKind.GENERIC)

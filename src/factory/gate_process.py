@@ -338,13 +338,16 @@ def process_gate_item(
             }
         if gate_result.diagnostic_kind and "diagnostic_kind" not in diagnostics:
             diagnostics["diagnostic_kind"] = gate_result.diagnostic_kind
+        custom_fields_payload: dict = {"diagnostics": diagnostics}
+        if gate_result.custom_fields:
+            custom_fields_payload.update(gate_result.custom_fields)
         sub.transition(
             work_item_id,
             transition_name,
             actor_id,
             actor_metadata=actor_metadata,
             payload=GateFailPayload(diagnostics=diagnostics).to_dict(),
-            custom_fields={"diagnostics": diagnostics},
+            custom_fields=custom_fields_payload,
         )
         log.info(
             TRANSITION_GATE_ESCALATION
