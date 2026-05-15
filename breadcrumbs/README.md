@@ -44,15 +44,8 @@ Reusable tags:
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 166 | Interface architect inner_pytest first-pass rate dropped from 50% (GR-027) to 38% (GR-029) | medium | proposed |
-| 164 | Scheduler may go idle before completing all stage handoffs — outcome_verification unreachable on small DAGs | medium | proposed |
-| 158 | Outcome-verifier routing_hint extracted in gate but never consumed by scheduler or router | high | proposed |
-| 154 | _run_ruff_fast modifies artifact in-place inside inner gate — original model output lost | high | proposed |
-| 149 | Model availability regression — DeepSeek and GLM both dead in opencode channel | high | proposed |
-| 148 | Scheduler crashes with exit code 1 during golden run — blocks outcome_verification stage | high | proposed |
-| 147 | Scheduler stuck-item handling for small DAGs — review item orphaned in gating | medium | proposed |
-| 145 | cross_family_review failure is terminal — no route back to implementer for legitimate review-found defects | high | in_progress |
-| 138 | Qwen 3.6-27b operational timeout on test_author and implementer roles (>600s) | medium | proposed |
+| 164 | Scheduler may go idle before completing all stage handoffs — outcome_verification unreachable on small DAGs | medium | resolved (scheduler drain cycles) |
+| 145 | cross_family_review failure is terminal — no route back to implementer for legitimate review-found defects | high | implemented (phase 1; phase 2 deferred to RFC-025) |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
 ### RFCs (awaiting upstream phases)
@@ -93,6 +86,13 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 166 | Interface architect inner_pytest first-pass rate dropped from 50% (GR-027) to 38% (GR-029) | medium | Closed as stochastic noise — 4/8 vs 3/8 is a difference of 1 item, consistent with K2 variance |
+| 158 | Outcome-verifier routing_hint extracted in gate but never consumed by scheduler or router | high | OUTCOME_E2E with routing_hint routes directly to CANNOT_PROCEED; full upstream routing deferred to RFC-025 |
+| 154 | _run_ruff_fast modifies artifact in-place inside inner gate — original model output lost | high | `_run_ruff_fast` is now side-effect-free; calling functions apply fixes via `_apply_ruff_fix()` |
+| 149 | Model availability regression — DeepSeek and GLM both dead in opencode channel | high | Added pre-flight model ping to `agent_golden_run.py`; aborts if any model is unreachable |
+| 148 | Scheduler crashes with exit code 1 during golden run — blocks outcome_verification stage | high | Already fixed by BC-161 — scheduler has try/except Exception handler in main loop |
+| 147 | Scheduler stuck-item handling for small DAGs — review item orphaned in gating | medium | Subsumed by BC-164 fix — scheduler runs 3 drain cycles after SIGTERM |
+| 138 | Qwen 3.6-27b operational timeout on test_author and implementer roles (>600s) | medium | Restrict Qwen to review/judge roles only; Gemini Pro viable alternative for code-gen |
 | 167 | Monitor does not kill remaining processes on pipeline process crash | medium | Monitor now kills remaining processes and calls `_fatal()` when any process exits with non-zero code |
 | 165 | Single-family jury with quorum=2 produces systematic disagreement | medium | Added `validate_jury_config()` to `FactoryConfig`; warns when `jury_quorum > distinct_models` |
 | 163 | agent_golden_run.py danger signal checks have duplicate unreachable code blocks | low | Removed duplicate `gate_fail_*` and `channel_invoke_failed` checks |

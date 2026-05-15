@@ -214,17 +214,19 @@ def pre_gate_implementation(
         artifact_path, python_executable=python_executable, timeout=t.ruff_timeout
     )
     if not ruff_result["passed"]:
-        all_diagnostics = mypy_result.get("diagnostics", []) + ruff_result.get("diagnostics", [])
         return PreGateResult(
             passed=False,
             mypy_passed=True,
             ruff_passed=False,
             pytest_passed=True,
             imports_symbols_passed=True,
-            diagnostics=_truncate_diagnostics(all_diagnostics),
+            diagnostics=_truncate_diagnostics(ruff_result.get("diagnostics", [])),
             output=ruff_result.get("raw_output", ""),
             skipped_import_patterns=skipped or None,
         )
+
+    if ruff_result.get("ruff_fixed_content"):
+        _apply_ruff_fix(artifact_path, ruff_result["ruff_fixed_content"])
 
     pytest_result = _run_pytest_fast(
         artifact_path,
@@ -278,6 +280,9 @@ def pre_gate_interface_spec(
             diagnostics=_truncate_diagnostics(ruff_result.get("diagnostics", [])),
             output=ruff_result.get("raw_output", ""),
         )
+
+    if ruff_result.get("ruff_fixed_content"):
+        _apply_ruff_fix(artifact_path, ruff_result["ruff_fixed_content"])
 
     import_result = _run_import_check(
         artifact_path,
@@ -360,6 +365,9 @@ def pre_gate_test_suite(
             output=ruff_result.get("raw_output", ""),
             skipped_import_patterns=skipped or None,
         )
+
+    if ruff_result.get("ruff_fixed_content"):
+        _apply_ruff_fix(artifact_path, ruff_result["ruff_fixed_content"])
 
     collect_result = _run_collect_only(
         artifact_path,
@@ -680,6 +688,20 @@ def _run_mypy_fast(
 _RAW_ARTIFACT_SUFFIX = ".orig"
 
 
+def _apply_ruff_fix(artifact_path: Path, fixed_content: str) -> None:
+    original_content = artifact_path.read_text()
+    if original_content == fixed_content:
+        return
+    orig_backup = artifact_path.parent / f".{artifact_path.name}{_RAW_ARTIFACT_SUFFIX}"
+    orig_backup.write_text(original_content)
+    artifact_path.write_text(fixed_content)
+    _pre_gate_log.info(
+        "ruff_fix_applied",
+        artifact=str(artifact_path),
+        orig_backup=str(orig_backup),
+    )
+
+
 def _run_ruff_fast(
     artifact_path: Path,
     python_executable: str | None = None,
@@ -734,9 +756,12 @@ def _run_ruff_fast(
                 return _fail(diags, _truncate_raw_output(result.stdout))
             fixed_content = tmp_copy.read_text()
             if fixed_content != original_content:
-                orig_backup = artifact_path.parent / f".{artifact_path.name}{_RAW_ARTIFACT_SUFFIX}"
-                orig_backup.write_text(original_content)
-                artifact_path.write_text(fixed_content)
+                return {
+                    "passed": True,
+                    "diagnostics": [],
+                    "raw_output": "",
+                    "ruff_fixed_content": fixed_content,
+                }
     except subprocess.TimeoutExpired:
         return _fail([f"ruff timed out after {timeout}s"])
     except Exception as e:

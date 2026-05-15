@@ -10,6 +10,7 @@ from scripts.agent_golden_run import (
     DANGER_SIGNALS,
     _check_open_breadcrumbs,
     _cleanup_offered,
+    _ping_models,
     _validate_config,
 )
 
@@ -149,6 +150,62 @@ class TestValidateConfig:
         assert result["workflow_version"] == 0
         assert result["inner_gate_retries"] == 0
         assert result["jury_quorum"] == 0
+
+    def test_extracts_models_from_roles(self, tmp_path):
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text(yaml.dump(
+            {
+                "project_name": "test",
+                "roles": [
+                    {"role": "interface_architect", "channel": "opencode", "model": "k2-turbo"},
+                    {"role": "mechanical_gate", "channel": "code", "timeout_seconds": 120},
+                    {"role": "implementer", "channel": "opencode", "model": "deepseek-v4"},
+                ],
+            }
+        ))
+        result = _validate_config(cfg)
+        assert result["models"] == ["deepseek-v4", "k2-turbo"]
+
+
+class TestModelPing:
+    def test_ping_skips_when_no_models(self, capsys):
+        _ping_models({"models": []})
+        captured = capsys.readouterr()
+        assert "No models" in captured.err
+
+    def test_ping_skips_when_opencode_not_found(self, capsys):
+        from unittest.mock import patch as um_patch
+
+        with um_patch("scripts.agent_golden_run.shutil.which", return_value=None):
+            _ping_models({"models": ["some-model"]})
+        captured = capsys.readouterr()
+        assert "not in PATH" in captured.err
+
+    def test_ping_fatal_on_bad_model(self, tmp_path):
+        import subprocess
+        from unittest.mock import patch as um_patch
+
+        with um_patch("scripts.agent_golden_run.shutil.which", return_value="/usr/bin/opencode"):
+            with um_patch("scripts.agent_golden_run.subprocess.run") as mock_run:
+                mock_run.return_value = subprocess.CompletedProcess(
+                    args=[], returncode=1,
+                    stdout="", stderr="Model not found: bad-model",
+                )
+                with pytest.raises(SystemExit, match="1"):
+                    _ping_models({"models": ["bad-model"]})
+
+    def test_ping_passes_on_good_model(self, capsys):
+        import subprocess
+        from unittest.mock import patch as um_patch
+
+        with um_patch("scripts.agent_golden_run.shutil.which", return_value="/usr/bin/opencode"):
+            with um_patch("scripts.agent_golden_run.subprocess.run") as mock_run:
+                mock_run.return_value = subprocess.CompletedProcess(
+                    args=[], returncode=0, stdout="", stderr="",
+                )
+                _ping_models({"models": ["good-model"]})
+        captured = capsys.readouterr()
+        assert "good-model" in captured.out
 
 
 class TestDangerSignals:

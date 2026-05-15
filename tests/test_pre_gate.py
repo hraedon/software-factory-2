@@ -422,7 +422,7 @@ class TestPreGateDispatch:
 
 
 class TestRunRuffFastAutoFix:
-    def test_auto_fix_writes_back_to_artifact(self, tmp_path):
+    def test_auto_fix_returns_fixed_content(self, tmp_path):
         from factory.pre_gate import _run_ruff_fast
 
         artifact = tmp_path / "impl.py"
@@ -430,29 +430,44 @@ class TestRunRuffFastAutoFix:
         artifact.write_text(original)
         result = _run_ruff_fast(artifact)
         assert result["passed"]
-        fixed = artifact.read_text()
-        assert fixed != original
-        assert "x = 1" in fixed
+        assert artifact.read_text() == original
+        assert result.get("ruff_fixed_content") is not None
+        assert "x = 1" in result["ruff_fixed_content"]
 
-    def test_auto_fix_saves_orig_backup(self, tmp_path):
-        from factory.pre_gate import _run_ruff_fast
+    def test_apply_ruff_fix_writes_back(self, tmp_path):
+        from factory.pre_gate import _apply_ruff_fix, _run_ruff_fast
 
         artifact = tmp_path / "impl.py"
         original = "x=1\n"
         artifact.write_text(original)
-        _run_ruff_fast(artifact)
+        result = _run_ruff_fast(artifact)
+        assert result["passed"]
+        assert result.get("ruff_fixed_content") is not None
+        _apply_ruff_fix(artifact, result["ruff_fixed_content"])
+        fixed = artifact.read_text()
+        assert fixed != original
+        assert "x = 1" in fixed
+
+    def test_apply_ruff_fix_saves_orig_backup(self, tmp_path):
+        from factory.pre_gate import _apply_ruff_fix, _run_ruff_fast
+
+        artifact = tmp_path / "impl.py"
+        original = "x=1\n"
+        artifact.write_text(original)
+        result = _run_ruff_fast(artifact)
+        _apply_ruff_fix(artifact, result["ruff_fixed_content"])
         orig = tmp_path / ".impl.py.orig"
         assert orig.exists()
         assert orig.read_text() == original
 
-    def test_no_orig_backup_when_unchanged(self, tmp_path):
+    def test_no_fixed_content_when_unchanged(self, tmp_path):
         from factory.pre_gate import _run_ruff_fast
 
         artifact = tmp_path / "impl.py"
         artifact.write_text("x = 1\n")
-        _run_ruff_fast(artifact)
-        orig = tmp_path / ".impl.py.orig"
-        assert not orig.exists()
+        result = _run_ruff_fast(artifact)
+        assert result["passed"]
+        assert result.get("ruff_fixed_content") is None
 
     def test_unfixable_error_fails(self, tmp_path):
         from factory.pre_gate import _run_ruff_fast

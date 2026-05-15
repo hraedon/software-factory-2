@@ -188,8 +188,13 @@ class TestGateProcessPhase5Mock:
         runtime = PipelineRuntime(sub=phase5_sub, config=mock_config)
         process_gate_item(runtime, fresh, "gate", claim)
         final = phase5_sub.get_work_item(wi.work_item_id)
-        assert final.current_state == "new"
+        assert final.current_state == "cannot_proceed"
         assert "diagnostics" in (final.custom_fields or {})
+        diags = (final.custom_fields or {}).get("diagnostics", {})
+        assert diags.get("routing_hint") == {
+            "work_item_type": "implementation",
+            "reason": "stub",
+        }
 
 
 class TestGateProcessPhase5Integration:
@@ -305,7 +310,7 @@ class TestGateProcessPhase5Integration:
         runtime = PipelineRuntime(sub=phase5_substrate, config=phase5_factory_config)
         process_gate_item(runtime, fresh, "gate", claim)
         final = phase5_substrate.get_work_item(wi.work_item_id)
-        assert final.current_state == "new"
+        assert final.current_state == "cannot_proceed"
         diagnostics = (final.custom_fields or {}).get("diagnostics", {})
         assert "routing_hint" in diagnostics
         assert diagnostics["routing_hint"]["work_item_type"] == "implementation"

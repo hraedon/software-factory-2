@@ -184,6 +184,8 @@ _PHASE2_DISPATCH = {
 # or test_author for revision, not to retry the reviewer.
 # CROSS_FAMILY_REVIEW (legacy string-diagnostic from Phase 4) IS still escalatable
 # because it lacks structured findings — we cannot distinguish malformed from defect.
+# OUTCOME_E2E is NOT in this set because it routes directly to cannot_proceed
+# when a routing_hint is present (BC-158), or retries at attempt_threshold otherwise.
 _ESCALATABLE_KINDS = {
     DiagnosticKind.IMPL_MYPY,
     DiagnosticKind.IMPL_PYTEST,
@@ -216,6 +218,26 @@ def route(
         if gate_result is not None:
             kind = _classify_diagnostic(gate_result)
             base = _PHASE2_DISPATCH.get(kind, Route(target_state="new"))
+
+            if (
+                kind == DiagnosticKind.OUTCOME_E2E
+                and gate_result.routing_hint is not None
+            ):
+                return Route(
+                    target_state=STATE_CANNOT_PROCEED,
+                    diagnostics=gate_result.diagnostics,
+                    diagnostic_kind=DiagnosticKind.OUTCOME_E2E,
+                    custom_fields_update={
+                        "diagnostics": {
+                            "gate_name": gate_result.gate_name,
+                            "passed": gate_result.passed,
+                            "messages": gate_result.diagnostics,
+                            "message": "; ".join(gate_result.diagnostics),
+                            "diagnostic_kind": DiagnosticKind.OUTCOME_E2E.value,
+                            "routing_hint": gate_result.routing_hint,
+                        }
+                    },
+                )
 
             if kind in _ESCALATABLE_KINDS and attempt_number >= attempt_threshold:
                 escalation = _PHASE2_DISPATCH[DiagnosticKind.CANNOT_PROCEED_SEAM]

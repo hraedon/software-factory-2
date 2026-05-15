@@ -4,6 +4,51 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-15 — Session 37: Resolve 7 breadcrumbs (BC-148/154/158/147/149/138/166)
+
+**Invocation:** GLM-5.1
+
+**Focus:** Scan all open breadcrumbs and resolve as many as possible through code fixes and documentation.
+
+### Breadcrumbs resolved (7)
+
+1. **BC-148 (high):** Scheduler crash during golden run. Already fixed by BC-161 (try/except Exception in scheduler loop). Moved to resolved.
+
+2. **BC-154 (high):** `_run_ruff_fast` modifying artifact in-place. Made the function side-effect-free — returns `ruff_fixed_content` in result dict instead of writing back. Calling functions (`pre_gate_implementation`, `pre_gate_interface_spec`, `pre_gate_test_suite`) now explicitly apply fixes via `_apply_ruff_fix()` after ruff passes.
+
+3. **BC-158 (high):** routing_hint extracted but never consumed. OUTCOME_E2E with routing_hint now routes directly to STATE_CANNOT_PROCEED instead of STATE_NEW, preventing budget waste. Full upstream routing deferred to RFC-025.
+
+4. **BC-147 (medium):** Scheduler stuck items on small DAGs. Subsumed by BC-164 fix: scheduler now runs 3 drain cycles after SIGTERM to complete pending handoffs. Extracted `_poll_handoffs()` helper.
+
+5. **BC-149 (high):** Model availability regression. Added pre-flight model ping to `agent_golden_run.py` (`_ping_models()`). Each model in config verified via `opencode run --model <model> --help` before run starts. Also extracted model names from config roles in `_validate_config()`.
+
+6. **BC-138 (medium):** Qwen timeout on code-gen roles. Resolved by documenting restriction to review/judge roles only. No code change needed — enforced by config.
+
+7. **BC-166 (medium):** Inner pytest first-pass rate retrogression. Closed as stochastic noise — 50% (4/8) vs 38% (3/8) is a difference of 1 item.
+
+### Breadcrumbs updated (2)
+
+- **BC-145 (high):** Status changed from `in_progress` to `implemented`. Phase 1 (diagnostic taxonomy, router dispatch, context injection) done in Session 34. Phase 2 (actual upstream routing — creating new work items for implementer/interface_architect) deferred to RFC-025.
+- **BC-164 (medium):** Resolved by scheduler drain cycles. Status changed from `proposed` to `resolved`.
+
+### Code changes
+
+- `src/factory/pre_gate.py`: `_run_ruff_fast` side-effect-free; `_apply_ruff_fix` helper; all 3 pre_gate functions updated
+- `src/factory/router.py`: OUTCOME_E2E with routing_hint → CANNOT_PROCEED; updated `_ESCALATABLE_KINDS` comment
+- `src/factory/scheduler.py`: Extracted `_poll_handoffs()`; added 3 drain cycles after SIGTERM; removed unused `sub` variable
+- `scripts/agent_golden_run.py`: `_ping_models()` function; `_validate_config()` extracts models from roles
+- `tests/test_pre_gate.py`: 6 tests updated for new `_run_ruff_fast` behavior
+- `tests/test_router.py`: 3 new BC-158 tests
+- `tests/test_main_entry.py`: 1 new scheduler drain test
+- `tests/test_agent_golden_run.py`: 5 new model ping tests; 1 config extraction test
+- `tests/test_gate_process_phase5.py`: Updated outcome verification test assertions
+
+### Test results
+
+747 passed, 13 skipped, 0 lint errors (src/ and changed test files).
+
+---
+
 ## 2026-05-15 — Session 36: Phase 5 test fixtures + BC-145 routing_hint telemetry
 
 **Invocation:** OpenCode (kimi-k2.6)

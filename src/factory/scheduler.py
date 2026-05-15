@@ -31,7 +31,6 @@ def run_scheduler(config: FactoryConfig) -> None:
 
 
 def scheduler_loop(runtime: PipelineRuntime) -> None:
-    sub = runtime.sub
     config = runtime.config
     poll_interval = config.poll_interval_seconds
     shutting_down = False
@@ -48,22 +47,37 @@ def scheduler_loop(runtime: PipelineRuntime) -> None:
 
     while not shutting_down:
         try:
-            for handoff in config.stage_topology:
-                page = sub.query_work_items(
-                    workflow_name=config.workflow_name,
-                    workflow_version=config.workflow_version,
-                    current_states=[handoff.source_state],
-                    page_size=config.query_page_size,
-                )
-                for wi in page.items:
-                    if wi.work_item_type != handoff.source_type:
-                        continue
-                    _ensure_downstream_item(runtime, wi, handoff)
+            _poll_handoffs(runtime)
         except Exception:
             log.exception("scheduler_poll_error")
         if not shutting_down:
             time.sleep(poll_interval)
+
+    log.info("scheduler_draining", drain_cycles=3)
+    for i in range(3):
+        try:
+            _poll_handoffs(runtime)
+        except Exception:
+            log.exception("scheduler_drain_error", cycle=i)
+        time.sleep(poll_interval)
+
     log.info("scheduler_loop_exiting")
+
+
+def _poll_handoffs(runtime: PipelineRuntime) -> None:
+    sub = runtime.sub
+    config = runtime.config
+    for handoff in config.stage_topology:
+        page = sub.query_work_items(
+            workflow_name=config.workflow_name,
+            workflow_version=config.workflow_version,
+            current_states=[handoff.source_state],
+            page_size=config.query_page_size,
+        )
+        for wi in page.items:
+            if wi.work_item_type != handoff.source_type:
+                continue
+            _ensure_downstream_item(runtime, wi, handoff)
 
 
 def _ensure_downstream_item(

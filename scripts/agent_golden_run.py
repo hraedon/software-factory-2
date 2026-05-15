@@ -94,6 +94,12 @@ def _validate_config(config_path: Path) -> dict:
         _fatal("PyYAML required: pip install pyyaml")
 
     data = yaml.safe_load(config_path.read_text())
+    models = set()
+    for role_cfg in data.get("roles", []):
+        m = role_cfg.get("model")
+        ch = role_cfg.get("channel", "")
+        if m and ch != "code":
+            models.add(m)
     return {
         "project_name": data.get("project_name", "unknown"),
         "workspace_root": data.get("workspace_root", ""),
@@ -101,7 +107,37 @@ def _validate_config(config_path: Path) -> dict:
         "workflow_version": data.get("workflow_version", 0),
         "inner_gate_retries": data.get("inner_gate_retries", 0),
         "jury_quorum": data.get("jury_quorum", 0),
+        "models": sorted(models),
     }
+
+
+def _ping_models(cfg: dict) -> None:
+    """Verify each model in the config is reachable via opencode (BC-149)."""
+    models = cfg.get("models", [])
+    if not models:
+        _warn("No models found in config — skipping model ping.")
+        return
+
+    opencode_bin = shutil.which("opencode")
+    if opencode_bin is None:
+        _warn("opencode binary not in PATH — skipping model ping.")
+        return
+
+    for model in models:
+        result = subprocess.run(
+            [opencode_bin, "run", "--dangerously-skip-permissions",
+             "--model", model, "--help"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            _fatal(
+                f"Model ping failed for '{model}': {stderr[:200]}\n"
+                f"Aborting — fix the model name or provider config before running."
+            )
+        _info(f"Model '{model}' ✓")
 
 
 def _preflight(config_path: Path, fixtures: str | None) -> None:
@@ -160,6 +196,9 @@ def _preflight(config_path: Path, fixtures: str | None) -> None:
         if not fp.exists():
             _fatal(f"Fixtures path does not exist: {fp}")
         _info(f"Fixtures={fixtures} ✓")
+
+    # 5. Model availability ping (BC-149)
+    _ping_models(cfg)
 
     _info("=== Pre-flight passed ===")
 

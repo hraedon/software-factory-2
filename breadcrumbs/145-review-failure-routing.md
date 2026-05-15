@@ -2,7 +2,7 @@
 number: "145"
 title: "cross_family_review failure is terminal — no route back to implementer for legitimate review-found defects"
 severity: high
-status: in_progress
+status: implemented
 kind: design
 author: agent
 date: "2026-05-14"
@@ -40,6 +40,16 @@ Both interact with BC-120 (implementer-initiated interface amendment) — there'
 ## Reproduction
 
 `.factory/gr027-workspace-backup/52fae369-60a9-480e-b206-cb9dee4653ed/attempt-0001/artifact.py` contains the verdict. The upstream implementation artifact (the actual `extract_chain` stub) is on the work item the review depends on.
+
+## Phase 1 implementation (Session 34)
+
+- **Diagnostic taxonomy**: `REVIEW_FOUND_DEFECT` vs `REVIEW_MALFORMED` — structured findings with `ReviewFinding` schema
+- **Router dispatch**: `REVIEW_FOUND_DEFECT` routes to STATE_NEW with `review_feedback_pending=True`; not in `_ESCALATABLE_KINDS`
+- **Context injection**: `_format_review_feedback()` renders findings into prompt; `render_prompt()` injects `## review_feedback`
+
+## Phase 2 (deferred to RFC-025)
+
+Phase 1 routes the REVIEW item back to STATE_NEW with feedback metadata, but does NOT create a new work item for the implementer/interface_architect. Actual upstream routing (creating new work items for upstream roles based on review findings) requires RFC-025 (stateful upstream routing) — the scheduler/router cannot currently create work items for different work_item_types based on gate diagnostics.
 
 ## Not in scope here
 

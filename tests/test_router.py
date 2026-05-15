@@ -144,3 +144,47 @@ class TestDiagnosticClassification:
             diagnostic_kind="jury",
         )
         assert _classify_diagnostic(gate) == DiagnosticKind.JURY
+
+
+class TestBC158OutcomeRoutingHint:
+    def test_outcome_e2e_with_routing_hint_routes_to_cannot_proceed(self):
+        gate = GateResult(
+            passed=False,
+            gate_name="outcome_e2e",
+            diagnostics=["Outcome verification failed"],
+            diagnostic_kind="outcome_e2e",
+            routing_hint={"work_item_type": "implementation", "reason": "stub impl"},
+        )
+        result = route("gating", "gate_fail", gate_result=gate)
+        assert result.target_state == "cannot_proceed"
+        assert result.diagnostic_kind == DiagnosticKind.OUTCOME_E2E
+        assert result.custom_fields_update["diagnostics"]["routing_hint"] == {
+            "work_item_type": "implementation",
+            "reason": "stub impl",
+        }
+
+    def test_outcome_e2e_without_routing_hint_routes_to_new(self):
+        gate = GateResult(
+            passed=False,
+            gate_name="outcome_e2e",
+            diagnostics=["Outcome verification failed"],
+            diagnostic_kind="outcome_e2e",
+        )
+        result = route("gating", "gate_fail", gate_result=gate)
+        assert result.target_state == "new"
+
+    def test_outcome_e2e_without_routing_hint_at_threshold(self):
+        gate = GateResult(
+            passed=False,
+            gate_name="outcome_e2e",
+            diagnostics=["Outcome verification failed"],
+            diagnostic_kind="outcome_e2e",
+        )
+        result = route(
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=3,
+            attempt_threshold=3,
+        )
+        assert result.target_state == "cannot_proceed"
