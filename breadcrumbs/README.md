@@ -51,10 +51,9 @@ Reusable tags:
 RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that cannot be acted on until later phases. They are candidates for improvement, not actionable defects.
 
 | # | Title | Severity | Phase Needed |
-|---|---|---|---|---|
+|---|---|---|---|
 | RFC-027 | Test efficacy — no mechanical verification that tests actually validate behavior | high | Phase 6 |
 | RFC-026 | Principal review surface — pipeline needs artifact bundle format and feedback intake | high | Phase 6 (first real workload) |
-| RFC-025 | Stateful upstream routing — route() and scheduler need role-targeted work-item creation | high | Phase 5–6 |
 | RFC-024 | Coherence reviewer — declared role with zero design or implementation | high | Phase 6 |
 | RFC-023 | Decomposer role — Stage 1 pipeline cannot consume arbitrary specs | high | Phase 6 (generalization) |
 | RFC-001 | Prompt conflict detection — v1 BC-383 shows silent failure when role prompts contradict | high | Phase 3 (multi-role prompts) |
@@ -62,27 +61,27 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-003 | Channel adapter auth-mode detection — v1 BC-376 shows env var injection breaks native auth | high | Phase 3 (multi-channel adapters) |
 | RFC-004 | Auto-generated pipeline documentation — v1 docs froze while pipeline grew | medium | Phase 3 (pipeline complexity) |
 | RFC-005 | Composable failure/escalation architecture — v1 imperative if/elif chain grew unbounded | medium | Phase 4 (jury disagreement) |
-| RFC-006 | Per-project venv isolation for subprocess gates — v1 BC-192, prevents ModuleNotFoundError in real workloads | medium | Phase 5 (first real workload) |
 | RFC-007 | Test efficacy scoring via mutation testing gates — v1 BC-107/186, mechanical antidote to test theater | high | Phase 4–5 (jury / real workload) |
 | RFC-008 | Pipeline checkpoint and surgical resume system — v1 BC-122, preserve progress across 30–50 min runs | medium | Phase 3–5 (fleet / real workload) |
 | RFC-009 | Interactive debugging inner loop — channel tool-use surface for implementer | high | Phase 5+ (evidence threshold: 3+ golden runs with pytest-in-inner-loop still failing) |
 | RFC-010 | Fixture taxonomy — classify fixtures by architectural complexity class and gate Phase N exit criteria on the hardest exercised class | high | Phase 2 exit criteria |
 | RFC-011 | Unified gate evaluation — extract shared subprocess execution layer to eliminate drift between outer and inner gate implementations | medium | Phase 3 (multi-channel gates) |
-| RFC-012 | Gate subprocess credential stripping and sandboxing — defense-in-depth against model output executing in gate context | medium | Phase 5+ (untrusted specs) |
 | RFC-014 | Staff engineer summarizer — compress outer-path failure history into actionable constraints | medium | Phase 4 (outer retry path) |
 | RFC-016 | Defect-class taxonomy — evolve breadcrumbs from per-defect entries to class-based corpus | medium | Phase 3 (process) — BC-128 resolved; unblocked |
-| RFC-017 | Operational survivability — resource limits, disk monitoring, log rotation, workspace lifecycle | high | Phase 5 (first real workload) |
 | RFC-018 | Live state reporter — substrate-derived project snapshot | medium | Phase 4–5 |
-| RFC-019 | Artifact bundling and output delivery — Stage 9 implementation | high | Phase 5 (first real workload) |
-| RFC-020 | Project archetype catalog for Phase 5 cold-start | high | Phase 5 (first real workload) |
-| RFC-021 | Spec mutation and invalidation policy | high | Phase 5 (first real workload) |
 | RFC-022 | Initiative primitive for work-item bundling and operational granularity | medium | Phase 5 (first real workload) |
 
 ## Resolved
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
-| 164 | Scheduler may go idle before completing all stage handoffs — outcome_verification unreachable on small DAGs | medium | Scheduler runs 3 drain cycles after SIGTERM/SIGINT to complete pending handoffs (scheduler.py:56-62) |
+| RFC-025 | Stateful upstream routing — route() and scheduler need role-targeted work-item creation | high | Route extended with upstream fields; REVIEW_FOUND_DEFECT creates implementation revisions via scheduler.ensure_upstream_revision(); idempotency via upstream_revision_of custom field |
+| RFC-021 | Spec mutation and invalidation policy | high | spec_hash.py module with SHA-256 tracking, store/load via substrate custom fields, compare_spec_hashes for change detection |
+| RFC-020 | Project archetype catalog for Phase 5 cold-start | high | catalog/ with 3 archetypes (cli-tool, web-service, library-module); catalog.py loader with skeleton application and validation |
+| RFC-019 | Artifact bundling and output delivery | high | bundler.py with tar.gz/zip/dir output, MANIFEST.json, SHA-256 integrity verification; 13 tests |
+| RFC-017 | Operational survivability — resource limits, disk monitoring, log rotation, workspace lifecycle | high | factory/ops/ package: cleanup.py, log_rotation.py, disk_monitor.py, resource_limits.py; OpsConfig in FactoryConfig; 22 tests |
+| RFC-012 | Gate subprocess credential stripping and sandboxing | medium | sandbox.py with strip_sensitive_env/gate_subprocess_env; all gate.py and pre_gate.py subprocess calls use sanitized env |
+| RFC-006 | Per-project venv isolation for subprocess gates | medium | Auto-detect requirements.txt via should_use_project_venv(); ensure_gate_venv installs project deps into gate venv |
 | 145 | cross_family_review failure is terminal — no route back to implementer for legitimate review-found defects | high | Phase 1: REVIEW_FOUND_DEFECT/REVIEW_MALFORMED taxonomy, ReviewFinding schema, router dispatch to STATE_NEW with review_feedback_pending, context injection. Phase 2 deferred to RFC-025 |
 | RFC-015 | Dependency import manifest + gate-level import validation | high | extract_exports() AST-walk, import symbol validation gate, manifest in prompts, stub-only tags. 491 tests pass |
 | RFC-013 | Expanded inner-gate feedback for implementer retries — richer failure signal without infra overhead | medium | inner_gate_max_feedback_chars config, FailureEntry accumulation, gate output fed back to model in retry prompt |

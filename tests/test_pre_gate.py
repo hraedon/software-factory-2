@@ -231,9 +231,7 @@ class TestInnerGateToolNotFound:
             python_executable="/nonexistent/python",
         )
         assert not result["passed"]
-        assert any(
-            "pytest" in d.lower() or "failed" in d.lower() for d in result["diagnostics"]
-        )
+        assert any("pytest" in d.lower() or "failed" in d.lower() for d in result["diagnostics"])
 
 
 class TestCopyDependencyPyis:

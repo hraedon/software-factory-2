@@ -153,16 +153,18 @@ class TestValidateConfig:
 
     def test_extracts_models_from_roles(self, tmp_path):
         cfg = tmp_path / "config.yaml"
-        cfg.write_text(yaml.dump(
-            {
-                "project_name": "test",
-                "roles": [
-                    {"role": "interface_architect", "channel": "opencode", "model": "k2-turbo"},
-                    {"role": "mechanical_gate", "channel": "code", "timeout_seconds": 120},
-                    {"role": "implementer", "channel": "opencode", "model": "deepseek-v4"},
-                ],
-            }
-        ))
+        cfg.write_text(
+            yaml.dump(
+                {
+                    "project_name": "test",
+                    "roles": [
+                        {"role": "interface_architect", "channel": "opencode", "model": "k2-turbo"},
+                        {"role": "mechanical_gate", "channel": "code", "timeout_seconds": 120},
+                        {"role": "implementer", "channel": "opencode", "model": "deepseek-v4"},
+                    ],
+                }
+            )
+        )
         result = _validate_config(cfg)
         assert result["models"] == ["deepseek-v4", "k2-turbo"]
 
@@ -188,8 +190,10 @@ class TestModelPing:
         with um_patch("scripts.agent_golden_run.shutil.which", return_value="/usr/bin/opencode"):
             with um_patch("scripts.agent_golden_run.subprocess.run") as mock_run:
                 mock_run.return_value = subprocess.CompletedProcess(
-                    args=[], returncode=1,
-                    stdout="", stderr="Model not found: bad-model",
+                    args=[],
+                    returncode=1,
+                    stdout="",
+                    stderr="Model not found: bad-model",
                 )
                 with pytest.raises(SystemExit, match="1"):
                     _ping_models({"models": ["bad-model"]})
@@ -201,7 +205,10 @@ class TestModelPing:
         with um_patch("scripts.agent_golden_run.shutil.which", return_value="/usr/bin/opencode"):
             with um_patch("scripts.agent_golden_run.subprocess.run") as mock_run:
                 mock_run.return_value = subprocess.CompletedProcess(
-                    args=[], returncode=0, stdout="", stderr="",
+                    args=[],
+                    returncode=0,
+                    stdout="",
+                    stderr="",
                 )
                 _ping_models({"models": ["good-model"]})
         captured = capsys.readouterr()

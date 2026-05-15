@@ -315,7 +315,7 @@ def _resolve_pre_gate_deps(sub: Substrate, wi, config: FactoryConfig) -> PreGate
     test_suite_ref = custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
     test_suite_path = _resolve_ref_artifact(sub, test_suite_ref) if test_suite_ref else None
     python_executable: str | None = None
-    if config.use_project_venv:
+    if config.should_use_project_venv():
         from factory.venv import ensure_gate_venv
 
         python_executable = str(ensure_gate_venv(Path(config.workspace_root)))

@@ -2,7 +2,7 @@
 number: "RFC-006"
 title: "Per-project venv isolation for subprocess gates"
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: opencode
 date: "2026-05-09"

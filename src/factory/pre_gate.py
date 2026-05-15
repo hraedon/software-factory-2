@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 import difflib
 import logging
-import os
 import re
 import subprocess
 import sys
@@ -21,6 +20,7 @@ from factory.constants import (
     TEMPFILE_PREFIX_MYPY,
     TEMPFILE_PREFIX_PYTEST,
 )
+from factory.sandbox import gate_subprocess_env
 
 _IMPORT_FEEDBACK_KIND_DOTTED_SUBMODULE = "dotted_submodule"
 _IMPORT_FEEDBACK_KIND_WRONG_MODULE_NAME = "wrong_module_name"
@@ -569,7 +569,7 @@ def _run_import_check(
                 text=True,
                 timeout=timeout,
                 cwd=tmpdir,
-                env={**os.environ, "PYTHONPATH": tmpdir},
+                env=gate_subprocess_env(PYTHONPATH=tmpdir),
             )
             if result.returncode != 0:
                 lines = result.stderr.strip().splitlines()
@@ -626,7 +626,7 @@ def _run_collect_only(
                 text=True,
                 timeout=timeout,
                 cwd=tmpdir,
-                env={**os.environ, "PYTHONPATH": tmpdir},
+                env=gate_subprocess_env(PYTHONPATH=tmpdir),
             )
             if result.returncode != 0:
                 if "No module named pytest" in result.stderr:
@@ -670,7 +670,7 @@ def _run_mypy_fast(
                 text=True,
                 timeout=timeout,
                 cwd=tmpdir,
-                env={**os.environ, "MYPYPATH": tmpdir},
+                env=gate_subprocess_env(MYPYPATH=tmpdir),
             )
             if result.returncode != 0:
                 if "No module named mypy" in result.stderr:
@@ -716,6 +716,7 @@ def _run_ruff_fast(
         with tempfile.TemporaryDirectory(prefix="sf2_ruff_") as tmpdir:
             tmp_copy = Path(tmpdir) / artifact_path.name
             tmp_copy.write_text(original_content)
+            ruff_env = gate_subprocess_env()
             subprocess.run(
                 [
                     exe,
@@ -731,24 +732,28 @@ def _run_ruff_fast(
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env=ruff_env,
             )
             subprocess.run(
                 [exe, "-m", "ruff", "check", "--fix", *check_args, str(tmp_copy)],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env=ruff_env,
             )
             subprocess.run(
                 [exe, "-m", "ruff", "format", str(tmp_copy)],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env=ruff_env,
             )
             result = subprocess.run(
                 [exe, "-m", "ruff", "check", *check_args, str(tmp_copy)],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env=ruff_env,
             )
             if result.returncode != 0:
                 lines = result.stdout.strip().splitlines()
@@ -812,10 +817,7 @@ def _run_pytest_fast(
                 text=True,
                 timeout=timeout,
                 cwd=tmpdir,
-                env={
-                    **os.environ,
-                    "PYTHONPATH": tmpdir,
-                },
+                env=gate_subprocess_env(PYTHONPATH=tmpdir),
             )
             if result.returncode != 0:
                 if "No module named pytest" in result.stderr:

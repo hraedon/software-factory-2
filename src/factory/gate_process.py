@@ -161,7 +161,7 @@ def process_gate_item(
     ac_ids = ac_ids_raw if isinstance(ac_ids_raw, list) else [ac_ids_raw]
     artifact_path = Path(artifact_path_str) if artifact_path_str else None
     python_executable: str | None = None
-    if config.use_project_venv:
+    if config.should_use_project_venv():
         python_executable = str(ensure_gate_venv(runtime.workspace_root))
 
     if artifact_path is None or not artifact_path.exists():
@@ -210,7 +210,9 @@ def process_gate_item(
                 )
             else:
                 dep_pyi_paths, dep_spec_paths = _resolve_dependency_refs(
-                    sub, custom, page_size=config.query_page_size,
+                    sub,
+                    custom,
+                    page_size=config.query_page_size,
                 )
                 gate_result = evaluate_test_suite(
                     artifact_path,
@@ -286,7 +288,9 @@ def process_gate_item(
                 )
             else:
                 dep_pyi_paths, dep_spec_paths = _resolve_dependency_refs(
-                    sub, custom, page_size=config.query_page_size,
+                    sub,
+                    custom,
+                    page_size=config.query_page_size,
                 )
                 gate_result = evaluate_implementation(
                     artifact_path,

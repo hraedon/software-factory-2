@@ -2,7 +2,7 @@
 number: "RFC-020"
 title: "Project archetype catalog for Phase 5 cold-start"
 severity: high
-status: proposed
+status: implemented
 kind: design
 author: opencode-review
 date: "2026-05-13"

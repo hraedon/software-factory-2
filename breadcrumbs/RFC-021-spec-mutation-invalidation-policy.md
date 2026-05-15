@@ -2,7 +2,7 @@
 number: "RFC-021"
 title: "Spec mutation and invalidation policy"
 severity: high
-status: proposed
+status: implemented
 kind: design
 author: opencode-review
 date: "2026-05-13"

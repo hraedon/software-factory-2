@@ -188,3 +188,49 @@ class TestBC158OutcomeRoutingHint:
             attempt_threshold=3,
         )
         assert result.target_state == "cannot_proceed"
+
+
+class TestRFC025UpstreamRouting:
+    def test_review_found_defect_has_upstream_fields(self):
+        gate = GateResult(
+            passed=False,
+            gate_name=GATE_NAME_CROSS_FAMILY_REVIEW,
+            diagnostics=["Impl fails on edge case"],
+            diagnostic_kind="review_found_defect",
+        )
+        result = route("gating", "gate_fail", gate_result=gate)
+        assert result.target_state == "new"
+        assert result.create_upstream_revision is True
+        assert result.upstream_type == "implementation"
+        assert result.upstream_context_key == "review_feedback"
+
+    def test_syntax_error_no_upstream(self):
+        gate = GateResult(
+            passed=False,
+            gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX,
+            diagnostics=["Syntax error"],
+            diagnostic_kind="syntax",
+        )
+        result = route("gating", "gate_fail", gate_result=gate)
+        assert result.create_upstream_revision is False
+        assert result.upstream_type is None
+
+    def test_impl_pytest_no_upstream(self):
+        gate = GateResult(
+            passed=False,
+            gate_name="implementation_pytest",
+            diagnostics=["test failed"],
+            diagnostic_kind="impl_pytest",
+        )
+        result = route("gating", "gate_fail", gate_result=gate)
+        assert result.create_upstream_revision is False
+
+    def test_review_malformed_no_upstream(self):
+        gate = GateResult(
+            passed=False,
+            gate_name=GATE_NAME_CROSS_FAMILY_REVIEW,
+            diagnostics=["JSON parse error"],
+            diagnostic_kind="review_malformed",
+        )
+        result = route("gating", "gate_fail", gate_result=gate)
+        assert result.create_upstream_revision is False

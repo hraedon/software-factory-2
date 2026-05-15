@@ -85,6 +85,20 @@ class GateTimeouts:
 
 
 @dataclass(frozen=True)
+class OpsConfig:
+    workspace_max_age_hours: int = 168
+    archive_before_delete: bool = True
+    preserve_failed_hours: int = 24
+    log_max_size_bytes: int = 10_000_000
+    log_backup_count: int = 5
+    log_max_age_hours: int = 168
+    disk_alert_warning_percent: float = 80.0
+    disk_alert_error_percent: float = 90.0
+    max_memory_rss_mb: int = 2048
+    gate_subprocess_timeout_multiplier: float = 1.5
+
+
+@dataclass(frozen=True)
 class FactoryConfig:
     workflow_name: str = "software_factory"
     workflow_version: int = 1
@@ -108,7 +122,7 @@ class FactoryConfig:
     query_page_size: int = 50
     telemetry_event_limit: int = 500
     per_channel_timeout: dict[str, int] | None = None
-    use_project_venv: bool = False
+    use_project_venv: bool | None = None
     inner_gate_retries: int = 2
     inner_gate_max_feedback_chars: int = 2000
     jury_quorum: int = 2
@@ -119,6 +133,7 @@ class FactoryConfig:
     credentials_path: Path | None = None
     invocation_cwd: Path | None = None
     gate_timeouts: GateTimeouts = field(default_factory=GateTimeouts)
+    ops: OpsConfig = field(default_factory=OpsConfig)
     stage_topology: tuple[StageHandoff, ...] = (
         StageHandoff(
             source_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
@@ -438,6 +453,11 @@ class FactoryConfig:
                 return handoff
         return None
 
+    def should_use_project_venv(self) -> bool:
+        if self.use_project_venv is None:
+            return (self.workspace_root / "requirements.txt").exists()
+        return self.use_project_venv
+
     @classmethod
     def from_yaml(cls, path: str | Path) -> FactoryConfig:
         raw = yaml.safe_load(Path(path).read_text())
@@ -481,10 +501,13 @@ class FactoryConfig:
                     elif isinstance(item, StageHandoff):
                         handoffs.append(item)
                 kwargs["stage_topology"] = tuple(handoffs)
+        if "ops" in kwargs and isinstance(kwargs["ops"], dict):
+            kwargs["ops"] = OpsConfig(**kwargs["ops"])
         cfg = cls(**kwargs)
         jury_warnings = cfg.validate_jury_config()
         for w in jury_warnings:
             import logging
+
             logging.getLogger(__name__).warning(w)
         return cfg
 

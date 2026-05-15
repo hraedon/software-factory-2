@@ -2,7 +2,7 @@
 number: "RFC-017"
 title: "Operational survivability — resource limits, disk monitoring, log rotation, and workspace lifecycle"
 severity: high
-status: proposed
+status: implemented
 kind: design
 author: opencode-review
 date: "2026-05-13"

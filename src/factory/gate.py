@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import os
 import shutil
 import subprocess
 import sys
@@ -48,6 +47,7 @@ from factory.constants import (
 )
 from factory.output_extraction import extract_json_from_output
 from factory.pre_gate import copy_dependency_pyis
+from factory.sandbox import gate_subprocess_env
 
 
 @dataclass(frozen=True)
@@ -548,7 +548,6 @@ def _run_pytest_collect(
     python_executable: str | None = None,
     timeout: int = 30,
 ) -> GateResult:
-    import os
     import tempfile
 
     exe = python_executable or sys.executable
@@ -566,10 +565,7 @@ def _run_pytest_collect(
                 text=True,
                 timeout=timeout,
                 cwd=tmpdir,
-                env={
-                    **os.environ,
-                    "PYTHONPATH": tmpdir,
-                },
+                env=gate_subprocess_env(PYTHONPATH=tmpdir),
             )
             if result.returncode != 0:
                 if "No module named pytest" in result.stderr:
@@ -623,7 +619,6 @@ def _run_mypy(
     python_executable: str | None = None,
     timeout: int = 120,
 ) -> GateResult:
-    import os
     import tempfile
 
     exe = python_executable or sys.executable
@@ -647,7 +642,7 @@ def _run_mypy(
                 text=True,
                 timeout=timeout,
                 cwd=tmpdir,
-                env={**os.environ, "MYPYPATH": tmpdir},
+                env=gate_subprocess_env(MYPYPATH=tmpdir),
             )
             if result.returncode != 0:
                 if "No module named mypy" in result.stderr:
@@ -690,7 +685,6 @@ def _run_pytest(
     python_executable: str | None = None,
     timeout: int = 300,
 ) -> GateResult:
-    import os
     import tempfile
 
     exe = python_executable or sys.executable
@@ -719,10 +713,7 @@ def _run_pytest(
                 text=True,
                 timeout=timeout,
                 cwd=tmpdir,
-                env={
-                    **os.environ,
-                    "PYTHONPATH": tmpdir,
-                },
+                env=gate_subprocess_env(PYTHONPATH=tmpdir),
             )
             if result.returncode != 0:
                 if "No module named pytest" in result.stderr:
@@ -777,23 +768,27 @@ def _run_ruff(
         with tempfile.TemporaryDirectory(prefix="sf2_ruff_") as tmpdir:
             tmp_copy = Path(tmpdir) / artifact_path.name
             tmp_copy.write_text(artifact_path.read_text())
+            ruff_env = gate_subprocess_env()
             subprocess.run(
                 [ruff, "check", "--fix", str(tmp_copy)],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env=ruff_env,
             )
             subprocess.run(
                 [ruff, "format", str(tmp_copy)],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env=ruff_env,
             )
             result = subprocess.run(
                 [ruff, "check", str(tmp_copy)],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env=ruff_env,
             )
             if result.returncode != 0:
                 lines = result.stdout.strip().splitlines()
@@ -1195,7 +1190,7 @@ def evaluate_integration(
                 text=True,
                 timeout=t.mypy_timeout,
                 cwd=str(tmp_path),
-                env={**os.environ, "MYPYPATH": str(tmp_path)},
+                env=gate_subprocess_env(MYPYPATH=str(tmp_path)),
             )
             if "No module named mypy" in mypy_result.stderr:
                 return GateResult(
@@ -1225,7 +1220,7 @@ def evaluate_integration(
                 text=True,
                 timeout=t.pytest_timeout,
                 cwd=str(tmp_path),
-                env={**os.environ, "PYTHONPATH": str(tmp_path)},
+                env=gate_subprocess_env(PYTHONPATH=str(tmp_path)),
             )
             if "No module named pytest" in pytest_result.stderr:
                 return GateResult(

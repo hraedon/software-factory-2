@@ -2,7 +2,7 @@
 number: "RFC-019"
 title: "Artifact bundling and output delivery — Stage 9 implementation"
 severity: high
-status: proposed
+status: implemented
 kind: design
 author: opencode-review
 date: "2026-05-13"

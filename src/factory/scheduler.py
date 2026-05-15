@@ -10,10 +10,13 @@ from factory.constants import (
     CUSTOM_FIELD_AC_IDS,
     CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_REVIEW_FINDINGS,
     CUSTOM_FIELD_SPEC_SECTION,
+    CUSTOM_FIELD_UPSTREAM_REVISION_OF,
     LINK_TYPE_IMPLEMENTS,
     STATE_LOCKED,
 )
+from factory.router import Route
 from factory.runtime import PipelineRuntime
 
 log = structlog.get_logger()
@@ -214,6 +217,77 @@ def _downstream_has_field(sub, config: FactoryConfig, work_item_type: str, field
     except Exception:
         pass
     return False
+
+
+def ensure_upstream_revision(
+    runtime: PipelineRuntime,
+    source_wi,
+    route: Route,
+) -> None:
+    sub = runtime.sub
+    config = runtime.config
+    if not route.create_upstream_revision or not route.upstream_type:
+        return
+
+    upstream_type = route.upstream_type
+    upstream_role = config.role_for_type(upstream_type)
+    if upstream_role is None:
+        log.warning(
+            "upstream_no_role",
+            upstream_type=upstream_type,
+        )
+        return
+
+    source_custom = source_wi.custom_fields or {}
+    existing_revision = source_custom.get(CUSTOM_FIELD_UPSTREAM_REVISION_OF)
+    if existing_revision:
+        log.info(
+            "upstream_revision_exists",
+            source_id=str(source_wi.work_item_id),
+            existing=existing_revision,
+        )
+        return
+
+    custom: dict = {
+        CUSTOM_FIELD_SPEC_SECTION: source_custom.get(CUSTOM_FIELD_SPEC_SECTION, ""),
+        CUSTOM_FIELD_AC_IDS: source_custom.get(CUSTOM_FIELD_AC_IDS, []),
+        CUSTOM_FIELD_UPSTREAM_REVISION_OF: str(source_wi.work_item_id),
+    }
+
+    dep_refs = source_custom.get(CUSTOM_FIELD_DEPENDENCY_REFS) or []
+    if isinstance(dep_refs, str):
+        dep_refs = [dep_refs]
+    if dep_refs:
+        custom[CUSTOM_FIELD_DEPENDENCY_REFS] = dep_refs
+
+    interface_ref = source_custom.get(CUSTOM_FIELD_INTERFACE_REF)
+    if interface_ref:
+        custom[CUSTOM_FIELD_INTERFACE_REF] = interface_ref
+
+    context_key = route.upstream_context_key
+    if context_key and route.diagnostics:
+        custom[CUSTOM_FIELD_REVIEW_FINDINGS] = {
+            "source_wi": str(source_wi.work_item_id),
+            "source_type": source_wi.work_item_type,
+            "findings": route.diagnostics,
+        }
+
+    upstream_wi, _ = sub.create_work_item(
+        workflow_name=config.workflow_name,
+        work_item_type=upstream_type,
+        actor_id=config.scheduler_actor_id,
+        actor_kind=ACTOR_KIND_AGENT,
+        actor_metadata={"role": upstream_role, "revision_of": str(source_wi.work_item_id)},
+        custom_fields=custom,
+    )
+
+    log.info(
+        "upstream_revision_created",
+        source_id=str(source_wi.work_item_id),
+        source_type=source_wi.work_item_type,
+        upstream_id=str(upstream_wi.work_item_id),
+        upstream_type=upstream_type,
+    )
 
 
 def _main(argv: list[str] | None = None) -> None:

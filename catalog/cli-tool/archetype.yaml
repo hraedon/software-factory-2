@@ -1,0 +1,10 @@
+name: cli-tool
+version: 1
+compatible_phases: [1, 2, 3, 4, 5]
+required_roles: [interface_architect, test_author, implementer]
+dependencies:
+  - pytest
+  - ruff
+  - mypy
+entry_point: "src/{module_name}/cli.py"
+test_pattern: "tests/test_{module_name}.py"

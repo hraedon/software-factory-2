@@ -2,7 +2,7 @@
 number: "RFC-012"
 title: "Gate subprocess credential stripping and sandboxing — defense-in-depth against model output executing in gate context"
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: gemini-adversarial-review (filtered)
 date: "2026-05-11"

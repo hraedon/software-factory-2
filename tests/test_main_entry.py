@@ -62,6 +62,7 @@ class TestSchedulerDrainAfterSignal:
             if poll_count >= 2:
                 import os
                 import signal
+
                 os.kill(os.getpid(), signal.SIGTERM)
 
         with patch("factory.scheduler._poll_handoffs", side_effect=count_poll):

@@ -78,6 +78,9 @@ class Route:
     diagnostics: list[str] = field(default_factory=list)
     custom_fields_update: dict = field(default_factory=dict)
     diagnostic_kind: DiagnosticKind = DiagnosticKind.GENERIC
+    create_upstream_revision: bool = False
+    upstream_type: str | None = None
+    upstream_context_key: str | None = None
 
 
 _PHASE2_DISPATCH = {
@@ -154,6 +157,9 @@ _PHASE2_DISPATCH = {
     DiagnosticKind.REVIEW_FOUND_DEFECT: Route(
         target_state=STATE_NEW,
         custom_fields_update={"review_feedback_pending": True},
+        create_upstream_revision=True,
+        upstream_type="implementation",
+        upstream_context_key="review_feedback",
     ),
     DiagnosticKind.JURY: Route(
         target_state=STATE_NEW,
@@ -219,10 +225,7 @@ def route(
             kind = _classify_diagnostic(gate_result)
             base = _PHASE2_DISPATCH.get(kind, Route(target_state="new"))
 
-            if (
-                kind == DiagnosticKind.OUTCOME_E2E
-                and gate_result.routing_hint is not None
-            ):
+            if kind == DiagnosticKind.OUTCOME_E2E and gate_result.routing_hint is not None:
                 return Route(
                     target_state=STATE_CANNOT_PROCEED,
                     diagnostics=gate_result.diagnostics,
@@ -274,6 +277,9 @@ def route(
                         }
                     },
                 },
+                create_upstream_revision=base.create_upstream_revision,
+                upstream_type=base.upstream_type,
+                upstream_context_key=base.upstream_context_key,
             )
         return Route(target_state=STATE_NEW, diagnostic_kind=DiagnosticKind.GENERIC)
 
