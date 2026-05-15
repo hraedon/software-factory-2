@@ -1113,20 +1113,30 @@ def evaluate_integration(
                 )
 
         # Mechanical promotion: if the tree contains a top-level __init__.py
-        # but no directory matching the entry_point package name, promote all
-        # top-level items into that package directory. This compensates for
-        # integrators that produce flat assembled_tree keys for a package.
+        # with relative imports but no directory matching the entry_point package
+        # name, promote all top-level items into that package directory.
         entry_point = str(data.get("entry_point", "")).strip()
         if entry_point:
             pkg_name = entry_point.split(".")[0]
             top_init = tmp_path / "__init__.py"
             pkg_dir = tmp_path / pkg_name
             if top_init.exists() and not pkg_dir.exists():
-                top_items = [p for p in tmp_path.iterdir() if p.name != pkg_name]
-                if top_items:
-                    pkg_dir.mkdir(parents=True, exist_ok=True)
-                    for item in top_items:
-                        shutil.move(str(item), str(pkg_dir / item.name))
+                init_text = top_init.read_text()
+                has_relative_import = "from ." in init_text
+                if has_relative_import:
+                    top_items = [p for p in tmp_path.iterdir() if p.name != pkg_name]
+                    if top_items:
+                        pkg_dir.mkdir(parents=True, exist_ok=True)
+                        for item in top_items:
+                            shutil.move(str(item), str(pkg_dir / item.name))
+                else:
+                    # No-op __init__.py shadows sibling modules for pytest.
+                    # Remove it so imports resolve to the sibling files.
+                    has_sibling_py = any(
+                        p.suffix == ".py" and p.name != "__init__.py" for p in tmp_path.iterdir()
+                    )
+                    if has_sibling_py:
+                        top_init.unlink()
 
         # Gate 1: import resolution
         import_errors: list[str] = []
@@ -1145,6 +1155,11 @@ def evaluate_integration(
                     module_name = ".".join(rel_parts[:-1]) if len(rel_parts) > 1 else "__init__"
                 else:
                     module_name = ".".join(rel_parts)[:-3]
+                # Skip top-level __init__.py that has no parent package —
+                # relative imports inside it cannot resolve, and its content
+                # will be validated by mypy / pytest instead.
+                if module_name == "__init__":
+                    continue
                 try:
                     spec = __import__("importlib.util").util.spec_from_file_location(
                         module_name,

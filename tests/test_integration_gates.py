@@ -212,3 +212,53 @@ class TestEvaluateIntegrationPytest:
         )
         result = evaluate_integration(artifact)
         assert result.passed is True
+
+
+class TestEvaluateIntegrationPromotion:
+    """Mechanical promotion of flat assembled_tree into package directory."""
+
+    def test_flat_init_with_relative_imports_gets_promoted(self, tmp_path: Path):
+        artifact = tmp_path / "integration.json"
+        artifact.write_text(
+            json.dumps(
+                {
+                    "assembled_tree": {
+                        "__init__.py": "from .mathlib import square\n",
+                        "mathlib.py": "def square(x: int) -> int:\n    return x * x\n",
+                    },
+                    "entry_point": "mathlib.square",
+                    "integration_tests": (
+                        "\n"
+                        "import mathlib\n\n"
+                        "def test_square():\n"
+                        "    assert mathlib.square(4) == 16\n"
+                    ),
+                }
+            )
+        )
+        result = evaluate_integration(artifact)
+        assert result.passed is True
+        assert result.gate_name == GATE_NAME_INTEGRATION_IMPORT
+
+    def test_flat_init_without_relative_imports_stays_flat(self, tmp_path: Path):
+        artifact = tmp_path / "integration.json"
+        artifact.write_text(
+            json.dumps(
+                {
+                    "assembled_tree": {
+                        "__init__.py": "# package init\n",
+                        "interface.py": "def square(x: int) -> int:\n    return x * x\n",
+                    },
+                    "entry_point": "interface.square",
+                    "integration_tests": (
+                        "\n"
+                        "import interface\n\n"
+                        "def test_square():\n"
+                        "    assert interface.square(4) == 16\n"
+                    ),
+                }
+            )
+        )
+        result = evaluate_integration(artifact)
+        assert result.passed is True
+        assert result.gate_name == GATE_NAME_INTEGRATION_IMPORT
