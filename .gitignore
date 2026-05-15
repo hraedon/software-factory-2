@@ -10,4 +10,4 @@ build/
 .factory/work/
 .ruff_cache/
 .coverage
-Credentials/
+Credentials/.factory/gr028-workspace-backup/
