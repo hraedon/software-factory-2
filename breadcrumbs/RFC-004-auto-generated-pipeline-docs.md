@@ -2,7 +2,7 @@
 number: "RFC-004"
 title: "Auto-generated pipeline documentation — v1 docs froze while pipeline grew"
 severity: medium
-status: proposed
+status: implemented
 kind: improvement
 author: adversarial-review
 date: "2026-05-08"

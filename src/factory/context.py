@@ -16,6 +16,7 @@ from factory.constants import (
     CUSTOM_FIELD_IMPLEMENTATION_REF,
     CUSTOM_FIELD_INTEGRATION_REF,
     CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_MODULE_NAME,
     CUSTOM_FIELD_REVIEW_FEEDBACK,
     CUSTOM_FIELD_REVIEW_REF,
     CUSTOM_FIELD_SPEC_SECTION,
@@ -26,8 +27,12 @@ from factory.constants import (
     ROLE_INTEGRATOR,
     ROLE_OUTCOME_VERIFIER,
     ROLE_TEST_AUTHOR,
+    STATE_LOCKED,
+    WORK_ITEM_TYPE_IMPLEMENTATION,
+    WORK_ITEM_TYPE_INTERFACE_SPEC,
 )
 from factory.dep_resolution import resolve_dep_refs_for_context
+from factory.failure_summarizer import summarize_failures
 from factory.failure_summary import FailureEntry, derive_failures
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -392,8 +397,9 @@ def derive_integrator_context(
     """Derive context for the integrator role.
 
     Chases the work-item chain (integration -> jury -> review -> implementation)
-    to inject the focal implementation, interface, and test suite plus all
-    dependency module contents into the prompt.
+    to inject the focal implementation, interface, and test suite. Also gathers
+    ALL other locked implementations and interfaces in the project so the
+    integrator can assemble the full module tree.
     """
     wi_id = _to_uuid(work_item_id)
     wi = substrate.get_work_item(wi_id)
@@ -404,6 +410,8 @@ def derive_integrator_context(
     extra_artifacts: dict[str, str] = {}
     stub_only: list[str] = []
     export_map: dict[str, set[str]] = {}
+
+    focal_impl_id: str | None = None
 
     integration_ref = custom.get(CUSTOM_FIELD_INTEGRATION_REF)
     if integration_ref:
@@ -432,6 +440,7 @@ def derive_integrator_context(
 
                     impl_ref = review_custom.get(CUSTOM_FIELD_IMPLEMENTATION_REF)
                     if impl_ref:
+                        focal_impl_id = str(impl_ref)
                         impl_wi = substrate.get_work_item(_to_uuid(impl_ref))
                         if impl_wi and impl_wi.custom_fields:
                             dep_contents, stub_only = _resolve_dependency_contents(
@@ -439,6 +448,16 @@ def derive_integrator_context(
                             )
                             extra_artifacts.update(dep_contents)
                             export_map = _build_export_map_from_contents(dep_contents)
+
+    other_impls, other_ifaces = _gather_other_locked_artifacts(substrate, focal_impl_id)
+    for mod_name, source in other_impls.items():
+        key = f"locked_impl_{mod_name}"
+        if key not in extra_artifacts:
+            extra_artifacts[key] = source
+    for mod_name, source in other_ifaces.items():
+        key = f"locked_iface_{mod_name}"
+        if key not in extra_artifacts:
+            extra_artifacts[key] = source
 
     return derive_context(
         substrate,
@@ -450,6 +469,73 @@ def derive_integrator_context(
         stub_only_deps=stub_only,
         export_map=export_map,
     )
+
+
+def _gather_other_locked_artifacts(
+    substrate: Substrate,
+    exclude_impl_id: str | None = None,
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Gather all locked implementation and interface_spec artifacts
+    across the project, excluding the focal implementation.
+
+    Returns (impls_by_module_name, ifaces_by_module_name).
+    """
+    impls: dict[str, str] = {}
+    ifaces: dict[str, str] = {}
+
+    page = substrate.query_work_items(
+        work_item_types=[WORK_ITEM_TYPE_IMPLEMENTATION],
+        current_states=[STATE_LOCKED],
+        page_size=200,
+    )
+    for item in page.items:
+        item_id = str(item.work_item_id)
+        if exclude_impl_id and item_id == exclude_impl_id:
+            continue
+        c = item.custom_fields or {}
+        artifact_path = c.get(CUSTOM_FIELD_ARTIFACT_PATH)
+        mod_name = c.get(CUSTOM_FIELD_MODULE_NAME, "")
+        if not mod_name:
+            mod_name = _infer_module_name_from_artifact_path(artifact_path)
+        if artifact_path and mod_name:
+            p = Path(artifact_path)
+            if p.exists():
+                impls[mod_name] = p.read_text()
+
+    page = substrate.query_work_items(
+        work_item_types=[WORK_ITEM_TYPE_INTERFACE_SPEC],
+        current_states=[STATE_LOCKED],
+        page_size=200,
+    )
+    for item in page.items:
+        c = item.custom_fields or {}
+        artifact_path = c.get(CUSTOM_FIELD_ARTIFACT_PATH)
+        mod_name = c.get(CUSTOM_FIELD_MODULE_NAME, "")
+        if not mod_name:
+            mod_name = _infer_module_name_from_artifact_path(artifact_path)
+        if artifact_path and mod_name:
+            p = Path(artifact_path)
+            if p.exists():
+                ifaces[mod_name] = p.read_text()
+
+    return impls, ifaces
+
+
+def _infer_module_name_from_artifact_path(artifact_path: str | None) -> str:
+    """Derive a module name from an artifact file path like
+    /tmp/.../wi_XXX/ad/attempt-0001/certificate_model.pyi
+    """
+    if not artifact_path:
+        return ""
+    p = Path(artifact_path)
+    stem = p.stem
+    if stem and stem != "artifact":
+        return stem
+    parent = p.parent
+    for part in reversed(parent.parts):
+        if part.startswith("wi_"):
+            return part.removeprefix("wi_")
+    return ""
 
 
 def derive_outcome_verifier_context(
@@ -541,18 +627,29 @@ def render_prompt(ctx: PromptContext) -> str:
             parts.append(f"- **{term}**: {definition}")
         parts.append("")
     if ctx.prior_failures:
-        parts.append("## prior_failures")
-        parts.append("")
-        for f in ctx.prior_failures:
+        summary = summarize_failures(ctx.prior_failures)
+        if summary and len(ctx.prior_failures) >= 2:
+            parts.append("## prior_failures (summarized)")
+            parts.append("")
             parts.append(
-                f"- attempt {f.attempt_number} ({f.role}/{f.channel}): "
-                f"{f.gate_name} — {f.diagnostic}"
+                "Your previous attempts failed. These constraints are derived from the "
+                "failure history. Each one identifies a concrete problem to avoid."
             )
-            if f.gate_output:
-                parts.append("  ```")
-                for line in f.gate_output.splitlines():
-                    parts.append(f"  {line}")
-                parts.append("  ```")
+            parts.append("")
+            parts.append(summary.format_for_prompt())
+        else:
+            parts.append("## prior_failures")
+            parts.append("")
+            for f in ctx.prior_failures:
+                parts.append(
+                    f"- attempt {f.attempt_number} ({f.role}/{f.channel}): "
+                    f"{f.gate_name} — {f.diagnostic}"
+                )
+                if f.gate_output:
+                    parts.append("  ```")
+                    for line in f.gate_output.splitlines():
+                        parts.append(f"  {line}")
+                    parts.append("  ```")
         parts.append("")
     if ctx.import_feedback:
         parts.append("## import_resolution_feedback")

@@ -2,7 +2,7 @@
 number: "RFC-014"
 title: "Staff engineer summarizer — compress outer-path failure history into actionable constraints"
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: gemini-adversarial-review + opus-refinement
 date: "2026-05-11"

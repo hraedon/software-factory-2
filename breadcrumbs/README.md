@@ -11,8 +11,8 @@ Schema follows substrate's breadcrumbs convention; see `/projects/substrate/brea
 number: "001"
 title: Short descriptive title
 severity: critical | high | medium | low
-status: proposed | in_progress | implemented | obsolete
-kind: bug | design | improvement
+status: proposed | in_progress | implemented | obsolete | active
+kind: bug | design | improvement | defect-class
 author: who-raised-it
 date: "YYYY-MM-DD"
 tags: [topic, stage-N, dep-substrate-NNN]
@@ -38,6 +38,32 @@ Reusable tags:
 - `dep-v1-NNN` — lesson from software-factory v1 breadcrumb NNN
 - `rfc` — design proposal awaiting a future phase; not actionable yet
 
+## Defect Classes
+
+Classes group individual BCs that share the same shape (one-sentence pattern). See RFC-016 for rationale.
+
+### Filing rule
+
+Before filing a new BC, scan `CLASS-*.md` instances tables. If the defect matches an existing class, file the BC normally **and** append a row to the class's instances table. If it does not match, file the BC. If you have just filed the 3rd instance of an unclassified shape, file a CLASS-NNN file before closing the session.
+
+### Promotion rule
+
+When a CLASS file accumulates ≥5 instances OR contains ≥2 high/critical instances, the next reviewer must either (a) file an RFC proposing the systemic fix and link it from the CLASS file, or (b) document why a systemic fix is not worth pursuing.
+
+### Active Defect Classes
+
+| Class | Title | Instances | Max Severity |
+|---|---|---|---|
+| CLASS-001 | JSONB / Contract Validation Entry-Point Drift | 10 | critical |
+| CLASS-002 | Dependency Module Name Resolution | 5 | high |
+| CLASS-005 | Inner Gate vs Outer Gate Ruleset Divergence | 11 | critical |
+| CLASS-008 | Gate Subprocess Execution and Environment Handling | 10 | high |
+| CLASS-010 | Channel Reliability and Failover | 8 | critical |
+| CLASS-011 | Budget/Retry/Escalation Loop Control | 6 | critical |
+| CLASS-012 | Single Source of Truth / String Constant Gravity | 10 | high |
+| CLASS-014 | Test Coverage Gaps for Existing Code | 14 | high |
+| CLASS-021 | Artifact Integrity and Immutability | 4 | critical |
+
 ## Open
 
 ### Active Bugs & Improvements
@@ -56,22 +82,22 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-026 | Principal review surface — pipeline needs artifact bundle format and feedback intake | high | Phase 6 (first real workload) |
 | RFC-024 | Coherence reviewer — declared role with zero design or implementation | high | Phase 6 |
 | RFC-023 | Decomposer role — Stage 1 pipeline cannot consume arbitrary specs | high | Phase 6 (generalization) |
-| RFC-001 | Prompt conflict detection — v1 BC-383 shows silent failure when role prompts contradict | high | Phase 3 (multi-role prompts) |
 | RFC-002 | Critical observer degradation — v1 BC-359 shows silent swallowing loses telemetry data | high | Phase 3 (hooks/observers) |
 | RFC-003 | Channel adapter auth-mode detection — v1 BC-376 shows env var injection breaks native auth | high | Phase 3 (multi-channel adapters) |
-| RFC-004 | Auto-generated pipeline documentation — v1 docs froze while pipeline grew | medium | Phase 3 (pipeline complexity) |
 | RFC-007 | Test efficacy scoring via mutation testing gates — v1 BC-107/186, mechanical antidote to test theater | high | Phase 4–5 (jury / real workload) |
 | RFC-009 | Interactive debugging inner loop — channel tool-use surface for implementer | high | Phase 5+ (evidence threshold: 3+ golden runs with pytest-in-inner-loop still failing) |
 | RFC-010 | Fixture taxonomy — classify fixtures by architectural complexity class and gate Phase N exit criteria on the hardest exercised class | high | Phase 2 exit criteria |
 | RFC-011 | Unified gate evaluation — extract shared subprocess execution layer to eliminate drift between outer and inner gate implementations | medium | Phase 3 (multi-channel gates) |
-| RFC-014 | Staff engineer summarizer — compress outer-path failure history into actionable constraints | medium | Phase 4 (outer retry path) |
-| RFC-016 | Defect-class taxonomy — evolve breadcrumbs from per-defect entries to class-based corpus | medium | Phase 3 (process) — BC-128 resolved; unblocked |
 | RFC-022 | Initiative primitive for work-item bundling and operational granularity | medium | Phase 5 (first real workload) |
 
 ## Resolved
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| RFC-016 | Defect-class taxonomy — evolve breadcrumbs from per-defect entries to class-based corpus | medium | 9 CLASS-NNN files created; filing rule and promotion rule added to README schema; 24 classes identified across 171 resolved BCs |
+| RFC-014 | Staff engineer summarizer — compress outer-path failure history into actionable constraints | medium | failure_summarizer.py with local constraint extraction (import refs, type mismatches, missing symbols, recurring errors); integrated into render_prompt for >=2 prior failures |
+| RFC-004 | Auto-generated pipeline documentation — v1 docs froze while pipeline grew | medium | pipeline_docs.py generates documentation from workflow YAML, router dispatch table, and prompt templates; format_full_doc() produces complete pipeline reference |
+| RFC-001 | Prompt conflict detection — v1 BC-383 shows silent failure when role prompts contradict | high | prompt_audit.py with typing-style conflict detection, directive gap analysis, orphaned artifact reference checks, worked-example style drift scanning |
 | RFC-018 | Live state reporter — substrate-derived project snapshot | medium | state_reporter.py with StateReporter, PipelineSnapshot, ProgressSummary; CLI with --json/--brief/--watch; markdown/JSON/brief render modes; 13 tests |
 | RFC-008 | Pipeline checkpoint and surgical resume system | medium | checkpoint.py with write_checkpoint/load_checkpoint/compare_checkpoints/can_resume_from_checkpoint; per-stage state snapshots; config hash validation; latest.json symlink; 14 tests |
 | RFC-005 | Composable failure/escalation architecture | medium | Router refactored to RouteHandler pipeline: RoutingHintHandler → EscalationHandler → DispatchHandler; new handlers add via _HANDLERS list without modifying dispatch table; 6 handler tests |

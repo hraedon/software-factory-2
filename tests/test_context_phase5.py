@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 
 from factory.context import (
+    _gather_other_locked_artifacts,
+    _infer_module_name_from_artifact_path,
     derive_integrator_context,
     derive_outcome_verifier_context,
 )
@@ -190,3 +192,146 @@ class TestDeriveOutcomeVerifierContext:
         ctx = derive_outcome_verifier_context(mock_substrate, str(outcome.work_item_id))
         assert ctx.role == "outcome_verifier"
         assert not ctx.extra_artifacts
+
+
+class TestGatherOtherLockedArtifacts:
+    def _create_and_lock_impl(self, mock_substrate, tmp_path, mod_name, actor_id_suffix):
+        iface_pyi = tmp_path / f"{mod_name}_iface.pyi"
+        iface_pyi.write_text(f"def {mod_name}() -> None: ...\n")
+        impl_py = tmp_path / f"{mod_name}.py"
+        impl_py.write_text(f"def {mod_name}(): pass\n")
+
+        iface, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id=f"arch-{actor_id_suffix}",
+            custom_fields={
+                "spec_section": f"Section {mod_name}",
+                "ac_ids": [f"AC-{actor_id_suffix}"],
+                "module_name": mod_name,
+                "artifact_path": str(iface_pyi),
+            },
+        )
+        mock_substrate.transition(
+            work_item_id=iface.work_item_id,
+            transition_name="claim",
+            actor_id="worker",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.transition(
+            work_item_id=iface.work_item_id,
+            transition_name="submit",
+            actor_id="worker",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.transition(
+            work_item_id=iface.work_item_id,
+            transition_name="gate_pass",
+            actor_id="gate",
+            actor_metadata={"role": "mechanical_gate"},
+        )
+
+        ts_py = tmp_path / f"test_{mod_name}.py"
+        ts_py.write_text(f"def test_{mod_name}(): pass\n")
+        ts, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="test_suite",
+            actor_id=f"tester-{actor_id_suffix}",
+            custom_fields={
+                "spec_section": f"Section {mod_name}",
+                "ac_ids": [f"AC-{actor_id_suffix}"],
+                "interface_ref": str(iface.work_item_id),
+                "artifact_path": str(ts_py),
+            },
+        )
+        mock_substrate.transition(
+            work_item_id=ts.work_item_id,
+            transition_name="claim",
+            actor_id="worker",
+            actor_metadata={"role": "test_author"},
+        )
+        mock_substrate.transition(
+            work_item_id=ts.work_item_id,
+            transition_name="submit",
+            actor_id="worker",
+            actor_metadata={"role": "test_author"},
+        )
+        mock_substrate.transition(
+            work_item_id=ts.work_item_id,
+            transition_name="gate_pass",
+            actor_id="gate",
+            actor_metadata={"role": "mechanical_gate"},
+        )
+
+        impl, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="implementation",
+            actor_id=f"coder-{actor_id_suffix}",
+            custom_fields={
+                "spec_section": f"Section {mod_name}",
+                "ac_ids": [f"AC-{actor_id_suffix}"],
+                "module_name": mod_name,
+                "interface_ref": str(iface.work_item_id),
+                "test_suite_ref": str(ts.work_item_id),
+                "artifact_path": str(impl_py),
+            },
+        )
+        mock_substrate.transition(
+            work_item_id=impl.work_item_id,
+            transition_name="claim",
+            actor_id="worker",
+            actor_metadata={"role": "implementer"},
+        )
+        mock_substrate.transition(
+            work_item_id=impl.work_item_id,
+            transition_name="submit",
+            actor_id="worker",
+            actor_metadata={"role": "implementer"},
+        )
+        mock_substrate.transition(
+            work_item_id=impl.work_item_id,
+            transition_name="gate_pass",
+            actor_id="gate",
+            actor_metadata={"role": "mechanical_gate"},
+        )
+        return impl, impl_py
+
+    def test_finds_other_locked_implementations(self, mock_substrate, tmp_path):
+        mock_substrate.register_workflow_file(
+            str(Path(__file__).parent.parent / "workflows" / "phase5.yaml")
+        )
+        _impl, impl_py = self._create_and_lock_impl(mock_substrate, tmp_path, "other_module", "10")
+
+        impls, _ifaces = _gather_other_locked_artifacts(mock_substrate, exclude_impl_id=None)
+        assert "other_module" in impls
+        assert impls["other_module"] == impl_py.read_text()
+
+    def test_excludes_focal_implementation(self, mock_substrate, tmp_path):
+        mock_substrate.register_workflow_file(
+            str(Path(__file__).parent.parent / "workflows" / "phase5.yaml")
+        )
+        impl, _ = self._create_and_lock_impl(mock_substrate, tmp_path, "focal", "20")
+
+        impls, _ifaces = _gather_other_locked_artifacts(
+            mock_substrate, exclude_impl_id=str(impl.work_item_id)
+        )
+        assert "focal" not in impls
+
+
+class TestInferModuleNameFromArtifactPath:
+    def test_extracts_stem(self):
+        assert (
+            _infer_module_name_from_artifact_path("/tmp/wi_abc/ad/attempt-0001/my_module.py")
+            == "my_module"
+        )
+
+    def test_extracts_from_wi_prefix(self):
+        assert (
+            _infer_module_name_from_artifact_path(
+                "/tmp/wi_certificate_model/ad/attempt-0001/artifact.py"
+            )
+            == "certificate_model"
+        )
+
+    def test_empty_for_none(self):
+        assert _infer_module_name_from_artifact_path(None) == ""

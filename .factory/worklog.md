@@ -4,6 +4,55 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-15 — Session 39: Implement RFC-001/004/014/016 + integrator multi-module context
+
+**Invocation:** GLM-5.1
+
+**Focus:** Scan repo, identify and implement open RFCs per Phase 5 dependencies.
+
+### RFCs implemented (4)
+
+1. **RFC-001 (high, implemented): Prompt conflict detection.** New module `factory/prompt_audit.py` with `audit_prompts()` scanning all 7 prompt templates for: typing-style conflicts (legacy `Union[`/`Optional[` vs modern `X | Y`), directive gaps (missing constraints in roles that should have them), orphaned artifact references (consumed artifacts not mentioned in prompts), worked-example style drift (legacy patterns in code blocks). `ConflictFinding` dataclass with role_a/role_b/kind/detail. `format_audit_report()` for human-readable output. 17 tests in `test_prompt_audit.py`.
+
+2. **RFC-004 (medium, implemented): Auto-generated pipeline documentation.** New module `factory/pipeline_docs.py` with `generate_from_workflow()` parsing workflow YAML (states, work_item_types, custom_fields, link_types, transitions), `generate_router_table()` extracting failure routing from router dispatch table, `extract_role_summaries()` from prompt templates. `generate_full_doc()` produces complete pipeline reference from latest workflow YAML. Handles dict-format roles/link_types from real YAML. 20 tests in `test_pipeline_docs.py`.
+
+3. **RFC-014 (medium, implemented): Staff engineer summarizer.** New module `factory/failure_summarizer.py` with `summarize_failures()` producing `FailureSummary(constraints, raw_text)` from >=2 prior failures. Local constraint extraction in `_extract_constraints_locally()`: import references, type mismatches, missing symbols, recurring errors. `build_summarizer_prompt()` for future model-mediated summarization. Integrated into `render_prompt()` in `context.py`: when >=2 prior failures, replaces raw diagnostic dump with summarized constraint list (labeled "prior_failures (summarized)"). 11 tests in `test_failure_summarizer.py`.
+
+4. **RFC-016 (medium, implemented): Defect-class taxonomy.** Created 9 CLASS-NNN files under `breadcrumbs/` classifying 171 resolved BCs into 24 defect classes. Added `defect-class` kind and `active` status to schema. Added filing rule and promotion rule to `breadcrumbs/README.md`. Added Active Defect Classes table with 9 classes (CLASS-001, 002, 005, 008, 010, 011, 012, 014, 021). Key classes: CLASS-014 (14 test coverage gaps), CLASS-005/008 (11 each inner-gate and subprocess issues), CLASS-012 (10 string constant instances).
+
+### Integrator multi-module context enhancement
+
+`derive_integrator_context()` now gathers ALL locked implementations and interface specs in the project via `_gather_other_locked_artifacts()`, not just the focal module's dependency chain. Injects `locked_impl_<mod_name>` and `locked_iface_<mod_name>` into extra_artifacts. The `_infer_module_name_from_artifact_path()` helper derives module names when `CUSTOM_FIELD_MODULE_NAME` is not set. 5 new tests in `test_context_phase5.py`.
+
+### Code changes
+
+- `src/factory/prompt_audit.py`: new module (359 lines)
+- `src/factory/pipeline_docs.py`: new module (224 lines)
+- `src/factory/failure_summarizer.py`: new module (163 lines)
+- `src/factory/context.py`: import summarize_failures; render_prompt uses summarized failures; _gather_other_locked_artifacts; _infer_module_name_from_artifact_path; added CUSTOM_FIELD_MODULE_NAME, STATE_LOCKED, WORK_ITEM_TYPE_IMPLEMENTATION, WORK_ITEM_TYPE_INTERFACE_SPEC imports
+- `breadcrumbs/CLASS-001-contract-validation-entry-point-drift.md`: new
+- `breadcrumbs/CLASS-002-dependency-module-name-resolution.md`: new
+- `breadcrumbs/CLASS-005-inner-outer-gate-ruleset-divergence.md`: new
+- `breadcrumbs/CLASS-008-gate-subprocess-execution-environment.md`: new
+- `breadcrumbs/CLASS-010-channel-reliability-and-failover.md`: new
+- `breadcrumbs/CLASS-011-budget-retry-escalation-loop-control.md`: new
+- `breadcrumbs/CLASS-012-single-source-of-truth-string-constant-gravity.md`: new
+- `breadcrumbs/CLASS-014-test-coverage-gaps.md`: new
+- `breadcrumbs/CLASS-021-artifact-integrity-and-immutability.md`: new
+- `breadcrumbs/RFC-001-prompt-conflict-detection.md`: status proposed → implemented
+- `breadcrumbs/RFC-004-auto-generated-pipeline-docs.md`: status proposed → implemented
+- `breadcrumbs/RFC-014-staff-engineer-summarizer.md`: status proposed → implemented
+- `breadcrumbs/RFC-016-defect-class-taxonomy-breadcrumb-evolution.md`: status proposed → implemented
+- `breadcrumbs/README.md`: schema updated (defect-class kind, active status); filing+promotion rules; Active Defect Classes table; RFC-001/004/014/016 moved from open to resolved
+- `tests/test_prompt_audit.py`: new file (17 tests)
+- `tests/test_pipeline_docs.py`: new file (20 tests)
+- `tests/test_failure_summarizer.py`: new file (11 tests)
+- `tests/test_context_phase5.py`: 5 new tests (gather_other_locked, infer_module_name, exclude_focal)
+
+### Test results
+
+915 passed, 13 skipped, 0 lint errors, 0 vulture findings.
+
 ## 2026-05-15 — Session 38: Implement RFC-018/005/008 + fix 3 integration gaps
 
 **Invocation:** GLM-5.1

@@ -2,7 +2,7 @@
 number: "RFC-016"
 title: "Defect-class taxonomy — evolve breadcrumbs from per-defect entries to class-based corpus"
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: opus-review
 date: "2026-05-12"

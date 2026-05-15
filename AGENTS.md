@@ -28,6 +28,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Same schema as substrate's `breadcrumbs/`. Reuse that README's frontmatter format.
 - Use the `dep-substrate-*` tag for breadcrumbs that block on substrate work.
 - Use the `dep-v1-NNN` tag for breadcrumbs that block on lessons from v1 factory.
+- Defect classes (`CLASS-NNN-*.md`) group individual BCs with the same shape. Before filing a new BC, scan `CLASS-*.md` instances tables. If 3rd instance of an unclassified shape, file a CLASS file.
 
 ### Default values
 - All defaults live in `FactoryConfig` or are derived from it. No inline defaults, no hardcoded identifiers, no bare strings in function bodies that could appear in another file. Precedent: v1's "string constant gravity" where `"claude"` accreted into 7 copies across 5 files.
@@ -52,7 +53,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys
 - 5 workflow YAMLs: phase1.yaml, phase2.yaml, phase3.yaml, phase4.yaml (review + jury), full_pipeline.yaml
 - Spec lint integrated into `populate_work_items.py` (BC-127)
-- 747 passing tests, 0 lint errors
+- 915 passing tests, 0 lint errors
 - Inner gate telemetry: submit payloads carry `inner_gate_attempts`; telemetry reports inner gate first-pass rate (BC-133)
 - Jury observability: `disagreement_rationale` always populated when quorum not met; `[all_against]` tag for all-failure cases (BC-134)
 - 27 golden runs executed (GR-001 through GR-027)
@@ -61,8 +62,8 @@ The principal of this project is a **systems architect, not a developer**. Archi
   - GR-022: Phase 4 first run — 100% lock rate (15/15) on cert-watch-mini, all 5 roles exercised
   - GR-021: 100% lock rate (24/24) on cert-watch full DAG, K2-only; inner gate first-attempt rate 74%
 
-**Known issues:** 2 open breadcrumbs (0 critical, 1 high, 1 medium, 0 low) + 15 RFCs. See `breadcrumbs/README.md`.
-- BC-145 (high, implemented): review/jury verdict routing — phase 1 done (diagnostic taxonomy, feedback injection); phase 2 (upstream work-item creation) deferred to RFC-025
+**Known issues:** 2 open breadcrumbs (0 critical, 1 high, 1 medium, 0 low) + 11 RFCs + 9 defect classes. See `breadcrumbs/README.md`.
+- BC-145 (high, implemented): review/jury verdict routing — phase 1 done; phase 2 deferred to RFC-025
 - BC-164 (medium, resolved): scheduler drain cycles after SIGTERM
 
 **Blocking on:** nothing. All validated channels have working adapters; unvalidated adapters disabled.
@@ -106,7 +107,7 @@ If you find yourself wanting to skip ahead, file a breadcrumb explaining why and
 ## Testing
 
 ```bash
-make test        # 873 tests, ~120s
+make test        # 915 tests, ~120s
 make lint        # ruff check + format (no errors)
 make audit       # vulture dead-code check (no findings)
 make integration # @pytest.mark.integration only (requires Postgres)

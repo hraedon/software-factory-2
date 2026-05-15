@@ -2,7 +2,7 @@
 number: "RFC-001"
 title: "Prompt conflict detection — v1 BC-383 shows silent failure when role prompts contradict"
 severity: high
-status: proposed
+status: implemented
 kind: design
 author: adversarial-review
 date: "2026-05-08"
