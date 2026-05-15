@@ -325,7 +325,7 @@ If the work-item is still in `in_progress` because the prior claim's TTL has not
 - **Jury disagreement path exercised:** one `jury_disagree` transition occurred with `disagreement_rationale` populated.
 - **Review rejection path exercised:** one `review_fail → new` retry occurred with structured diagnostics.
 - **Channel failover exercised:** empty-output retries and fallback invocations recorded in telemetry.
-- **Gate budget:** total mechanical gates = 15, within Phase 4 budget.
+- **Gate budget:** 13 deterministic + 2 model-mediated (`cross_family_review`, `jury_quorum`/`jury_disagree`), within Phase 4 budgets per §10.
 - **Capability gate for new channels:** DeepSeek-v4-pro reviewed via capability probe before pipeline use.
 - **Run-log discipline:** `golden-run-027-log.md` present.
 
@@ -348,21 +348,22 @@ If the work-item is still in `in_progress` because the prior claim's TTL has not
 - Second and third workloads, with patterns extracted into reusable roles/skills.
 - At this point, decide whether v2 is ready to attempt anything from the existing software-factory v1 backlog.
 
-### Mechanical gate budget
+### Gate budget
 
-The phasing exists to prevent the v1 mistake of trying to ship the whole architecture at once and discovering halfway that role boundaries don't work. **A second v1 mistake was an unbounded proliferation of mechanical gates: each time a new failure class was discovered, a new gate was added, which in turn exposed new failure classes, endlessly.**
+The phasing exists to prevent the v1 mistake of trying to ship the whole architecture at once and discovering halfway that role boundaries don't work. **A second v1 mistake was an unbounded proliferation of mechanical gates: each time a new failure class was discovered, a new gate was added, which in turn exposed new failure classes, endlessly.** The budget below is the structural prevention.
 
-Each phase therefore ships with a **maximum mechanical gate count** that is not exceeded without a spec amendment with rationale. The budget is:
+Gates split into two kinds with different failure modes and therefore different budgets:
 
-| Phase | Max mechanical gates | Rationale |
-|---|---|---|
-| Phase 1 | 3 | Syntax, stub, structural semantics — the minimal set |
-| Phase 2 | 8 | Add import, mypy, pytest, ruff, pytest-collect; outer + inner gate variants |
-| Phase 3 | 12 | Add inner-gate variants for interface_spec and test_suite; pre-gate layers |
-| Phase 4 | 15 | Jury evaluation gates; race comparison gates |
-| Phase 5 | 18 | Integration and end-to-end verification gates |
+- **Deterministic gates** — any rule-based, non-model evaluation: syntax checks, type checks, linters, test runners, structural validators, import smoke tests, artifact size guards, and their inner-gate equivalents. Failure mode: accumulation of overlapping rules (the v1 failure). The budget is binding and triggers the bug-class response order below before a new gate is added.
+- **Model-mediated gates** — verdicts produced by frontier-model judgment: `cross_family_review`, `jury_quorum`/`jury_disagree`, `outcome_e2e`. Each counts as one slot regardless of internal cardinality (channels, jurors, attempts). Failure mode: model-quality variance, not rule accumulation. Adding one requires a new role and a capability probe (BC-137), which is itself a higher bar than adding a rule; the budget here is informational.
 
-A "mechanical gate" is any deterministic, non-model evaluation applied to an artifact: syntax checks, type checks, linters, test runners, structural validators, import smoke tests, artifact size guards, and their inner-gate equivalents. A "jury gate" is a single mechanical gate regardless of how many model channels participate in the quorum.
+| Phase | Max deterministic gates | Max model-mediated gates | Rationale |
+|---|---|---|---|
+| Phase 1 | 3 | 0 | Syntax, stub, structural semantics — the minimal set |
+| Phase 2 | 8 | 0 | + import, mypy, pytest, ruff, pytest-collect; outer + inner gate variants |
+| Phase 3 | 12 | 0 | + inner-gate variants for interface_spec and test_suite; pre-gate layers |
+| Phase 4 | 13 | 2 | + jury + cross_family_review (model-mediated, capability-probed) |
+| Phase 5 | 16 | 3 | + integration_import, integration_mypy, integration_pytest (deterministic); + outcome_e2e (model-mediated) |
 
 **Default response to a new bug class is not a new gate.** When a bug class is discovered, the response order is:
 
@@ -370,9 +371,11 @@ A "mechanical gate" is any deterministic, non-model evaluation applied to an art
 2. **Role boundary change** — move responsibility to a different role whose output shape prevents the class.
 3. **Spec clarification** — amend the spec so the contract is unambiguous.
 4. **Defect-class systemic fix** — if the class has ≥3 instances in the failure corpus (per RFC-016 / BC-128), file an RFC for the systemic fix.
-5. **New mechanical gate** — justified only if steps 1–4 were attempted and the class recurs ≥3 additional times *after* those changes.
+5. **New deterministic gate** — justified only if steps 1–4 were attempted and the class recurs ≥3 additional times *after* those changes.
 
-If a phase is at its gate budget and a new gate is justified, the spec amendment must either (a) remove an existing gate that has not fired in the last 3 golden runs, or (b) escalate to the principal with the recurrence data and the attempted responses. Adding gates by accumulating `if/elif` branches without this process is the v1 failure mode; it is prevented by construction, not by reviewer discipline.
+If a phase is at its deterministic-gate budget and a new gate is justified, the spec amendment must either (a) remove an existing deterministic gate that has not fired in the last 3 golden runs, or (b) escalate to the principal with the recurrence data and the attempted responses. Adding gates by accumulating `if/elif` branches without this process is the v1 failure mode; it is prevented by construction, not by reviewer discipline.
+
+**Historical note (this amendment).** Phases 1–3 had no model-mediated gates; the Phase 4 figure of 15 in prior drafts reflected a single combined budget. The split here is retroactive accounting: Phase 4 ships 13 deterministic + 2 model-mediated, matching what GR-027 actually exercised. The amendment was made when Phase 5 surfaced that the v1 prevention rationale (rule accumulation) only applies to deterministic gates, not to model-mediated verdicts whose proliferation is naturally bounded by the cost of adding a new role.
 
 ## 11. Glossary
 

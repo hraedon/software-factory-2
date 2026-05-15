@@ -78,16 +78,14 @@ cross_family_review fail with "upstream_defect" diagnostic
 - **Attempt budget:** A review-routed revision counts against the upstream work item's normal `attempt_threshold`. The review work item is not re-attempted until the upstream artifact changes. This prevents budget double-counting.
 - **Invalidation via supersession (not state mutation):** Substrate's event store is append-only and `locked` is terminal — there is no "stale" state primitive, and there shouldn't be. When a downstream revision lands and an upstream integration needs redo, **create a new `integration` work item** with refreshed `derived_from` links and a `supersedes` link to the old one. The old integration stays in its terminal state as honest history. Scheduler convention: when resolving "the current integration for feature group X," walk the supersedes chain to the head. Substrate doesn't need to know about supersedes semantics — it's a factory-level convention over a generic link type. No substrate work required.
 
-### 5. Mechanical gate budget
+### 5. Gate budget
 
-Phase 5 mechanical-gate budget: 18 (per spec §10). Currently at 15. Integration mechanical gates to add:
-- `integration_import` — cross-module import check
-- `integration_mypy` — type check on assembled tree
-- `integration_pytest` — cross-cutting tests
+Per the spec §10 amendment splitting deterministic and model-mediated budgets:
 
-Total mechanical: 15 + 3 = **18, on budget.**
+- **Deterministic gates:** Phase 4 ships 13; Phase 5 budget is 16. Add `integration_import`, `integration_mypy`, `integration_pytest` → 16, on budget.
+- **Model-mediated gates:** Phase 4 ships 2 (`cross_family_review`, `jury_quorum`/`jury_disagree`); Phase 5 budget is 3. Add `outcome_e2e` → 3, on budget.
 
-`outcome_e2e` is a model-based verification gate (per spec §4 Stage 9 "runs the assembled software end-to-end against AC"), not a mechanical gate. It joins `cross_family_review` and `jury_quorum`/`jury_disagree` in the LLM-gate category, which is not counted against the mechanical budget. This needs a one-line clarification in spec §10 to make explicit, but is not a budget breach.
+Both budgets land exactly at their Phase 5 maxima. Any further gate addition in Phase 5 must follow the bug-class response order in §10 and either remove an existing gate (deterministic) or justify a new role + capability probe (model-mediated).
 
 ### 6. Integration granularity
 
