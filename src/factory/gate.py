@@ -1114,18 +1114,29 @@ def evaluate_integration(
 
         # Gate 1: import resolution
         import_errors: list[str] = []
-        py_files = sorted(tmp_path.rglob("*.py"))
+        py_files = sorted(
+            tmp_path.rglob("*.py"),
+            key=lambda f: (f.name != "__init__.py", str(f)),
+        )
         # Temporarily add tmp_path to sys.path for intra-package imports
         _original_sys_path = list(sys.path)
         sys.path.insert(0, str(tmp_path))
         try:
             for py_file in py_files:
-                module_name = py_file.stem
+                rel_parts = list(py_file.relative_to(tmp_path).parts)
+                is_init = rel_parts[-1] == "__init__.py"
+                if is_init:
+                    module_name = ".".join(rel_parts[:-1]) if len(rel_parts) > 1 else "__init__"
+                else:
+                    module_name = ".".join(rel_parts)[:-3]
                 try:
                     spec = __import__("importlib.util").util.spec_from_file_location(
-                        module_name, py_file
+                        module_name,
+                        py_file,
+                        submodule_search_locations=[str(py_file.parent)] if is_init else None,
                     )
                     mod = __import__("importlib.util").util.module_from_spec(spec)
+                    sys.modules[module_name] = mod
                     spec.loader.exec_module(mod)
                 except Exception as exc:
                     import_errors.append(f"{py_file.name}: {exc}")
