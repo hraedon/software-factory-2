@@ -28,8 +28,10 @@ from factory.constants import (
     TRANSITION_GATE_FAIL,
     TRANSITION_GATE_PASS,
     WORK_ITEM_TYPE_IMPLEMENTATION,
+    WORK_ITEM_TYPE_INTEGRATION,
     WORK_ITEM_TYPE_INTERFACE_SPEC,
     WORK_ITEM_TYPE_JURY,
+    WORK_ITEM_TYPE_OUTCOME_VERIFICATION,
     WORK_ITEM_TYPE_REVIEW,
     WORK_ITEM_TYPE_TEST_SUITE,
 )
@@ -38,8 +40,10 @@ from factory.event_schemas import GateFailPayload
 from factory.gate import (
     GateResult,
     evaluate_implementation,
+    evaluate_integration,
     evaluate_interface_spec,
     evaluate_jury,
+    evaluate_outcome_verification,
     evaluate_review,
     evaluate_test_suite,
 )
@@ -292,6 +296,12 @@ def process_gate_item(
         gate_result = evaluate_review(artifact_path)
     elif wi.work_item_type == WORK_ITEM_TYPE_JURY:
         gate_result = evaluate_jury(artifact_path)
+    elif wi.work_item_type == WORK_ITEM_TYPE_INTEGRATION:
+        # Integration artifacts are JSON manifests with assembled_tree
+        gate_result = evaluate_integration(artifact_path)
+    elif wi.work_item_type == WORK_ITEM_TYPE_OUTCOME_VERIFICATION:
+        # Outcome verification artifacts are JSON verdicts
+        gate_result = evaluate_outcome_verification(artifact_path)
     else:
         gate_result = GateResult(
             passed=False,

@@ -31,7 +31,9 @@ from factory.constants import (
     ROLE_CROSS_FAMILY_REVIEWER,
     ROLE_FRONTIER_JUDGE,
     ROLE_IMPLEMENTER,
+    ROLE_INTEGRATOR,
     ROLE_INTERFACE_ARCHITECT,
+    ROLE_OUTCOME_VERIFIER,
     ROLE_TEST_AUTHOR,
     STATE_NEW,
     TRANSITION_CHANNEL_FAIL,
@@ -44,7 +46,9 @@ from factory.context import (
     PromptContext,
     derive_context,
     derive_implementer_context,
+    derive_integrator_context,
     derive_jury_context,
+    derive_outcome_verifier_context,
     derive_review_context,
     derive_test_author_context,
     render_prompt,
@@ -108,6 +112,10 @@ def _derive_role_context(
         return derive_review_context(runtime.sub, work_item_id, spec_content=spec)
     if role_name == ROLE_FRONTIER_JUDGE:
         return derive_jury_context(runtime.sub, work_item_id, spec_content=spec)
+    if role_name == ROLE_INTEGRATOR:
+        return derive_integrator_context(runtime.sub, work_item_id, spec_content=spec)
+    if role_name == ROLE_OUTCOME_VERIFIER:
+        return derive_outcome_verifier_context(runtime.sub, work_item_id, spec_content=spec)
     return derive_context(runtime.sub, work_item_id, role_name, spec_content=spec)
 
 

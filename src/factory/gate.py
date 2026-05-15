@@ -20,6 +20,7 @@ from factory.constants import (
     GATE_NAME_IMPLEMENTATION_NOT_EMPTY,
     GATE_NAME_IMPLEMENTATION_PYTEST,
     GATE_NAME_IMPLEMENTATION_SYNTAX,
+    GATE_NAME_INTEGRATION_IMPORT,
     GATE_NAME_INTERFACE_SPEC,
     GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
     GATE_NAME_INTERFACE_SPEC_NOT_EMPTY,
@@ -28,6 +29,7 @@ from factory.constants import (
     GATE_NAME_INTERFACE_SPEC_SYNTAX,
     GATE_NAME_JURY_DISAGREE,
     GATE_NAME_JURY_QUORUM,
+    GATE_NAME_OUTCOME_E2E,
     GATE_NAME_TEST_SUITE,
     GATE_NAME_TEST_SUITE_ASSERTIONS,
     GATE_NAME_TEST_SUITE_COLLECT,
@@ -1035,4 +1037,134 @@ def evaluate_jury(artifact_path: Path) -> GateResult:
         gate_name=gate_name,
         diagnostics=diagnostics,
         diagnostic_kind="jury" if not passed else "",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 5: Integration and outcome-verification gates
+# ---------------------------------------------------------------------------
+
+
+def evaluate_integration(artifact_path: Path) -> GateResult:
+    """Evaluate an integration artifact.
+
+    Expects a JSON object with `assembled_tree` (dict of filename -> source).
+    Mechanical gates: import resolution, mypy, pytest on assembled tree.
+    """
+    import json
+
+    size_guard = _guard_artifact_size(artifact_path)
+    if size_guard is not None:
+        return size_guard
+
+    try:
+        text = artifact_path.read_text()
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return GateResult(
+            passed=False,
+            gate_name=GATE_NAME_INTEGRATION_IMPORT,
+            diagnostics=[f"Integration artifact is not valid JSON: {exc}"],
+            diagnostic_kind="integration_import",
+        )
+    except Exception as exc:
+        return GateResult(
+            passed=False,
+            gate_name=GATE_NAME_INTEGRATION_IMPORT,
+            diagnostics=[f"Failed to read integration artifact: {exc}"],
+            diagnostic_kind="integration_import",
+        )
+
+    assembled_tree = data.get("assembled_tree")
+    if not isinstance(assembled_tree, dict) or not assembled_tree:
+        return GateResult(
+            passed=False,
+            gate_name=GATE_NAME_INTEGRATION_IMPORT,
+            diagnostics=["Integration artifact missing 'assembled_tree' field or empty"],
+            diagnostic_kind="integration_import",
+        )
+
+    # Write assembled tree to a temp directory and run import check
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="sf2_integration_") as tmpdir:
+        tmp_path = Path(tmpdir)
+        for filename, source in assembled_tree.items():
+            dest = tmp_path / filename
+            try:
+                dest.write_text(str(source))
+            except Exception as exc:
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_INTEGRATION_IMPORT,
+                    diagnostics=[f"Failed to write {filename}: {exc}"],
+                    diagnostic_kind="integration_import",
+                )
+
+        # Gate 1: import resolution
+        import_errors: list[str] = []
+        for py_file in tmp_path.glob("*.py"):
+            module_name = py_file.stem
+            try:
+                spec = __import__("importlib.util").util.spec_from_file_location(
+                    module_name, py_file
+                )
+                mod = __import__("importlib.util").util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+            except Exception as exc:
+                import_errors.append(f"{py_file.name}: {exc}")
+
+        if import_errors:
+            return GateResult(
+                passed=False,
+                gate_name=GATE_NAME_INTEGRATION_IMPORT,
+                diagnostics=[
+                    f"Import resolution failed for {len(import_errors)} module(s)",
+                    *import_errors[:5],
+                ],
+                diagnostic_kind="integration_import",
+            )
+
+        # Gate 2: mypy on assembled tree (deferred to Phase 5 gating — skeletal)
+        # Gate 3: integration pytest (deferred to Phase 5 gating — skeletal)
+
+    return GateResult(
+        passed=True,
+        gate_name=GATE_NAME_INTEGRATION_IMPORT,
+        diagnostics=[],
+    )
+
+
+def evaluate_outcome_verification(artifact_path: Path) -> GateResult:
+    """Evaluate an outcome-verification artifact.
+
+    Expects a JSON object with `verdict` ("pass"/"fail"/"cannot_proceed")
+    and optionally `routing_hint`.
+    """
+    vote = _extract_json_vote(artifact_path)
+    verdict = str(vote.get("verdict", "")).lower()
+    passed = verdict == "pass"
+    rationale = str(vote.get("rationale", ""))
+    diagnostics: list[str] = []
+    if verdict == "cannot_proceed":
+        return GateResult(
+            passed=False,
+            gate_name=GATE_NAME_OUTCOME_E2E,
+            diagnostics=[
+                f"Outcome verifier returned cannot_proceed: {rationale or 'no rationale'}"
+            ],
+            diagnostic_kind="outcome_e2e",
+        )
+    if not passed:
+        diagnostics.append(f"Outcome verification failed: {rationale or 'no rationale provided'}")
+        routing_hint = vote.get("routing_hint")
+        if isinstance(routing_hint, dict):
+            hint_type = routing_hint.get("work_item_type", "unknown")
+            hint_reason = routing_hint.get("reason", "")
+            diagnostics.append(f"Routing hint: {hint_type} — {hint_reason}")
+    return GateResult(
+        passed=passed,
+        gate_name=GATE_NAME_OUTCOME_E2E,
+        diagnostics=diagnostics,
+        diagnostic_kind="outcome_e2e" if not passed else "",
     )

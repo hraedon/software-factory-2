@@ -22,6 +22,8 @@ from factory.constants import (
     ROLE_CROSS_FAMILY_REVIEWER,
     ROLE_FRONTIER_JUDGE,
     ROLE_IMPLEMENTER,
+    ROLE_INTEGRATOR,
+    ROLE_OUTCOME_VERIFIER,
     ROLE_TEST_AUTHOR,
 )
 from factory.dep_resolution import resolve_dep_refs_for_context
@@ -377,6 +379,50 @@ def _serialize_bundle(
     if stub_only_deps:
         data["stub_only_deps"] = sorted(stub_only_deps)
     return json.dumps(data, sort_keys=True)
+
+
+def derive_integrator_context(
+    substrate: Substrate,
+    work_item_id: str,
+    spec_content: str | None = None,
+    spec_glossary: dict[str, str] | None = None,
+) -> PromptContext:
+    """Derive context for the integrator role.
+
+    Reads linked implementation artifacts through derived_from links on the
+    integration work item.  Skeleton for Phase 5 — link resolution deferred to
+    full scheduler wiring.
+    """
+    # For Phase 5 skeleton: basic context only.  Full multi-link resolution
+    # (integration -> jury -> review -> implementation) requires substrate link
+    # traversal which is not yet implemented in context.py.
+    return derive_context(
+        substrate,
+        work_item_id,
+        role=ROLE_INTEGRATOR,
+        spec_content=spec_content,
+        spec_glossary=spec_glossary,
+    )
+
+
+def derive_outcome_verifier_context(
+    substrate: Substrate,
+    work_item_id: str,
+    spec_content: str | None = None,
+    spec_glossary: dict[str, str] | None = None,
+) -> PromptContext:
+    """Derive context for the outcome_verifier role.
+
+    Reads the integration artifact referenced by integration_ref.  Skeleton for
+    Phase 5 — link resolution deferred to full scheduler wiring.
+    """
+    return derive_context(
+        substrate,
+        work_item_id,
+        role=ROLE_OUTCOME_VERIFIER,
+        spec_content=spec_content,
+        spec_glossary=spec_glossary,
+    )
 
 
 def _format_review_feedback(raw: list[dict] | dict | str) -> str:

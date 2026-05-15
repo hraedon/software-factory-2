@@ -41,6 +41,8 @@ class DiagnosticKind(StrEnum):
     JURY = "jury"
     REVIEW_MALFORMED = "review_malformed"
     REVIEW_FOUND_DEFECT = "review_found_defect"
+    INTEGRATION_IMPORT = "integration_import"
+    OUTCOME_E2E = "outcome_e2e"
 
 
 def _classify_diagnostic(gate_result: GateResult) -> DiagnosticKind:
@@ -73,6 +75,10 @@ def _classify_diagnostic(gate_result: GateResult) -> DiagnosticKind:
         return DiagnosticKind.REVIEW_MALFORMED
     if gate_result.diagnostic_kind == "review_found_defect":
         return DiagnosticKind.REVIEW_FOUND_DEFECT
+    if gate_result.diagnostic_kind == "integration_import":
+        return DiagnosticKind.INTEGRATION_IMPORT
+    if gate_result.diagnostic_kind == "outcome_e2e":
+        return DiagnosticKind.OUTCOME_E2E
     return DiagnosticKind.GENERIC
 
 
@@ -162,6 +168,12 @@ _PHASE2_DISPATCH = {
     DiagnosticKind.JURY: Route(
         target_state=STATE_NEW,
     ),
+    DiagnosticKind.INTEGRATION_IMPORT: Route(
+        target_state=STATE_NEW,
+    ),
+    DiagnosticKind.OUTCOME_E2E: Route(
+        target_state=STATE_NEW,
+    ),
 }
 
 
@@ -187,6 +199,8 @@ _ESCALATABLE_KINDS = {
     DiagnosticKind.CROSS_FAMILY_REVIEW,
     DiagnosticKind.REVIEW_MALFORMED,
     DiagnosticKind.JURY,
+    DiagnosticKind.INTEGRATION_IMPORT,
+    DiagnosticKind.OUTCOME_E2E,
 }
 
 
