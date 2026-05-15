@@ -1112,6 +1112,22 @@ def evaluate_integration(
                     diagnostic_kind="integration_import",
                 )
 
+        # Mechanical promotion: if the tree contains a top-level __init__.py
+        # but no directory matching the entry_point package name, promote all
+        # top-level items into that package directory. This compensates for
+        # integrators that produce flat assembled_tree keys for a package.
+        entry_point = str(data.get("entry_point", "")).strip()
+        if entry_point:
+            pkg_name = entry_point.split(".")[0]
+            top_init = tmp_path / "__init__.py"
+            pkg_dir = tmp_path / pkg_name
+            if top_init.exists() and not pkg_dir.exists():
+                top_items = [p for p in tmp_path.iterdir() if p.name != pkg_name]
+                if top_items:
+                    pkg_dir.mkdir(parents=True, exist_ok=True)
+                    for item in top_items:
+                        shutil.move(str(item), str(pkg_dir / item.name))
+
         # Gate 1: import resolution
         import_errors: list[str] = []
         py_files = sorted(
