@@ -61,7 +61,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
   - GR-022: Phase 4 first run — 100% lock rate (15/15) on cert-watch-mini, all 5 roles exercised
   - GR-021: 100% lock rate (24/24) on cert-watch full DAG, K2-only; inner gate first-attempt rate 74%
 
-**Known issues:** 2 open breadcrumbs (0 critical, 1 high, 1 medium, 0 low) + 18 RFCs. See `breadcrumbs/README.md`.
+**Known issues:** 2 open breadcrumbs (0 critical, 1 high, 1 medium, 0 low) + 15 RFCs. See `breadcrumbs/README.md`.
 - BC-145 (high, implemented): review/jury verdict routing — phase 1 done (diagnostic taxonomy, feedback injection); phase 2 (upstream work-item creation) deferred to RFC-025
 - BC-164 (medium, resolved): scheduler drain cycles after SIGTERM
 
@@ -106,7 +106,7 @@ If you find yourself wanting to skip ahead, file a breadcrumb explaining why and
 ## Testing
 
 ```bash
-make test        # 550 tests, ~76s
+make test        # 873 tests, ~120s
 make lint        # ruff check + format (no errors)
 make audit       # vulture dead-code check (no findings)
 make integration # @pytest.mark.integration only (requires Postgres)

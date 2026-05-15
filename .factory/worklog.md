@@ -4,6 +4,50 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-15 — Session 38: Implement RFC-018/005/008 + fix 3 integration gaps
+
+**Invocation:** GLM-5.1
+
+**Focus:** Continue RFC work — implement 3 RFCs and fix 3 integration gaps from Session 37.
+
+### Gaps fixed (3)
+
+1. **ensure_upstream_revision wired into gate_process.py:** Added call to `ensure_upstream_revision(runtime, source_wi=wi, route=routing)` in `process_gate_item` after routing is computed, when `routing.create_upstream_revision` is True. This connects the REVIEW_FOUND_DEFECT upstream routing path (RFC-025) from the gate_process to the scheduler.
+
+2. **bundler.py collect_artifacts fixed for real workspace structure:** Replaced the fragile `wi_NNN/ad/` walker with a proper implementation that uses `workspace.find_resumable_artifact()` to discover valid attempts under `<uuid>/attempt-NNNN/` directories. Handles manifest.json, .orig files, retry-* subdirs, and .dot files correctly.
+
+3. **Catalog --archetype wired into populate_work_items.py:** Added `--archetype` CLI flag. When provided with `--workspace-root`, loads the archetype, validates compatibility, and calls `apply_skeleton` before work items are created.
+
+### RFCs implemented (3)
+
+1. **RFC-018 (medium, implemented): Live state reporter.** New module `factory/state_reporter.py` with `StateReporter`, `PipelineSnapshot`, `ProgressSummary`, `FailureSummary`, `ChannelHealth`, `DiskPressure`. CLI with `--config`, `--json`, `--brief`, `--watch N`. Queries substrate for work items, events, disk usage. Renders markdown/JSON/brief. 13 tests.
+
+2. **RFC-005 (medium, implemented): Composable failure/escalation architecture.** Refactored router.py from monolithic `route()` function to composable `RouteHandler` pipeline. Three handlers: `RoutingHintHandler` (OUTCOME_E2E with routing_hint), `EscalationHandler` (escalatable kinds at threshold), `DispatchHandler` (default kind→route mapping). New handlers add via `_HANDLERS` list. All 22 existing router tests pass unchanged. 6 new handler composition tests.
+
+3. **RFC-008 (medium, implemented): Pipeline checkpoint and resume system.** New module `factory/checkpoint.py` with `write_checkpoint`, `load_checkpoint`, `load_latest_checkpoint`, `compare_checkpoints`, `can_resume_from_checkpoint`, `list_checkpoints`. Per-stage state snapshots with locked/failed IDs, artifact paths/hashes. Config hash validation for resume safety. latest.json symlink for easy access. 14 tests.
+
+### Code changes
+
+- `src/factory/gate_process.py`: ensure_upstream_revision call in failure branch
+- `src/factory/bundler.py`: collect_artifacts rewritten using workspace API
+- `src/factory/router.py`: refactored to RouteHandler pipeline (RouteContext, RoutingHintHandler, EscalationHandler, DispatchHandler)
+- `src/factory/state_reporter.py`: new module (225 lines)
+- `src/factory/checkpoint.py`: new module (200 lines)
+- `populate_work_items.py`: --archetype flag and wiring
+- `tests/test_router.py`: 6 new handler composition tests
+- `tests/test_bundler.py`: workspace fixture updated to real UUID/attempt structure
+- `tests/test_state_reporter.py`: new file (13 tests)
+- `tests/test_checkpoint.py`: new file (14 tests)
+- `breadcrumbs/README.md`: RFC-005/008/018 moved from open to resolved
+- `breadcrumbs/RFC-005/008/018-*.md`: status changed to implemented
+- `AGENTS.md`: test count updated (873), RFC count updated (15)
+
+### Test results
+
+873 passed, 13 skipped, 0 lint errors, 0 vulture findings.
+
+---
+
 ## 2026-05-15 — Session 37: Resolve 7 breadcrumbs (BC-148/154/158/147/149/138/166)
 
 **Invocation:** GLM-5.1

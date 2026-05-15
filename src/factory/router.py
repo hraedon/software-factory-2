@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -81,6 +82,16 @@ class Route:
     create_upstream_revision: bool = False
     upstream_type: str | None = None
     upstream_context_key: str | None = None
+
+
+@dataclass(frozen=True)
+class RouteContext:
+    current_state: str
+    transition: str
+    gate_result: GateResult | None
+    attempt_number: int
+    attempt_threshold: int
+    kind: DiagnosticKind | None = None
 
 
 _PHASE2_DISPATCH = {
@@ -179,19 +190,6 @@ _PHASE2_DISPATCH = {
 }
 
 
-# Worker-retryable failures: these kinds originate from non-deterministic channel
-# output (mypy/pytest/lint/import errors, test binding/collect/import issues) and
-# are eligible for escalation to cannot_proceed_seam after attempt_threshold retries.
-# Deterministic gate failures (syntax, stub, structural_semantics, file_exists,
-# not_empty, channel_fail, cannot_proceed, unknown_type) are NOT escalatable — they
-# always route directly to the originating role for immediate correction.
-#
-# REVIEW_FOUND_DEFECT is NOT in this set because it routes upstream to the implementer
-# or test_author for revision, not to retry the reviewer.
-# CROSS_FAMILY_REVIEW (legacy string-diagnostic from Phase 4) IS still escalatable
-# because it lacks structured findings — we cannot distinguish malformed from defect.
-# OUTCOME_E2E is NOT in this set because it routes directly to cannot_proceed
-# when a routing_hint is present (BC-158), or retries at attempt_threshold otherwise.
 _ESCALATABLE_KINDS = {
     DiagnosticKind.IMPL_MYPY,
     DiagnosticKind.IMPL_PYTEST,
@@ -209,6 +207,119 @@ _ESCALATABLE_KINDS = {
     DiagnosticKind.OUTCOME_E2E,
 }
 
+# Worker-retryable failures: these kinds originate from non-deterministic channel
+# output (mypy/pytest/lint/import errors, test binding/collect/import issues) and
+# are eligible for escalation to cannot_proceed_seam after attempt_threshold retries.
+# Deterministic gate failures (syntax, stub, structural_semantics, file_exists,
+# not_empty, channel_fail, cannot_proceed, unknown_type) are NOT escalatable — they
+# always route directly to the originating role for immediate correction.
+#
+# REVIEW_FOUND_DEFECT is NOT in this set because it routes upstream to the implementer
+# or test_author for revision, not to retry the reviewer.
+# CROSS_FAMILY_REVIEW (legacy string-diagnostic from Phase 4) IS still escalatable
+# because it lacks structured findings — we cannot distinguish malformed from defect.
+# OUTCOME_E2E is NOT in this set because it routes directly to cannot_proceed
+# when a routing_hint is present (BC-158), or retries at attempt_threshold otherwise.
+
+
+class RouteHandler(ABC):
+    @abstractmethod
+    def can_handle(self, ctx: RouteContext) -> bool: ...
+
+    @abstractmethod
+    def build_route(self, ctx: RouteContext) -> Route: ...
+
+
+class RoutingHintHandler(RouteHandler):
+    def can_handle(self, ctx: RouteContext) -> bool:
+        return (
+            ctx.kind == DiagnosticKind.OUTCOME_E2E
+            and ctx.gate_result is not None
+            and ctx.gate_result.routing_hint is not None
+        )
+
+    def build_route(self, ctx: RouteContext) -> Route:
+        gr = ctx.gate_result
+        return Route(
+            target_state=STATE_CANNOT_PROCEED,
+            diagnostics=gr.diagnostics,
+            diagnostic_kind=DiagnosticKind.OUTCOME_E2E,
+            custom_fields_update={
+                "diagnostics": {
+                    "gate_name": gr.gate_name,
+                    "passed": gr.passed,
+                    "messages": gr.diagnostics,
+                    "message": "; ".join(gr.diagnostics),
+                    "diagnostic_kind": DiagnosticKind.OUTCOME_E2E.value,
+                    "routing_hint": gr.routing_hint,
+                }
+            },
+        )
+
+
+class EscalationHandler(RouteHandler):
+    def can_handle(self, ctx: RouteContext) -> bool:
+        return (
+            ctx.kind is not None
+            and ctx.kind in _ESCALATABLE_KINDS
+            and ctx.attempt_number >= ctx.attempt_threshold
+        )
+
+    def build_route(self, ctx: RouteContext) -> Route:
+        gr = ctx.gate_result
+        return Route(
+            target_state=STATE_CANNOT_PROCEED,
+            diagnostics=gr.diagnostics if gr else [],
+            diagnostic_kind=DiagnosticKind.CANNOT_PROCEED_SEAM,
+            custom_fields_update={
+                "diagnostics": {
+                    "gate_name": gr.gate_name if gr else "",
+                    "passed": gr.passed if gr else False,
+                    "messages": gr.diagnostics if gr else [],
+                    "message": "; ".join(gr.diagnostics) if gr else "",
+                    "diagnostic_kind": DiagnosticKind.CANNOT_PROCEED_SEAM.value,
+                    "escalated_from_kind": ctx.kind.value if ctx.kind else "",
+                    "escalated_after_attempts": ctx.attempt_number,
+                }
+            },
+        )
+
+
+class DispatchHandler(RouteHandler):
+    def can_handle(self, ctx: RouteContext) -> bool:
+        return ctx.kind is not None and ctx.kind in _PHASE2_DISPATCH
+
+    def build_route(self, ctx: RouteContext) -> Route:
+        gr = ctx.gate_result
+        base = _PHASE2_DISPATCH.get(ctx.kind, Route(target_state=STATE_NEW))
+        return Route(
+            target_state=base.target_state,
+            diagnostics=gr.diagnostics if gr else [],
+            diagnostic_kind=ctx.kind,
+            custom_fields_update={
+                **base.custom_fields_update,
+                **{
+                    "diagnostics": {
+                        "gate_name": gr.gate_name if gr else "",
+                        "passed": gr.passed if gr else False,
+                        "messages": gr.diagnostics if gr else [],
+                        "message": "; ".join(gr.diagnostics) if gr else "",
+                        "diagnostic_kind": ctx.kind.value if ctx.kind else "",
+                    }
+                },
+            },
+            create_upstream_revision=base.create_upstream_revision,
+            upstream_type=base.upstream_type,
+            upstream_context_key=base.upstream_context_key,
+        )
+
+
+_HANDLERS: list[RouteHandler] = [
+    RoutingHintHandler(),
+    EscalationHandler(),
+    DispatchHandler(),
+]
+
 
 def route(
     current_state: str,
@@ -221,66 +332,18 @@ def route(
         return Route(target_state=STATE_LOCKED)
 
     if current_state == STATE_GATING and transition == TRANSITION_GATE_FAIL:
-        if gate_result is not None:
-            kind = _classify_diagnostic(gate_result)
-            base = _PHASE2_DISPATCH.get(kind, Route(target_state="new"))
-
-            if kind == DiagnosticKind.OUTCOME_E2E and gate_result.routing_hint is not None:
-                return Route(
-                    target_state=STATE_CANNOT_PROCEED,
-                    diagnostics=gate_result.diagnostics,
-                    diagnostic_kind=DiagnosticKind.OUTCOME_E2E,
-                    custom_fields_update={
-                        "diagnostics": {
-                            "gate_name": gate_result.gate_name,
-                            "passed": gate_result.passed,
-                            "messages": gate_result.diagnostics,
-                            "message": "; ".join(gate_result.diagnostics),
-                            "diagnostic_kind": DiagnosticKind.OUTCOME_E2E.value,
-                            "routing_hint": gate_result.routing_hint,
-                        }
-                    },
-                )
-
-            if kind in _ESCALATABLE_KINDS and attempt_number >= attempt_threshold:
-                escalation = _PHASE2_DISPATCH[DiagnosticKind.CANNOT_PROCEED_SEAM]
-                return Route(
-                    target_state=escalation.target_state,
-                    diagnostics=gate_result.diagnostics,
-                    diagnostic_kind=DiagnosticKind.CANNOT_PROCEED_SEAM,
-                    custom_fields_update={
-                        "diagnostics": {
-                            "gate_name": gate_result.gate_name,
-                            "passed": gate_result.passed,
-                            "messages": gate_result.diagnostics,
-                            "message": "; ".join(gate_result.diagnostics),
-                            "diagnostic_kind": DiagnosticKind.CANNOT_PROCEED_SEAM.value,
-                            "escalated_from_kind": kind.value,
-                            "escalated_after_attempts": attempt_number,
-                        }
-                    },
-                )
-
-            return Route(
-                target_state=base.target_state,
-                diagnostics=gate_result.diagnostics,
-                diagnostic_kind=kind,
-                custom_fields_update={
-                    **base.custom_fields_update,
-                    **{
-                        "diagnostics": {
-                            "gate_name": gate_result.gate_name,
-                            "passed": gate_result.passed,
-                            "messages": gate_result.diagnostics,
-                            "message": "; ".join(gate_result.diagnostics),
-                            "diagnostic_kind": kind.value,
-                        }
-                    },
-                },
-                create_upstream_revision=base.create_upstream_revision,
-                upstream_type=base.upstream_type,
-                upstream_context_key=base.upstream_context_key,
-            )
+        kind = _classify_diagnostic(gate_result) if gate_result else None
+        ctx = RouteContext(
+            current_state=current_state,
+            transition=transition,
+            gate_result=gate_result,
+            attempt_number=attempt_number,
+            attempt_threshold=attempt_threshold,
+            kind=kind,
+        )
+        for handler in _HANDLERS:
+            if handler.can_handle(ctx):
+                return handler.build_route(ctx)
         return Route(target_state=STATE_NEW, diagnostic_kind=DiagnosticKind.GENERIC)
 
     if current_state == STATE_NEW and transition == TRANSITION_CHANNEL_FAIL:

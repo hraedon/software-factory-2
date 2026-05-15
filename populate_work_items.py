@@ -218,6 +218,12 @@ def main():
         action="store_true",
         help="Treat lint warnings as errors",
     )
+    parser.add_argument(
+        "--archetype",
+        type=str,
+        default=None,
+        help="Project archetype for skeleton generation (e.g. cli-tool, web-service, library-module)",
+    )
     args = parser.parse_args()
 
     config: FactoryConfig | None = None
@@ -287,6 +293,20 @@ def main():
             dest = ws_root / "requirements.txt"
             dest.write_text(fixture_reqs.read_text())
             print(f"  Copied {fixture_reqs} -> {dest}")
+
+    if args.archetype and workspace_root:
+        from factory.catalog import apply_skeleton, load_archetype, validate_archetype
+
+        archetype = load_archetype(args.archetype)
+        config_phases = [_config.workflow_version] if _config else [2]
+        config_roles = list(_config.roles.keys()) if _config and _config.roles else []
+        warnings = validate_archetype(archetype, config_phases, config_roles)
+        for w in warnings:
+            print(f"  WARNING: {w}", file=sys.stderr)
+        ws_root = Path(workspace_root)
+        ws_root.mkdir(parents=True, exist_ok=True)
+        created_files = apply_skeleton(archetype, ws_root, project)
+        print(f"  Applied archetype '{args.archetype}': {len(created_files)} files created")
 
     if not args.skip_lint:
         from factory.spec_lint import spec_lint, format_lint_results

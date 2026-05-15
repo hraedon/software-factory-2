@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import shutil
 import tarfile
 import zipfile
@@ -10,7 +11,15 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from factory.workspace import MANIFEST_FILENAME, find_resumable_artifact
+
 _bundler_log = logging.getLogger("factory.bundler")
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+_RETRY_DIR_RE = re.compile(r"^retry-\d+$")
 
 BUNDLE_VERSION = "1"
 
@@ -84,19 +93,38 @@ def collect_artifacts(
     for work_dir in sorted(workspace_root.iterdir()):
         if not work_dir.is_dir():
             continue
-        parts = work_dir.name.split("_", 1)
-        if len(parts) < 2:
+        item_id = work_dir.name
+        resumable = find_resumable_artifact(workspace_root, item_id)
+        if resumable is None:
             continue
-        item_id = parts[1] if parts[0] == "wi" else work_dir.name
-        type_dir = work_dir / "ad"
-        if not type_dir.exists():
+        attempt_number, manifest = resumable
+        attempt_path = work_dir / f"attempt-{attempt_number:04d}"
+        if not attempt_path.exists():
             continue
-        for artifact in type_dir.iterdir():
+        locked_at = manifest.created_at
+        for artifact in sorted(attempt_path.iterdir()):
             if artifact.is_dir():
+                continue
+            if artifact.name == MANIFEST_FILENAME:
+                continue
+            if artifact.name.startswith("."):
                 continue
             if artifact.suffix in (".orig",):
                 continue
-            entries.append((item_id, "", artifact, ""))
+            entries.append((item_id, "", artifact, locked_at))
+        for retry_dir in sorted(attempt_path.iterdir()):
+            if not retry_dir.is_dir() or not _RETRY_DIR_RE.match(retry_dir.name):
+                continue
+            for artifact in sorted(retry_dir.iterdir()):
+                if artifact.is_dir():
+                    continue
+                if artifact.name == MANIFEST_FILENAME:
+                    continue
+                if artifact.name.startswith("."):
+                    continue
+                if artifact.suffix in (".orig",):
+                    continue
+                entries.append((item_id, "", artifact, locked_at))
     return entries
 
 

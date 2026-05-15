@@ -2,7 +2,7 @@
 number: "RFC-005"
 title: "Composable failure/escalation architecture — v1 imperative if/elif chain grew unbounded"
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: adversarial-review
 date: "2026-05-08"

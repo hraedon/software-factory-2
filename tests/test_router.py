@@ -12,7 +12,13 @@ from factory.constants import (
     GATE_NAME_JURY_DISAGREE,
 )
 from factory.gate import GateResult
-from factory.router import DiagnosticKind, _classify_diagnostic, route
+from factory.router import (
+    _HANDLERS,
+    DiagnosticKind,
+    RouteContext,
+    _classify_diagnostic,
+    route,
+)
 
 
 class TestRouterPhase1:
@@ -234,3 +240,107 @@ class TestRFC025UpstreamRouting:
         )
         result = route("gating", "gate_fail", gate_result=gate)
         assert result.create_upstream_revision is False
+
+
+class TestRFC005ComposableHandlers:
+    def test_handler_pipeline_order(self):
+        kinds = [type(h).__name__ for h in _HANDLERS]
+        assert kinds == ["RoutingHintHandler", "EscalationHandler", "DispatchHandler"]
+
+    def test_routing_hint_handler_priority_over_escalation(self):
+        gate = GateResult(
+            passed=False,
+            gate_name="outcome_e2e",
+            diagnostics=["fail"],
+            diagnostic_kind="outcome_e2e",
+            routing_hint={"reason": "test"},
+        )
+        result = route(
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=5,
+            attempt_threshold=3,
+        )
+        assert result.target_state == "cannot_proceed"
+        assert result.diagnostic_kind == DiagnosticKind.OUTCOME_E2E
+        assert "routing_hint" in result.custom_fields_update["diagnostics"]
+
+    def test_escalation_handler_priority_over_dispatch(self):
+        gate = GateResult(
+            passed=False,
+            gate_name="implementation_pytest",
+            diagnostics=["test failed"],
+            diagnostic_kind="impl_pytest",
+        )
+        result = route(
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=3,
+            attempt_threshold=3,
+        )
+        assert result.target_state == "cannot_proceed"
+        assert result.diagnostic_kind == DiagnosticKind.CANNOT_PROCEED_SEAM
+        assert "escalated_from_kind" in result.custom_fields_update["diagnostics"]
+
+    def test_dispatch_handler_used_below_threshold(self):
+        gate = GateResult(
+            passed=False,
+            gate_name="implementation_pytest",
+            diagnostics=["test failed"],
+            diagnostic_kind="impl_pytest",
+        )
+        result = route(
+            "gating",
+            "gate_fail",
+            gate_result=gate,
+            attempt_number=1,
+            attempt_threshold=3,
+        )
+        assert result.target_state == "new"
+        assert result.diagnostic_kind == DiagnosticKind.IMPL_PYTEST
+
+    def test_custom_handler_extends_pipeline(self):
+        from factory.router import Route, RouteHandler
+
+        class CustomHandler(RouteHandler):
+            def can_handle(self, ctx):
+                return ctx.kind == DiagnosticKind.SYNTAX
+
+            def build_route(self, ctx):
+                return Route(target_state="custom_state", diagnostic_kind=ctx.kind)
+
+        original = list(_HANDLERS)
+        try:
+            _HANDLERS.insert(0, CustomHandler())
+            gate = GateResult(
+                passed=False,
+                gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX,
+                diagnostics=["error"],
+                diagnostic_kind="syntax",
+            )
+            result = route("gating", "gate_fail", gate_result=gate)
+            assert result.target_state == "custom_state"
+        finally:
+            _HANDLERS.clear()
+            _HANDLERS.extend(original)
+
+    def test_route_context_carries_all_fields(self):
+        gate = GateResult(
+            passed=False,
+            gate_name="test",
+            diagnostics=["msg"],
+            diagnostic_kind="generic",
+        )
+        ctx = RouteContext(
+            current_state="gating",
+            transition="gate_fail",
+            gate_result=gate,
+            attempt_number=2,
+            attempt_threshold=3,
+            kind=DiagnosticKind.GENERIC,
+        )
+        assert ctx.attempt_number == 2
+        assert ctx.kind == DiagnosticKind.GENERIC
+        assert ctx.gate_result is gate

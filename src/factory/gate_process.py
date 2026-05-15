@@ -349,6 +349,10 @@ def process_gate_item(
         )
         log.info("gate_passed", work_item_id=str(work_item_id))
     else:
+        if routing.create_upstream_revision:
+            from factory.scheduler import ensure_upstream_revision
+
+            ensure_upstream_revision(runtime, source_wi=wi, route=routing)
         if routing.target_state == STATE_CANNOT_PROCEED:
             transition_name = TRANSITION_GATE_ESCALATION
         diagnostics = routing.custom_fields_update.get(CUSTOM_FIELD_DIAGNOSTICS, {})

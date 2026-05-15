@@ -2,7 +2,7 @@
 number: "RFC-018"
 title: "Live state reporter — substrate-derived project snapshot"
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: opencode-review
 date: "2026-05-13"

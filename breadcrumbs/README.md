@@ -60,21 +60,21 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-002 | Critical observer degradation — v1 BC-359 shows silent swallowing loses telemetry data | high | Phase 3 (hooks/observers) |
 | RFC-003 | Channel adapter auth-mode detection — v1 BC-376 shows env var injection breaks native auth | high | Phase 3 (multi-channel adapters) |
 | RFC-004 | Auto-generated pipeline documentation — v1 docs froze while pipeline grew | medium | Phase 3 (pipeline complexity) |
-| RFC-005 | Composable failure/escalation architecture — v1 imperative if/elif chain grew unbounded | medium | Phase 4 (jury disagreement) |
 | RFC-007 | Test efficacy scoring via mutation testing gates — v1 BC-107/186, mechanical antidote to test theater | high | Phase 4–5 (jury / real workload) |
-| RFC-008 | Pipeline checkpoint and surgical resume system — v1 BC-122, preserve progress across 30–50 min runs | medium | Phase 3–5 (fleet / real workload) |
 | RFC-009 | Interactive debugging inner loop — channel tool-use surface for implementer | high | Phase 5+ (evidence threshold: 3+ golden runs with pytest-in-inner-loop still failing) |
 | RFC-010 | Fixture taxonomy — classify fixtures by architectural complexity class and gate Phase N exit criteria on the hardest exercised class | high | Phase 2 exit criteria |
 | RFC-011 | Unified gate evaluation — extract shared subprocess execution layer to eliminate drift between outer and inner gate implementations | medium | Phase 3 (multi-channel gates) |
 | RFC-014 | Staff engineer summarizer — compress outer-path failure history into actionable constraints | medium | Phase 4 (outer retry path) |
 | RFC-016 | Defect-class taxonomy — evolve breadcrumbs from per-defect entries to class-based corpus | medium | Phase 3 (process) — BC-128 resolved; unblocked |
-| RFC-018 | Live state reporter — substrate-derived project snapshot | medium | Phase 4–5 |
 | RFC-022 | Initiative primitive for work-item bundling and operational granularity | medium | Phase 5 (first real workload) |
 
 ## Resolved
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| RFC-018 | Live state reporter — substrate-derived project snapshot | medium | state_reporter.py with StateReporter, PipelineSnapshot, ProgressSummary; CLI with --json/--brief/--watch; markdown/JSON/brief render modes; 13 tests |
+| RFC-008 | Pipeline checkpoint and surgical resume system | medium | checkpoint.py with write_checkpoint/load_checkpoint/compare_checkpoints/can_resume_from_checkpoint; per-stage state snapshots; config hash validation; latest.json symlink; 14 tests |
+| RFC-005 | Composable failure/escalation architecture | medium | Router refactored to RouteHandler pipeline: RoutingHintHandler → EscalationHandler → DispatchHandler; new handlers add via _HANDLERS list without modifying dispatch table; 6 handler tests |
 | RFC-025 | Stateful upstream routing — route() and scheduler need role-targeted work-item creation | high | Route extended with upstream fields; REVIEW_FOUND_DEFECT creates implementation revisions via scheduler.ensure_upstream_revision(); idempotency via upstream_revision_of custom field |
 | RFC-021 | Spec mutation and invalidation policy | high | spec_hash.py module with SHA-256 tracking, store/load via substrate custom fields, compare_spec_hashes for change detection |
 | RFC-020 | Project archetype catalog for Phase 5 cold-start | high | catalog/ with 3 archetypes (cli-tool, web-service, library-module); catalog.py loader with skeleton application and validation |

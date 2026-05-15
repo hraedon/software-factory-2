@@ -13,17 +13,36 @@ from factory.bundler import (
     create_bundle,
     verify_bundle_integrity,
 )
+from factory.workspace import ArtifactManifest, compute_sha256, write_artifact
 
 
 def _make_workspace(ws: Path) -> None:
-    ad = ws / "wi_001" / "ad"
-    ad.mkdir(parents=True)
-    (ad / "parser.py").write_text("def parse(): pass\n")
-    (ad / "parser.py.orig").write_text("old content")
+    wi1 = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    ad1 = ws / wi1 / "attempt-0001"
+    ad1.mkdir(parents=True)
+    artifact_data = b"def parse(): pass\n"
+    manifest1 = ArtifactManifest(
+        attempt_number=1,
+        work_item_id=wi1,
+        artifact_name="parser.py",
+        artifact_sha256=compute_sha256(artifact_data),
+        artifact_size=len(artifact_data),
+    )
+    write_artifact(ad1, "parser.py", artifact_data, manifest1)
+    (ad1 / "parser.py.orig").write_bytes(b"old content")
 
-    ad2 = ws / "wi_002" / "ad"
+    wi2 = "ffffffff-0000-1111-2222-333333333333"
+    ad2 = ws / wi2 / "attempt-0001"
     ad2.mkdir(parents=True)
-    (ad2 / "test_parser.py").write_text("def test_parse(): pass\n")
+    test_data = b"def test_parse(): pass\n"
+    manifest2 = ArtifactManifest(
+        attempt_number=1,
+        work_item_id=wi2,
+        artifact_name="test_parser.py",
+        artifact_sha256=compute_sha256(test_data),
+        artifact_size=len(test_data),
+    )
+    write_artifact(ad2, "test_parser.py", test_data, manifest2)
 
 
 class TestCreateBundleTarGz:
