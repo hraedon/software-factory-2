@@ -58,6 +58,7 @@ class GateResult:
     diagnostic_kind: str = ""
     skipped: bool = False
     custom_fields: dict = field(default_factory=dict)
+    routing_hint: dict | None = None
 
 
 def _guard_artifact_size(artifact_path: Path) -> GateResult | None:
@@ -1228,16 +1229,19 @@ def evaluate_outcome_verification(artifact_path: Path) -> GateResult:
             ],
             diagnostic_kind="outcome_e2e",
         )
+    routing_hint: dict | None = None
     if not passed:
         diagnostics.append(f"Outcome verification failed: {rationale or 'no rationale provided'}")
-        routing_hint = vote.get("routing_hint")
-        if isinstance(routing_hint, dict):
-            hint_type = routing_hint.get("work_item_type", "unknown")
-            hint_reason = routing_hint.get("reason", "")
+        vote_hint = vote.get("routing_hint")
+        if isinstance(vote_hint, dict):
+            hint_type = vote_hint.get("work_item_type", "unknown")
+            hint_reason = vote_hint.get("reason", "")
             diagnostics.append(f"Routing hint: {hint_type} — {hint_reason}")
+            routing_hint = vote_hint
     return GateResult(
         passed=passed,
         gate_name=GATE_NAME_OUTCOME_E2E,
         diagnostics=diagnostics,
         diagnostic_kind="outcome_e2e" if not passed else "",
+        routing_hint=routing_hint,
     )

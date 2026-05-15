@@ -639,9 +639,92 @@ def run_telemetry_report(config: FactoryConfig) -> str:
         summary = format_exit_criteria_summary(metrics)
         complaint_metrics = collect_contract_complaints(sub, config)
         complaint_summary = format_contract_complaint_summary(complaint_metrics)
-        return summary + "\n" + complaint_summary + "\n" + detail
+        routing_metrics = collect_routing_hints(sub, config)
+        routing_summary = format_routing_hint_summary(routing_metrics)
+        return summary + "\n" + complaint_summary + "\n" + routing_summary + "\n" + detail
     finally:
         sub.close()
+
+
+@dataclass
+class RoutingHintMetrics:
+    total_outcome_fail: int
+    routing_hint_present: int
+    routing_hint_by_type: dict[str, int]
+    samples: list[dict]
+
+
+def collect_routing_hints(sub: Substrate, config: FactoryConfig) -> RoutingHintMetrics:
+    """Scan gate_fail events on outcome_verification items for routing_hint telemetry.
+
+    This is the cheap instrumentation for BC-145: count how often outcome_verifier
+    produces a structured routing_hint, and what work_item_type it points to.
+    """
+    page = sub.query_work_items(
+        workflow_name=config.workflow_name,
+        workflow_version=config.workflow_version,
+        page_size=config.query_page_size,
+    )
+    total = 0
+    present = 0
+    by_type: dict[str, int] = {}
+    samples: list[dict] = []
+
+    for wi in page.items:
+        if wi.work_item_type != "outcome_verification":
+            continue
+        events = sub.read_events(work_item_id=wi.work_item_id, limit=config.telemetry_event_limit)
+        for ev in events:
+            if ev.transition != TRANSITION_GATE_FAIL:
+                continue
+            total += 1
+            payload = ev.payload or {}
+            diagnostics = payload.get("diagnostics", {})
+            hint = diagnostics.get("routing_hint")
+            if isinstance(hint, dict):
+                present += 1
+                hint_type = hint.get("work_item_type", "unknown")
+                by_type[hint_type] = by_type.get(hint_type, 0) + 1
+                if len(samples) < 5:
+                    samples.append(
+                        {
+                            "work_item_id": str(wi.work_item_id),
+                            "rationale": diagnostics.get("message", "")[:200],
+                            "hint_type": hint_type,
+                            "hint_reason": hint.get("reason", "")[:200],
+                        }
+                    )
+
+    return RoutingHintMetrics(
+        total_outcome_fail=total,
+        routing_hint_present=present,
+        routing_hint_by_type=by_type,
+        samples=samples,
+    )
+
+
+def format_routing_hint_summary(metrics: RoutingHintMetrics) -> str:
+    lines: list[str] = []
+    lines.append("-" * 70)
+    lines.append("Routing Hint Telemetry (BC-145)")
+    lines.append("-" * 70)
+    lines.append(f"  Total outcome_verification gate_fail events: {metrics.total_outcome_fail}")
+    lines.append(f"  Routing hints present:                        {metrics.routing_hint_present}")
+    if metrics.routing_hint_by_type:
+        lines.append("  By target work_item_type:")
+        for hint_type, count in sorted(metrics.routing_hint_by_type.items()):
+            lines.append(f"    - {hint_type}: {count}")
+    else:
+        lines.append("  By target work_item_type: (none)")
+    if metrics.samples:
+        lines.append("")
+        lines.append("  Samples:")
+        for s in metrics.samples:
+            lines.append(
+                f"    {s['work_item_id'][:8]}... -> {s['hint_type']} ({s['hint_reason']!r})"
+            )
+    lines.append("")
+    return "\n".join(lines)
 
 
 @dataclass

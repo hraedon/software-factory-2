@@ -195,16 +195,117 @@ class TestGateProcessPhase5Mock:
 class TestGateProcessPhase5Integration:
     @pytest.mark.integration
     def test_gate_passes_integration_artifact(
-        self, substrate, workspace_root, tmp_path, factory_config
+        self, phase5_substrate, tmp_path, phase5_factory_config
     ):
-        pytest.skip("Requires phase5 workflow registered in real substrate fixture")
+        artifact = tmp_path / "integration.json"
+        artifact.write_text(
+            json.dumps(
+                {
+                    "assembled_tree": {
+                        "mathlib.py": ("def square(x: int) -> int:\n    return x * x\n"),
+                    },
+                    "entry_point": "mathlib.square",
+                    "integration_tests": (
+                        "\n"
+                        "import mathlib\n\n"
+                        "def test_square():\n"
+                        "    assert mathlib.square(4) == 16\n"
+                    ),
+                }
+            )
+        )
+        wi, _ = phase5_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="integration",
+            actor_id="integrator",
+            custom_fields={
+                "spec_section": "Test",
+                "ac_ids": ["AC-01"],
+            },
+        )
+        _claim_and_submit(phase5_substrate, wi, "integrator", artifact)
+        fresh, claim = _fresh_gate_claim(phase5_substrate, wi)
+        runtime = PipelineRuntime(sub=phase5_substrate, config=phase5_factory_config)
+        process_gate_item(runtime, fresh, "gate", claim)
+        assert phase5_substrate.get_work_item(wi.work_item_id).current_state == "locked"
 
     @pytest.mark.integration
-    def test_gate_fails_integration_mypy(self, substrate, workspace_root, tmp_path, factory_config):
-        pytest.skip("Requires phase5 workflow registered in real substrate fixture")
+    def test_gate_fails_integration_mypy(self, phase5_substrate, tmp_path, phase5_factory_config):
+        artifact = tmp_path / "integration.json"
+        artifact.write_text(
+            json.dumps(
+                {
+                    "assembled_tree": {
+                        "typed.py": "def greet(name: str) -> str:\n    return name\n",
+                        "caller.py": (
+                            "import typed\n\ndef bad() -> str:\n    return typed.greet(123)\n"
+                        ),
+                    },
+                    "entry_point": "caller.bad",
+                    "integration_tests": "def test_nothing(): pass\n",
+                }
+            )
+        )
+        wi, _ = phase5_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="integration",
+            actor_id="integrator",
+            custom_fields={
+                "spec_section": "Test",
+                "ac_ids": ["AC-01"],
+            },
+        )
+        _claim_and_submit(phase5_substrate, wi, "integrator", artifact)
+        fresh, claim = _fresh_gate_claim(phase5_substrate, wi)
+        runtime = PipelineRuntime(sub=phase5_substrate, config=phase5_factory_config)
+        process_gate_item(runtime, fresh, "gate", claim)
+        final = phase5_substrate.get_work_item(wi.work_item_id)
+        assert final.current_state == "new"
+        assert "diagnostics" in (final.custom_fields or {})
 
     @pytest.mark.integration
-    def test_gate_passes_outcome_verification(
-        self, substrate, workspace_root, tmp_path, factory_config
+    def test_gate_fails_outcome_verification_routing_hint(
+        self, phase5_substrate, tmp_path, phase5_factory_config
     ):
-        pytest.skip("Requires phase5 workflow registered in real substrate fixture")
+        int_artifact = tmp_path / "integration.json"
+        int_artifact.write_text(json.dumps({"assembled_tree": {}}))
+        int_wi, _ = phase5_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="integration",
+            actor_id="int",
+            custom_fields={"spec_section": "T", "ac_ids": []},
+        )
+        _claim_and_submit(phase5_substrate, int_wi, "integrator", int_artifact)
+
+        artifact = tmp_path / "outcome.json"
+        artifact.write_text(
+            json.dumps(
+                {
+                    "verdict": "fail",
+                    "rationale": "Missing AC coverage",
+                    "routing_hint": {
+                        "work_item_type": "implementation",
+                        "reason": "stub coverage gap",
+                    },
+                }
+            )
+        )
+        wi, _ = phase5_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="outcome_verification",
+            actor_id="verifier",
+            custom_fields={
+                "spec_section": "Test",
+                "ac_ids": ["AC-01"],
+                "integration_ref": str(int_wi.work_item_id),
+            },
+        )
+        _claim_and_submit(phase5_substrate, wi, "outcome_verifier", artifact)
+        fresh, claim = _fresh_gate_claim(phase5_substrate, wi)
+        runtime = PipelineRuntime(sub=phase5_substrate, config=phase5_factory_config)
+        process_gate_item(runtime, fresh, "gate", claim)
+        final = phase5_substrate.get_work_item(wi.work_item_id)
+        assert final.current_state == "new"
+        diagnostics = (final.custom_fields or {}).get("diagnostics", {})
+        assert "routing_hint" in diagnostics
+        assert diagnostics["routing_hint"]["work_item_type"] == "implementation"

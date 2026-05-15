@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import uuid
+from pathlib import Path
+
 from substrate.testing import InMemorySubstrate
 
 from factory.config import FactoryConfig
@@ -18,12 +21,15 @@ from factory.telemetry import (
     ContractComplaintMetrics,
     GateAttempt,
     PassRateRow,
+    RoutingHintMetrics,
     _looks_like_contract_complaint,
     collect_contract_complaints,
     collect_gate_attempts,
+    collect_routing_hints,
     compute_pass_rates,
     format_contract_complaint_summary,
     format_pass_rate_table,
+    format_routing_hint_summary,
 )
 
 
@@ -780,3 +786,189 @@ class TestContractComplaintPatterns:
         summary = format_contract_complaint_summary(metrics)
         assert "Total cannot_proceed events:        0" in summary
         assert "Contract-shaped rationales:         0" in summary
+
+
+class TestRoutingHintTelemetry:
+    def _p5_sub(self):
+        from pathlib import Path
+
+        phase5_path = Path(__file__).parent.parent / "workflows" / "phase5.yaml"
+        sub = InMemorySubstrate()
+        sub.register_workflow(phase5_path.read_text())
+        return sub
+
+    def test_collects_routing_hint_on_outcome_verification_fail(self):
+        sub = self._p5_sub()
+        config = FactoryConfig(
+            dsn="",
+            project_name=sub.project,
+            hmac_key_path="",
+            workspace_root=Path("/tmp/telemetry_test"),
+            workflow_version=5,
+        )
+        int_wi, _ = sub.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="integration",
+            actor_id="int",
+            custom_fields={"spec_section": "T", "ac_ids": []},
+        )
+        wi, _ = sub.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="outcome_verification",
+            actor_id="verifier",
+            custom_fields={
+                "spec_section": "Test",
+                "ac_ids": ["AC-01"],
+                "integration_ref": str(int_wi.work_item_id),
+            },
+        )
+        sub.register_actor_role("gate", "mechanical_gate")
+        sub.transition(
+            wi.work_item_id,
+            "claim",
+            "worker",
+            actor_metadata={"role": "outcome_verifier"},
+        )
+        sub.transition(
+            wi.work_item_id,
+            "submit",
+            "worker",
+            actor_metadata={"role": "outcome_verifier"},
+        )
+        sub.acquire_claim(wi.work_item_id, "gate", ttl_seconds=300)
+        sub.transition(
+            wi.work_item_id,
+            TRANSITION_GATE_FAIL,
+            "gate",
+            actor_metadata={"role": "mechanical_gate", "gate_name": "outcome_e2e"},
+            payload={
+                "diagnostics": {
+                    "message": "Outcome verification failed: coverage gap",
+                    "routing_hint": {"work_item_type": "implementation", "reason": "stub missing"},
+                }
+            },
+        )
+        metrics = collect_routing_hints(sub, config)
+        assert metrics.total_outcome_fail == 1
+        assert metrics.routing_hint_present == 1
+        assert metrics.routing_hint_by_type == {"implementation": 1}
+        assert len(metrics.samples) == 1
+        assert metrics.samples[0]["hint_type"] == "implementation"
+        sub.close()
+
+    def test_no_routing_hint_when_absent(self):
+        sub = self._p5_sub()
+        config = FactoryConfig(
+            dsn="",
+            project_name=sub.project,
+            hmac_key_path="",
+            workspace_root=Path("/tmp/telemetry_test"),
+            workflow_version=5,
+        )
+        int_wi, _ = sub.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="integration",
+            actor_id="int",
+            custom_fields={"spec_section": "T", "ac_ids": []},
+        )
+        wi, _ = sub.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="outcome_verification",
+            actor_id="verifier",
+            custom_fields={
+                "spec_section": "Test",
+                "ac_ids": ["AC-01"],
+                "integration_ref": str(int_wi.work_item_id),
+            },
+        )
+        sub.register_actor_role("gate", "mechanical_gate")
+        sub.transition(
+            wi.work_item_id,
+            "claim",
+            "worker",
+            actor_metadata={"role": "outcome_verifier"},
+        )
+        sub.transition(
+            wi.work_item_id,
+            "submit",
+            "worker",
+            actor_metadata={"role": "outcome_verifier"},
+        )
+        sub.acquire_claim(wi.work_item_id, "gate", ttl_seconds=300)
+        sub.transition(
+            wi.work_item_id,
+            TRANSITION_GATE_FAIL,
+            "gate",
+            actor_metadata={"role": "mechanical_gate", "gate_name": "outcome_e2e"},
+            payload={"diagnostics": {"message": "Just failed"}},
+        )
+        metrics = collect_routing_hints(sub, config)
+        assert metrics.total_outcome_fail == 1
+        assert metrics.routing_hint_present == 0
+        assert metrics.routing_hint_by_type == {}
+        assert metrics.samples == []
+        sub.close()
+
+    def test_ignores_non_outcome_verification_items(self, mock_substrate):
+        config = _make_config(mock_substrate)
+        wi, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="arch",
+            custom_fields={"spec_section": "Test", "ac_ids": ["AC-01"]},
+        )
+        mock_substrate.register_actor_role("gate", "mechanical_gate")
+        mock_substrate.transition(
+            wi.work_item_id,
+            TRANSITION_CLAIM,
+            "worker",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.transition(
+            wi.work_item_id,
+            TRANSITION_SUBMIT,
+            "worker",
+            actor_metadata={"role": "interface_architect"},
+        )
+        mock_substrate.acquire_claim(wi.work_item_id, "gate", ttl_seconds=300)
+        mock_substrate.transition(
+            wi.work_item_id,
+            TRANSITION_GATE_FAIL,
+            "gate",
+            actor_metadata={"role": "mechanical_gate", "gate_name": "interface_spec_syntax"},
+            payload={"diagnostics": {"routing_hint": {"work_item_type": "test_suite"}}},
+        )
+        metrics = collect_routing_hints(mock_substrate, config)
+        assert metrics.total_outcome_fail == 0
+        assert metrics.routing_hint_present == 0
+
+    def test_format_routing_hint_summary(self):
+        metrics = RoutingHintMetrics(
+            total_outcome_fail=3,
+            routing_hint_present=2,
+            routing_hint_by_type={"implementation": 1, "test_suite": 1},
+            samples=[
+                {
+                    "work_item_id": str(uuid.uuid4()),
+                    "rationale": "coverage gap",
+                    "hint_type": "implementation",
+                    "hint_reason": "stub missing",
+                }
+            ],
+        )
+        summary = format_routing_hint_summary(metrics)
+        assert "Routing Hint Telemetry (BC-145)" in summary
+        assert "Total outcome_verification gate_fail events: 3" in summary
+        assert "implementation: 1" in summary
+        assert "test_suite: 1" in summary
+
+    def test_zero_events_summary(self):
+        metrics = RoutingHintMetrics(
+            total_outcome_fail=0,
+            routing_hint_present=0,
+            routing_hint_by_type={},
+            samples=[],
+        )
+        summary = format_routing_hint_summary(metrics)
+        assert "Total outcome_verification gate_fail events: 0" in summary
+        assert "Routing hints present:                        0" in summary

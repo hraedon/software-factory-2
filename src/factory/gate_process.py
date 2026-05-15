@@ -352,6 +352,8 @@ def process_gate_item(
             }
         if gate_result.diagnostic_kind and "diagnostic_kind" not in diagnostics:
             diagnostics["diagnostic_kind"] = gate_result.diagnostic_kind
+        if gate_result.routing_hint is not None:
+            diagnostics["routing_hint"] = gate_result.routing_hint
         custom_fields_payload: dict = {"diagnostics": diagnostics}
         if gate_result.custom_fields:
             custom_fields_payload.update(gate_result.custom_fields)
