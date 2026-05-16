@@ -220,10 +220,9 @@ class TestEnsureUpstreamRevisionIntegration:
     def test_jury_to_implementation_revision_passes_substrate_validation(self, runtime, p5_sub):
         """jury → implementation revision must pass schema validation end-to-end.
 
-        Currently xfail: jury custom_fields lack interface_ref/test_suite_ref because
-        the phase4 stage topology does not propagate them from review to jury.
-        ensure_upstream_revision therefore builds an implementation payload missing
-        required fields, and substrate rejects it.
+        Regression test for BC-179: jury custom_fields lack interface_ref/test_suite_ref
+        because phase4 stage topology does not propagate them from review to jury.
+        ensure_upstream_revision resolves both via the jury's review_ref link.
         """
         iface = _create_interface_spec(p5_sub)
         ts = _create_test_suite(p5_sub, iface)
