@@ -10,6 +10,7 @@ at create_work_item time, exactly as the real backend does.
 The existing mocked tests in test_upstream_routing.py are NOT replaced — they
 remain cheap branch-coverage for the Python logic.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -178,9 +179,7 @@ class TestEnsureUpstreamRevisionIntegration:
     """Drive ensure_upstream_revision against InMemorySubstrate so schema
     mismatches surface as test failures, not golden-run failures."""
 
-    def test_review_to_implementation_revision_passes_substrate_validation(
-        self, runtime, p5_sub
-    ):
+    def test_review_to_implementation_revision_passes_substrate_validation(self, runtime, p5_sub):
         """review → implementation revision must pass schema validation end-to-end."""
         iface = _create_interface_spec(p5_sub)
         ts = _create_test_suite(p5_sub, iface)
@@ -203,7 +202,8 @@ class TestEnsureUpstreamRevisionIntegration:
             work_item_types=[WORK_ITEM_TYPE_IMPLEMENTATION],
         )
         revision_wis = [
-            wi for wi in results.items
+            wi
+            for wi in results.items
             if (wi.custom_fields or {}).get(CUSTOM_FIELD_UPSTREAM_REVISION_OF)
             == str(review_wi.work_item_id)
         ]
@@ -229,9 +229,7 @@ class TestEnsureUpstreamRevisionIntegration:
             "linked implementation via the review_ref link chain, then remove this xfail."
         ),
     )
-    def test_jury_to_implementation_revision_passes_substrate_validation(
-        self, runtime, p5_sub
-    ):
+    def test_jury_to_implementation_revision_passes_substrate_validation(self, runtime, p5_sub):
         """jury → implementation revision must pass schema validation end-to-end.
 
         Currently xfail: jury custom_fields lack interface_ref/test_suite_ref because
@@ -259,7 +257,8 @@ class TestEnsureUpstreamRevisionIntegration:
             work_item_types=[WORK_ITEM_TYPE_IMPLEMENTATION],
         )
         revision_wis = [
-            wi for wi in results.items
+            wi
+            for wi in results.items
             if (wi.custom_fields or {}).get(CUSTOM_FIELD_UPSTREAM_REVISION_OF)
             == str(jury_wi.work_item_id)
         ]
@@ -294,7 +293,8 @@ class TestEnsureUpstreamRevisionIntegration:
             work_item_types=[WORK_ITEM_TYPE_IMPLEMENTATION],
         )
         revision_wis_before = [
-            wi for wi in results.items
+            wi
+            for wi in results.items
             if (wi.custom_fields or {}).get(CUSTOM_FIELD_UPSTREAM_REVISION_OF)
             == str(review_wi.work_item_id)
         ]
@@ -323,7 +323,8 @@ class TestEnsureUpstreamRevisionIntegration:
             work_item_types=[WORK_ITEM_TYPE_IMPLEMENTATION],
         )
         revision_wis_after = [
-            wi for wi in results_after.items
+            wi
+            for wi in results_after.items
             if (wi.custom_fields or {}).get(CUSTOM_FIELD_UPSTREAM_REVISION_OF)
             == str(review_wi.work_item_id)
         ]
