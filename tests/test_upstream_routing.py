@@ -8,11 +8,13 @@ from factory.constants import (
     CUSTOM_FIELD_AC_IDS,
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_REVIEW_FINDINGS,
+    CUSTOM_FIELD_REVIEW_REF,
     CUSTOM_FIELD_SPEC_SECTION,
     CUSTOM_FIELD_TEST_SUITE_REF,
     CUSTOM_FIELD_UPSTREAM_REVISION_OF,
     STATE_NEW,
     WORK_ITEM_TYPE_IMPLEMENTATION,
+    WORK_ITEM_TYPE_JURY,
     WORK_ITEM_TYPE_REVIEW,
 )
 from factory.router import Route
@@ -197,3 +199,99 @@ class TestEnsureUpstreamRevision:
         ensure_upstream_revision(runtime, source_wi, route)
 
         sub.create_work_item.assert_not_called()
+
+    def test_jury_source_resolves_refs_via_review_link(self):
+        """When source is a jury, interface_ref and test_suite_ref must be
+        resolved one hop away via review_ref → review.custom_fields."""
+        runtime, sub = _make_runtime()
+
+        review_id = str(uuid.uuid4())
+        interface_id = str(uuid.uuid4())
+        test_suite_id = str(uuid.uuid4())
+
+        # Jury has only review_ref — no interface_ref / test_suite_ref
+        jury_wi = _make_work_item(
+            wi_type=WORK_ITEM_TYPE_JURY,
+            custom_fields={
+                CUSTOM_FIELD_SPEC_SECTION: "FR-05",
+                CUSTOM_FIELD_AC_IDS: ["AC-10"],
+                CUSTOM_FIELD_REVIEW_REF: review_id,
+            },
+        )
+
+        # Mock the review returned by get_work_item — it carries both refs
+        review_wi = MagicMock()
+        review_wi.custom_fields = {
+            CUSTOM_FIELD_INTERFACE_REF: interface_id,
+            CUSTOM_FIELD_TEST_SUITE_REF: test_suite_id,
+        }
+        sub.get_work_item.return_value = review_wi
+
+        upstream_wi = MagicMock()
+        upstream_wi.work_item_id = uuid.uuid4()
+        sub.create_work_item.return_value = (upstream_wi, None)
+
+        route = Route(
+            target_state=STATE_NEW,
+            create_upstream_revision=True,
+            upstream_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+            upstream_context_key="jury_feedback",
+            diagnostics=["Jury found logic error"],
+        )
+
+        from factory.scheduler import ensure_upstream_revision
+
+        ensure_upstream_revision(runtime, jury_wi, route)
+
+        sub.create_work_item.assert_called_once()
+        custom = sub.create_work_item.call_args[1]["custom_fields"]
+        assert custom[CUSTOM_FIELD_INTERFACE_REF] == interface_id, (
+            "interface_ref must be resolved from the linked review"
+        )
+        assert custom[CUSTOM_FIELD_TEST_SUITE_REF] == test_suite_id, (
+            "test_suite_ref must be resolved from the linked review"
+        )
+
+    def test_jury_source_review_also_lacks_refs_no_crash(self):
+        """Edge case: jury → review exists but review also has no interface_ref /
+        test_suite_ref.  The code must not crash — it emits whatever it can resolve
+        and lets substrate reject the payload in real use."""
+        runtime, sub = _make_runtime()
+
+        review_id = str(uuid.uuid4())
+
+        jury_wi = _make_work_item(
+            wi_type=WORK_ITEM_TYPE_JURY,
+            custom_fields={
+                CUSTOM_FIELD_SPEC_SECTION: "FR-06",
+                CUSTOM_FIELD_AC_IDS: ["AC-11"],
+                CUSTOM_FIELD_REVIEW_REF: review_id,
+            },
+        )
+
+        # Review has neither ref
+        review_wi = MagicMock()
+        review_wi.custom_fields = {
+            CUSTOM_FIELD_SPEC_SECTION: "FR-06",
+        }
+        sub.get_work_item.return_value = review_wi
+
+        upstream_wi = MagicMock()
+        upstream_wi.work_item_id = uuid.uuid4()
+        sub.create_work_item.return_value = (upstream_wi, None)
+
+        route = Route(
+            target_state=STATE_NEW,
+            create_upstream_revision=True,
+            upstream_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+        )
+
+        from factory.scheduler import ensure_upstream_revision
+
+        # Must not raise — refs are simply absent from the payload
+        ensure_upstream_revision(runtime, jury_wi, route)
+
+        sub.create_work_item.assert_called_once()
+        custom = sub.create_work_item.call_args[1]["custom_fields"]
+        assert CUSTOM_FIELD_INTERFACE_REF not in custom
+        assert CUSTOM_FIELD_TEST_SUITE_REF not in custom

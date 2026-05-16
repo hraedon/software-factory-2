@@ -217,18 +217,6 @@ class TestEnsureUpstreamRevisionIntegration:
         assert CUSTOM_FIELD_TEST_SUITE_REF in cf
         assert CUSTOM_FIELD_REVIEW_FINDINGS in cf
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "KNOWN BUG: jury work_item_type does not declare interface_ref or "
-            "test_suite_ref (see phase4.yaml), so ensure_upstream_revision cannot "
-            "propagate them when creating an implementation revision from a jury source. "
-            "The implementation type requires both fields (required:true in phase2.yaml), "
-            "causing a SubstrateError. This integration test surfaces the bug — fix "
-            "ensure_upstream_revision to look up interface_ref/test_suite_ref from the "
-            "linked implementation via the review_ref link chain, then remove this xfail."
-        ),
-    )
     def test_jury_to_implementation_revision_passes_substrate_validation(self, runtime, p5_sub):
         """jury → implementation revision must pass schema validation end-to-end.
 

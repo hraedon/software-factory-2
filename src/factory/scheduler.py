@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import uuid
 
 import structlog
 
@@ -11,11 +12,13 @@ from factory.constants import (
     CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_REVIEW_FINDINGS,
+    CUSTOM_FIELD_REVIEW_REF,
     CUSTOM_FIELD_SPEC_SECTION,
     CUSTOM_FIELD_TEST_SUITE_REF,
     CUSTOM_FIELD_UPSTREAM_REVISION_OF,
     LINK_TYPE_IMPLEMENTS,
     STATE_LOCKED,
+    WORK_ITEM_TYPE_JURY,
 )
 from factory.router import Route
 from factory.runtime import PipelineRuntime
@@ -262,10 +265,21 @@ def ensure_upstream_revision(
         custom[CUSTOM_FIELD_DEPENDENCY_REFS] = dep_refs
 
     interface_ref = source_custom.get(CUSTOM_FIELD_INTERFACE_REF)
+    test_suite_ref = source_custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
+
+    if (
+        not interface_ref or not test_suite_ref
+    ) and source_wi.work_item_type == WORK_ITEM_TYPE_JURY:
+        review_ref = source_custom.get(CUSTOM_FIELD_REVIEW_REF)
+        if review_ref:
+            review_wi = sub.get_work_item(uuid.UUID(review_ref))
+            review_custom = review_wi.custom_fields or {}
+            interface_ref = interface_ref or review_custom.get(CUSTOM_FIELD_INTERFACE_REF)
+            test_suite_ref = test_suite_ref or review_custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
+
     if interface_ref:
         custom[CUSTOM_FIELD_INTERFACE_REF] = interface_ref
 
-    test_suite_ref = source_custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
     if test_suite_ref:
         custom[CUSTOM_FIELD_TEST_SUITE_REF] = test_suite_ref
 

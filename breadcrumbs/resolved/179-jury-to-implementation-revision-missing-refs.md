@@ -2,7 +2,7 @@
 number: "179"
 title: "ensure_upstream_revision builds invalid implementation payload when source is jury (missing interface_ref/test_suite_ref)"
 severity: high
-status: proposed
+status: resolved
 kind: bug
 author: bc145-coverage-followup
 date: "2026-05-16"
@@ -111,3 +111,31 @@ fixed. Same blast radius as the original three BC-145 bugs.
 - BC-171 — substrate plural target support; orthogonal but tightening to
   `target_work_item_types: [review, jury]` would have surfaced this bug
   faster (via type-rejection) had the constraint been live.
+
+## Resolution
+
+Implemented in the BC-179 session (2026-05-16).
+
+**Changes:**
+
+1. `src/factory/scheduler.py` — `ensure_upstream_revision` (lines 267-278 post-fix)
+   now resolves `interface_ref` and `test_suite_ref` one hop via `review_ref` when
+   the source work item is a `jury`. After reading both fields from `source_custom`,
+   if either is absent and the source type is `WORK_ITEM_TYPE_JURY`, the code fetches
+   the linked review via `sub.get_work_item(uuid.UUID(review_ref))` and fills in
+   whatever the review carries. No new error handling added — missing `review_ref`
+   or a substrate failure surfaces through the existing gate-process error path.
+   Added imports: `uuid`, `CUSTOM_FIELD_REVIEW_REF`, `WORK_ITEM_TYPE_JURY`.
+
+2. `tests/test_upstream_routing.py` — two new mocked unit tests added:
+   - `test_jury_source_resolves_refs_via_review_link`: jury with `review_ref` pointing
+     to a mocked review that carries both refs; asserts both appear in the
+     `create_work_item` custom_fields payload.
+   - `test_jury_source_review_also_lacks_refs_no_crash`: edge case where the review
+     also has neither ref; asserts the code does not crash and omits both fields.
+
+3. `tests/test_upstream_routing_integration.py` — removed `@pytest.mark.xfail`
+   from `test_jury_to_implementation_revision_passes_substrate_validation`.
+   The test now passes for real against `InMemorySubstrate`.
+
+**Test counts:** 960 passed, 13 skipped (11 new tests added vs. prior baseline of 949).
