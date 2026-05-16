@@ -177,9 +177,9 @@ def _preflight(config_path: Path, fixtures: str | None) -> None:
         )
     _info(f"attempt_threshold={cfg['attempt_threshold']} ✓")
 
-    if cfg["inner_gate_retries"] > 2:
+    if cfg["inner_gate_retries"] > 3:
         _warn(
-            f"inner_gate_retries={cfg['inner_gate_retries']} is > 2. "
+            f"inner_gate_retries={cfg['inner_gate_retries']} is > 3. "
             "Consider reducing."
         )
     else:

@@ -4,6 +4,51 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-16 — Session 41: GR-034 — `inner_gate_retries=3` validation, best Phase 5 lock rate
+
+**Invocation:** OpenCode (kimi-k2p6-turbo)
+
+**Focus:** Execute GR-034 to validate `inner_gate_retries=3` and defensive-runtime-access prompt rule changes from prior session.
+
+### Changes implemented (pre-run)
+
+1. `inner_gate_retries` default raised from 2 → 3 in `FactoryConfig`.
+2. `agent_golden_run.py` pre-flight check allows up to 3 (warns only if >3).
+3. `tests/test_agent_golden_run.py` updated for new default.
+4. Implementer prompt Rule 7 added: defensive access to platform-private / version-conditional attributes via `getattr` or `try/except` with typed fallback.
+
+### Golden Run 034 results
+
+- **Lock rate: 95% (19/20)** — **PASS** (target ≥90%). Best Phase 5 lock rate to date.
+- **Mean attempts: 1.90** — PASS (target ≤2.0)
+- **Inner gate first-pass: 73% (11/15)** — PASS (target ≥60%), up from 67% in GR-033
+- **Integration: 2/2 locked (100%)** — first-ever 100% integration lock rate on cert-watch-mini
+- **0 stuck items, verify_passed=True, 0 orphan submits** — clean run, no shutdown race
+
+### Key finding: `inner_gate_retries=3` eliminates retry-budget exhaustion
+
+The `fr02_tls_scan` implementer item required the same 3-iteration convergence as GR-030/031/033:
+1. Original: `inner_mypy` fail (`_sslobj` attr-defined)
+2. Retry-0: `inner_pytest` fail (`_ssl.Certificate` not subscriptable)
+3. Retry-1: **passed both mypy and pytest** — evaluated and locked
+
+In GR-033 (retries=2), the retry-1 artifact bypassed inner gate and wasted an outer-gate cycle. In GR-034 (retries=3), the retry-1 artifact was evaluated in the inner gate and passed, saving the outer-gate attempt.
+
+### Comparison with prior runs
+
+| Metric | GR-030 | GR-031 | GR-033 | GR-034 |
+|---|---|---|---|---|
+| Locked | 67% | 89% | 89% | **95%** |
+| Integration locked | 0/2 | 1/3 | 1/2 | **2/2** |
+| Verify passed | False | False | False | **True** |
+
+### Artifacts
+
+- Config: `.factory/golden-runs/golden-run-034-config.yaml`
+- Log: `.factory/golden-runs/golden-run-034-log.md`
+
+---
+
 ## 2026-05-16 — Session 40: Workflow composition migration (MIGRATION_PLAN.md)
 
 **Invocation:** GLM-5.1

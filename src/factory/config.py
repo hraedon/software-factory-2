@@ -123,7 +123,7 @@ class FactoryConfig:
     telemetry_event_limit: int = 500
     per_channel_timeout: dict[str, int] | None = None
     use_project_venv: bool | None = None
-    inner_gate_retries: int = 2
+    inner_gate_retries: int = 3
     inner_gate_max_feedback_chars: int = 2000
     jury_quorum: int = 2
     channel_backoff_base_seconds: int = 30

@@ -24,6 +24,7 @@ A single Python file containing the implementation. Output it in a single fenced
 4. **No comments.** The code should be readable without them. If a piece of logic is complex enough to need a comment, simplify the logic.
 5. **No new dependencies.** Standard library only unless the spec excerpt explicitly names a third-party dependency.
 6. **Use dependency types, do not recreate them.** When your interface imports from another module (e.g., `from certificate_model import Certificate`), import from that module directly. Do not define your own version of `Certificate` — use the one provided in `locked_dependency_<module>`. Every method must have a concrete return statement; `...` (Ellipsis) and empty `pass` bodies are rejected by mypy.
+7. **Defensive access to platform-private or version-conditional attributes.** When you must use an attribute that may not be declared in `mypy` stubs (names starting with `_`, platform-specific APIs, or behavior that differs across Python releases), use `getattr(obj, "_attr", None)` or a `try/except` block with a typed fallback. Do not assume the attribute exists with a stable type just because it works in your local Python version.
 
 ## When tests fail after your implementation
 
@@ -58,3 +59,4 @@ Before returning your implementation, verify every item on this checklist. Fix a
 6. Imports are sorted: `__future__`, stdlib, third-party — each group alphabetical, separated by blank lines.
 7. No unused imports or unused local variables.
 8. No comments in the code.
+9. Platform-private or version-conditional attributes use `getattr` or `try/except` fallbacks, not direct access.

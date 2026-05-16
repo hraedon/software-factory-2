@@ -127,7 +127,7 @@ class TestValidateConfig:
                     "workspace_root": "/tmp/sf2-test",
                     "attempt_threshold": 3,
                     "workflow_version": 4,
-                    "inner_gate_retries": 2,
+                    "inner_gate_retries": 3,
                     "jury_quorum": 2,
                 }
             )
@@ -137,7 +137,7 @@ class TestValidateConfig:
         assert result["workspace_root"] == "/tmp/sf2-test"
         assert result["attempt_threshold"] == 3
         assert result["workflow_version"] == 4
-        assert result["inner_gate_retries"] == 2
+        assert result["inner_gate_retries"] == 3
         assert result["jury_quorum"] == 2
 
     def test_defaults(self, tmp_path):
