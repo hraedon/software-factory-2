@@ -95,6 +95,15 @@ work_item_types:
       - name: diagnostics
         type: json
         ui_visible: false
+      - name: upstream_revision_of
+        type: work_item_ref
+        target_work_item_type: implementation
+        required: false
+        ui_visible: true
+      - name: review_findings
+        type: json
+        required: false
+        ui_visible: false
 
 link_types:
   - name: implements
