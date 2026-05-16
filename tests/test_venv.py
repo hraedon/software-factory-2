@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from factory.venv import ensure_project_venv
@@ -7,7 +8,7 @@ from factory.venv import ensure_project_venv
 
 def test_no_requirements_returns_sys_executable(tmp_path: Path) -> None:
     result = ensure_project_venv(tmp_path)
-    assert result.name == "python"
+    assert result == Path(sys.executable)
 
 
 def test_creates_venv_from_requirements(tmp_path: Path) -> None:
