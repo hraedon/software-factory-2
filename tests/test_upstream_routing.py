@@ -6,8 +6,10 @@ from unittest.mock import MagicMock
 from factory.config import FactoryConfig
 from factory.constants import (
     CUSTOM_FIELD_AC_IDS,
+    CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_REVIEW_FINDINGS,
     CUSTOM_FIELD_SPEC_SECTION,
+    CUSTOM_FIELD_TEST_SUITE_REF,
     CUSTOM_FIELD_UPSTREAM_REVISION_OF,
     STATE_NEW,
     WORK_ITEM_TYPE_IMPLEMENTATION,
@@ -142,6 +144,36 @@ class TestEnsureUpstreamRevision:
         custom = call_kwargs[1]["custom_fields"]
         assert custom[CUSTOM_FIELD_SPEC_SECTION] == "FR-03"
         assert custom[CUSTOM_FIELD_AC_IDS] == ["AC-05"]
+
+    def test_propagates_interface_and_test_suite_refs(self):
+        runtime, sub = _make_runtime()
+        upstream_id = str(uuid.uuid4())
+        test_suite_id = str(uuid.uuid4())
+        source_wi = _make_work_item(
+            custom_fields={
+                CUSTOM_FIELD_SPEC_SECTION: "FR-04",
+                CUSTOM_FIELD_AC_IDS: ["AC-07"],
+                CUSTOM_FIELD_INTERFACE_REF: upstream_id,
+                CUSTOM_FIELD_TEST_SUITE_REF: test_suite_id,
+            }
+        )
+        route = Route(
+            target_state=STATE_NEW,
+            create_upstream_revision=True,
+            upstream_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+        )
+
+        upstream_wi = MagicMock()
+        sub.create_work_item.return_value = (upstream_wi, None)
+
+        from factory.scheduler import ensure_upstream_revision
+
+        ensure_upstream_revision(runtime, source_wi, route)
+
+        call_kwargs = sub.create_work_item.call_args
+        custom = call_kwargs[1]["custom_fields"]
+        assert custom[CUSTOM_FIELD_INTERFACE_REF] == upstream_id
+        assert custom[CUSTOM_FIELD_TEST_SUITE_REF] == test_suite_id
 
     def test_no_revision_when_no_role(self):
         runtime, sub = _make_runtime()

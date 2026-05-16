@@ -12,6 +12,7 @@ from factory.constants import (
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_REVIEW_FINDINGS,
     CUSTOM_FIELD_SPEC_SECTION,
+    CUSTOM_FIELD_TEST_SUITE_REF,
     CUSTOM_FIELD_UPSTREAM_REVISION_OF,
     LINK_TYPE_IMPLEMENTS,
     STATE_LOCKED,
@@ -263,6 +264,10 @@ def ensure_upstream_revision(
     interface_ref = source_custom.get(CUSTOM_FIELD_INTERFACE_REF)
     if interface_ref:
         custom[CUSTOM_FIELD_INTERFACE_REF] = interface_ref
+
+    test_suite_ref = source_custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
+    if test_suite_ref:
+        custom[CUSTOM_FIELD_TEST_SUITE_REF] = test_suite_ref
 
     context_key = route.upstream_context_key
     if context_key and route.diagnostics:
