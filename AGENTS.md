@@ -210,32 +210,115 @@ The wrapper enforces the BC-140 safety protocol:
 
 The wrapper runs non-interactively (auto-cleans), making it suitable for unattended agent execution. The principal can check in periodically; if a guardrail trips, the script exits with a loud fatal message and the processes remain in background for inspection.
 
-### Post-run documentation
+### How to create and run a new Golden Run (step-by-step)
 
-Every golden run must leave an audit trail. After telemetry completes:
+**Rule for agents:** If asked to execute a golden run, always use `scripts/agent_golden_run.py`. Never run `make golden-run` or the raw `python -m factory.runner` commands directly. Running the raw commands causes context pollution, unbounded budget burn, and data loss (see BC-140 / GR-026).
 
-1. **Preserve the workspace** (if the run is significant, failed in a novel way, or is the first of a new phase):
+#### Step 0: Determine the run number
+
+Look in `.factory/golden-runs/` for the highest existing number. The next run is `golden-run-NNN-config.yaml` and `golden-run-NNN-log.md` where `NNN` is the next integer.
+
+#### Step 1: Verify available models and channels
+
+**Before creating a config, verify the models you want to use are actually available.** Other agents often fail because they specify models or channels that don't exist.
+
+Check available channels:
+- `opencode` — run `opencode run --dangerously-skip-permissions --model <model> --help` for each model you plan to use.
+- `claude-code` — run `claude --print --dangerously-skip-permissions --model <model> --help` for each model.
+- `gemini-cli` — requires Node 24: `PATH="$HOME/.nvm/versions/node/v24.15.0/bin:$PATH" gemini -p - --yolo --skip-trust -m <model> --help`
+
+**Valid channel names in configs:** `opencode`, `claude-code`, `gemini-cli`, `code` (for mechanical_gate only). **Do NOT use** `claude`, `gemini`, `fireworks`, `kimi` as channel names — they will fail with "Unknown channel".
+
+**Valid model names depend on the channel:**
+- For `opencode`: check `~/.config/opencode/opencode.json` under `provider.*.models` keys. Examples: `fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo`, `mac-studio-lms/qwen/qwen3.6-27b`.
+- For `claude-code`: use alias names like `sonnet`, `opus`, or full names like `claude-sonnet-4-6`.
+- For `gemini-cli`: use `gemini-2.5-pro`, `gemini-2.5-flash`.
+
+#### Step 2: Copy and modify a prior config
+
+Pick a reference config from `.factory/golden-runs/` that matches the phase and model combination you want. Copy it:
+
+```bash
+cp .factory/golden-runs/golden-run-031-config.yaml .factory/golden-runs/golden-run-NNN-config.yaml
+```
+
+**Edit these fields (and ONLY these):**
+- `project_name`: change to `sf2_golden_NNN` (must be unique per run)
+- `workspace_root`: change to `/tmp/sf2-golden-NNN` (must be outside repo)
+- `roles`: adjust channel/model bindings for the experiment you want to run
+- `jury_quorum`: adjust if changing jury size (default 2)
+- `fixture`: change `--fixtures` argument when running
+
+**Keep everything else identical** to the reference config: `workflow_version`, `stage_topology`, `dsn`, `hmac_key_path`, `attempt_threshold` (must be ≤3), `inner_gate_retries` (must be ≤2).
+
+**Common config mistakes:**
+- Using `channel: claude` instead of `channel: claude-code` → "Unknown channel" crash
+- Using `channel: gemini` instead of `channel: gemini-cli` → same crash
+- `workspace_root` inside repo directory → pre-flight abort
+- `attempt_threshold > 3` → pre-flight abort
+- `project_name` colliding with a prior run → substrate confusion
+
+#### Step 3: Run the golden run using the wrapper
+
+```bash
+.venv/bin/python scripts/agent_golden_run.py \
+  --config .factory/golden-runs/golden-run-NNN-config.yaml \
+  --fixtures tests/fixtures/cert-watch-mini \
+  --log-prefix grNNN
+```
+
+**Use `--no-cleanup` if you want to preserve the workspace for post-run forensics.**
+
+The wrapper handles everything: pre-flight checks, population, process launch, monitoring, telemetry, and cleanup. Do NOT try to run the steps manually.
+
+**During the run:**
+- The wrapper prints status every 30s. Watch for danger signals.
+- If it exits with `[FATAL]`, read the message carefully — it usually tells you exactly what went wrong (critical breadcrumbs, model ping failure, config validation error, etc.).
+- Do NOT interrupt the processes manually. The wrapper waits for idle detection (no log lines for 10 minutes) before declaring done.
+
+#### Step 4: Post-run forensics (do this BEFORE writing the log)
+
+If the run failed or had unexpected results, **investigate before writing the log**:
+
+1. **Read the telemetry output** — it's printed at the end by the wrapper.
+2. **Check logs:** `.factory/logs/grNNN/runner.log`, `gate.log`, `scheduler.log`
+3. **Search for failures:**
+   ```bash
+   grep -n "gate_failed\|cannot_proceed\|claim_near_budget\|channel_invoke_failed" .factory/logs/grNNN/runner.log
+   grep -n "gate_failed\|gate_pass" .factory/logs/grNNN/gate.log
+   ```
+4. **If integration stage failed, check for BC-174-class issues:**
+   - Reproduce the gate logic with both `.venv/bin/python` and the workspace's `.venv-gate/bin/python`
+   - If the gate venv succeeds but factory venv fails, you found an environmental mismatch (file a BC)
+5. **Preserve the workspace** if the failure is novel:
    ```bash
    cp -r /tmp/sf2-golden-NNN .factory/grNNN-workspace-backup
    ```
-   Keep it outside git (add to `.gitignore` or just don't `git add` it). Workspaces are large and should not bloat the repo.
 
-2. **Write a golden-run log** at `.factory/golden-runs/golden-run-NNN-log.md` following the existing format:
-   - Result summary table (locked, stuck, cannot_proceed counts)
-   - Per-stage detail (interface_spec, test_suite, implementation, review, jury)
-   - Failure analysis with root cause
-   - Telemetry output
-   - Phase exit criteria assessment
-   - Comparison with prior runs
-   - Artifacts preserved list
-   - Lessons / next steps
+#### Step 5: Write the golden-run log
 
-   See `.factory/golden-runs/golden-run-026-log.md` for a reference that includes failure-mode documentation (BC-139) and agent execution mistakes (BC-140).
+Create `.factory/golden-runs/golden-run-NNN-log.md`. Follow the exact format of prior logs. **Required sections:**
 
-3. **Commit the log and config:**
-   ```bash
-   git add .factory/golden-runs/golden-run-NNN-log.md .factory/golden-runs/golden-run-NNN-config.yaml
-   git commit -m "GR-NNN log: <one-line summary>"
-   ```
+- **Header**: Date, config name, channels used, fixture, executor, wall clock
+- **Purpose**: Why this run was executed (what hypothesis are you testing?)
+- **Result summary table**: Total items, locked count + %, cannot_proceed, stuck, mean attempts, first gate-evaluation pass rate, inner gate first-pass rate, unknown gate rate, deterministic gate rate, verify passed
+- **Per-stage detail**: One subsection per stage with items locked / failed and specific gate names
+- **Failure analysis**: For each failure, state the **actual root cause**, not a guess. If you don't know, say "root cause unknown — requires forensics."
+- **Model-family performance comparison**: If comparing against prior runs, include a table
+- **BC-145 upstream routing**: Whether REVIEW_FOUND_DEFECT was exercised
+- **Claim-near-budget behavior**: Whether hard-stops worked correctly
+- **Channel health**: Per-channel outcomes and stability notes
+- **Telemetry integrity**: unknown_gate_name_count, orphan_submit_count, unmatched_gate_count, verify_passed
+- **Artifacts preserved**: Where workspace/logs are kept
+- **Lessons and next steps**: Numbered list of concrete takeaways
 
-**Rule for agents:** If asked to execute a golden run, always use `scripts/agent_golden_run.py`. Never run `make golden-run` or the raw `python -m factory.runner` commands directly.
+**Critical:** If you discover the root cause of a failure was different from your initial assessment (as happened with GR-032 and BC-174), **update the log with the corrected analysis**. Don't leave wrong root causes in the audit trail.
+
+#### Step 6: Commit
+
+```bash
+git add .factory/golden-runs/golden-run-NNN-config.yaml .factory/golden-runs/golden-run-NNN-log.md
+git commit -m "GR-NNN: <one-line summary>"
+```
+
+If you fixed bugs discovered during the run, commit those separately with a clear message referencing the BC number.
