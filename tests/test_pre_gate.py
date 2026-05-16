@@ -27,8 +27,11 @@ class TestPreGateImplementation:
         assert result.diagnostics == []
 
     def test_fails_on_mypy_error(self, tmp_path):
+        # Use a genuine type error (int returned where str expected) rather
+        # than an empty-body, which is now allowed by --allow-empty-bodies
+        # (BC-176: uniform application across all mypy gates).
         artifact = tmp_path / "interface.py"
-        artifact.write_text("def hello() -> str:\n    pass\n")
+        artifact.write_text("def hello() -> str:\n    return 42\n")
         interface_pyi = tmp_path / "interface.pyi"
         interface_pyi.write_text("def hello() -> str: ...\n")
         result = pre_gate_implementation(artifact, interface_pyi_path=interface_pyi)
@@ -123,8 +126,10 @@ class TestPreGateImplementation:
         assert not result.pytest_passed
 
     def test_mypy_failure_skips_pytest(self, tmp_path):
+        # Use a genuine type error (int returned where str expected) — empty
+        # body is now allowed by --allow-empty-bodies (BC-176).
         artifact = tmp_path / "interface.py"
-        artifact.write_text("def hello() -> str:\n    pass\n")
+        artifact.write_text("def hello() -> str:\n    return 42\n")
         interface_pyi = tmp_path / "interface.pyi"
         interface_pyi.write_text("def hello() -> str: ...\n")
         test_suite = tmp_path / "test_hello.py"

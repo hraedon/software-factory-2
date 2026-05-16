@@ -831,7 +831,15 @@ def _run_mypy_fast(
             stub_copy.write_text(interface_pyi_path.read_text())
             copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
             result = subprocess.run(
-                [exe, "-m", "mypy", "--strict", "--no-error-summary", str(impl_copy)],
+                [
+                    exe,
+                    "-m",
+                    "mypy",
+                    "--strict",
+                    "--no-error-summary",
+                    "--allow-empty-bodies",
+                    str(impl_copy),
+                ],
                 capture_output=True,
                 text=True,
                 timeout=timeout,

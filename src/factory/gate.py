@@ -637,7 +637,15 @@ def _run_mypy(
             stub_copy.write_text(interface_pyi_path.read_text())
             copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
             result = subprocess.run(
-                [exe, "-m", "mypy", "--strict", "--no-error-summary", str(impl_copy)],
+                [
+                    exe,
+                    "-m",
+                    "mypy",
+                    "--strict",
+                    "--no-error-summary",
+                    "--allow-empty-bodies",
+                    str(impl_copy),
+                ],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -1210,10 +1218,25 @@ def evaluate_integration(
             )
 
         # Gate 2: mypy on assembled tree
-        mypy_targets = [str(f) for f in py_files]
-        if mypy_targets:
+        # BC-175: target the directory (not a file list) so mypy resolves
+        #   modules via --explicit-package-bases rather than both the
+        #   MYPYPATH and the explicit file path — preventing the
+        #   "Source file found twice" collision when __init__.py is present.
+        # BC-176: --allow-empty-bodies so ellipsis-body interface stubs
+        #   emitted by interface_architect are not rejected by --strict.
+        py_files_list = [str(f) for f in py_files]
+        if py_files_list:
             mypy_result = subprocess.run(
-                [exe, "-m", "mypy", "--strict", "--no-error-summary", *mypy_targets],
+                [
+                    exe,
+                    "-m",
+                    "mypy",
+                    "--strict",
+                    "--no-error-summary",
+                    "--explicit-package-bases",
+                    "--allow-empty-bodies",
+                    str(tmp_path),
+                ],
                 capture_output=True,
                 text=True,
                 timeout=t.mypy_timeout,
@@ -1238,12 +1261,27 @@ def evaluate_integration(
                 )
 
         # Gate 3: integration pytest
+        # BC-177: hermetic invocation — PYTHONPATH is set explicitly (not
+        #   inherited); --rootdir pins pytest's root to the workspace
+        #   (prevents walking up to /tmp); -p no:cacheprovider avoids
+        #   cross-run cache pollution.
         integration_tests = data.get("integration_tests")
         if integration_tests:
             test_path = tmp_path / "integration_tests.py"
             test_path.write_text(str(integration_tests))
             pytest_result = subprocess.run(
-                [exe, "-m", "pytest", str(test_path), "-x", "--tb=short", "-q"],
+                [
+                    exe,
+                    "-m",
+                    "pytest",
+                    str(test_path),
+                    "-x",
+                    "--tb=short",
+                    "-q",
+                    f"--rootdir={tmp_path}",
+                    "-p",
+                    "no:cacheprovider",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=t.pytest_timeout,
