@@ -128,22 +128,22 @@ The pipeline runs 3–4 concurrent processes (runner, gate, scheduler) against a
 ### Execution
 
 ```bash
-# 1. Create config YAML (copy a prior golden-run-NNN-config.yaml, change project_name and workspace_root)
+# 1. Create config YAML (copy a prior config from .factory/golden-runs/, change project_name and workspace_root)
 # 2. Populate work items from fixture (--workflow inferred from config)
-make golden-run CONFIG=golden-run-022-config.yaml FIXTURES=tests/fixtures/cert-watch-mini
+make golden-run CONFIG=.factory/golden-runs/golden-run-022-config.yaml FIXTURES=tests/fixtures/cert-watch-mini
 # 3. This runs populate, then runner+gate+scheduler in parallel, then telemetry
 ```
 
 For manual step-by-step control (recommended for monitoring):
 
 ```bash
-.venv/bin/python populate_work_items.py --config golden-run-022-config.yaml --reset --fixtures tests/fixtures/cert-watch-mini
-.venv/bin/python -m factory.runner --config golden-run-022-config.yaml > /tmp/gr022-runner.log 2>&1 &
-.venv/bin/python -m factory.gate_process --config golden-run-022-config.yaml > /tmp/gr022-gate.log 2>&1 &
-.venv/bin/python -m factory.scheduler --config golden-run-022-config.yaml > /tmp/gr022-scheduler.log 2>&1 &
+.venv/bin/python populate_work_items.py --config .factory/golden-runs/golden-run-022-config.yaml --reset --fixtures tests/fixtures/cert-watch-mini
+.venv/bin/python -m factory.runner --config .factory/golden-runs/golden-run-022-config.yaml > /tmp/gr022-runner.log 2>&1 &
+.venv/bin/python -m factory.gate_process --config .factory/golden-runs/golden-run-022-config.yaml > /tmp/gr022-gate.log 2>&1 &
+.venv/bin/python -m factory.scheduler --config .factory/golden-runs/golden-run-022-config.yaml > /tmp/gr022-scheduler.log 2>&1 &
 wait
-.venv/bin/python -m factory.telemetry --config golden-run-022-config.yaml
-.venv/bin/python -m factory.telemetry --verify --config golden-run-022-config.yaml
+.venv/bin/python -m factory.telemetry --config .factory/golden-runs/golden-run-022-config.yaml
+.venv/bin/python -m factory.telemetry --verify --config .factory/golden-runs/golden-run-022-config.yaml
 ```
 
 ### Monitoring
@@ -172,7 +172,7 @@ When an agent (e.g. OpenCode, GLM, Claude Code) executes a golden run on behalf 
 
 ```bash
 python scripts/agent_golden_run.py \
-  --config golden-run-NNN-config.yaml \
+  --config .factory/golden-runs/golden-run-NNN-config.yaml \
   --fixtures tests/fixtures/cert-watch-mini \
   --log-prefix grNNN
 ```
@@ -220,7 +220,7 @@ Every golden run must leave an audit trail. After telemetry completes:
    ```
    Keep it outside git (add to `.gitignore` or just don't `git add` it). Workspaces are large and should not bloat the repo.
 
-2. **Write a golden-run log** at `.factory/golden-run-NNN-log.md` following the existing format:
+2. **Write a golden-run log** at `.factory/golden-runs/golden-run-NNN-log.md` following the existing format:
    - Result summary table (locked, stuck, cannot_proceed counts)
    - Per-stage detail (interface_spec, test_suite, implementation, review, jury)
    - Failure analysis with root cause
@@ -230,11 +230,11 @@ Every golden run must leave an audit trail. After telemetry completes:
    - Artifacts preserved list
    - Lessons / next steps
 
-   See `.factory/golden-run-026-log.md` for a reference that includes failure-mode documentation (BC-139) and agent execution mistakes (BC-140).
+   See `.factory/golden-runs/golden-run-026-log.md` for a reference that includes failure-mode documentation (BC-139) and agent execution mistakes (BC-140).
 
 3. **Commit the log and config:**
    ```bash
-   git add .factory/golden-run-NNN-log.md golden-run-NNN-config.yaml
+   git add .factory/golden-runs/golden-run-NNN-log.md .factory/golden-runs/golden-run-NNN-config.yaml
    git commit -m "GR-NNN log: <one-line summary>"
    ```
 

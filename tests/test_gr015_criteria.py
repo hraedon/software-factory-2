@@ -9,7 +9,7 @@ import pytest
 
 from factory.config import FactoryConfig
 
-GR015_CONFIG_PATH = Path("golden-run-015-config.yaml")
+GR015_CONFIG_PATH = Path(".factory/golden-runs/golden-run-015-config.yaml")
 GR015_TELEMETRY_DIR = Path("/tmp/sf2-golden-015")
 GR015_TELEMETRY_PATH = GR015_TELEMETRY_DIR / "telemetry.json"
 GR015_ARTIFACTS_PATH = GR015_TELEMETRY_DIR / "artifacts.json"

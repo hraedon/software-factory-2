@@ -8,7 +8,7 @@ golden runs. Never touches the principal's persistent application state stores:
 - The isolated opencode session DB is written to a temp dir and cleaned up after
 
 Usage:
-    python scripts/agent_golden_run.py --config golden-run-NNN-config.yaml \
+    python scripts/agent_golden_run.py --config .factory/golden-runs/golden-run-NNN-config.yaml \
         --fixtures tests/fixtures/cert-watch-mini
 
 The script will:

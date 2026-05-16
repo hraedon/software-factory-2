@@ -54,7 +54,7 @@ def test_gr006a_telemetry_verify_passes() -> None:
             "factory.telemetry",
             "--verify",
             "--config",
-            "golden-run-006a-config.yaml",
+            ".factory/golden-runs/golden-run-006a-config.yaml",
         ],
         capture_output=True,
         text=True,
