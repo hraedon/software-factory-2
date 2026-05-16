@@ -56,7 +56,10 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - 947 passing tests, 0 lint errors
 - Inner gate telemetry: submit payloads carry `inner_gate_attempts`; telemetry reports inner gate first-pass rate (BC-133)
 - Jury observability: `disagreement_rationale` always populated when quorum not met; `[all_against]` tag for all-failure cases (BC-134)
-- 27 golden runs executed (GR-001 through GR-027)
+- 34 golden runs executed (GR-001 through GR-034)
+  - GR-034: Phase 5 first 100% integration lock — validates `inner_gate_retries=3`; 19/20 locked (95%); 2/2 integration items locked
+  - GR-033: Phase 5 post-migration replication — validates workflow composition (`extends:`) live; K2+Qwen jury, cert-watch-mini
+  - GR-032: Phase 5 multi-family validation — Claude+Gemini+K2 concurrent; BC-174 discovery+fix
   - GR-031: Phase 5 ruff-corruption fix validation — cert-watch-mini, K2+Qwen jury, 17/19 locked (89%, accepted as near-miss), 1st locked integration item, BC-171 worked example added post-run
   - GR-030: Phase 5 integration validation — cert-watch-mini (3 items), K2+Qwen dual-family jury, integration stage exercised (2 items, 0/2 locked), outcome_verification not reached; link type direction bug found and fixed; 12/15 locked (80%), 0/2 integration locked, 0 stuck
   - GR-027: Phase 4 exit artifact — cert-watch full DAG, dual-family jury (K2 + DeepSeek), 30/34 locked (88%), jury_disagree exercised, 0 stuck, 4 properly escalated
@@ -64,7 +67,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
   - GR-022: Phase 4 first run — 100% lock rate (15/15) on cert-watch-mini, all 5 roles exercised
   - GR-021: 100% lock rate (24/24) on cert-watch full DAG, K2-only; inner gate first-attempt rate 74%
 
-**Known issues:** 1 open breadcrumb (0 critical, 0 high, 1 medium, 0 low) + 11 RFCs + 9 defect classes. See `breadcrumbs/README.md`.
+**Known issues:** 38 open breadcrumbs + 11 RFCs + 9 defect classes (172 resolved). See `breadcrumbs/README.md`.
 - BC-120 (medium, deferred): implementer-initiated interface amendment — awaiting ≥3 empirical instances
 - BC-145 (high, implemented): review/jury verdict routing — phase 1 done; phase 2 deferred to RFC-025
 

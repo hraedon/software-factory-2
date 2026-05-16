@@ -9,6 +9,7 @@ build/
 *.egg
 .factory/work/
 .factory/gr*-workspace-backup/
+.factory/gr-workspace-backups-archive-*.tar.gz
 .factory/analysis/
 .factory/logs/
 .ruff_cache/

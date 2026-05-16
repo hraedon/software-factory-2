@@ -80,6 +80,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 |---|---|---|---|
 | RFC-027 | Test efficacy — no mechanical verification that tests actually validate behavior | high | Phase 6 |
 | RFC-028 | Per-role capability map — collapse 5-point registration into single declaration | medium | Phase 5 exit / Phase 6 |
+| RFC-029 | Attempt-count telemetry bucketing — separate prompt calibration from gate-difficulty tail | medium | Phase 5 in-flight |
 | RFC-026 | Principal review surface — pipeline needs artifact bundle format and feedback intake | high | Phase 6 (first real workload) |
 | RFC-024 | Coherence reviewer — declared role with zero design or implementation | high | Phase 6 |
 | RFC-023 | Decomposer role — Stage 1 pipeline cannot consume arbitrary specs | high | Phase 6 (generalization) |
