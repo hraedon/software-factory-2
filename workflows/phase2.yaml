@@ -96,8 +96,7 @@ work_item_types:
         type: json
         ui_visible: false
       - name: upstream_revision_of
-        type: work_item_ref
-        target_work_item_type: implementation
+        type: string
         required: false
         ui_visible: true
       - name: review_findings
