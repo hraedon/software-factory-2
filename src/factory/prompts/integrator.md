@@ -65,3 +65,32 @@ Before returning your JSON, verify every item on this checklist:
 4. No function signatures were modified.
 5. `integration_tests` imports from the assembled package, not from individual files.
 6. `entry_point` is a real callable in the tree.
+
+## Worked example
+
+Suppose two modules have been implemented independently:
+
+- **`certificate_model`** — defines `Certificate`, `MalformedCertificateError`, `parse_certificate`
+- **`tls_scan`** — defines `ScannedEntry`, `ScanError`, `scan_host`; imports `Certificate` from `certificate_model`
+
+Your job is to assemble them into a tree where cross-module imports resolve and `entry_point` points to the top-level callable. Produce:
+
+```json
+{
+  "assembled_tree": {
+    "__init__.py": "from certificate_model import Certificate, parse_certificate\nfrom tls_scan import scan_host, ScannedEntry\n",
+    "certificate_model.py": "from dataclasses import dataclass\nfrom datetime import datetime\n\n\n@dataclass(frozen=True)\nclass Certificate:\n    subject_dn: str\n    issuer_dn: str\n    not_before: datetime\n    not_after: datetime\n    san_dns_names: list[str]\n    fingerprint_sha256: str\n    raw_der: bytes\n\n    def days_until_expiry(self) -> int:\n        return (self.not_after - datetime.utcnow()).days\n\n\nclass MalformedCertificateError(Exception):\n    def __init__(self, message: str) -> None:\n        self.message = message\n        super().__init__(message)\n\n\ndef parse_certificate(der_bytes: bytes) -> Certificate | MalformedCertificateError:\n    try:\n        ...  # real parsing logic here\n        return Certificate(\n            subject_dn=\"CN=example.com\",\n            issuer_dn=\"CN=Example CA\",\n            not_before=datetime(2024, 1, 1),\n            not_after=datetime(2025, 1, 1),\n            san_dns_names=[\"example.com\"],\n            fingerprint_sha256=\"abcdef1234\",\n            raw_der=der_bytes,\n        )\n    except Exception as exc:\n        return MalformedCertificateError(str(exc))\n",
+    "tls_scan.py": "from dataclasses import dataclass\nfrom datetime import datetime\nfrom certificate_model import Certificate\n\n\n@dataclass(frozen=True)\nclass ScannedEntry:\n    host: str\n    port: int\n    leaf: Certificate\n    chain: list[Certificate]\n    scanned_at: datetime\n\n\n@dataclass(frozen=True)\nclass ScanError:\n    error_message: str\n\n\ndef scan_host(hostname: str, port: int = 443) -> ScannedEntry | ScanError:\n    ...  # real TLS handshake logic here\n",
+  },
+  "entry_point": "tls_scan.scan_host",
+  "integration_tests": "from tls_scan import scan_host, ScannedEntry, ScanError\nfrom certificate_model import Certificate, parse_certificate\nfrom datetime import datetime\n\n\ndef test_scan_and_parse_round_trip():\n    entry = scan_host(\"example.com\")\n    assert isinstance(entry, ScannedEntry)\n    assert entry.leaf.subject_dn == \"CN=example.com\"\n    cert = parse_certificate(entry.leaf.raw_der)\n    assert isinstance(cert, Certificate)\n"
+}
+```
+
+Key points demonstrated:
+
+1. **Module keys are flat filenames** — `certificate_model.py`, `tls_scan.py`. The gate writes them to a tempdir; no subdirectories needed for simple assemblies.
+2. **`tls_scan.py` imports from `certificate_model`** using a bare `from certificate_model import Certificate` — this resolves because both files are in the same directory.
+3. **`entry_point`** is `"tls_scan.scan_host"` — a dotted reference to a real callable in the tree.
+4. **`__init__.py`** re-exports public symbols so `from package import Certificate` also works.
+5. **`integration_tests`** is a top-level string field (not inside `assembled_tree`), containing a pytest module that imports from the assembled package and exercises cross-module interactions.

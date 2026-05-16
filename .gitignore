@@ -8,6 +8,9 @@ build/
 .venv/
 *.egg
 .factory/work/
+.factory/gr*-workspace-backup/
+.factory/analysis/
+.factory/logs/
 .ruff_cache/
 .coverage
-Credentials/.factory/gr028-workspace-backup/
+Credentials/

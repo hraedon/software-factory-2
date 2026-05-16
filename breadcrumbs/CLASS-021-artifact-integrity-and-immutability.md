@@ -26,6 +26,16 @@ BC-088: retries write to `ad/retry-{N}` subdirectory. BC-114: ruff runs on tempd
 
 ≥3 instances (current: 5). Systemic fix deployed.
 
+## Promotion decision (2026-05-16, opus-4-7)
+
+CLASS-021 has reached 5 instances, which meets the README promotion threshold (≥5 instances). Per the promotion rule, the reviewer must file an RFC or document why a systemic fix isn't worth pursuing. **Documenting (b): the systemic fix is already deployed.**
+
+- BC-088 / BC-114 / BC-154 established the immutability pattern (retries in `ad/retry-{N}`, tempdir copies for ruff, side-effect-free `_run_ruff_fast`).
+- BC-170 was not a *new* mutation vector — it was a missed *role registration*. The integrator role was added without wiring its non-Python artifact format into the 5-point registration surface (`_artifact_extension_for_role`, `_run_pre_gate`, `_inner_gate_label`, `DETERMINISTIC_GATES`, outer gate dispatch). Ruff was applied to a `.py`-named file containing JSON, which the side-effect-free `_run_ruff_fast` correctly mutated by quote-normalizing.
+- The structural fix for the *registration* problem is **RFC-028** (per-role capability map), which collapses the 5-point surface into a single declaration so the next role can't recreate BC-170's failure mode.
+
+**No new RFC required for CLASS-021 itself.** The instance count is now closed pending genuinely new mutation vectors. If a future BC introduces a *new* mutation path (not a registration miss), re-open the promotion question.
+
 ## Instances
 
 | BC   | Symptom |
