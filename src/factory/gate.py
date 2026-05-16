@@ -1134,42 +1134,70 @@ def evaluate_integration(
                     if has_sibling_py:
                         top_init.unlink()
 
-        # Gate 1: import resolution
-        import_errors: list[str] = []
         py_files = sorted(
             tmp_path.rglob("*.py"),
             key=lambda f: (f.name != "__init__.py", str(f)),
         )
-        # Temporarily add tmp_path to sys.path for intra-package imports
-        _original_sys_path = list(sys.path)
-        sys.path.insert(0, str(tmp_path))
-        try:
-            for py_file in py_files:
-                rel_parts = list(py_file.relative_to(tmp_path).parts)
-                is_init = rel_parts[-1] == "__init__.py"
-                if is_init:
-                    module_name = ".".join(rel_parts[:-1]) if len(rel_parts) > 1 else "__init__"
-                else:
-                    module_name = ".".join(rel_parts)[:-3]
-                # Skip top-level __init__.py that has no parent package —
-                # relative imports inside it cannot resolve, and its content
-                # will be validated by mypy / pytest instead.
-                if module_name == "__init__":
-                    continue
-                try:
-                    spec = __import__("importlib.util").util.spec_from_file_location(
-                        module_name,
-                        py_file,
-                        submodule_search_locations=[str(py_file.parent)] if is_init else None,
-                    )
-                    mod = __import__("importlib.util").util.module_from_spec(spec)
-                    sys.modules[module_name] = mod
-                    spec.loader.exec_module(mod)
-                except Exception as exc:
-                    import_errors.append(f"{py_file.name}: {exc}")
-        finally:
-            sys.path[:] = _original_sys_path
 
+        # Gate 1: import resolution (subprocess under gate venv — BC-174)
+        _import_check_script = (
+            "import importlib.util, json, sys\n"
+            "from pathlib import Path\n"
+            "tmp = Path(sys.argv[1])\n"
+            "sys.path.insert(0, str(tmp))\n"
+            "errors = []\n"
+            "for pyf in sorted(\n"
+            "    tmp.rglob('*.py'),\n"
+            "    key=lambda f: (f.name != '__init__.py', str(f)),\n"
+            "):\n"
+            "    rel = list(pyf.relative_to(tmp).parts)\n"
+            "    is_init = rel[-1] == '__init__.py'\n"
+            "    mod = '.'.join(rel[:-1]) if is_init else '.'.join(rel)[:-3]\n"
+            "    if mod == '__init__':\n"
+            "        continue\n"
+            "    try:\n"
+            "        spec = importlib.util.spec_from_file_location(\n"
+            "            mod, pyf,\n"
+            "            submodule_search_locations=[str(pyf.parent)] if is_init else None,\n"
+            "        )\n"
+            "        m = importlib.util.module_from_spec(spec)\n"
+            "        sys.modules[mod] = m\n"
+            "        spec.loader.exec_module(m)\n"
+            "    except Exception as exc:\n"
+            "        errors.append(f'{pyf.name}: {exc}')\n"
+            "print(json.dumps(errors))\n"
+        )
+        import_result = subprocess.run(
+            [exe, "-c", _import_check_script, str(tmp_path)],
+            capture_output=True,
+            text=True,
+            timeout=t.pytest_timeout,
+            cwd=str(tmp_path),
+            env=gate_subprocess_env(PYTHONPATH=str(tmp_path)),
+        )
+        if import_result.returncode != 0:
+            stderr = import_result.stderr.strip()
+            return GateResult(
+                passed=False,
+                gate_name=GATE_NAME_INTEGRATION_IMPORT,
+                diagnostics=[
+                    "Import-check subprocess crashed",
+                    stderr[:500] if stderr else "(no stderr)",
+                ],
+                diagnostic_kind="integration_import",
+            )
+        try:
+            import_errors = json.loads(import_result.stdout)
+        except json.JSONDecodeError as exc:
+            return GateResult(
+                passed=False,
+                gate_name=GATE_NAME_INTEGRATION_IMPORT,
+                diagnostics=[
+                    f"Import-check output is not valid JSON: {exc}",
+                    import_result.stdout[:500],
+                ],
+                diagnostic_kind="integration_import",
+            )
         if import_errors:
             return GateResult(
                 passed=False,

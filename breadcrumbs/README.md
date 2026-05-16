@@ -57,7 +57,7 @@ When a CLASS file accumulates ≥5 instances OR contains ≥2 high/critical inst
 | CLASS-001 | JSONB / Contract Validation Entry-Point Drift | 10 | critical |
 | CLASS-002 | Dependency Module Name Resolution | 5 | high |
 | CLASS-005 | Inner Gate vs Outer Gate Ruleset Divergence | 11 | critical |
-| CLASS-008 | Gate Subprocess Execution and Environment Handling | 10 | high |
+| CLASS-008 | Gate Subprocess Execution and Environment Handling | 11 | high |
 | CLASS-010 | Channel Reliability and Failover | 8 | critical |
 | CLASS-011 | Budget/Retry/Escalation Loop Control | 6 | critical |
 | CLASS-012 | Single Source of Truth / String Constant Gravity | 10 | high |
@@ -95,6 +95,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 174 | Integration gate import resolution runs in wrong Python environment — fails on project dependencies | high | evaluate_integration() now runs import resolution as subprocess under gate venv python (same as mypy/pytest); in-process sys.path mutation removed; CLASS-008 instance #11 |
 | 173 | Workflow composition migration complete — extends: adopted for phase2-5 | low | phase2-5 use extends: inheritance; 1133→421 lines (63% reduction); pipeline_docs uses resolve_includes(); substrate register_workflow_file resolves extends; semantic verification via scripts/migrate_workflows.py --verify |
 | 172 | Pre-commit hook does not enforce `make check` — lint errors and broken tests landed in main | medium | Created .githooks/pre-commit running make check; git config core.hooksPath .githooks |
 | 171 | Integrator role prompt lacks worked example — assembled_tree import/mypy failures at outer gate | medium | Added worked example to integrator.md with cert-watch-style 2-module assembly demonstrating flat keys, cross-module imports, entry_point, integration_tests |

@@ -24,7 +24,7 @@ RFC-011's shared execution layer, combined with RFC-012's sandbox module (alread
 
 ## Trigger condition
 
-≥5 instances (current: 10). Past threshold.
+≥5 instances (current: 11). Past threshold.
 
 ## Instances
 
@@ -39,4 +39,5 @@ RFC-011's shared execution layer, combined with RFC-012's sandbox module (alread
 | 114  | pre_gate _run_ruff_fast mutates artifact file in-place |
 | 141  | opencode run returns empty output when cwd is not a project directory |
 | 142  | agent_golden_run.py launched processes from /tmp |
+| 174  | Integration import gate runs in wrong Python env — fails on project deps |
 | RFC-012 | Gate subprocess credential stripping and sandboxing |
