@@ -400,6 +400,172 @@ def pre_gate_test_suite(
     )
 
 
+_INTEGRATOR_REQUIRED_KEYS = ("assembled_tree", "entry_point", "integration_tests")
+_OUTCOME_VERIFIER_REQUIRED_KEYS = ("verdict", "rationale", "routing_hint")
+_OUTCOME_VERIFIER_VERDICTS = frozenset({"pass", "fail", "cannot_proceed"})
+
+
+def _json_pre_gate_result(
+    *, passed: bool, diagnostics: list[str], output: str = ""
+) -> PreGateResult:
+    return PreGateResult(
+        passed=passed,
+        mypy_passed=True,
+        ruff_passed=True,
+        pytest_passed=True,
+        imports_symbols_passed=True,
+        diagnostics=diagnostics,
+        output=output,
+    )
+
+
+def pre_gate_integrator(artifact_path: Path) -> PreGateResult:
+    """JSON-shape pre-gate for integrator artifacts.
+
+    Validates that the artifact parses as JSON and has the keys the
+    integration_import gate expects. Does NOT run ruff or pytest — the artifact
+    is JSON, not Python.
+    """
+    import json
+
+    if not artifact_path.exists():
+        return _json_pre_gate_result(
+            passed=False, diagnostics=[f"Artifact not found: {artifact_path}"]
+        )
+    text = artifact_path.read_text()
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return _json_pre_gate_result(
+            passed=False,
+            diagnostics=[
+                f"Artifact is not valid JSON: {exc.msg} at line {exc.lineno} col {exc.colno}",
+                "Emit a single fenced ```json block. Use double-quoted strings only.",
+            ],
+            output=_truncate_raw_output(text),
+        )
+    if not isinstance(data, dict):
+        return _json_pre_gate_result(
+            passed=False,
+            diagnostics=[f"Top-level JSON must be an object, got {type(data).__name__}"],
+        )
+    # cannot_proceed shape short-circuits the schema check; the outer pipeline
+    # handles cannot_proceed separately, but the integrator may emit it here.
+    if data.get("status") == "cannot_proceed":
+        if not isinstance(data.get("reason"), str) or not data["reason"].strip():
+            return _json_pre_gate_result(
+                passed=False,
+                diagnostics=["cannot_proceed payload missing non-empty 'reason' string"],
+            )
+        return _json_pre_gate_result(passed=True, diagnostics=[])
+
+    missing = [k for k in _INTEGRATOR_REQUIRED_KEYS if k not in data]
+    if missing:
+        return _json_pre_gate_result(
+            passed=False,
+            diagnostics=[f"Missing required keys: {', '.join(missing)}"],
+        )
+    tree = data["assembled_tree"]
+    if not isinstance(tree, dict) or not tree:
+        return _json_pre_gate_result(
+            passed=False,
+            diagnostics=["'assembled_tree' must be a non-empty object of filename -> source"],
+        )
+    bad_values = [k for k, v in tree.items() if not isinstance(v, str)]
+    if bad_values:
+        return _json_pre_gate_result(
+            passed=False,
+            diagnostics=[
+                (
+                    "'assembled_tree' values must be strings; "
+                    f"non-string for: {', '.join(bad_values[:5])}"
+                )
+            ],
+        )
+    entry_point = data["entry_point"]
+    if not isinstance(entry_point, str) or "." not in entry_point:
+        return _json_pre_gate_result(
+            passed=False,
+            diagnostics=["'entry_point' must be a dotted reference like 'module.callable'"],
+        )
+    ep_module = entry_point.split(".", 1)[0] + ".py"
+    if ep_module not in tree and "__init__.py" not in tree:
+        return _json_pre_gate_result(
+            passed=False,
+            diagnostics=[
+                (
+                    f"'entry_point' references module '{ep_module}' "
+                    "which is not present in assembled_tree"
+                )
+            ],
+        )
+    if not isinstance(data["integration_tests"], str) or not data["integration_tests"].strip():
+        return _json_pre_gate_result(
+            passed=False,
+            diagnostics=["'integration_tests' must be a non-empty string of pytest source"],
+        )
+    return _json_pre_gate_result(passed=True, diagnostics=[])
+
+
+def pre_gate_outcome_verifier(artifact_path: Path) -> PreGateResult:
+    """JSON-shape pre-gate for outcome_verifier artifacts."""
+    import json
+
+    if not artifact_path.exists():
+        return _json_pre_gate_result(
+            passed=False, diagnostics=[f"Artifact not found: {artifact_path}"]
+        )
+    text = artifact_path.read_text()
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return _json_pre_gate_result(
+            passed=False,
+            diagnostics=[
+                f"Artifact is not valid JSON: {exc.msg} at line {exc.lineno} col {exc.colno}",
+                "Emit a single fenced ```json block. Use double-quoted strings only.",
+            ],
+            output=_truncate_raw_output(text),
+        )
+    if not isinstance(data, dict):
+        return _json_pre_gate_result(
+            passed=False,
+            diagnostics=[f"Top-level JSON must be an object, got {type(data).__name__}"],
+        )
+    missing = [k for k in _OUTCOME_VERIFIER_REQUIRED_KEYS if k not in data]
+    if missing:
+        return _json_pre_gate_result(
+            passed=False,
+            diagnostics=[f"Missing required keys: {', '.join(missing)}"],
+        )
+    verdict = data["verdict"]
+    if verdict not in _OUTCOME_VERIFIER_VERDICTS:
+        return _json_pre_gate_result(
+            passed=False,
+            diagnostics=[
+                f"'verdict' must be one of {sorted(_OUTCOME_VERIFIER_VERDICTS)}, got {verdict!r}"
+            ],
+        )
+    if not isinstance(data["rationale"], str) or not data["rationale"].strip():
+        return _json_pre_gate_result(
+            passed=False, diagnostics=["'rationale' must be a non-empty string"]
+        )
+    routing_hint = data["routing_hint"]
+    if verdict == "fail":
+        if not isinstance(routing_hint, dict):
+            return _json_pre_gate_result(
+                passed=False,
+                diagnostics=["'routing_hint' must be an object when verdict is 'fail'"],
+            )
+    else:
+        if routing_hint is not None:
+            return _json_pre_gate_result(
+                passed=False,
+                diagnostics=[f"'routing_hint' must be null when verdict is {verdict!r}"],
+            )
+    return _json_pre_gate_result(passed=True, diagnostics=[])
+
+
 def _truncate_diagnostics(
     diagnostics: list[str],
     char_limit: int = _PYTEST_DIAGNOSTIC_CHAR_LIMIT,

@@ -24,7 +24,7 @@ BC-088: retries write to `ad/retry-{N}` subdirectory. BC-114: ruff runs on tempd
 
 ## Trigger condition
 
-≥3 instances (current: 4). Systemic fix deployed.
+≥3 instances (current: 5). Systemic fix deployed.
 
 ## Instances
 
@@ -34,3 +34,4 @@ BC-088: retries write to `ad/retry-{N}` subdirectory. BC-114: ruff runs on tempd
 | 103  | quarantine_attempt uses os.replace which can clobber |
 | 114  | pre_gate _run_ruff_fast mutates artifact file in-place |
 | 154  | _run_ruff_fast modifies artifact in-place inside inner gate |
+| 170  | Pre-gate ruff mutates integrator JSON artifact — quote normalization corrupts .py-wrapped JSON |

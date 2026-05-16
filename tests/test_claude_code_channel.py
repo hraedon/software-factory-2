@@ -97,3 +97,9 @@ class TestArtifactExtension:
 
     def test_unknown_role_gets_py(self):
         assert ClaudeCodeChannel._artifact_extension_for_role("unknown") == ".py"
+
+    def test_integrator_gets_json(self):
+        assert ClaudeCodeChannel._artifact_extension_for_role("integrator") == ".json"
+
+    def test_outcome_verifier_gets_json(self):
+        assert ClaudeCodeChannel._artifact_extension_for_role("outcome_verifier") == ".json"

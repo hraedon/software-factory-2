@@ -36,6 +36,11 @@ from pathlib import Path
 REPO_ROOT = Path("/projects/software-factory-2")
 BREADCRUMBS_README = REPO_ROOT / "breadcrumbs" / "README.md"
 AGENTS_MD = REPO_ROOT / "AGENTS.md"
+LOGS_ROOT = REPO_ROOT / ".factory" / "logs"
+
+
+def _log_dir_for(log_prefix: str) -> Path:
+    return LOGS_ROOT / log_prefix
 
 DANGER_SIGNALS = [
     ("claim_near_budget", re.compile(r"claim_near_budget")),
@@ -243,9 +248,11 @@ def _launch_processes(
     the principal's persistent store (~/.local/share/opencode).
     """
     _info("Launching pipeline processes from repo root...")
-    runner_log = Path(f"/tmp/{log_prefix}-runner.log")
-    gate_log = Path(f"/tmp/{log_prefix}-gate.log")
-    sched_log = Path(f"/tmp/{log_prefix}-scheduler.log")
+    log_dir = _log_dir_for(log_prefix)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    runner_log = log_dir / "runner.log"
+    gate_log = log_dir / "gate.log"
+    sched_log = log_dir / "scheduler.log"
 
     # Clean old logs
     for p in (runner_log, gate_log, sched_log):
@@ -292,9 +299,10 @@ def _monitor_logs(
 
     If *procs* is provided, detects early process exit and returns.
     """
-    runner_log = Path(f"/tmp/{log_prefix}-runner.log")
-    gate_log = Path(f"/tmp/{log_prefix}-gate.log")
-    sched_log = Path(f"/tmp/{log_prefix}-scheduler.log")
+    log_dir = _log_dir_for(log_prefix)
+    runner_log = log_dir / "runner.log"
+    gate_log = log_dir / "gate.log"
+    sched_log = log_dir / "scheduler.log"
 
     seen_counts: dict[str, int] = {name: 0 for name, _ in DANGER_SIGNALS}
     file_offsets: dict[str, int] = {}
@@ -386,8 +394,8 @@ def _run_telemetry(config_path: Path) -> None:
 def _cleanup_offered(
     workspace_root: str,
     log_prefix: str,
-    log_dir: str = "/tmp",
     xdg_data_home: Path | None = None,
+    log_dir: Path | None = None,
 ) -> None:
     """Clean workspace, logs, and isolated opencode DB.
 
@@ -396,24 +404,20 @@ def _cleanup_offered(
     (and the isolated opencode DB inside it) is also removed.
     """
     wr = Path(workspace_root)
-    logs = [
-        Path(f"{log_dir}/{log_prefix}-{suffix}.log")
-        for suffix in ("runner", "gate", "scheduler")
-    ]
+    resolved_log_dir = Path(log_dir) if log_dir else _log_dir_for(log_prefix)
     _info("=== Cleanup ===")
     _info(f"Workspace: {wr}")
-    _info(f"Logs: {', '.join(str(log) for log in logs)}")
+    _info(f"Log dir: {resolved_log_dir}")
     if xdg_data_home is not None:
         _info(f"Isolated opencode DB: {xdg_data_home}")
     _info("NOTE: This script NEVER touches ~/.local/share/opencode/ or any application DB.")
-    # In non-interactive mode (agent), just clean up automatically
     _info("Auto-cleaning workspace + logs + isolated DB (non-interactive mode)...")
     if wr.exists():
         shutil.rmtree(wr)
         _info(f"Removed {wr}")
-    for log in logs:
-        log.unlink(missing_ok=True)
-        _info(f"Removed {log}")
+    if resolved_log_dir.exists():
+        shutil.rmtree(resolved_log_dir)
+        _info(f"Removed {resolved_log_dir}")
     if xdg_data_home is not None and xdg_data_home.exists():
         shutil.rmtree(xdg_data_home)
         _info(f"Removed {xdg_data_home}")
@@ -482,7 +486,7 @@ def main() -> None:
         cfg = _validate_config(config_path)
         if any_crash:
             _warn("Process crash detected — preserving logs for forensics.")
-            _warn(f"Log files: /tmp/{log_prefix}-{{runner,gate,scheduler}}.log")
+            _warn(f"Log dir: {_log_dir_for(log_prefix)}")
             wr = Path(cfg["workspace_root"])
             if wr.exists():
                 shutil.rmtree(wr)

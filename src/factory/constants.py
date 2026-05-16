@@ -127,6 +127,7 @@ GATE_NAME_INNER_COLLECT = "inner_test_collect"
 GATE_NAME_INNER_MYPY = "inner_mypy"
 GATE_NAME_INNER_RUFF = "inner_ruff"
 GATE_NAME_INNER_IMPORT_SYMBOLS = "inner_import_symbols"
+GATE_NAME_INNER_JSON_SHAPE = "inner_json_shape"
 
 GATE_NAME_CROSS_FAMILY_REVIEW = "cross_family_review"
 GATE_NAME_JURY = "jury"

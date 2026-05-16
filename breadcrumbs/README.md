@@ -62,7 +62,7 @@ When a CLASS file accumulates ≥5 instances OR contains ≥2 high/critical inst
 | CLASS-011 | Budget/Retry/Escalation Loop Control | 6 | critical |
 | CLASS-012 | Single Source of Truth / String Constant Gravity | 10 | high |
 | CLASS-014 | Test Coverage Gaps for Existing Code | 14 | high |
-| CLASS-021 | Artifact Integrity and Immutability | 4 | critical |
+| CLASS-021 | Artifact Integrity and Immutability | 5 | critical |
 
 ## Open
 
@@ -79,6 +79,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | # | Title | Severity | Phase Needed |
 |---|---|---|---|
 | RFC-027 | Test efficacy — no mechanical verification that tests actually validate behavior | high | Phase 6 |
+| RFC-028 | Per-role capability map — collapse 5-point registration into single declaration | medium | Phase 5 exit / Phase 6 |
 | RFC-026 | Principal review surface — pipeline needs artifact bundle format and feedback intake | high | Phase 6 (first real workload) |
 | RFC-024 | Coherence reviewer — declared role with zero design or implementation | high | Phase 6 |
 | RFC-023 | Decomposer role — Stage 1 pipeline cannot consume arbitrary specs | high | Phase 6 (generalization) |
@@ -94,6 +95,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 170 | Pre-gate ruff mutates integrator JSON artifact — quote normalization corrupts .py-wrapped JSON | high | Fixed: _artifact_extension_for_role returns .json for integrator/outcome_verifier; dedicated pre_gate_integrator/pre_gate_outcome_verifier skip ruff/mypy/pytest (CLASS-021 #5) |
 | 168 | Phase 5 link types had reversed source/target direction — scheduler create_link failed for integrates and verified_by | high | Reversed source/target in workflows/phase5.yaml; changed golden-run stage_topology link_type from derived_from to integrates/verified_by; validated in GR-030 |
 | RFC-016 | Defect-class taxonomy — evolve breadcrumbs from per-defect entries to class-based corpus | medium | 9 CLASS-NNN files created; filing rule and promotion rule added to README schema; 24 classes identified across 171 resolved BCs |
 | RFC-014 | Staff engineer summarizer — compress outer-path failure history into actionable constraints | medium | failure_summarizer.py with local constraint extraction (import refs, type mismatches, missing symbols, recurring errors); integrated into render_prompt for >=2 prior failures |

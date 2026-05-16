@@ -16,9 +16,13 @@ from factory.constants import (
     ARTIFACT_FILENAME_RAW_STDERR,
     ARTIFACT_FILENAME_RAW_STDOUT,
     MAX_ARTIFACT_SIZE_BYTES,
+    ROLE_INTEGRATOR,
     ROLE_INTERFACE_ARCHITECT,
+    ROLE_OUTCOME_VERIFIER,
 )
 from factory.output_extraction import extract_artifact_from_output, extract_json_from_output
+
+_JSON_ARTIFACT_ROLES = frozenset({ROLE_INTEGRATOR, ROLE_OUTCOME_VERIFIER})
 
 log = structlog.get_logger()
 
@@ -49,6 +53,8 @@ class SubprocessChannel:
     def _artifact_extension_for_role(role: str) -> str:
         if role == ROLE_INTERFACE_ARCHITECT:
             return ".pyi"
+        if role in _JSON_ARTIFACT_ROLES:
+            return ".json"
         return ".py"
 
     def invoke(

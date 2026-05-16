@@ -61,6 +61,7 @@ DETERMINISTIC_GATES = frozenset(
         "inner_mypy",
         "inner_ruff",
         "inner_import_symbols",
+        "inner_json_shape",
         "cross_family_review",
         "jury",
         "jury_quorum",

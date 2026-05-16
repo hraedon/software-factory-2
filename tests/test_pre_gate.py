@@ -6,7 +6,9 @@ from factory.pre_gate import (
     PreGateDeps,
     copy_dependency_pyis,
     pre_gate_implementation,
+    pre_gate_integrator,
     pre_gate_interface_spec,
+    pre_gate_outcome_verifier,
     pre_gate_test_suite,
 )
 
@@ -483,3 +485,356 @@ class TestRunRuffFastAutoFix:
         artifact.write_text(long_line)
         result = _run_ruff_fast(artifact)
         assert result["passed"]
+
+
+class TestPreGateIntegrator:
+    def _valid_artifact(self) -> dict:
+        return {
+            "assembled_tree": {
+                "__init__.py": "",
+                "module.py": "def func() -> int:\n    return 1\n",
+            },
+            "entry_point": "module.func",
+            "integration_tests": "def test_func():\n    assert True\n",
+        }
+
+    def test_passes_on_valid_artifact(self, tmp_path):
+        import json
+
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(self._valid_artifact()))
+        result = pre_gate_integrator(artifact)
+        assert result.passed
+        assert result.diagnostics == []
+        assert result.mypy_passed
+        assert result.ruff_passed
+        assert result.pytest_passed
+
+    def test_missing_artifact_fails(self, tmp_path):
+        artifact = tmp_path / "nonexistent.json"
+        result = pre_gate_integrator(artifact)
+        assert not result.passed
+        assert any("not found" in d.lower() for d in result.diagnostics)
+
+    def test_invalid_json_fails(self, tmp_path):
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text("{'single': 'quotes'}")
+        result = pre_gate_integrator(artifact)
+        assert not result.passed
+        assert any("not valid JSON" in d for d in result.diagnostics)
+
+    def test_non_dict_json_fails(self, tmp_path):
+        import json
+
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps([1, 2, 3]))
+        result = pre_gate_integrator(artifact)
+        assert not result.passed
+        assert any("must be an object" in d for d in result.diagnostics)
+
+    def test_cannot_proceed_passes(self, tmp_path):
+        import json
+
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps({"status": "cannot_proceed", "reason": "stuck"}))
+        result = pre_gate_integrator(artifact)
+        assert result.passed
+
+    def test_cannot_proceed_without_reason_fails(self, tmp_path):
+        import json
+
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps({"status": "cannot_proceed"}))
+        result = pre_gate_integrator(artifact)
+        assert not result.passed
+        assert any("reason" in d for d in result.diagnostics)
+
+    def test_cannot_proceed_empty_reason_fails(self, tmp_path):
+        import json
+
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps({"status": "cannot_proceed", "reason": "  "}))
+        result = pre_gate_integrator(artifact)
+        assert not result.passed
+
+    def test_missing_required_keys_fails(self, tmp_path):
+        import json
+
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps({"assembled_tree": {}}))
+        result = pre_gate_integrator(artifact)
+        assert not result.passed
+        assert any("Missing required keys" in d for d in result.diagnostics)
+
+    def test_empty_assembled_tree_fails(self, tmp_path):
+        import json
+
+        data = self._valid_artifact()
+        data["assembled_tree"] = {}
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(data))
+        result = pre_gate_integrator(artifact)
+        assert not result.passed
+        assert any("assembled_tree" in d for d in result.diagnostics)
+
+    def test_non_string_tree_values_fails(self, tmp_path):
+        import json
+
+        data = self._valid_artifact()
+        data["assembled_tree"]["bad.py"] = 42
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(data))
+        result = pre_gate_integrator(artifact)
+        assert not result.passed
+        assert any("non-string" in d.lower() for d in result.diagnostics)
+
+    def test_entry_point_without_dot_fails(self, tmp_path):
+        import json
+
+        data = self._valid_artifact()
+        data["entry_point"] = "nodulefunc"
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(data))
+        result = pre_gate_integrator(artifact)
+        assert not result.passed
+        assert any("dotted reference" in d for d in result.diagnostics)
+
+    def test_entry_point_module_not_in_tree_fails(self, tmp_path):
+        import json
+
+        data = self._valid_artifact()
+        data["entry_point"] = "nonexistent.func"
+        del data["assembled_tree"]["__init__.py"]
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(data))
+        result = pre_gate_integrator(artifact)
+        assert not result.passed
+        assert any("not present" in d for d in result.diagnostics)
+
+    def test_entry_point_module_in_tree_passes_without_init(self, tmp_path):
+        import json
+
+        data = {
+            "assembled_tree": {"module.py": "def func(): pass\n"},
+            "entry_point": "module.func",
+            "integration_tests": "def test_func(): pass\n",
+        }
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(data))
+        result = pre_gate_integrator(artifact)
+        assert result.passed
+
+    def test_empty_integration_tests_fails(self, tmp_path):
+        import json
+
+        data = self._valid_artifact()
+        data["integration_tests"] = "   "
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(data))
+        result = pre_gate_integrator(artifact)
+        assert not result.passed
+        assert any("integration_tests" in d for d in result.diagnostics)
+
+
+class TestPreGateOutcomeVerifier:
+    def _valid_pass_artifact(self) -> dict:
+        return {
+            "verdict": "pass",
+            "rationale": "All integration tests pass.",
+            "routing_hint": None,
+        }
+
+    def _valid_fail_artifact(self) -> dict:
+        return {
+            "verdict": "fail",
+            "rationale": "Integration tests failed.",
+            "routing_hint": {"target_role": "implementer", "work_item_id": "abc-123"},
+        }
+
+    def test_passes_on_pass_verdict(self, tmp_path):
+        import json
+
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(self._valid_pass_artifact()))
+        result = pre_gate_outcome_verifier(artifact)
+        assert result.passed
+        assert result.diagnostics == []
+        assert result.mypy_passed
+        assert result.ruff_passed
+        assert result.pytest_passed
+
+    def test_passes_on_fail_verdict_with_routing_hint(self, tmp_path):
+        import json
+
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(self._valid_fail_artifact()))
+        result = pre_gate_outcome_verifier(artifact)
+        assert result.passed
+
+    def test_passes_on_cannot_proceed_verdict(self, tmp_path):
+        import json
+
+        data = {
+            "verdict": "cannot_proceed",
+            "rationale": "Cannot verify.",
+            "routing_hint": None,
+        }
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(data))
+        result = pre_gate_outcome_verifier(artifact)
+        assert result.passed
+
+    def test_missing_artifact_fails(self, tmp_path):
+        artifact = tmp_path / "nonexistent.json"
+        result = pre_gate_outcome_verifier(artifact)
+        assert not result.passed
+        assert any("not found" in d.lower() for d in result.diagnostics)
+
+    def test_invalid_json_fails(self, tmp_path):
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text("not json at all")
+        result = pre_gate_outcome_verifier(artifact)
+        assert not result.passed
+        assert any("not valid JSON" in d for d in result.diagnostics)
+
+    def test_missing_required_keys_fails(self, tmp_path):
+        import json
+
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps({"verdict": "pass"}))
+        result = pre_gate_outcome_verifier(artifact)
+        assert not result.passed
+        assert any("Missing required keys" in d for d in result.diagnostics)
+
+    def test_invalid_verdict_fails(self, tmp_path):
+        import json
+
+        data = {
+            "verdict": "maybe",
+            "rationale": "Unclear.",
+            "routing_hint": None,
+        }
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(data))
+        result = pre_gate_outcome_verifier(artifact)
+        assert not result.passed
+        assert any("verdict" in d.lower() for d in result.diagnostics)
+
+    def test_empty_rationale_fails(self, tmp_path):
+        import json
+
+        data = {
+            "verdict": "pass",
+            "rationale": "  ",
+            "routing_hint": None,
+        }
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(data))
+        result = pre_gate_outcome_verifier(artifact)
+        assert not result.passed
+        assert any("rationale" in d for d in result.diagnostics)
+
+    def test_pass_with_non_null_routing_hint_fails(self, tmp_path):
+        import json
+
+        data = {
+            "verdict": "pass",
+            "rationale": "OK.",
+            "routing_hint": {"target": "implementer"},
+        }
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(data))
+        result = pre_gate_outcome_verifier(artifact)
+        assert not result.passed
+        assert any("routing_hint" in d and "null" in d for d in result.diagnostics)
+
+    def test_fail_with_non_dict_routing_hint_fails(self, tmp_path):
+        import json
+
+        data = {
+            "verdict": "fail",
+            "rationale": "Broken.",
+            "routing_hint": "fix it",
+        }
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(data))
+        result = pre_gate_outcome_verifier(artifact)
+        assert not result.passed
+        assert any("routing_hint" in d and "object" in d for d in result.diagnostics)
+
+
+class TestPreGateDispatchJson:
+    def test_integrator_uses_json_pre_gate(self, tmp_path):
+        import json
+
+        from factory.runner import _run_pre_gate
+
+        data = {
+            "assembled_tree": {"mod.py": "def f(): pass\n"},
+            "entry_point": "mod.f",
+            "integration_tests": "def test_f(): pass\n",
+        }
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(data))
+        deps = PreGateDeps(
+            interface_pyi_path=None,
+            dep_paths=None,
+            python_executable=None,
+            test_suite_path=None,
+        )
+        result = _run_pre_gate("integrator", artifact, deps)
+        assert result.passed
+
+    def test_integrator_invalid_json_fails(self, tmp_path):
+        from factory.runner import _run_pre_gate
+
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text("not json")
+        deps = PreGateDeps(
+            interface_pyi_path=None,
+            dep_paths=None,
+            python_executable=None,
+            test_suite_path=None,
+        )
+        result = _run_pre_gate("integrator", artifact, deps)
+        assert not result.passed
+
+    def test_outcome_verifier_uses_json_pre_gate(self, tmp_path):
+        import json
+
+        from factory.runner import _run_pre_gate
+
+        data = {
+            "verdict": "pass",
+            "rationale": "OK.",
+            "routing_hint": None,
+        }
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps(data))
+        deps = PreGateDeps(
+            interface_pyi_path=None,
+            dep_paths=None,
+            python_executable=None,
+            test_suite_path=None,
+        )
+        result = _run_pre_gate("outcome_verifier", artifact, deps)
+        assert result.passed
+
+    def test_integrator_does_not_run_ruff(self, tmp_path):
+        import json
+
+        from factory.runner import _run_pre_gate
+
+        artifact = tmp_path / "artifact.json"
+        artifact.write_text(json.dumps({"status": "cannot_proceed", "reason": "stuck"}))
+        deps = PreGateDeps(
+            interface_pyi_path=None,
+            dep_paths=None,
+            python_executable=None,
+            test_suite_path=None,
+        )
+        result = _run_pre_gate("integrator", artifact, deps)
+        assert result.passed
+        assert result.ruff_passed
+        assert result.mypy_passed
+        assert result.pytest_passed

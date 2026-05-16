@@ -24,6 +24,7 @@ from factory.constants import (
     GATE_NAME_INNER_COLLECT,
     GATE_NAME_INNER_IMPORT,
     GATE_NAME_INNER_IMPORT_SYMBOLS,
+    GATE_NAME_INNER_JSON_SHAPE,
     GATE_NAME_INNER_MYPY,
     GATE_NAME_INNER_PYTEST,
     GATE_NAME_INNER_RUFF,
@@ -570,6 +571,8 @@ def process_work_item(
 
 
 def _inner_gate_label(pre_result: PreGateResult, role_name: str) -> str:
+    if role_name in (ROLE_INTEGRATOR, ROLE_OUTCOME_VERIFIER):
+        return GATE_NAME_INNER_JSON_SHAPE
     if not pre_result.imports_symbols_passed:
         return GATE_NAME_INNER_IMPORT_SYMBOLS
     if not pre_result.mypy_passed:
@@ -594,7 +597,9 @@ def _run_pre_gate(
 ) -> PreGateResult:
     from factory.pre_gate import (
         pre_gate_implementation,
+        pre_gate_integrator,
         pre_gate_interface_spec,
+        pre_gate_outcome_verifier,
         pre_gate_test_suite,
     )
 
@@ -618,6 +623,10 @@ def _run_pre_gate(
             export_map=export_map,
             gate_scope=gate_scope,
         )
+    if role_name == ROLE_INTEGRATOR:
+        return pre_gate_integrator(artifact_path)
+    if role_name == ROLE_OUTCOME_VERIFIER:
+        return pre_gate_outcome_verifier(artifact_path)
     return pre_gate_implementation(
         artifact_path,
         interface_pyi_path=deps.interface_pyi_path,
