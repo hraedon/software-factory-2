@@ -53,20 +53,20 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys
 - 5 workflow YAMLs: phase1.yaml, phase2.yaml, phase3.yaml, phase4.yaml (review + jury), full_pipeline.yaml
 - Spec lint integrated into `populate_work_items.py` (BC-127)
-- 915 passing tests, 0 lint errors
+- 947 passing tests, 0 lint errors
 - Inner gate telemetry: submit payloads carry `inner_gate_attempts`; telemetry reports inner gate first-pass rate (BC-133)
 - Jury observability: `disagreement_rationale` always populated when quorum not met; `[all_against]` tag for all-failure cases (BC-134)
 - 27 golden runs executed (GR-001 through GR-027)
+  - GR-031: Phase 5 ruff-corruption fix validation — cert-watch-mini, K2+Qwen jury, 17/19 locked (89%, accepted as near-miss), 1st locked integration item, BC-171 worked example added post-run
   - GR-030: Phase 5 integration validation — cert-watch-mini (3 items), K2+Qwen dual-family jury, integration stage exercised (2 items, 0/2 locked), outcome_verification not reached; link type direction bug found and fixed; 12/15 locked (80%), 0/2 integration locked, 0 stuck
   - GR-027: Phase 4 exit artifact — cert-watch full DAG, dual-family jury (K2 + DeepSeek), 30/34 locked (88%), jury_disagree exercised, 0 stuck, 4 properly escalated
   - GR-025: Mixed-family jury (K2 + glm-5.1 via z.ai), jury_quorum=2; jury_disagree exercised
   - GR-022: Phase 4 first run — 100% lock rate (15/15) on cert-watch-mini, all 5 roles exercised
   - GR-021: 100% lock rate (24/24) on cert-watch full DAG, K2-only; inner gate first-attempt rate 74%
 
-**Known issues:** 3 open breadcrumbs (0 critical, 2 high, 1 medium, 0 low) + 11 RFCs + 9 defect classes. See `breadcrumbs/README.md`.
+**Known issues:** 1 open breadcrumb (0 critical, 0 high, 1 medium, 0 low) + 11 RFCs + 9 defect classes. See `breadcrumbs/README.md`.
+- BC-120 (medium, deferred): implementer-initiated interface amendment — awaiting ≥3 empirical instances
 - BC-145 (high, implemented): review/jury verdict routing — phase 1 done; phase 2 deferred to RFC-025
-- BC-168 (high, resolved): Phase 5 link types reversed source/target — fixed in workflows/phase5.yaml and golden-run-030-config.yaml
-- BC-164 (medium, resolved): scheduler drain cycles after SIGTERM
 
 **Blocking on:** nothing. All validated channels have working adapters; unvalidated adapters disabled.
 
@@ -84,11 +84,11 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Gate budget ≤ 15 — **met: 15**
 
 **Phase 5 work:**
-1. Implement `integrator` role and `integration` work item type (Stage 8). — **Done. GR-030 validated integration stage (2 items created, 0/2 locked; integrator prompt needs refinement for import gate).**
+1. Implement `integrator` role and `integration` work item type (Stage 8). — **Done. GR-031 validated: 1/3 integration items locked (first-ever locked integration item); BC-171 worked example added to integrator prompt.**
 2. Implement `outcome_verifier` role and outcome-verification work items (Stage 9). — **Done. Not yet exercised (blocked by integration failures).**
 3. Design review/jury verdict upstream routing (BC-145) — structured feedback to implementer/interface_architect instead of terminal retry.
-4. Build integration mechanical gates: cross-module import, assembled-tree mypy, cross-cutting pytest. — **Done. `evaluate_integration()` in gate.py exercises all 3 gates; 0/2 integration items passed (import resolution failed).**
-5. Validate on synthetic multi-module fixtures before first real workload. — **In progress. GR-030 used cert-watch-mini (3 items); integration stage exercised but 0/2 locked. Integrator prompt refinement needed before next GR.**
+4. Build integration mechanical gates: cross-module import, assembled-tree mypy, cross-cutting pytest. — **Done. `evaluate_integration()` in gate.py exercises all 3 gates; GR-031: 1/3 passed all three gates.**
+5. Validate on synthetic multi-module fixtures before first real workload. — **GR-031: 17/19 locked (89%, accepted), 1st locked integration item.**
 
 ## What not to build yet
 

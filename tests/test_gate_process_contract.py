@@ -40,7 +40,7 @@ def _claim_and_submit(
 @pytest.fixture()
 def mock_sub():
     sub = InMemorySubstrate()
-    sub.register_workflow(PHASE2_WORKFLOW.read_text())
+    sub.register_workflow_file(str(PHASE2_WORKFLOW))
     yield sub
     sub.close()
 

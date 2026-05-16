@@ -43,7 +43,7 @@ def mock_config(tmp_path):
 @pytest.fixture()
 def phase5_sub():
     sub = InMemorySubstrate()
-    sub.register_workflow(PHASE5_WORKFLOW.read_text())
+    sub.register_workflow_file(str(PHASE5_WORKFLOW))
     yield sub
     sub.close()
 

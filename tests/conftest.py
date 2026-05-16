@@ -42,9 +42,8 @@ def factory_config(substrate, workspace_root):
 
 @pytest.fixture()
 def mock_substrate():
-    workflow_content = Path(WORKFLOW_PATH).read_text()
     sub = InMemorySubstrate()
-    sub.register_workflow(workflow_content)
+    sub.register_workflow_file(WORKFLOW_PATH)
     yield sub
     sub.close()
 
@@ -74,9 +73,8 @@ def phase5_factory_config(phase5_substrate, workspace_root):
 
 @pytest.fixture()
 def mock_phase5_substrate():
-    workflow_content = Path(WORKFLOW_V5_PATH).read_text()
     sub = InMemorySubstrate()
-    sub.register_workflow(workflow_content)
+    sub.register_workflow_file(WORKFLOW_V5_PATH)
     yield sub
     sub.close()
 

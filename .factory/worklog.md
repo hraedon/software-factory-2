@@ -4,6 +4,58 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-16 — Session 40: Workflow composition migration (MIGRATION_PLAN.md)
+
+**Invocation:** GLM-5.1
+
+**Focus:** Execute the migration plan in `workflows/MIGRATION_PLAN.md` — adopt substrate `extends:` composition for phase2-5 workflow YAMLs, eliminating structural duplication.
+
+### Migration completed (Steps 1-6 of MIGRATION_PLAN.md)
+
+1. **Workflow YAML composition** — phase2-5 now use `extends:` inheritance chain:
+   - `phase1.yaml`: Unchanged (93 lines, root definition)
+   - `phase2.yaml`: Extends `./phase1.yaml`, adds test_author/implementer roles, test_suite/implementation work_item_types, 3 link types, `allowed_roles__append` on 5 transitions (110 lines, down from 192)
+   - `phase3.yaml`: Extends `./phase2.yaml`, just version bump (4 lines, down from 192)
+   - `phase4.yaml`: Extends `./phase3.yaml`, adds cross_family_reviewer/frontier_judge roles, review/jury work_item_types, 2 link types (112 lines, down from 286)
+   - `phase5.yaml`: Extends `./phase4.yaml`, adds integrator/outcome_verifier roles, integration/outcome_verification work_item_types, 3 link types (102 lines, down from 370)
+   - `full_pipeline.yaml`: Unchanged (too divergent per plan)
+   - **Total: 1133 → 421 lines (62.8% reduction)**
+
+2. **`pipeline_docs.py`** — Updated `_load_workflow_yaml()` to use `resolve_includes()` from substrate instead of `yaml.safe_load()`, so composed YAMLs render correctly in documentation.
+
+3. **Substrate `InMemorySubstrate.register_workflow_file()`** — Added `extends:` composition support: reads raw YAML, checks for `extends:`, resolves includes via `resolve_includes()`, then dumps composed dict back to YAML for registration.
+
+4. **Substrate `Substrate.register_workflow_file()`** — Same `extends:` composition support for the real (Postgres-backed) substrate.
+
+5. **Test call sites** — 5 files changed from `register_workflow(path.read_text())` to `register_workflow_file(str(path))` to ensure composed YAMLs resolve `extends:` correctly.
+
+6. **`scripts/migrate_workflows.py`** — Migration verification script with `--verify`, `--restore`, and `--status` flags. Semantic comparison (sets of roles, work_item_types, link_types, transitions) confirms functional equivalence. Content hashes differ because substrate's keyed-list merge places child items before parent items, changing list ordering.
+
+### Known limitation
+
+Substrate's `_deep_merge` places child items first in keyed lists (roles, work_item_types, link_types, transitions). This changes list ordering from the monolithic originals but is functionally equivalent. All 947 factory tests and 529 substrate tests pass.
+
+### Code changes
+
+- `workflows/phase2.yaml`: rewritten with `extends: ./phase1.yaml`
+- `workflows/phase3.yaml`: rewritten with `extends: ./phase2.yaml`
+- `workflows/phase4.yaml`: rewritten with `extends: ./phase3.yaml`
+- `workflows/phase5.yaml`: rewritten with `extends: ./phase4.yaml`
+- `workflows/.pre_migration_backup/`: original monolithic files preserved
+- `src/factory/pipeline_docs.py`: replaced `yaml.safe_load` with `resolve_includes`
+- `/projects/substrate/src/substrate/_in_memory.py`: `register_workflow_file` resolves `extends:`
+- `/projects/substrate/src/substrate/__init__.py`: `register_workflow_file` resolves `extends:`, added imports
+- `tests/conftest.py`: `mock_substrate` and `mock_phase5_substrate` use `register_workflow_file`
+- `tests/test_gate_process_contract.py`: `mock_sub` uses `register_workflow_file`
+- `tests/test_gate_process_phase5.py`: `phase5_sub` uses `register_workflow_file`
+- `tests/test_telemetry.py`: `_p5_sub` uses `register_workflow_file`
+- `scripts/migrate_workflows.py`: new — verification script with `--verify`, `--restore`, `--status`
+- `breadcrumbs/173-workflow-composition-migration.md`: BC for this work (resolved)
+
+### Test results
+
+947 passed, 13 skipped, 0 lint errors, 0 vulture findings. Substrate: 529 passed, 10 deselected.
+
 ## 2026-05-15 — Session 39: Implement RFC-001/004/014/016 + integrator multi-module context
 
 **Invocation:** GLM-5.1

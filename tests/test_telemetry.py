@@ -794,7 +794,7 @@ class TestRoutingHintTelemetry:
 
         phase5_path = Path(__file__).parent.parent / "workflows" / "phase5.yaml"
         sub = InMemorySubstrate()
-        sub.register_workflow(phase5_path.read_text())
+        sub.register_workflow_file(str(phase5_path))
         return sub
 
     def test_collects_routing_hint_on_outcome_verification_fail(self):

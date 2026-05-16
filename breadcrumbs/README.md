@@ -95,6 +95,9 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 173 | Workflow composition migration complete — extends: adopted for phase2-5 | low | phase2-5 use extends: inheritance; 1133→421 lines (63% reduction); pipeline_docs uses resolve_includes(); substrate register_workflow_file resolves extends; semantic verification via scripts/migrate_workflows.py --verify |
+| 172 | Pre-commit hook does not enforce `make check` — lint errors and broken tests landed in main | medium | Created .githooks/pre-commit running make check; git config core.hooksPath .githooks |
+| 171 | Integrator role prompt lacks worked example — assembled_tree import/mypy failures at outer gate | medium | Added worked example to integrator.md with cert-watch-style 2-module assembly demonstrating flat keys, cross-module imports, entry_point, integration_tests |
 | 170 | Pre-gate ruff mutates integrator JSON artifact — quote normalization corrupts .py-wrapped JSON | high | Fixed: _artifact_extension_for_role returns .json for integrator/outcome_verifier; dedicated pre_gate_integrator/pre_gate_outcome_verifier skip ruff/mypy/pytest (CLASS-021 #5) |
 | 168 | Phase 5 link types had reversed source/target direction — scheduler create_link failed for integrates and verified_by | high | Reversed source/target in workflows/phase5.yaml; changed golden-run stage_topology link_type from derived_from to integrates/verified_by; validated in GR-030 |
 | RFC-016 | Defect-class taxonomy — evolve breadcrumbs from per-defect entries to class-based corpus | medium | 9 CLASS-NNN files created; filing rule and promotion rule added to README schema; 24 classes identified across 171 resolved BCs |
