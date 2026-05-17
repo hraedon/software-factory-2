@@ -63,6 +63,22 @@ def run_gate(config: FactoryConfig) -> None:
         sub.close()
 
 
+def _wi_type_has_field(
+    sub: Substrate,
+    config: FactoryConfig,
+    work_item_type: str,
+    field_name: str,
+) -> bool:
+    try:
+        wf = sub.get_workflow(config.workflow_name, config.workflow_version)
+        for wit in wf.work_item_types:
+            if wit.name == work_item_type:
+                return any(cf.name == field_name for cf in wit.custom_fields)
+    except Exception:
+        pass
+    return False
+
+
 def gate_loop(runtime: PipelineRuntime) -> None:
     sub = runtime.sub
     config = runtime.config
@@ -96,6 +112,15 @@ def gate_loop(runtime: PipelineRuntime) -> None:
                 work_item_id=str(wi.work_item_id),
                 attempt=claim.attempt_number,
             )
+            if claim.attempt_number >= config.attempt_threshold:
+                log.warning(
+                    "gate_near_budget",
+                    work_item_id=str(wi.work_item_id),
+                    attempt=claim.attempt_number,
+                    threshold=config.attempt_threshold,
+                )
+                sub.release_claim(wi.work_item_id, actor_id)
+                continue
             try:
                 process_gate_item(runtime, wi, actor_id, claim)
                 claimed = True
@@ -349,10 +374,6 @@ def process_gate_item(
         )
         log.info("gate_passed", work_item_id=str(work_item_id))
     else:
-        if routing.create_upstream_revision:
-            from factory.scheduler import ensure_upstream_revision
-
-            ensure_upstream_revision(runtime, source_wi=wi, route=routing)
         if routing.target_state == STATE_CANNOT_PROCEED:
             transition_name = TRANSITION_GATE_ESCALATION
         diagnostics = routing.custom_fields_update.get(CUSTOM_FIELD_DIAGNOSTICS, {})
@@ -369,7 +390,18 @@ def process_gate_item(
             diagnostics["routing_hint"] = gate_result.routing_hint
         custom_fields_payload: dict = {"diagnostics": diagnostics}
         if gate_result.custom_fields:
-            custom_fields_payload.update(gate_result.custom_fields)
+            for cf_key, cf_value in gate_result.custom_fields.items():
+                if cf_key == "diagnostics":
+                    continue
+                if _wi_type_has_field(sub, config, wi.work_item_type, cf_key):
+                    custom_fields_payload[cf_key] = cf_value
+                else:
+                    log.warning(
+                        "gate_skip_invalid_field",
+                        work_item_id=str(work_item_id),
+                        work_item_type=wi.work_item_type,
+                        field=cf_key,
+                    )
         sub.transition(
             work_item_id,
             transition_name,
@@ -385,6 +417,10 @@ def process_gate_item(
             work_item_id=str(work_item_id),
             gate=gate_result.gate_name,
         )
+        if routing.create_upstream_revision:
+            from factory.scheduler import ensure_upstream_revision
+
+            ensure_upstream_revision(runtime, source_wi=wi, route=routing)
 
 
 def _main(argv: list[str] | None = None) -> None:
