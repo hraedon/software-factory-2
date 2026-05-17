@@ -305,11 +305,15 @@ def _monitor_logs(
     sched_log = log_dir / "scheduler.log"
 
     seen_counts: dict[str, int] = {name: 0 for name, _ in DANGER_SIGNALS}
+    warned_counts: dict[str, int] = {name: 0 for name, _ in DANGER_SIGNALS}
     file_offsets: dict[str, int] = {}
 
     _info("Monitoring logs (Ctrl+C to interrupt, processes continue in background)...")
     idle_cycles = 0
-    max_idle_cycles = 10  # 10 * interval = ~10min of no new lines before declaring idle
+    # Idle threshold must exceed the longest opencode role timeout (600s) plus
+    # gate evaluation overhead, otherwise a single long model call mid-pipeline
+    # falsely trips idle and the wrapper SIGTERMs a healthy run (GR-037 attempt 1).
+    max_idle_cycles = 30  # 30 * interval (30s) = 15 min
 
     while True:
         time.sleep(interval)
@@ -351,13 +355,17 @@ def _monitor_logs(
         if not any_new_lines:
             idle_cycles += 1
             if idle_cycles >= max_idle_cycles:
-                _info("No new log lines for >90s — processes appear idle.")
+                _info(
+                    f"No new log lines for >{max_idle_cycles * interval}s — "
+                    "processes appear idle."
+                )
                 return
         else:
             idle_cycles = 0
 
         for name, count in seen_counts.items():
-            if count > 0:
+            if count > 0 and count != warned_counts[name]:
+                warned_counts[name] = count
                 _warn(f"DANGER SIGNAL: {name} detected {count} time(s)")
                 if name == "claim_near_budget" and count >= 5:
                     _fatal(
