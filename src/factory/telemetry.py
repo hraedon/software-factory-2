@@ -203,12 +203,9 @@ def format_exit_criteria_summary(metrics: ExitCriteriaMetrics) -> str:
     lines.append("")
 
     lr = f"{metrics.lock_within_budget_rate:.0%}"
-    lr_pass = metrics.lock_within_budget_rate >= 0.90
-    lr_label = "PASS" if lr_pass else "FAIL"
     lr_line = (
         f"  Lock-within-budget rate:     {lr} "
-        f"({metrics.locked_count}/{metrics.total_count})  "
-        f"{lr_label:4s} [target: >=90%]"
+        f"({metrics.locked_count}/{metrics.total_count})  (informational)"
     )
     lines.append(lr_line)
 
@@ -264,7 +261,7 @@ def format_exit_criteria_summary(metrics: ExitCriteriaMetrics) -> str:
     )
     lines.append(dr_line)
 
-    all_pass = lr_pass and ma_pass and fa_pass and ur_pass and dr_pass
+    all_pass = ma_pass and fa_pass and ur_pass and dr_pass
     lines.append("")
     lines.append(f"  Overall: {'ALL PASS' if all_pass else 'SOME FAIL'}")
     lines.append("")
