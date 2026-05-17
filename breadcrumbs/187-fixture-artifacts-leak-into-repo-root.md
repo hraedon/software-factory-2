@@ -2,7 +2,7 @@
 number: "187"
 title: "Pipeline subprocess writes fixture artifacts into repo root; first surfaced in GR-038 integration/outcome stages"
 severity: medium
-status: proposed
+status: implemented
 kind: bug
 author: claude
 date: "2026-05-17"
@@ -95,3 +95,13 @@ GR-038 was the first run in which the cert-watch fixture work items reached the 
 ## CLASS-008 membership
 
 This is an instance of CLASS-008 (Gate Subprocess Execution and Environment Handling): a subprocess runs with wrong cwd, causing unwanted side effects. Adding as instance #12 to that class's table.
+
+## Resolution
+
+Closed by RFC-011 Step 3 (commit `d8ab880`). `SubprocessChannel.invoke()` now always sets
+`cwd=outputs_dir` (the ephemeral attempt directory under `/tmp`); the `invocation_cwd`
+override that previously forced cwd to the repo root was removed. All remaining bare
+`subprocess.run` / `subprocess.Popen` calls in `src/factory/` outside `gate.py` /
+`pre_gate.py` / `subprocess.py` were migrated to `factory.subprocess.run`, which requires
+explicit `cwd`, `env`, and `timeout_s` — making the BC-187 class of bug structurally
+impossible at future call sites.

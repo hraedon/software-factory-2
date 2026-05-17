@@ -79,7 +79,6 @@ Rationale: "file an RFC" diffuses ownership and has no time bound; the block rul
 | # | Title | Severity | Status |
 |---|---|---|---|
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
-| 187 | Pipeline subprocess writes fixture artifacts into repo root; first surfaced in GR-038 integration/outcome stages | medium | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -109,6 +108,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 187 | Pipeline subprocess writes fixture artifacts into repo root; first surfaced in GR-038 integration/outcome stages | medium | RFC-011 Step 3 (d8ab880): `SubprocessChannel.invoke()` now always uses `outputs_dir` as subprocess cwd; `invocation_cwd` override that forced cwd to repo root removed; all remaining `src/factory/` subprocess call sites migrated to `factory.subprocess.run` wrapper (explicit cwd/env/timeout required) |
 | 186 | BC-181 gate_near_budget soft-stop never hard-transitions — indefinite acquire/release churn on items stuck in gating state | medium | gate_loop now hard-transitions items at `attempt_threshold` to `cannot_proceed` via `TRANSITION_GATE_ESCALATION` with `gate_name="gate_budget_exhausted"`, replacing the prior release-and-continue soft-stop that allowed infinite cycling |
 | 185 | split GateResult.custom_fields into transition_fields and routing_fields | medium | GateResult now has separate `transition_fields` (current WI) and `routing_fields` (upstream revision) bags; `custom_fields` kept as one-cycle deprecation alias; gate_process filter helper from BC-180 removed as no longer needed |
 | 184 | interface .pyi stubs with ellipsis bodies trigger mypy 'abstract attributes' retry-exhaustion for impls | high | `copy_dependency_pyis` AST-rewrites ellipsis bodies in the `.py` shadow to `raise NotImplementedError`; `--allow-empty-bodies` added to gate/pre_gate mypy invocations |
