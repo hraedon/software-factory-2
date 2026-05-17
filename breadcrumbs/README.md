@@ -65,7 +65,7 @@ Rationale: "file an RFC" diffuses ownership and has no time bound; the block rul
 | CLASS-001 | JSONB / Contract Validation Entry-Point Drift | 10 | critical |
 | CLASS-002 | Dependency Module Name Resolution | 5 | high |
 | CLASS-005 | Inner Gate vs Outer Gate Ruleset Divergence | 11 | critical |
-| CLASS-008 | Gate Subprocess Execution and Environment Handling | 11 | high |
+| CLASS-008 | Gate Subprocess Execution and Environment Handling | 12 | high |
 | CLASS-010 | Channel Reliability and Failover | 8 | critical |
 | CLASS-011 | Budget/Retry/Escalation Loop Control | 6 | critical |
 | CLASS-012 | Single Source of Truth / String Constant Gravity | 10 | high |
@@ -79,6 +79,7 @@ Rationale: "file an RFC" diffuses ownership and has no time bound; the block rul
 | # | Title | Severity | Status |
 |---|---|---|---|
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
+| 187 | Pipeline subprocess writes fixture artifacts into repo root; first surfaced in GR-038 integration/outcome stages | medium | proposed |
 
 ### RFCs (awaiting upstream phases)
 
