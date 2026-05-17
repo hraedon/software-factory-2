@@ -73,7 +73,9 @@ When a CLASS file accumulates ≥5 instances OR contains ≥2 high/critical inst
 | 180 | gate_process writes review_findings to review work item type — CUSTOM_FIELD_VIOLATION crash-loop | critical | implemented |
 | 181 | gate_process has no attempt budget guardrail — crash-looping items cycle indefinitely | high | implemented |
 | 182 | gate_process lacks self-circuit-breaker for repeated identical crashes on same item | medium | implemented |
-| 183 | unsupported_import_pattern classifier produces false-positive feedback for stdlib/third-party submodule imports | medium | proposed |
+| 183 | unsupported_import_pattern classifier produces false-positive feedback for stdlib/third-party submodule imports | medium | implemented |
+| 184 | interface .pyi stubs with ellipsis bodies trigger mypy 'abstract attributes' retry-exhaustion for impls | high | implemented |
+| 185 | split GateResult.custom_fields into transition_fields and routing_fields | medium | implemented |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
 ### RFCs (awaiting upstream phases)
