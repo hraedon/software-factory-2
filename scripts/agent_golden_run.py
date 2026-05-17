@@ -42,6 +42,37 @@ LOGS_ROOT = REPO_ROOT / ".factory" / "logs"
 def _log_dir_for(log_prefix: str) -> Path:
     return LOGS_ROOT / log_prefix
 
+# RFC-033: each DANGER_SIGNALS entry is a guardrail; preconditions and audit
+# triggers are declared per entry so they stay co-located with the pattern.
+#
+# claim_near_budget:
+#   Precondition: BC-139 and BC-186 not implemented (no runner/gate hard-stop on
+#     attempt exhaustion; reclaim cycles could loop indefinitely).
+#   Audit trigger: re-evaluate when BC-139 or BC-186 status changes.
+#   Current status: WARN-ONLY (retired as fatal post-BC-139/BC-186; see _monitor_logs).
+#
+# gate_fail_cross_family_review:
+#   Precondition: BC-180 not implemented (no clean routing path for cross_family_review
+#     gate_fail; failure looped back onto the same review item as a crash).
+#   Audit trigger: re-evaluate when BC-180 or BC-185 status changes.
+#   Current status: WARN-ONLY (retired as fatal post-BC-180/BC-185; see _monitor_logs).
+#
+# gate_fail_jury:
+#   Precondition: no crash-loop circuit breaker for jury gate_fail paths (analogous to
+#     BC-180 for cross_family_review; jury-specific crash-loop coverage provided by
+#     BC-181 gate_near_budget hard-stop and BC-182 gate_process self-circuit-breaker).
+#   Audit trigger: re-evaluate when BC-181 or BC-182 status changes, or when jury
+#     routing logic is changed by an RFC marked implemented.
+#   Current status: WARN-ONLY (same rationale as cross_family_review; no separate
+#     fatal threshold retained given BC-181/BC-182 coverage).
+#
+# channel_invoke_failed:
+#   Precondition: no substrate-level channel health check or retry budget that would
+#     surface a dead channel without accumulating invoke failures in the log.
+#   Audit trigger: re-evaluate when a substrate channel-health or retry-budget
+#     mechanism is implemented (no current BC; file one if channel retry logic lands).
+#   Current status: FATAL at >= 5 (see _monitor_logs); the only remaining fatal
+#     in this table as of 2026-05-17.
 DANGER_SIGNALS = [
     ("claim_near_budget", re.compile(r"claim_near_budget")),
     ("gate_fail_cross_family_review", re.compile(r"gate_failed.*cross_family_review")),
@@ -316,6 +347,14 @@ def _monitor_logs(
     # Idle threshold must exceed the longest opencode role timeout (600s) plus
     # gate evaluation overhead, otherwise a single long model call mid-pipeline
     # falsely trips idle and the wrapper SIGTERMs a healthy run (GR-037 attempt 1).
+    # RFC-033 tags:
+    # Precondition: no role timeout exceeds the idle window (idle_window =
+    #   max_idle_cycles * interval); original 5-min threshold was calibrated when
+    #   role timeouts were 300s. False-fired when role timeouts doubled to 600s
+    #   (commit 1710792 retired). Current 15-min threshold calibrated to 600s
+    #   role timeout + gate overhead.
+    # Audit trigger: re-evaluate when any role timeout value in opencode config
+    #   changes, or when interval is changed.
     max_idle_cycles = 30  # 30 * interval (30s) = 15 min
 
     while True:
@@ -386,6 +425,16 @@ def _monitor_logs(
                 # detection is now covered by BC-181 (gate_near_budget hard stop)
                 # and BC-182 (gate_process self-circuit-breaker), so the count
                 # guardrail here is obsolete. Warn only, never fatal.
+                # RFC-033: channel_invoke_failed fatal threshold.
+                # Precondition: no substrate-level channel health check or retry
+                #   budget that would surface a dead/rate-limited channel without
+                #   accumulating invoke failures in the runner log. Five failures
+                #   chosen as empirical floor for distinguishing transient from
+                #   systemic channel loss (no BC covers this yet).
+                # Audit trigger: re-evaluate when a substrate channel-health or
+                #   model-retry-budget mechanism is implemented. If a new BC adds
+                #   structured channel-failure reporting, this count heuristic
+                #   becomes redundant.
                 if name == "channel_invoke_failed" and count >= 5:
                     _fatal(
                         "Multiple channel invoke failures. "

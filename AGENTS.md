@@ -209,6 +209,8 @@ The wrapper enforces the BC-140 safety protocol:
    - `channel_invoke_failed` — model channel down/rate-limited; kills run if ≥5 occurrences.
    - Idle detection: no new log lines for 90s → assumes completion, runs telemetry.
 
+   **RFC-033 — guardrail tagging requirement**: whenever you add or modify a guardrail (any code path that aborts or escalates based on a heuristic threshold), you must add two inline comment lines immediately above the threshold: `# Precondition: <BC or invariant that makes the failure mode possible>` and `# Audit trigger: re-evaluate when <specific condition>`. See `breadcrumbs/RFC-033-guardrail-lifecycle.md` for rationale and worked examples. Three guardrails falsely killed healthy runs this week because their preconditions changed without triggering re-evaluation.
+
 5. **Cleanup** (never touches application state):
    - Removes workspace directory (`/tmp/sf2-golden-NNN`).
    - Removes log files (`/tmp/grNNN-*.log`).
