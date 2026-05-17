@@ -107,8 +107,24 @@ def gate_loop(runtime: PipelineRuntime) -> None:
                     attempt=claim.attempt_number,
                     threshold=config.attempt_threshold,
                 )
-                sub.release_claim(wi.work_item_id, actor_id)
-                continue
+                _crash_state.pop(wi_id_str, None)
+                gate_role = config.gate_roles[0]
+                gate_rc = config.get_role_config(gate_role)
+                actor_metadata = ActorMetadata(
+                    role=gate_role,
+                    channel=gate_rc.channel if gate_rc else CHANNEL_CODE,
+                    family=gate_rc.family if gate_rc else FAMILY_CODE,
+                    gate_name="gate_budget_exhausted",
+                    attempt_n=claim.attempt_number,
+                ).to_dict()
+                sub.transition(
+                    wi.work_item_id,
+                    TRANSITION_GATE_ESCALATION,
+                    actor_id,
+                    actor_metadata=actor_metadata,
+                )
+                claimed = True
+                break
             try:
                 process_gate_item(runtime, wi, actor_id, claim)
                 _crash_state.pop(wi_id_str, None)

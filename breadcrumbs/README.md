@@ -70,7 +70,6 @@ When a CLASS file accumulates ≥5 instances OR contains ≥2 high/critical inst
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 186 | BC-181 gate_near_budget soft-stop never hard-transitions — indefinite acquire/release churn on items stuck in gating state | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
 ### RFCs (awaiting upstream phases)
@@ -97,6 +96,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 186 | BC-181 gate_near_budget soft-stop never hard-transitions — indefinite acquire/release churn on items stuck in gating state | medium | gate_loop now hard-transitions items at `attempt_threshold` to `cannot_proceed` via `TRANSITION_GATE_ESCALATION` with `gate_name="gate_budget_exhausted"`, replacing the prior release-and-continue soft-stop that allowed infinite cycling |
 | 185 | split GateResult.custom_fields into transition_fields and routing_fields | medium | GateResult now has separate `transition_fields` (current WI) and `routing_fields` (upstream revision) bags; `custom_fields` kept as one-cycle deprecation alias; gate_process filter helper from BC-180 removed as no longer needed |
 | 184 | interface .pyi stubs with ellipsis bodies trigger mypy 'abstract attributes' retry-exhaustion for impls | high | `copy_dependency_pyis` AST-rewrites ellipsis bodies in the `.py` shadow to `raise NotImplementedError`; `--allow-empty-bodies` added to gate/pre_gate mypy invocations |
 | 183 | unsupported_import_pattern classifier produces false-positive feedback for stdlib/third-party submodule imports | medium | pre_gate `_parse_import_failure` now consults `sys.stdlib_module_names` + parsed requirements.txt and downgrades safe top-levels to `_IMPORT_FEEDBACK_KIND_OTHER` |

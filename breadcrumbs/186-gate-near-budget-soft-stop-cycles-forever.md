@@ -2,7 +2,7 @@
 number: "186"
 title: "BC-181 gate_near_budget soft-stop never hard-transitions, allowing indefinite acquire/release churn on items stuck in gating state"
 severity: medium
-status: proposed
+status: implemented
 kind: bug
 author: claude
 date: "2026-05-17"
@@ -91,6 +91,19 @@ preserves diagnostic state.
 attempt_threshold transition it directly to `cannot_proceed` instead of to
 `gating`. This is the upstream-of-symptom fix: the item should never have
 been in `gating` to begin with.
+
+## Fix
+
+Applied **Option A**. In `src/factory/gate_process.py`, replaced the `gate_near_budget` soft-stop
+(`release_claim` + `continue`) with a hard `TRANSITION_GATE_ESCALATION` call, mirroring the BC-182
+crash-loop escalation path. The new branch clears `_crash_state`, builds `ActorMetadata` with
+`gate_name="gate_budget_exhausted"`, and calls `sub.transition(..., TRANSITION_GATE_ESCALATION, ...)`,
+then sets `claimed = True` and breaks — identical shape to the BC-182 path.
+
+Test added: `TestGateBudgetGuardrail::test_budget_exhausted_hard_transitions_to_cannot_proceed`
+in `tests/test_gate_process_budget_and_field_validation.py`. It burns `attempt_number` to
+`attempt_threshold` via acquire/release, runs `gate_loop`, and asserts the item lands in
+`cannot_proceed` rather than remaining in `gating`.
 
 ## Acceptance criteria
 

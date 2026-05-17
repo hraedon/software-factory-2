@@ -186,6 +186,72 @@ class TestGateBudgetGuardrail:
         assert claim.attempt_number == 1
         assert claim.attempt_number < phase5_config.attempt_threshold
 
+    def test_budget_exhausted_hard_transitions_to_cannot_proceed(
+        self, phase5_sub, phase5_config, tmp_path
+    ):
+        """BC-186 AC-1: gate_loop hard-transitions to cannot_proceed (not just release) when
+        attempt_number >= attempt_threshold, preventing indefinite acquire/release cycling."""
+        import os
+        import signal
+        from unittest.mock import patch
+
+        iface_wi, _ = phase5_sub.create_work_item(
+            workflow_name="software_factory",
+            work_item_type="interface_spec",
+            actor_id="test-creator",
+            custom_fields={"spec_section": "Test", "ac_ids": ["AC-01"]},
+        )
+        phase5_sub.register_actor_role("test-gate-bc186", "mechanical_gate")
+        phase5_sub.transition(
+            iface_wi.work_item_id,
+            "claim",
+            "test-worker",
+            actor_metadata={"role": "interface_architect"},
+        )
+        phase5_sub.transition(
+            iface_wi.work_item_id,
+            "submit",
+            "test-worker",
+            actor_metadata={"role": "interface_architect"},
+            custom_fields={"artifact_path": "/nonexistent.pyi", "artifact_hash": "abc"},
+        )
+
+        config = FactoryConfig(
+            dsn="",
+            project_name="test",
+            hmac_key_path="",
+            workspace_root=tmp_path / "work",
+            workflow_version=5,
+            attempt_threshold=3,
+            poll_interval_seconds=0,
+        )
+        # Burn attempt_number up to the threshold via acquire/release cycles.
+        for _ in range(config.attempt_threshold):
+            phase5_sub.acquire_claim(iface_wi.work_item_id, "test-gate-bc186", ttl_seconds=300)
+            phase5_sub.release_claim(iface_wi.work_item_id, "test-gate-bc186")
+
+        # Confirm the item is still in gating and at threshold before gate_loop runs.
+        wi = phase5_sub.get_work_item(iface_wi.work_item_id)
+        assert wi.current_state == "gating"
+
+        runtime = PipelineRuntime(sub=phase5_sub, config=config)
+
+        sleep_calls = [0]
+
+        def _sleep_then_sigterm(*args, **kwargs):
+            sleep_calls[0] += 1
+            if sleep_calls[0] >= 1:
+                os.kill(os.getpid(), signal.SIGTERM)
+
+        with patch("factory.gate_process.time.sleep", side_effect=_sleep_then_sigterm):
+            gate_loop(runtime)
+
+        final = phase5_sub.get_work_item(iface_wi.work_item_id)
+        assert final.current_state == STATE_CANNOT_PROCEED, (
+            f"BC-186: expected cannot_proceed after gate_near_budget at threshold, "
+            f"got: {final.current_state}"
+        )
+
 
 def _make_crashy_wi(phase5_sub, tmp_path):
     """Create an interface_spec work item in gating state."""
