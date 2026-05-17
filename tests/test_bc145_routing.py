@@ -35,8 +35,8 @@ class TestBC145StructuredFindings:
         result = evaluate_review(artifact)
         assert result.passed is False
         assert result.diagnostic_kind == "review_found_defect"
-        assert result.custom_fields.get("findings")
-        findings = result.custom_fields["findings"]
+        assert result.routing_fields.get("review_findings")
+        findings = result.routing_fields["review_findings"]
         assert len(findings) == 2
         assert findings[0]["kind"] == "impl"
         assert findings[1]["kind"] == "test"
@@ -90,7 +90,6 @@ class TestBC145RouterDispatch:
             gate_name="cross_family_review",
             diagnostics=["[block] AC-01 (impl): stub"],
             diagnostic_kind="review_found_defect",
-            custom_fields={"findings": [{"kind": "impl", "body": "stub"}]},
         )
         result = route("gating", "gate_fail", gate_result=gate)
         assert result.target_state == "new"

@@ -20,6 +20,7 @@ from factory.constants import (
     STATE_LOCKED,
     WORK_ITEM_TYPE_JURY,
 )
+from factory.gate import GateResult
 from factory.router import Route
 from factory.runtime import PipelineRuntime
 
@@ -227,6 +228,7 @@ def ensure_upstream_revision(
     runtime: PipelineRuntime,
     source_wi,
     route: Route,
+    gate_result: GateResult | None = None,
 ) -> None:
     sub = runtime.sub
     config = runtime.config
@@ -249,6 +251,20 @@ def ensure_upstream_revision(
             "upstream_revision_exists",
             source_id=str(source_wi.work_item_id),
             existing=existing_revision,
+        )
+        return
+
+    existing_page = sub.query_work_items(
+        workflow_name=config.workflow_name,
+        work_item_types=[upstream_type],
+        custom_field_filters={CUSTOM_FIELD_UPSTREAM_REVISION_OF: str(source_wi.work_item_id)},
+        page_size=1,
+    )
+    if existing_page.items:
+        log.info(
+            "upstream_revision_duplicate",
+            source_id=str(source_wi.work_item_id),
+            existing_id=str(existing_page.items[0].work_item_id),
         )
         return
 
@@ -284,12 +300,20 @@ def ensure_upstream_revision(
         custom[CUSTOM_FIELD_TEST_SUITE_REF] = test_suite_ref
 
     context_key = route.upstream_context_key
-    if context_key and route.diagnostics:
-        custom[CUSTOM_FIELD_REVIEW_FINDINGS] = {
-            "source_wi": str(source_wi.work_item_id),
-            "source_type": source_wi.work_item_type,
-            "findings": route.diagnostics,
-        }
+    if context_key:
+        # Prefer structured findings from gate_result.routing_fields (BC-185).
+        # Fall back to building from route.diagnostics if routing_fields is absent
+        # (e.g. legacy call sites or gate evaluators that emit no routing_fields).
+        if gate_result is not None and gate_result.routing_fields.get(CUSTOM_FIELD_REVIEW_FINDINGS):
+            custom[CUSTOM_FIELD_REVIEW_FINDINGS] = gate_result.routing_fields[
+                CUSTOM_FIELD_REVIEW_FINDINGS
+            ]
+        elif route.diagnostics:
+            custom[CUSTOM_FIELD_REVIEW_FINDINGS] = {
+                "source_wi": str(source_wi.work_item_id),
+                "source_type": source_wi.work_item_type,
+                "findings": route.diagnostics,
+            }
 
     upstream_wi, _ = sub.create_work_item(
         workflow_name=config.workflow_name,

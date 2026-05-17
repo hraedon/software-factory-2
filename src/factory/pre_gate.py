@@ -255,6 +255,7 @@ def pre_gate_interface_spec(
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
     timeouts: GateTimeouts | None = None,
+    requirements_path: Path | None = None,
 ) -> PreGateResult:
     t = timeouts or _DEFAULT_TIMEOUTS
     if not artifact_path.exists():
@@ -289,6 +290,7 @@ def pre_gate_interface_spec(
         dependency_pyi_paths=dependency_pyi_paths,
         python_executable=python_executable,
         timeout=t.import_timeout,
+        requirements_path=requirements_path,
     )
     if not import_result["passed"]:
         return PreGateResult(
@@ -625,10 +627,51 @@ def copy_dependency_pyis(
             dep_pyi.write_text(content)
 
 
+def _parse_requirements_packages(requirements_path: Path | None) -> frozenset[str]:
+    """Return the set of top-level package names declared in a requirements.txt.
+
+    Only the base package name is extracted (e.g. ``fastapi>=0.100`` → ``fastapi``).
+    Version specifiers, extras, and blank/comment lines are stripped.  Returns an
+    empty frozenset when *requirements_path* is None or unreadable.
+    """
+    if requirements_path is None:
+        return frozenset()
+    try:
+        text = requirements_path.read_text()
+    except OSError:
+        return frozenset()
+    names: set[str] = set()
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        # Strip extras and version specifiers: "fastapi[all]>=0.100" → "fastapi"
+        pkg = re.split(r"[>=<!;\[\s]", line)[0].strip()
+        # Normalise dashes to underscores (pip install name vs import name)
+        if pkg:
+            names.add(pkg.replace("-", "_").lower())
+    return frozenset(names)
+
+
+def _is_safe_from_feedback(top_level: str, known_packages: frozenset[str]) -> bool:
+    """Return True when *top_level* should NOT generate wrong-module-name feedback.
+
+    A module is "safe" when it is:
+    - A stdlib module (present in ``sys.stdlib_module_names``), or
+    - Listed in the caller-supplied *known_packages* set (e.g. from requirements.txt).
+
+    The gate's synthetic flat-module environment cannot resolve these imports, but
+    that is expected — they do resolve in the real project venv.
+    """
+    stdlib_names: frozenset[str] = getattr(sys, "stdlib_module_names", frozenset())
+    return top_level in stdlib_names or top_level.lower() in known_packages
+
+
 def _parse_import_failure(
     stderr: str,
     artifact_lines: list[str] | None = None,
     available_modules: list[str] | None = None,
+    known_packages: frozenset[str] | None = None,
 ) -> tuple[str, str]:
     """Parse import-check stderr into a feedback kind and actionable message.
 
@@ -638,6 +681,12 @@ def _parse_import_failure(
 
     The feedback_message is intended for model retry context and must stay under
     500 characters.
+
+    *known_packages* should contain the top-level package names from the project's
+    requirements.txt (normalised: lower-case, dashes replaced by underscores).
+    When a missing module's top-level package is stdlib or appears in
+    *known_packages*, the classifier returns IMPORT_FEEDBACK_KIND_OTHER so that
+    no misleading feedback is injected into the model's retry context.
     """
     module_not_found_match = re.search(
         r"ModuleNotFoundError:\s*No module named ['\"](.+?)['\"]", stderr
@@ -647,6 +696,7 @@ def _parse_import_failure(
         stderr,
     )
 
+    _known = known_packages or frozenset()
     unavailable_modules = sorted(available_modules) if available_modules else []
 
     def _suggest(module_name: str) -> str:
@@ -665,6 +715,12 @@ def _parse_import_failure(
         missing = module_not_found_match.group(1)
         if "." in missing:
             top = missing.split(".")[0]
+            # Stdlib or known third-party submodule: synthetic env cannot resolve it,
+            # but the import is correct for the real project venv — suppress feedback.
+            if _is_safe_from_feedback(top, _known):
+                lines = stderr.strip().splitlines()
+                diags = lines[:3] if lines else ["import check failed"]
+                return _IMPORT_FEEDBACK_KIND_OTHER, "; ".join(diags)[:500]
             msg = (
                 f"Import resolution failed: '{missing}' is a dotted submodule path.\n"
                 f"Dotted submodule imports (from a.b import c) are not supported — "
@@ -674,6 +730,13 @@ def _parse_import_failure(
             if unavailable_modules:
                 msg += f"\nAvailable flat modules: {', '.join(unavailable_modules)}"
             return _IMPORT_FEEDBACK_KIND_DOTTED_SUBMODULE, msg[:500]
+        # No dot: the module itself is missing entirely.
+        # If it is stdlib or a known third-party package, suppress feedback —
+        # the gate's synthetic environment simply doesn't have it.
+        if _is_safe_from_feedback(missing, _known):
+            lines = stderr.strip().splitlines()
+            diags = lines[:3] if lines else ["import check failed"]
+            return _IMPORT_FEEDBACK_KIND_OTHER, "; ".join(diags)[:500]
         line_info = _find_import_line(artifact_lines, missing)
         msg = f"Import resolution failed{line_info}: module '{missing}' not found."
         if unavailable_modules:
@@ -685,6 +748,10 @@ def _parse_import_failure(
         from_module = import_error_match.group(1)
         if from_module and "." in from_module:
             top = from_module.split(".")[0]
+            if _is_safe_from_feedback(top, _known):
+                lines = stderr.strip().splitlines()
+                diags = lines[:3] if lines else ["import check failed"]
+                return _IMPORT_FEEDBACK_KIND_OTHER, "; ".join(diags)[:500]
             msg = (
                 f"Import resolution failed: '{from_module}' is a dotted submodule path.\n"
                 f"Dotted submodule imports are not supported — "
@@ -717,6 +784,7 @@ def _run_import_check(
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
     timeout: int = 60,
+    requirements_path: Path | None = None,
 ) -> dict:
     import tempfile
 
@@ -724,6 +792,7 @@ def _run_import_check(
     module_stem = artifact_path.stem
     if not module_stem.isidentifier():
         return _fail([f"Invalid module name '{module_stem}' for import check"])
+    known_packages = _parse_requirements_packages(requirements_path)
     try:
         with tempfile.TemporaryDirectory(prefix="sf2_import_") as tmpdir:
             module_copy = Path(tmpdir) / f"{module_stem}.py"
@@ -752,6 +821,7 @@ def _run_import_check(
                     result.stderr,
                     artifact_lines=artifact_lines,
                     available_modules=available_modules,
+                    known_packages=known_packages,
                 )
                 return {
                     **_fail(diags, _truncate_raw_output(result.stderr)),

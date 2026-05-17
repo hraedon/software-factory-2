@@ -2,7 +2,7 @@
 number: "182"
 title: "gate_process lacks self-circuit-breaker for repeated identical crashes on same item"
 severity: medium
-status: proposed
+status: implemented
 kind: bug
 author: opencode
 date: "2026-05-17"
@@ -69,3 +69,37 @@ Medium. BC-181 prevents the unbounded cycling, so production impact is
 mitigated. The remaining gap is that items are left in `gating` limbo
 permanently rather than being resolved. This is a pipeline completeness
 issue, not a correctness or resource-exhaustion issue.
+
+## Fix
+
+Implemented Option 1 (identical-error circuit breaker).
+
+`gate_loop()` now maintains a per-run dict `_crash_state` mapping
+`work_item_id → (consecutive_crash_count, last_error_sig)` where
+`error_sig = f"{type(exc).__name__}: {exc}"`. On each exception:
+
+- If the error signature matches the previous one for that item, increment the
+  consecutive count; otherwise reset to 1.
+- When `count >= config.gate_crash_threshold` (default 3), call
+  `sub.transition(work_item_id, TRANSITION_GATE_ESCALATION, ...)` directly
+  and clear the counter. The item lands in `cannot_proceed`.
+- Otherwise, release the claim as before and continue.
+- On a successful `process_gate_item` call, clear the crash counter for that
+  item (`_crash_state.pop`).
+
+Legitimate gate failures (mypy, pytest, ruff) never raise exceptions from
+`process_gate_item` — they are handled internally and produce a `gate_fail`
+transition. The exception handler is therefore crash-only by construction
+(AC-2 is structurally guaranteed, not just policy).
+
+A new `gate_crash_threshold: int = 3` field was added to `FactoryConfig` to
+make the threshold configurable without code changes.
+
+## Touched surface
+
+- `src/factory/config.py` — added `gate_crash_threshold: int = 3` to `FactoryConfig`
+- `src/factory/gate_process.py` — circuit-breaker logic in `gate_loop()`
+- `tests/test_gate_process_budget_and_field_validation.py` — 4 new tests in
+  `TestGateCrashLoopCircuitBreaker`: identical crash escalation (AC-1),
+  differing-error counter reset, success clears counter, legitimate gate fail
+  no-raise (AC-2)

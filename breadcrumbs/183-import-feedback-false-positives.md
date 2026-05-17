@@ -2,7 +2,7 @@
 number: "183"
 title: "unsupported_import_pattern classifier produces false-positive feedback for stdlib/third-party submodule imports"
 severity: medium
-status: proposed
+status: implemented
 kind: bug
 author: opencode
 date: "2026-05-17"
@@ -75,6 +75,49 @@ Option 1 is less invasive. The key whitelist entries would be:
   produce `wrong_module_name` feedback.
 - AC-4: Genuinely wrong imports (typos, non-existent modules) still produce
   `wrong_module_name` feedback.
+
+## Fix
+
+Implemented option 1 (whitelist/suppression approach) in `src/factory/pre_gate.py`:
+
+- Added `_parse_requirements_packages(requirements_path)` — parses a
+  requirements.txt and returns a normalised `frozenset[str]` of top-level
+  package names (lower-case, dashes→underscores, version specifiers stripped).
+
+- Added `_is_safe_from_feedback(top_level, known_packages)` — returns `True`
+  when a top-level module name is stdlib (via `sys.stdlib_module_names`) or
+  appears in the caller-supplied known_packages set.
+
+- Modified `_parse_import_failure` to accept `known_packages: frozenset[str]`
+  and, in both the dotted-submodule and wrong-module-name branches, fall back
+  to `_IMPORT_FEEDBACK_KIND_OTHER` when the failing module's top-level package
+  is safe.  This suppresses the misleading feedback without affecting the import
+  check failure itself.
+
+- Modified `_run_import_check` to accept `requirements_path: Path | None`,
+  parse it via `_parse_requirements_packages`, and pass the result into
+  `_parse_import_failure` as `known_packages`.
+
+- Modified `pre_gate_interface_spec` to accept and thread `requirements_path`.
+
+- Modified `_run_pre_gate` in `runner.py` to pass
+  `config.workspace_root / "requirements.txt"` when it exists.
+
+## Touched surface
+
+- `src/factory/pre_gate.py` — two new helpers, `_parse_import_failure`
+  signature extended, `_run_import_check` and `pre_gate_interface_spec`
+  signatures extended.
+- `src/factory/runner.py` — `_run_pre_gate` threads `requirements_path` to
+  `pre_gate_interface_spec`.
+- `tests/test_import_feedback.py` — 22 new tests in 5 new classes covering
+  AC-1 through AC-4 plus helpers.  One existing test's example updated from
+  `os.path` (stdlib, now correctly suppressed) to `cryptography.hazmat`
+  (non-stdlib, correctly classified as dotted_submodule).
+
+## Test results
+
+956 passed, 13 skipped, 0 failed across full test suite.
 
 ## Severity rationale
 

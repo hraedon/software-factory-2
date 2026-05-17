@@ -132,6 +132,7 @@ class FactoryConfig:
     empty_output_retry_delay_seconds: int = 3
     credentials_path: Path | None = None
     invocation_cwd: Path | None = None
+    gate_crash_threshold: int = 3
     gate_timeouts: GateTimeouts = field(default_factory=GateTimeouts)
     ops: OpsConfig = field(default_factory=OpsConfig)
     stage_topology: tuple[StageHandoff, ...] = (

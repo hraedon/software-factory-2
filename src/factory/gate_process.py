@@ -63,22 +63,6 @@ def run_gate(config: FactoryConfig) -> None:
         sub.close()
 
 
-def _wi_type_has_field(
-    sub: Substrate,
-    config: FactoryConfig,
-    work_item_type: str,
-    field_name: str,
-) -> bool:
-    try:
-        wf = sub.get_workflow(config.workflow_name, config.workflow_version)
-        for wit in wf.work_item_types:
-            if wit.name == work_item_type:
-                return any(cf.name == field_name for cf in wit.custom_fields)
-    except Exception:
-        pass
-    return False
-
-
 def gate_loop(runtime: PipelineRuntime) -> None:
     sub = runtime.sub
     config = runtime.config
@@ -87,6 +71,9 @@ def gate_loop(runtime: PipelineRuntime) -> None:
         sub.register_actor_role(actor_id, role_name)
     poll_interval = config.poll_interval_seconds
     shutting_down = False
+
+    # Circuit-breaker state: maps work_item_id (str) -> (consecutive_crash_count, last_error_sig)
+    _crash_state: dict[str, tuple[int, str]] = {}
 
     def _handle_signal(signum, frame):
         nonlocal shutting_down
@@ -107,15 +94,16 @@ def gate_loop(runtime: PipelineRuntime) -> None:
         )
         for wi in page.items:
             claim = sub.acquire_claim(wi.work_item_id, actor_id, config.claim_ttl_seconds)
+            wi_id_str = str(wi.work_item_id)
             log.info(
                 "gate_claimed",
-                work_item_id=str(wi.work_item_id),
+                work_item_id=wi_id_str,
                 attempt=claim.attempt_number,
             )
             if claim.attempt_number >= config.attempt_threshold:
                 log.warning(
                     "gate_near_budget",
-                    work_item_id=str(wi.work_item_id),
+                    work_item_id=wi_id_str,
                     attempt=claim.attempt_number,
                     threshold=config.attempt_threshold,
                 )
@@ -123,11 +111,50 @@ def gate_loop(runtime: PipelineRuntime) -> None:
                 continue
             try:
                 process_gate_item(runtime, wi, actor_id, claim)
+                _crash_state.pop(wi_id_str, None)
                 claimed = True
                 break
-            except Exception:
-                log.exception("gate_process_error", work_item_id=str(wi.work_item_id))
-                sub.release_claim(wi.work_item_id, actor_id)
+            except Exception as exc:
+                error_sig = f"{type(exc).__name__}: {exc}"
+                prev_count, prev_sig = _crash_state.get(wi_id_str, (0, ""))
+                if error_sig == prev_sig:
+                    new_count = prev_count + 1
+                else:
+                    new_count = 1
+                _crash_state[wi_id_str] = (new_count, error_sig)
+                log.exception(
+                    "gate_process_error",
+                    work_item_id=wi_id_str,
+                    crash_count=new_count,
+                    crash_threshold=config.gate_crash_threshold,
+                )
+                if new_count >= config.gate_crash_threshold:
+                    log.error(
+                        "gate_crash_loop_escalating",
+                        work_item_id=wi_id_str,
+                        crash_count=new_count,
+                        error_sig=error_sig,
+                    )
+                    _crash_state.pop(wi_id_str, None)
+                    gate_role = config.gate_roles[0]
+                    gate_rc = config.get_role_config(gate_role)
+                    actor_metadata = ActorMetadata(
+                        role=gate_role,
+                        channel=gate_rc.channel if gate_rc else CHANNEL_CODE,
+                        family=gate_rc.family if gate_rc else FAMILY_CODE,
+                        gate_name="gate_crash_loop",
+                        attempt_n=claim.attempt_number,
+                    ).to_dict()
+                    sub.transition(
+                        wi.work_item_id,
+                        TRANSITION_GATE_ESCALATION,
+                        actor_id,
+                        actor_metadata=actor_metadata,
+                    )
+                    claimed = True
+                    break
+                else:
+                    sub.release_claim(wi.work_item_id, actor_id)
         if not claimed and not shutting_down:
             time.sleep(poll_interval)
     log.info("gate_loop_exiting")
@@ -389,19 +416,11 @@ def process_gate_item(
         if gate_result.routing_hint is not None:
             diagnostics["routing_hint"] = gate_result.routing_hint
         custom_fields_payload: dict = {"diagnostics": diagnostics}
-        if gate_result.custom_fields:
-            for cf_key, cf_value in gate_result.custom_fields.items():
+        if gate_result.transition_fields:
+            for cf_key, cf_value in gate_result.transition_fields.items():
                 if cf_key == "diagnostics":
                     continue
-                if _wi_type_has_field(sub, config, wi.work_item_type, cf_key):
-                    custom_fields_payload[cf_key] = cf_value
-                else:
-                    log.warning(
-                        "gate_skip_invalid_field",
-                        work_item_id=str(work_item_id),
-                        work_item_type=wi.work_item_type,
-                        field=cf_key,
-                    )
+                custom_fields_payload[cf_key] = cf_value
         sub.transition(
             work_item_id,
             transition_name,
@@ -420,7 +439,7 @@ def process_gate_item(
         if routing.create_upstream_revision:
             from factory.scheduler import ensure_upstream_revision
 
-            ensure_upstream_revision(runtime, source_wi=wi, route=routing)
+            ensure_upstream_revision(runtime, source_wi=wi, route=routing, gate_result=gate_result)
 
 
 def _main(argv: list[str] | None = None) -> None:

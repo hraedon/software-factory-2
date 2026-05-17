@@ -4,12 +4,14 @@ import ast
 import shutil
 import subprocess
 import sys
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from factory.config import GateTimeouts
 from factory.constants import (
     ARTIFACT_FILENAME_INTERFACE,
+    CUSTOM_FIELD_REVIEW_FINDINGS,
     GATE_NAME_CROSS_FAMILY_REVIEW,
     GATE_NAME_IMPLEMENTATION,
     GATE_NAME_IMPLEMENTATION_FILE_EXISTS,
@@ -58,8 +60,26 @@ class GateResult:
     artifact_valid: bool = True
     diagnostic_kind: str = ""
     skipped: bool = False
-    custom_fields: dict = field(default_factory=dict)
+    transition_fields: dict = field(default_factory=dict)
+    """Custom fields to merge into the current work item's transition payload."""
+    routing_fields: dict = field(default_factory=dict)
+    """Custom fields to propagate to an upstream revision created by the router."""
     routing_hint: dict | None = None
+    # Deprecated: use transition_fields or routing_fields instead.
+    # Kept for one migration cycle. Maps to transition_fields.
+    custom_fields: dict = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.custom_fields:
+            warnings.warn(
+                "GateResult.custom_fields is deprecated; use transition_fields or routing_fields",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            # Merge into transition_fields for backwards compatibility
+            merged = {**self.custom_fields, **self.transition_fields}
+            object.__setattr__(self, "transition_fields", merged)
+            object.__setattr__(self, "custom_fields", {})
 
 
 def _guard_artifact_size(artifact_path: Path) -> GateResult | None:
@@ -1011,12 +1031,15 @@ def evaluate_review(artifact_path: Path) -> GateResult:
     diagnostic_kind = ""
     if not passed:
         diagnostic_kind = "review_malformed" if malformed else "review_found_defect"
+    routing_fields: dict = {}
+    if structured_findings:
+        routing_fields[CUSTOM_FIELD_REVIEW_FINDINGS] = structured_findings
     return GateResult(
         passed=passed,
         gate_name=GATE_NAME_CROSS_FAMILY_REVIEW,
         diagnostics=diagnostics,
         diagnostic_kind=diagnostic_kind,
-        custom_fields={"findings": structured_findings} if structured_findings else {},
+        routing_fields=routing_fields,
     )
 
 

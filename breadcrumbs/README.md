@@ -72,7 +72,7 @@ When a CLASS file accumulates ≥5 instances OR contains ≥2 high/critical inst
 |---|---|---|---|
 | 180 | gate_process writes review_findings to review work item type — CUSTOM_FIELD_VIOLATION crash-loop | critical | implemented |
 | 181 | gate_process has no attempt budget guardrail — crash-looping items cycle indefinitely | high | implemented |
-| 182 | gate_process lacks self-circuit-breaker for repeated identical crashes on same item | medium | proposed |
+| 182 | gate_process lacks self-circuit-breaker for repeated identical crashes on same item | medium | implemented |
 | 183 | unsupported_import_pattern classifier produces false-positive feedback for stdlib/third-party submodule imports | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 

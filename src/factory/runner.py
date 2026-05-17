@@ -606,11 +606,13 @@ def _run_pre_gate(
     t = config.gate_timeouts if config else GateTimeouts()
     gate_scope = GateScope()
     if role_name == ROLE_INTERFACE_ARCHITECT:
+        req_path = config.workspace_root / "requirements.txt" if config else None
         return pre_gate_interface_spec(
             artifact_path,
             dependency_pyi_paths=deps.dep_paths,
             python_executable=deps.python_executable,
             timeouts=t,
+            requirements_path=req_path if req_path and req_path.exists() else None,
         )
     if role_name == ROLE_TEST_AUTHOR:
         return pre_gate_test_suite(

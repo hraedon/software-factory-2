@@ -17,6 +17,7 @@ from factory.constants import (
     WORK_ITEM_TYPE_JURY,
     WORK_ITEM_TYPE_REVIEW,
 )
+from factory.gate import GateResult
 from factory.router import Route
 from factory.runtime import PipelineRuntime
 
@@ -25,6 +26,9 @@ def _make_runtime():
     sub = MagicMock()
     config = FactoryConfig.phase5()
     runtime = PipelineRuntime(sub=sub, config=config)
+    empty_page = MagicMock()
+    empty_page.items = []
+    sub.query_work_items.return_value = empty_page
     return runtime, sub
 
 
@@ -295,3 +299,115 @@ class TestEnsureUpstreamRevision:
         custom = sub.create_work_item.call_args[1]["custom_fields"]
         assert CUSTOM_FIELD_INTERFACE_REF not in custom
         assert CUSTOM_FIELD_TEST_SUITE_REF not in custom
+
+
+class TestBC185RoutingFields:
+    """AC-1, AC-2, AC-5: GateResult.routing_fields drives ensure_upstream_revision."""
+
+    def test_routing_fields_review_findings_propagated_to_upstream(self):
+        """AC-2 / AC-5: routing_fields['review_findings'] reaches the new impl revision."""
+        runtime, sub = _make_runtime()
+        source_wi = _make_work_item()
+
+        structured = [{"ac_id": "AC-01", "kind": "impl", "severity": "block", "body": "stub"}]
+        gate_result = GateResult(
+            passed=False,
+            gate_name="cross_family_review",
+            diagnostic_kind="review_found_defect",
+            routing_fields={CUSTOM_FIELD_REVIEW_FINDINGS: structured},
+        )
+        route = Route(
+            target_state="new",
+            create_upstream_revision=True,
+            upstream_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+            upstream_context_key="review_feedback",
+            diagnostics=["[block] AC-01 (impl): stub"],
+        )
+
+        upstream_wi = MagicMock()
+        upstream_wi.work_item_id = uuid.uuid4()
+        sub.create_work_item.return_value = (upstream_wi, None)
+
+        from factory.scheduler import ensure_upstream_revision
+
+        ensure_upstream_revision(runtime, source_wi, route, gate_result=gate_result)
+
+        sub.create_work_item.assert_called_once()
+        custom = sub.create_work_item.call_args[1]["custom_fields"]
+        # Structured findings from routing_fields — not the text-only fallback
+        assert custom[CUSTOM_FIELD_REVIEW_FINDINGS] == structured, (
+            "routing_fields structured findings must reach the upstream revision"
+        )
+
+    def test_routing_fields_takes_precedence_over_route_diagnostics(self):
+        """When routing_fields has review_findings, it wins over route.diagnostics fallback."""
+        runtime, sub = _make_runtime()
+        source_wi = _make_work_item()
+
+        structured = [{"ac_id": "AC-02", "kind": "test", "severity": "block", "body": "missing"}]
+        gate_result = GateResult(
+            passed=False,
+            gate_name="cross_family_review",
+            routing_fields={CUSTOM_FIELD_REVIEW_FINDINGS: structured},
+        )
+        route = Route(
+            target_state="new",
+            create_upstream_revision=True,
+            upstream_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+            upstream_context_key="review_feedback",
+            diagnostics=["old text diagnostics"],
+        )
+
+        upstream_wi = MagicMock()
+        upstream_wi.work_item_id = uuid.uuid4()
+        sub.create_work_item.return_value = (upstream_wi, None)
+
+        from factory.scheduler import ensure_upstream_revision
+
+        ensure_upstream_revision(runtime, source_wi, route, gate_result=gate_result)
+
+        custom = sub.create_work_item.call_args[1]["custom_fields"]
+        # Must be the structured list, not a dict wrapping route.diagnostics
+        assert custom[CUSTOM_FIELD_REVIEW_FINDINGS] == structured
+
+    def test_fallback_to_route_diagnostics_when_no_routing_fields(self):
+        """When gate_result has no routing_fields, fall back to route.diagnostics (legacy)."""
+        runtime, sub = _make_runtime()
+        source_wi = _make_work_item()
+
+        gate_result = GateResult(
+            passed=False,
+            gate_name="cross_family_review",
+            routing_fields={},  # empty — no structured findings
+        )
+        route = Route(
+            target_state="new",
+            create_upstream_revision=True,
+            upstream_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+            upstream_context_key="review_feedback",
+            diagnostics=["Fallback text finding"],
+        )
+
+        upstream_wi = MagicMock()
+        upstream_wi.work_item_id = uuid.uuid4()
+        sub.create_work_item.return_value = (upstream_wi, None)
+
+        from factory.scheduler import ensure_upstream_revision
+
+        ensure_upstream_revision(runtime, source_wi, route, gate_result=gate_result)
+
+        custom = sub.create_work_item.call_args[1]["custom_fields"]
+        assert CUSTOM_FIELD_REVIEW_FINDINGS in custom
+        # Fallback uses the dict-wrapping format from route.diagnostics
+        assert custom[CUSTOM_FIELD_REVIEW_FINDINGS]["findings"] == ["Fallback text finding"]
+
+    def test_transition_fields_absent_from_routing_fields(self):
+        """AC-1: transition_fields and routing_fields are separate; contents do not bleed."""
+        gate_result = GateResult(
+            passed=False,
+            gate_name="cross_family_review",
+            transition_fields={"some_transition_key": "val"},
+            routing_fields={CUSTOM_FIELD_REVIEW_FINDINGS: [{"body": "defect"}]},
+        )
+        assert "some_transition_key" not in gate_result.routing_fields
+        assert CUSTOM_FIELD_REVIEW_FINDINGS not in gate_result.transition_fields
