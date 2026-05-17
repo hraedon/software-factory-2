@@ -70,6 +70,7 @@ When a CLASS file accumulates ≥5 instances OR contains ≥2 high/critical inst
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 186 | BC-181 gate_near_budget soft-stop never hard-transitions — indefinite acquire/release churn on items stuck in gating state | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
 ### RFCs (awaiting upstream phases)

@@ -56,7 +56,10 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - 947 passing tests, 0 lint errors
 - Inner gate telemetry: submit payloads carry `inner_gate_attempts`; telemetry reports inner gate first-pass rate (BC-133)
 - Jury observability: `disagreement_rationale` always populated when quorum not met; `[all_against]` tag for all-failure cases (BC-134)
-- 34 golden runs executed (GR-001 through GR-034)
+- 37 golden runs executed (GR-001 through GR-037)
+  - GR-037: BC-180/181/182/183/184/185 validation — K2 workers + gemini-2.5-pro cross-family reviewer + K2/gemini jury; cert-watch full DAG; 45 clean cross_family_review gate_fails routed via BC-185 routing_fields (zero CUSTOM_FIELD_VIOLATION); first end-to-end DAG lock through all 7 stages; gemini-strict 6% review pass rate dropped overall lock rate to 62%; BC-181 gating-cycle gap exposed and filed as BC-186; wrapper guardrails retired (false-idle threshold, obsolete gate_fail count)
+  - GR-036: GR-035 BC-145 fix validation — K2 workers + qwen3 cross-family reviewer + K2/qwen3 jury; cert-watch full DAG; ordering/idempotency fixes prevented exponential blowup but 2 review items stuck on `review_findings` field-declaration gap → BC-180; 31/37 locked (84%)
+  - GR-035: Phase 5 full-DAG cert-watch attempt — exposed 3 BC-145 routing bugs (field name typo, ordering, idempotency); 182 spurious reviews from exponential blowup; all 3 fixed before GR-036
   - GR-034: Phase 5 first 100% integration lock — validates `inner_gate_retries=3`; 19/20 locked (95%); 2/2 integration items locked
   - GR-033: Phase 5 post-migration replication — validates workflow composition (`extends:`) live; K2+Qwen jury, cert-watch-mini
   - GR-032: Phase 5 multi-family validation — Claude+Gemini+K2 concurrent; BC-174 discovery+fix
