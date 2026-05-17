@@ -82,7 +82,7 @@ roles:
     timeout_seconds: 600
     model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
   - role: cross_family_reviewer
-    channel: opencode
+    channel: gemini-cli
     timeout_seconds: 600
     model: gemini-2.5-pro
   - role: frontier_judge
@@ -90,7 +90,7 @@ roles:
     timeout_seconds: 600
     model: fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo
   - role: frontier_judge
-    channel: opencode
+    channel: gemini-cli
     timeout_seconds: 600
     model: gemini-2.5-pro
   - role: integrator
