@@ -373,11 +373,15 @@ def _monitor_logs(
                         "but this indicates systemic gate failures. "
                         "Kill processes and investigate before re-running."
                     )
-                if name in ("gate_fail_cross_family_review", "gate_fail_jury") and count >= 3:
-                    _fatal(
-                        f"Multiple {name} failures detected. "
-                        "Review/jury items are cycling. Kill processes and check BC-139 fix."
-                    )
+                # Pre-BC-180, a cross_family_review or jury gate_fail meant a
+                # CUSTOM_FIELD_VIOLATION crash-loop on the same review/jury item.
+                # Post-BC-180/185, the gate_fail is the legitimate REVIEW_FOUND_DEFECT
+                # path that cleanly creates an upstream implementation revision —
+                # 3+ of them across DIFFERENT review items is normal pipeline
+                # activity (gemini reviewing K2 impls), not a crash. Crash-loop
+                # detection is now covered by BC-181 (gate_near_budget hard stop)
+                # and BC-182 (gate_process self-circuit-breaker), so the count
+                # guardrail here is obsolete. Warn only, never fatal.
                 if name == "channel_invoke_failed" and count >= 5:
                     _fatal(
                         "Multiple channel invoke failures. "
