@@ -70,12 +70,6 @@ When a CLASS file accumulates ≥5 instances OR contains ≥2 high/critical inst
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 180 | gate_process writes review_findings to review work item type — CUSTOM_FIELD_VIOLATION crash-loop | critical | implemented |
-| 181 | gate_process has no attempt budget guardrail — crash-looping items cycle indefinitely | high | implemented |
-| 182 | gate_process lacks self-circuit-breaker for repeated identical crashes on same item | medium | implemented |
-| 183 | unsupported_import_pattern classifier produces false-positive feedback for stdlib/third-party submodule imports | medium | implemented |
-| 184 | interface .pyi stubs with ellipsis bodies trigger mypy 'abstract attributes' retry-exhaustion for impls | high | implemented |
-| 185 | split GateResult.custom_fields into transition_fields and routing_fields | medium | implemented |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
 ### RFCs (awaiting upstream phases)
@@ -102,6 +96,12 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 185 | split GateResult.custom_fields into transition_fields and routing_fields | medium | GateResult now has separate `transition_fields` (current WI) and `routing_fields` (upstream revision) bags; `custom_fields` kept as one-cycle deprecation alias; gate_process filter helper from BC-180 removed as no longer needed |
+| 184 | interface .pyi stubs with ellipsis bodies trigger mypy 'abstract attributes' retry-exhaustion for impls | high | `copy_dependency_pyis` AST-rewrites ellipsis bodies in the `.py` shadow to `raise NotImplementedError`; `--allow-empty-bodies` added to gate/pre_gate mypy invocations |
+| 183 | unsupported_import_pattern classifier produces false-positive feedback for stdlib/third-party submodule imports | medium | pre_gate `_parse_import_failure` now consults `sys.stdlib_module_names` + parsed requirements.txt and downgrades safe top-levels to `_IMPORT_FEEDBACK_KIND_OTHER` |
+| 182 | gate_process lacks self-circuit-breaker for repeated identical crashes on same item | medium | gate_loop tracks per-item `(crash_count, error_sig)`; after `gate_crash_threshold` (default 3) identical exceptions, hard-transitions the item to `cannot_proceed` via TRANSITION_GATE_ESCALATION |
+| 181 | gate_process has no attempt budget guardrail — crash-looping items cycle indefinitely | high | gate_loop now checks `claim.attempt_number >= attempt_threshold` at top of page loop and releases the claim with `gate_near_budget` warning, mirroring runner's BC-139 pattern |
+| 180 | gate_process writes review_findings to review work item type — CUSTOM_FIELD_VIOLATION crash-loop | critical | Resolved structurally by BC-185 (separate transition_fields/routing_fields bags); evaluate_review now puts `review_findings` in routing_fields so it never reaches the review WI transition payload |
 | 174 | Integration gate import resolution runs in wrong Python environment — fails on project dependencies | high | evaluate_integration() now runs import resolution as subprocess under gate venv python (same as mypy/pytest); in-process sys.path mutation removed; CLASS-008 instance #11 |
 | 173 | Workflow composition migration complete — extends: adopted for phase2-5 | low | phase2-5 use extends: inheritance; 1133→421 lines (63% reduction); pipeline_docs uses resolve_includes(); substrate register_workflow_file resolves extends; semantic verification via scripts/migrate_workflows.py --verify |
 | 172 | Pre-commit hook does not enforce `make check` — lint errors and broken tests landed in main | medium | Created .githooks/pre-commit running make check; git config core.hooksPath .githooks |
