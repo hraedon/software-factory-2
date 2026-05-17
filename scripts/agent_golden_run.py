@@ -269,6 +269,7 @@ def _launch_processes(
         stderr=subprocess.STDOUT,
         cwd=str(REPO_ROOT),
         env=env,
+        start_new_session=True,
     )
     gate = subprocess.Popen(
         [sys.executable, "-m", "factory.gate_process", "--config", str(config_path)],
@@ -276,6 +277,7 @@ def _launch_processes(
         stderr=subprocess.STDOUT,
         cwd=str(REPO_ROOT),
         env=env,
+        start_new_session=True,
     )
     scheduler = subprocess.Popen(
         [sys.executable, "-m", "factory.scheduler", "--config", str(config_path)],
@@ -283,6 +285,7 @@ def _launch_processes(
         stderr=subprocess.STDOUT,
         cwd=str(REPO_ROOT),
         env=env,
+        start_new_session=True,
     )
 
     _info(f"Runner PID={runner.pid}, Gate PID={gate.pid}, Scheduler PID={scheduler.pid}")
