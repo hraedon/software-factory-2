@@ -41,3 +41,12 @@ RFC-011: Unified gate evaluation layer — extract shared subprocess execution l
 | 124  | Selective ruff rule set — inner gate rules diverge from outer |
 | 131  | Runtime import resolution feedback — inner gate only |
 | 154  | _run_ruff_fast modifies artifact in-place inside inner gate |
+
+## Status under RFC-030
+
+This class is in the **RFC-filed-but-dormant** state. RFC-011 exists and correctly identifies the invariant (unified gate evaluation layer), but no implementation has landed and RFC-011's status remains `proposed`. Under RFC-030's block rule, no new BC may be added to the instances table above until one of the following occurs:
+
+- **Path A** (recommended): Assign an owner to RFC-011, move its status to `in_progress`, and set a target run for validation. This is the correct path given 11 instances at critical severity — the cost of the invariant is bounded and the cost of continued symptom-fixing is unbounded.
+- **Path B** (available but discouraged): The principal writes and signs a `symptom-fixed-because` rationale in this file answering what cost the unified gate layer would carry that exceeds the cost of continued per-instance fixes. Given 11 critical instances with no sign of the class saturating, the analysis is likely to favor Path A, but the call is the principal's.
+
+The next engineer who encounters an inner/outer gate divergence and attempts to add a row here is the forcing function: surface this decision explicitly rather than adding another symptom-fix.

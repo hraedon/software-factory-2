@@ -46,9 +46,17 @@ Classes group individual BCs that share the same shape (one-sentence pattern). S
 
 Before filing a new BC, scan `CLASS-*.md` instances tables. If the defect matches an existing class, file the BC normally **and** append a row to the class's instances table. If it does not match, file the BC. If you have just filed the 3rd instance of an unclassified shape, file a CLASS-NNN file before closing the session.
 
-### Promotion rule
+### Promotion rule (RFC-030)
 
-When a CLASS file accumulates ≥5 instances OR contains ≥2 high/critical instances, the next reviewer must either (a) file an RFC proposing the systemic fix and link it from the CLASS file, or (b) document why a systemic fix is not worth pursuing.
+**Trigger**: When a CLASS file accumulates ≥5 instances OR contains ≥2 high/critical instances, the next reviewer files an RFC proposing the systemic fix and links it from the CLASS file.
+
+**Block rule (new as of RFC-030)**: Once an RFC has been filed against a class, no new BC may be added to that class's instances table until ONE of the following holds:
+- The RFC's invariant is implemented (status flips to `implemented`) and the class is moved to the "Stabilized Defect Classes" section below, OR
+- The RFC is explicitly closed with a `symptom-fixed-because` rationale — a short paragraph in the CLASS file's body, signed by the principal, answering: "what cost would the invariant carry that exceeds the cost of continuing to fix instances symptom-by-symptom?"
+
+**When blocked**: The would-be BC filer must either (a) drive the RFC forward (assign ownership, move to `in_progress`, set a target run), (b) request the symptom-fixed-because rationale from the principal, or (c) demonstrate the new failure is a genuinely different class.
+
+Rationale: "file an RFC" diffuses ownership and has no time bound; the block rule creates a forcing function at the exact moment we would otherwise add another symptom-fix. See RFC-030 for full motivation and CLASS-005 as the worked example.
 
 ### Active Defect Classes
 
