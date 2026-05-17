@@ -44,9 +44,8 @@ RFC-011: Unified gate evaluation layer — extract shared subprocess execution l
 
 ## Status under RFC-030
 
-This class is in the **RFC-filed-but-dormant** state. RFC-011 exists and correctly identifies the invariant (unified gate evaluation layer), but no implementation has landed and RFC-011's status remains `proposed`. Under RFC-030's block rule, no new BC may be added to the instances table above until one of the following occurs:
+**Decision: Path A — systemic fix.**
 
-- **Path A** (recommended): Assign an owner to RFC-011, move its status to `in_progress`, and set a target run for validation. This is the correct path given 11 instances at critical severity — the cost of the invariant is bounded and the cost of continued symptom-fixing is unbounded.
-- **Path B** (available but discouraged): The principal writes and signs a `symptom-fixed-because` rationale in this file answering what cost the unified gate layer would carry that exceeds the cost of continued per-instance fixes. Given 11 critical instances with no sign of the class saturating, the analysis is likely to favor Path A, but the call is the principal's.
+The principal has chosen Path A. No `symptom-fixed-because` rationale will be written. The systemic-fix vehicle is **RFC-011 (expanded scope)**, which has been broadened to cover both CLASS-005 (inner/outer gate ruleset divergence, 11 instances) and CLASS-008 (gate subprocess execution and environment handling, 12 instances). RFC-011 is `in_progress`.
 
-The next engineer who encounters an inner/outer gate divergence and attempts to add a row here is the forcing function: surface this decision explicitly rather than adding another symptom-fix.
+The instances table above is **blocked under RFC-030** until RFC-011 lands AC-1..AC-5 (typed subprocess wrapper and unified gate evaluation layer). No new BC may be added to this class's instances table until that implementation ships.
