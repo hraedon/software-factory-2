@@ -1,6 +1,6 @@
 # Phase 3 Exit + Operational Readiness Prep — Implementation Plan
 
-**Status:** proposed for review
+**Status:** obsolete — Phase 3 has exited (GR-020) and the pipeline is now in Phase 5 (GR-038 first ALL-PASS full DAG). The readiness items this plan proposed have either been actioned or superseded by RFC-017/019/020/021 (all implemented). Retained for historical reference.
 **Author:** adversarial-reviewer
 **Date:** 2026-05-12
 **Origin:** synthesizes critiques from `debate/adversarial-readiness-001.md`; connects to BC-120, BC-126, BC-127, BC-108, and active RFCs.

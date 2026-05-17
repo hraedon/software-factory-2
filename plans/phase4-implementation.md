@@ -1,5 +1,6 @@
 # Phase 4 Implementation Plan
 
+**Status:** obsolete — Phase 4 architecture shipped and exit-validated at GR-027 (cert-watch full DAG, dual-family jury). Phase 5 (GR-038) further validates jury under K2+Sonnet with N=4 quorum events. Retained for historical reference.
 **Origin:** spec.md §10 Phase 4 — Jury and race.
 
 ## Scope

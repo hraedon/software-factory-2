@@ -1,6 +1,6 @@
 # GR006b Execution Plan — Full Cert-Watch as Phase 5 Pre-Flight
 
-**Status:** draft (deferred until Phase 5 trigger)
+**Status:** obsolete — GR-035 through GR-038 executed full cert-watch DAG with multi-family jury and outcome verification; GR-038 is the first ALL-PASS run with 4× end-to-end lineages. The "Phase 5 pre-flight" question this plan posed has been answered empirically. Retained for historical reference.
 **Author:** claude-opus-4-7
 **Date:** 2026-05-09
 **Origin:** Debate 008 + Debate 001 (behavioral gate) + cert-watch reference from `/projects/software-factory/projects/cert-watch/spec.md`

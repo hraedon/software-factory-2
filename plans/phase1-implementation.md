@@ -1,6 +1,6 @@
 # Phase 1 Implementation Plan — Single-role end-to-end
 
-**Status:** draft
+**Status:** obsolete — Phase 1 complete; pipeline has since moved through Phases 2–5 (GR-038 = first ALL-PASS full DAG). Retained for historical reference.
 **Author:** claude-opus-4-7
 **Date:** 2026-05-06
 

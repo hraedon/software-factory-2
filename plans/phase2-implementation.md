@@ -1,6 +1,6 @@
 # Phase 2 Implementation Plan — Sequential single-channel pipeline
 
-**Status:** draft
+**Status:** obsolete — Phase 2 complete (GR-004/005/006a). Sequential pipeline has since been extended through Phases 3–5. Retained for historical reference.
 **Author:** claude-opus-4-7
 **Date:** 2026-05-07
 

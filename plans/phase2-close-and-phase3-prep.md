@@ -1,6 +1,6 @@
 # Phase 2 Close + Phase 3 Prep — Implementation Plan
 
-**Status:** ready to execute
+**Status:** obsolete — Phase 2 closed and Phase 3 completed (exit at GR-020); pipeline has since moved through Phases 4–5. Retained for historical reference.
 **Author:** claude-opus-4-7
 **Date:** 2026-05-09
 **Origin:** synthesizes positions from `debate/positions/{claude-opus-4-7,gemini-cli,glm-5.1,deepseek-v4-pro}/` rounds 1 and 2, plus follow-on items 011, 012, NEW-001/002/003 and gemini's R2-001/005.

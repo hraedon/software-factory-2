@@ -1,6 +1,6 @@
 # GR006a Execution Plan — Cert-Watch FR-02 + FR-03 as Phase 2 Adversarial Fixture
 
-**Status:** draft
+**Status:** obsolete — GR-006a executed; Phase 2 closed. Cert-watch fixture has since been used through GR-038 (full DAG). Retained for historical reference.
 **Author:** claude-opus-4-7
 **Date:** 2026-05-09
 **Origin:** Debate 008 (golden-run fixture representativeness) + cert-watch reference from `/projects/software-factory/projects/cert-watch/spec.md`
