@@ -288,13 +288,15 @@ class StateReporter:
 
 def _du_mb(path: Path) -> float:
     try:
-        import subprocess
+        import os
 
-        result = subprocess.run(
-            ["du", "-sm", str(path)],
-            capture_output=True,
-            text=True,
-            timeout=10,
+        from factory.subprocess import run as run_subprocess
+
+        result = run_subprocess(
+            cmd=["du", "-sm", str(path)],
+            cwd=path if path.is_dir() else path.parent,
+            env=dict(os.environ),
+            timeout_s=10,
         )
         if result.returncode == 0:
             parts = result.stdout.split()

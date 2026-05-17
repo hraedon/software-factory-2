@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import ClassVar
 from unittest.mock import patch
 
 from factory.config import FactoryConfig
 from factory.constants import ARTIFACT_FILENAME_RAW_STDERR, ARTIFACT_FILENAME_RAW_STDOUT
+from factory.subprocess import SubprocessResult
 from factory.subprocess_channel import SubprocessChannel
 
 
@@ -28,11 +28,15 @@ def _make_config(**overrides) -> FactoryConfig:
     return FactoryConfig(**defaults)
 
 
-def _mock_completed_process(
-    returncode: int = 0, stdout: str = "", stderr: str = ""
-) -> subprocess.CompletedProcess:
-    return subprocess.CompletedProcess(
-        args=["echo", "test"], returncode=returncode, stdout=stdout, stderr=stderr
+def _mock_result(
+    returncode: int = 0, stdout: str = "", stderr: str = "", timed_out: bool = False
+) -> SubprocessResult:
+    return SubprocessResult(
+        returncode=returncode,
+        stdout=stdout,
+        stderr=stderr,
+        duration_s=0.0,
+        timed_out=timed_out,
     )
 
 
@@ -42,10 +46,8 @@ class TestEmptyOutputStderrCapture:
         channel = _TestChannel(config)
         outputs = tmp_path / "out"
 
-        with patch("factory.subprocess_channel.subprocess.run") as mock_run:
-            mock_run.return_value = _mock_completed_process(
-                stdout="", stderr="API rate limit exceeded"
-            )
+        with patch("factory.subprocess_channel.run_subprocess") as mock_run:
+            mock_run.return_value = _mock_result(stdout="", stderr="API rate limit exceeded")
             result = channel.invoke("implementer", "prompt", outputs, 60)
 
         assert not result.success
@@ -57,10 +59,8 @@ class TestEmptyOutputStderrCapture:
         channel = _TestChannel(config)
         outputs = tmp_path / "out"
 
-        with patch("factory.subprocess_channel.subprocess.run") as mock_run:
-            mock_run.return_value = _mock_completed_process(
-                stdout="", stderr="some diagnostic info"
-            )
+        with patch("factory.subprocess_channel.run_subprocess") as mock_run:
+            mock_run.return_value = _mock_result(stdout="", stderr="some diagnostic info")
             channel.invoke("implementer", "prompt", outputs, 60)
 
         stderr_file = outputs / ARTIFACT_FILENAME_RAW_STDERR
@@ -72,8 +72,8 @@ class TestEmptyOutputStderrCapture:
         channel = _TestChannel(config)
         outputs = tmp_path / "out"
 
-        with patch("factory.subprocess_channel.subprocess.run") as mock_run:
-            mock_run.return_value = _mock_completed_process(stdout="", stderr="")
+        with patch("factory.subprocess_channel.run_subprocess") as mock_run:
+            mock_run.return_value = _mock_result(stdout="", stderr="")
             channel.invoke("implementer", "prompt", outputs, 60)
 
         assert (outputs / ARTIFACT_FILENAME_RAW_STDOUT).exists()
@@ -83,8 +83,8 @@ class TestEmptyOutputStderrCapture:
         channel = _TestChannel(config)
         outputs = tmp_path / "out"
 
-        with patch("factory.subprocess_channel.subprocess.run") as mock_run:
-            mock_run.return_value = _mock_completed_process(stdout="", stderr=None)
+        with patch("factory.subprocess_channel.run_subprocess") as mock_run:
+            mock_run.return_value = _mock_result(stdout="", stderr="")
             result = channel.invoke("implementer", "prompt", outputs, 60)
 
         assert not result.success
@@ -96,8 +96,8 @@ class TestEmptyOutputStderrCapture:
         outputs = tmp_path / "out"
         long_stderr = "x" * 1000
 
-        with patch("factory.subprocess_channel.subprocess.run") as mock_run:
-            mock_run.return_value = _mock_completed_process(stdout="", stderr=long_stderr)
+        with patch("factory.subprocess_channel.run_subprocess") as mock_run:
+            mock_run.return_value = _mock_result(stdout="", stderr=long_stderr)
             result = channel.invoke("implementer", "prompt", outputs, 60)
 
         assert not result.success
@@ -111,12 +111,12 @@ class TestEmptyOutputRetry:
         outputs = tmp_path / "out"
 
         with (
-            patch("factory.subprocess_channel.subprocess.run") as mock_run,
+            patch("factory.subprocess_channel.run_subprocess") as mock_run,
             patch("factory.subprocess_channel.time.sleep"),
         ):
             mock_run.side_effect = [
-                _mock_completed_process(stdout=""),
-                _mock_completed_process(stdout="```python\ndef foo() -> int:\n    return 1\n```"),
+                _mock_result(stdout=""),
+                _mock_result(stdout="```python\ndef foo() -> int:\n    return 1\n```"),
             ]
             result = channel.invoke("implementer", "prompt", outputs, 60)
 
@@ -130,10 +130,10 @@ class TestEmptyOutputRetry:
         outputs = tmp_path / "out"
 
         with (
-            patch("factory.subprocess_channel.subprocess.run") as mock_run,
+            patch("factory.subprocess_channel.run_subprocess") as mock_run,
             patch("factory.subprocess_channel.time.sleep"),
         ):
-            mock_run.return_value = _mock_completed_process(stdout="", stderr="timeout")
+            mock_run.return_value = _mock_result(stdout="", stderr="timeout")
             result = channel.invoke("implementer", "prompt", outputs, 60)
 
         assert not result.success
@@ -145,8 +145,8 @@ class TestEmptyOutputRetry:
         channel = _TestChannel(config)
         outputs = tmp_path / "out"
 
-        with patch("factory.subprocess_channel.subprocess.run") as mock_run:
-            mock_run.return_value = _mock_completed_process(stdout="")
+        with patch("factory.subprocess_channel.run_subprocess") as mock_run:
+            mock_run.return_value = _mock_result(stdout="")
             result = channel.invoke("implementer", "prompt", outputs, 60)
 
         assert not result.success
@@ -157,8 +157,8 @@ class TestEmptyOutputRetry:
         channel = _TestChannel(config)
         outputs = tmp_path / "out"
 
-        with patch("factory.subprocess_channel.subprocess.run") as mock_run:
-            mock_run.return_value = _mock_completed_process(
+        with patch("factory.subprocess_channel.run_subprocess") as mock_run:
+            mock_run.return_value = _mock_result(
                 stdout="```python\ndef foo() -> int:\n    return 1\n```"
             )
             result = channel.invoke("implementer", "prompt", outputs, 60)
@@ -171,8 +171,8 @@ class TestEmptyOutputRetry:
         channel = _TestChannel(config)
         outputs = tmp_path / "out"
 
-        with patch("factory.subprocess_channel.subprocess.run") as mock_run:
-            mock_run.return_value = _mock_completed_process(returncode=1, stderr="fatal error")
+        with patch("factory.subprocess_channel.run_subprocess") as mock_run:
+            mock_run.return_value = _mock_result(returncode=1, stderr="fatal error")
             result = channel.invoke("implementer", "prompt", outputs, 60)
 
         assert not result.success
@@ -183,8 +183,8 @@ class TestEmptyOutputRetry:
         channel = _TestChannel(config)
         outputs = tmp_path / "out"
 
-        with patch("factory.subprocess_channel.subprocess.run") as mock_run:
-            mock_run.side_effect = subprocess.TimeoutExpired(cmd="echo", timeout=60)
+        with patch("factory.subprocess_channel.run_subprocess") as mock_run:
+            mock_run.return_value = _mock_result(timed_out=True, returncode=-1)
             result = channel.invoke("implementer", "prompt", outputs, 60)
 
         assert not result.success
@@ -197,12 +197,12 @@ class TestEmptyOutputRetry:
         outputs = tmp_path / "out"
 
         with (
-            patch("factory.subprocess_channel.subprocess.run") as mock_run,
+            patch("factory.subprocess_channel.run_subprocess") as mock_run,
             patch("factory.subprocess_channel.time.sleep") as mock_sleep,
         ):
             mock_run.side_effect = [
-                _mock_completed_process(stdout=""),
-                _mock_completed_process(stdout="```python\nx = 1\n```"),
+                _mock_result(stdout=""),
+                _mock_result(stdout="```python\nx = 1\n```"),
             ]
             channel.invoke("implementer", "prompt", outputs, 60)
 
@@ -214,12 +214,12 @@ class TestEmptyOutputRetry:
         outputs = tmp_path / "out"
 
         with (
-            patch("factory.subprocess_channel.subprocess.run") as mock_run,
+            patch("factory.subprocess_channel.run_subprocess") as mock_run,
             patch("factory.subprocess_channel.time.sleep"),
         ):
             mock_run.side_effect = [
-                _mock_completed_process(stdout=""),
-                _mock_completed_process(stdout="```python\ndef foo() -> int:\n    return 1\n```"),
+                _mock_result(stdout=""),
+                _mock_result(stdout="```python\ndef foo() -> int:\n    return 1\n```"),
             ]
             channel.invoke("implementer", "prompt", outputs, 60)
 

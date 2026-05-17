@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import time
 from pathlib import Path
 from typing import ClassVar
@@ -21,6 +20,7 @@ from factory.constants import (
     ROLE_OUTCOME_VERIFIER,
 )
 from factory.output_extraction import extract_artifact_from_output, extract_json_from_output
+from factory.subprocess import run as run_subprocess
 
 _JSON_ARTIFACT_ROLES = frozenset({ROLE_INTEGRATOR, ROLE_OUTCOME_VERIFIER})
 
@@ -82,28 +82,27 @@ class SubprocessChannel:
             invocation_family = FAMILY_BY_PROVIDER.get(prefix, prefix)
         else:
             invocation_family = self._derive_invocation_family(role_config)
-        env_override = {**os.environ, **(extra_env or {})} if extra_env is not None else None
-
-        effective_cwd = str(outputs_dir)
-        if self._config.invocation_cwd is not None:
-            effective_cwd = str(self._config.invocation_cwd)
+        # BC-187 fix: always use outputs_dir as the subprocess cwd so that any
+        # files written by the model channel land in the ephemeral attempt
+        # directory, not in whatever invocation_cwd points to (often repo root).
+        # invocation_cwd was previously used as the subprocess cwd, which caused
+        # model-generated artifacts to leak into /projects/software-factory-2.
+        subprocess_cwd = outputs_dir
+        env_override: dict[str, str] = {**os.environ, **(extra_env or {})}
 
         max_empty_retries = self._config.empty_output_retries
         retry_delay = self._config.empty_output_retry_delay_seconds
         last_stderr = ""
 
         for attempt in range(max_empty_retries + 1):
-            try:
-                result = subprocess.run(
-                    cmd,
-                    input=prompt,
-                    capture_output=True,
-                    text=True,
-                    timeout=effective_timeout,
-                    cwd=effective_cwd,
-                    env=env_override,
-                )
-            except subprocess.TimeoutExpired:
+            result = run_subprocess(
+                cmd=cmd,
+                cwd=subprocess_cwd,
+                env=env_override,
+                timeout_s=effective_timeout,
+                stdin=prompt,
+            )
+            if result.timed_out:
                 return InvocationResult(
                     success=False,
                     error_message=f"Timeout after {effective_timeout}s",
@@ -111,7 +110,7 @@ class SubprocessChannel:
                     timed_out=True,
                     family=invocation_family,
                 )
-            except FileNotFoundError:
+            if result.returncode == -1 and not result.timed_out:
                 return InvocationResult(
                     success=False,
                     error_message=f"{self.CMD[0] if self.CMD else 'command'} not found in PATH",

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+from factory.subprocess import run as run_subprocess
 
 
 def _which(cmd: str) -> str | None:
@@ -55,34 +58,44 @@ def ensure_project_venv(project_dir: Path) -> Path:
 
         shutil.rmtree(venv_dir)
 
+    _env = dict(os.environ)
+
     if has_uv:
-        subprocess.run(
-            ["uv", "venv", str(venv_dir)],
-            capture_output=True,
-            check=True,
+        result = run_subprocess(
+            cmd=["uv", "venv", str(venv_dir)],
+            cwd=project_dir,
+            env=_env,
+            timeout_s=300,
         )
     else:
-        subprocess.run(
-            [python, "-m", "venv", str(venv_dir)],
-            capture_output=True,
-            check=True,
+        result = run_subprocess(
+            cmd=[python, "-m", "venv", str(venv_dir)],
+            cwd=project_dir,
+            env=_env,
+            timeout_s=300,
         )
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, result.stderr)
 
     venv_python = venv_dir / "bin" / "python"
 
     if requirements.exists() and requirements.stat().st_size > 0:
         if has_uv:
-            subprocess.run(
-                ["uv", "pip", "install", "--python", str(venv_python), f"-r{requirements}"],
-                capture_output=True,
-                check=True,
+            result = run_subprocess(
+                cmd=["uv", "pip", "install", "--python", str(venv_python), f"-r{requirements}"],
+                cwd=project_dir,
+                env=_env,
+                timeout_s=300,
             )
         else:
-            subprocess.run(
-                [str(venv_python), "-m", "pip", "install", f"-r{requirements}"],
-                capture_output=True,
-                check=True,
+            result = run_subprocess(
+                cmd=[str(venv_python), "-m", "pip", "install", f"-r{requirements}"],
+                cwd=project_dir,
+                env=_env,
+                timeout_s=300,
             )
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(result.returncode, result.stderr)
 
     deps_hash_path.write_text(current_hash)
     ensure_gate_venv(project_dir)
@@ -94,11 +107,13 @@ _GATE_TOOLS = ["pytest", "mypy", "ruff"]
 
 def _installed_versions_string(gate_python: Path) -> str:
     parts = []
+    _env = dict(os.environ)
     for tool in _GATE_TOOLS:
-        result = subprocess.run(
-            [str(gate_python), "-m", "pip", "show", tool],
-            capture_output=True,
-            text=True,
+        result = run_subprocess(
+            cmd=[str(gate_python), "-m", "pip", "show", tool],
+            cwd=gate_python.parent.parent,
+            env=_env,
+            timeout_s=30,
         )
         version = "unknown"
         for line in result.stdout.splitlines():
@@ -152,18 +167,24 @@ def ensure_gate_venv(project_dir: Path) -> Path:
     if gate_venv_dir.exists():
         shutil.rmtree(gate_venv_dir)
 
+    _env = dict(os.environ)
+
     if has_uv:
-        subprocess.run(
-            ["uv", "venv", str(gate_venv_dir)],
-            capture_output=True,
-            check=True,
+        result = run_subprocess(
+            cmd=["uv", "venv", str(gate_venv_dir)],
+            cwd=project_dir,
+            env=_env,
+            timeout_s=300,
         )
     else:
-        subprocess.run(
-            [python, "-m", "venv", str(gate_venv_dir)],
-            capture_output=True,
-            check=True,
+        result = run_subprocess(
+            cmd=[python, "-m", "venv", str(gate_venv_dir)],
+            cwd=project_dir,
+            env=_env,
+            timeout_s=300,
         )
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, result.stderr)
 
     gate_python = gate_venv_dir / "bin" / "python"
     packages = list(_GATE_TOOLS)
@@ -171,17 +192,21 @@ def ensure_gate_venv(project_dir: Path) -> Path:
         packages.append(f"-r{requirements}")
 
     if has_uv:
-        subprocess.run(
-            ["uv", "pip", "install", "--python", str(gate_python), *packages],
-            capture_output=True,
-            check=True,
+        result = run_subprocess(
+            cmd=["uv", "pip", "install", "--python", str(gate_python), *packages],
+            cwd=project_dir,
+            env=_env,
+            timeout_s=300,
         )
     else:
-        subprocess.run(
-            [str(gate_python), "-m", "pip", "install", *packages],
-            capture_output=True,
-            check=True,
+        result = run_subprocess(
+            cmd=[str(gate_python), "-m", "pip", "install", *packages],
+            cwd=project_dir,
+            env=_env,
+            timeout_s=300,
         )
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, result.stderr)
 
     post_install_hash = _gate_tools_hash(gate_python) + "\n" + req_hash
     gate_hash_path.write_text(post_install_hash)
