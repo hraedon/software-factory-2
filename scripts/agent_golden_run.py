@@ -370,12 +370,13 @@ def _monitor_logs(
             if count > 0 and count != warned_counts[name]:
                 warned_counts[name] = count
                 _warn(f"DANGER SIGNAL: {name} detected {count} time(s)")
-                if name == "claim_near_budget" and count >= 5:
-                    _fatal(
-                        "Multiple items at attempt_threshold. The runner hard-stops, "
-                        "but this indicates systemic gate failures. "
-                        "Kill processes and investigate before re-running."
-                    )
+                # Pre-BC-139/BC-186, claim_near_budget meant the runner was failing
+                # to hard-stop items and they kept being reclaimed — a genuine
+                # runaway signal. Post-BC-139 (runner hard-stop) and BC-186 (gate
+                # hard-stop), every claim_near_budget emit is followed by a clean
+                # cannot_proceed transition. It is expected terminal behavior, not a
+                # crash. Fired falsely in GR-038 on an ALL-PASS run. Warn only, never
+                # fatal.
                 # Pre-BC-180, a cross_family_review or jury gate_fail meant a
                 # CUSTOM_FIELD_VIOLATION crash-loop on the same review/jury item.
                 # Post-BC-180/185, the gate_fail is the legitimate REVIEW_FOUND_DEFECT
