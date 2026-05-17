@@ -663,6 +663,8 @@ def _run_mypy(
                     "mypy",
                     "--strict",
                     "--no-error-summary",
+                    # BC-176/184: suppress [empty-body] on .pyi stubs so that
+                    # interface ellipsis-body stubs don't fail implementation mypy.
                     "--allow-empty-bodies",
                     str(impl_copy),
                 ],

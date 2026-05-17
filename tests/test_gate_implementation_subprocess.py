@@ -198,3 +198,55 @@ def compute(x: int) -> str:
         result = evaluate_implementation(impl_path, interface_pyi_path=iface_path)
         assert not result.passed
         assert result.diagnostic_kind == "impl_import"
+
+
+class TestBC184AbstractAttributesRetryTrap:
+    """Regression for BC-184: dependency .pyi with ... bodies must not trigger
+    mypy 'abstract attributes' / [empty-body] errors in outer implementation gate."""
+
+    @pytest.mark.skipif(not shutil.which("mypy"), reason="mypy not installed")
+    def test_ac1_dep_pyi_ellipsis_bodies_do_not_fail_impl_mypy(self, tmp_path):
+        """AC-1: dep .pyi with concrete class + multi-method ... bodies passes gate."""
+        dep_pyi = _write(
+            tmp_path,
+            "database_layer.pyi",
+            """
+class SqliteCertificateRepository:
+    def add(self, cert: str) -> None: ...
+    def delete(self, id: int) -> None: ...
+    def get_by_id(self, id: int) -> str: ...
+    def list_all(self) -> list[str]: ...
+    def list_expiring_within(self, days: int) -> list[str]: ...
+    def update_expiry(self, id: int, new_date: str) -> None: ...
+""",
+        )
+        impl_path = _write(
+            tmp_path,
+            "impl.py",
+            """
+from database_layer import SqliteCertificateRepository
+
+class CertImpl(SqliteCertificateRepository):
+    def add(self, cert: str) -> None: pass
+    def delete(self, id: int) -> None: pass
+    def get_by_id(self, id: int) -> str: return ''
+    def list_all(self) -> list[str]: return []
+    def list_expiring_within(self, days: int) -> list[str]: return []
+    def update_expiry(self, id: int, new_date: str) -> None: pass
+""",
+        )
+        iface_pyi = _write(
+            tmp_path,
+            "iface.pyi",
+            "from database_layer import SqliteCertificateRepository\n"
+            "class CertImpl(SqliteCertificateRepository): ...\n",
+        )
+        result = evaluate_implementation(
+            impl_path,
+            interface_pyi_path=iface_pyi,
+            dependency_pyi_paths=[("database_layer", dep_pyi)],
+        )
+        assert result.passed, (
+            f"BC-184 regression: outer gate mypy fired on dep .pyi stub bodies.\n"
+            f"Diagnostics: {result.diagnostics}"
+        )

@@ -598,6 +598,71 @@ def _ok() -> dict:
     return {"passed": True, "diagnostics": [], "raw_output": ""}
 
 
+def _stub_content_to_py(stub_content: str) -> str:
+    """Convert .pyi stub content to importable .py by replacing ellipsis bodies.
+
+    BC-184: dependency .pyi stubs copied verbatim as .py files cause mypy to fire
+    [empty-body] / [misc] "has abstract attributes" against the dep .py when
+    type-checking a downstream impl.  Replace every function/method body that is
+    a bare ellipsis (``...``) with ``raise NotImplementedError`` so the .py is
+    syntactically valid and passes mypy without triggering stub-body diagnostics.
+
+    Falls back to the original content if the stub cannot be parsed.
+    """
+    try:
+        tree = ast.parse(stub_content)
+    except SyntaxError:
+        return stub_content
+
+    class _EllipsisBodyReplacer(ast.NodeTransformer):
+        def _is_ellipsis_only(self, body: list[ast.stmt]) -> bool:
+            if len(body) != 1:
+                return False
+            node = body[0]
+            return (
+                isinstance(node, ast.Expr)
+                and isinstance(node.value, ast.Constant)
+                and node.value.value is ...
+            )
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:
+            if self._is_ellipsis_only(node.body):
+                raise_node = ast.Raise(
+                    exc=ast.Call(
+                        func=ast.Name(id="NotImplementedError", ctx=ast.Load()),
+                        args=[],
+                        keywords=[],
+                    ),
+                    cause=None,
+                )
+                ast.copy_location(raise_node, node.body[0])
+                node.body = [raise_node]
+            self.generic_visit(node)
+            return node
+
+        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> ast.AsyncFunctionDef:
+            if self._is_ellipsis_only(node.body):
+                raise_node = ast.Raise(
+                    exc=ast.Call(
+                        func=ast.Name(id="NotImplementedError", ctx=ast.Load()),
+                        args=[],
+                        keywords=[],
+                    ),
+                    cause=None,
+                )
+                ast.copy_location(raise_node, node.body[0])
+                node.body = [raise_node]
+            self.generic_visit(node)
+            return node
+
+    transformed = _EllipsisBodyReplacer().visit(tree)
+    ast.fix_missing_locations(transformed)
+    try:
+        return ast.unparse(transformed)
+    except Exception:
+        return stub_content
+
+
 def copy_dependency_pyis(
     tmpdir: str,
     dependency_pyi_paths: list[tuple[str, Path]] | None,
@@ -618,7 +683,10 @@ def copy_dependency_pyis(
             continue
         content = dep_path.read_text()
         dep_py = tmpdir_path / f"{module_name}.py"
-        dep_py.write_text(content)
+        # BC-184: write .py shadow with raise NotImplementedError bodies (not raw ...),
+        # so mypy does not fire [empty-body]/[misc] "has abstract attributes" when
+        # type-checking a downstream impl that depends on this module.
+        dep_py.write_text(_stub_content_to_py(content))
         if module_name in spec_map:
             dep_pyi = tmpdir_path / f"{module_name}.pyi"
             dep_pyi.write_text(spec_map[module_name].read_text())
@@ -907,6 +975,8 @@ def _run_mypy_fast(
                     "mypy",
                     "--strict",
                     "--no-error-summary",
+                    # BC-176/184: suppress [empty-body] on .pyi stubs so that
+                    # interface ellipsis-body stubs don't fail inner mypy.
                     "--allow-empty-bodies",
                     str(impl_copy),
                 ],

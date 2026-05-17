@@ -27,9 +27,8 @@ class TestPreGateImplementation:
         assert result.diagnostics == []
 
     def test_fails_on_mypy_error(self, tmp_path):
-        # Use a genuine type error (int returned where str expected) rather
-        # than an empty-body, which is now allowed by --allow-empty-bodies
-        # (BC-176: uniform application across all mypy gates).
+        # Use a genuine return-type mismatch (not empty-body) so --allow-empty-bodies
+        # does not suppress the error (BC-184/BC-176).
         artifact = tmp_path / "interface.py"
         artifact.write_text("def hello() -> str:\n    return 42\n")
         interface_pyi = tmp_path / "interface.pyi"
@@ -126,8 +125,8 @@ class TestPreGateImplementation:
         assert not result.pytest_passed
 
     def test_mypy_failure_skips_pytest(self, tmp_path):
-        # Use a genuine type error (int returned where str expected) — empty
-        # body is now allowed by --allow-empty-bodies (BC-176).
+        # Use a genuine return-type mismatch (not empty-body) so --allow-empty-bodies
+        # does not suppress the error (BC-184/BC-176).
         artifact = tmp_path / "interface.py"
         artifact.write_text("def hello() -> str:\n    return 42\n")
         interface_pyi = tmp_path / "interface.pyi"
@@ -251,6 +250,178 @@ class TestCopyDependencyPyis:
             copy_dependency_pyis(tmpdir, [("my_module", dep_pyi)])
             assert (Path(tmpdir) / "my_module.py").exists()
             assert (Path(tmpdir) / "my_module.pyi").exists()
+
+    def test_py_shadow_has_raise_not_ellipsis(self, tmp_path):
+        """BC-184: the .py shadow must not contain raw ... bodies."""
+        import tempfile
+
+        dep_pyi = tmp_path / "dep.pyi"
+        dep_pyi.write_text(
+            "class Repo:\n"
+            "    def add(self, item: str) -> None: ...\n"
+            "    def get(self, id: int) -> str: ...\n"
+        )
+        with tempfile.TemporaryDirectory(prefix="sf2_test_") as tmpdir:
+            copy_dependency_pyis(tmpdir, [("my_module", dep_pyi)])
+            py_content = (Path(tmpdir) / "my_module.py").read_text()
+            # The .py shadow must not have bare ellipsis bodies
+            assert "raise NotImplementedError" in py_content
+            assert "def add" in py_content
+            assert "def get" in py_content
+            # The .pyi shadow keeps the original stub content
+            pyi_content = (Path(tmpdir) / "my_module.pyi").read_text()
+            assert "..." in pyi_content
+
+
+class TestBC184AbstractAttributesRetryTrap:
+    """Regression tests for BC-184: dependency .pyi with ... bodies must not
+    trigger mypy [empty-body]/[misc] 'has abstract attributes' when the
+    downstream impl is type-checked through the inner mypy gate."""
+
+    def test_ac1_gr036_pattern_does_not_fire_mypy_error(self, tmp_path):
+        """AC-1: concrete dep class with multi-method ... bodies passes inner mypy.
+
+        Reproduces the exact GR-036 failure shape: database_layer.pyi declares
+        SqliteCertificateRepository with 6 methods using ellipsis bodies.  An impl
+        that subclasses it and implements all methods must pass _run_mypy_fast
+        without retry exhaustion.
+        """
+        from factory.pre_gate import _run_mypy_fast
+
+        dep_pyi = tmp_path / "database_layer.pyi"
+        dep_pyi.write_text(
+            "class SqliteCertificateRepository:\n"
+            '    """Satisfies AC-1."""\n'
+            "    def add(self, cert: str) -> None: ...\n"
+            "    def delete(self, id: int) -> None: ...\n"
+            "    def get_by_id(self, id: int) -> str: ...\n"
+            "    def list_all(self) -> list[str]: ...\n"
+            "    def list_expiring_within(self, days: int) -> list[str]: ...\n"
+            "    def update_expiry(self, id: int, new_date: str) -> None: ...\n"
+            "\n"
+            "class SqliteAlertRepository:\n"
+            '    """Satisfies AC-2."""\n'
+            "    def create(self, alert: str) -> None: ...\n"
+            "    def list_pending(self) -> list[str]: ...\n"
+            "    def mark_failed(self, id: int) -> None: ...\n"
+            "    def mark_sent(self, id: int) -> None: ...\n"
+        )
+
+        impl = tmp_path / "interface.py"
+        impl.write_text(
+            "from database_layer import SqliteCertificateRepository, SqliteAlertRepository\n"
+            "\n"
+            "class CertImpl(SqliteCertificateRepository):\n"
+            "    def add(self, cert: str) -> None: pass\n"
+            "    def delete(self, id: int) -> None: pass\n"
+            "    def get_by_id(self, id: int) -> str: return ''\n"
+            "    def list_all(self) -> list[str]: return []\n"
+            "    def list_expiring_within(self, days: int) -> list[str]: return []\n"
+            "    def update_expiry(self, id: int, new_date: str) -> None: pass\n"
+            "\n"
+            "class AlertImpl(SqliteAlertRepository):\n"
+            "    def create(self, alert: str) -> None: pass\n"
+            "    def list_pending(self) -> list[str]: return []\n"
+            "    def mark_failed(self, id: int) -> None: pass\n"
+            "    def mark_sent(self, id: int) -> None: pass\n"
+        )
+
+        iface_pyi = tmp_path / "interface.pyi"
+        iface_pyi.write_text(
+            "from database_layer import SqliteCertificateRepository, SqliteAlertRepository\n"
+            "class CertImpl(SqliteCertificateRepository): ...\n"
+            "class AlertImpl(SqliteAlertRepository): ...\n"
+        )
+
+        result = _run_mypy_fast(
+            impl,
+            interface_pyi_path=iface_pyi,
+            dependency_pyi_paths=[("database_layer", dep_pyi)],
+        )
+        # AC-1: must NOT fail with abstract-attributes / empty-body error on dep .pyi
+        assert result["passed"], (
+            f"BC-184 regression: inner mypy fired on dep .pyi stub bodies.\n"
+            f"Diagnostics: {result['diagnostics']}"
+        )
+
+    def test_ac2_genuine_abstract_class_misuse_still_errors(self, tmp_path):
+        """AC-2: impl that declares wrong return type is still caught by mypy.
+
+        Ensures the fix does not suppress genuine type errors — the gate must
+        still reject an impl that returns the wrong type.
+        """
+        from factory.pre_gate import _run_mypy_fast
+
+        dep_pyi = tmp_path / "dep_iface.pyi"
+        dep_pyi.write_text("class Repository:\n    def get(self, id: int) -> str: ...\n")
+
+        # Impl returns int instead of str — a real type error
+        impl = tmp_path / "interface.py"
+        impl.write_text(
+            "from dep_iface import Repository\n"
+            "\n"
+            "class ConcreteRepo(Repository):\n"
+            "    def get(self, id: int) -> int:  # wrong return type\n"
+            "        return id\n"
+        )
+
+        iface_pyi = tmp_path / "interface.pyi"
+        iface_pyi.write_text(
+            "from dep_iface import Repository\nclass ConcreteRepo(Repository): ...\n"
+        )
+
+        result = _run_mypy_fast(
+            impl,
+            interface_pyi_path=iface_pyi,
+            dependency_pyi_paths=[("dep_iface", dep_pyi)],
+        )
+        # AC-2: genuine type error must still be caught
+        assert not result["passed"], (
+            "BC-184: genuine return-type mismatch should still fail mypy, "
+            "but the gate passed unexpectedly."
+        )
+
+
+class TestStubContentToPy:
+    """Unit tests for _stub_content_to_py helper (BC-184)."""
+
+    def test_replaces_ellipsis_method_bodies(self):
+        from factory.pre_gate import _stub_content_to_py
+
+        stub = (
+            "class Repo:\n"
+            "    def add(self, x: str) -> None: ...\n"
+            "    def get(self, id: int) -> str: ...\n"
+        )
+        result = _stub_content_to_py(stub)
+        assert "raise NotImplementedError" in result
+        assert "def add" in result
+        assert "def get" in result
+        # Ellipsis bodies gone
+        assert "... " not in result.replace("...\n", "")
+
+    def test_preserves_class_attributes(self):
+        from factory.pre_gate import _stub_content_to_py
+
+        stub = "class Model:\n    name: str\n    count: int\n"
+        result = _stub_content_to_py(stub)
+        assert "name" in result
+        assert "count" in result
+
+    def test_handles_syntax_error_gracefully(self):
+        from factory.pre_gate import _stub_content_to_py
+
+        bad = "class Broken(\n"
+        result = _stub_content_to_py(bad)
+        # Falls back to original on parse failure
+        assert result == bad
+
+    def test_none_return_methods_also_replaced(self):
+        from factory.pre_gate import _stub_content_to_py
+
+        stub = "class Service:\n    def start(self) -> None: ...\n    def stop(self) -> None: ...\n"
+        result = _stub_content_to_py(stub)
+        assert "raise NotImplementedError" in result
 
 
 class TestPreGateInterfaceSpec:
