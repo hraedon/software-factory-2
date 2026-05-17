@@ -102,7 +102,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-007 | Test efficacy scoring via mutation testing gates — v1 BC-107/186, mechanical antidote to test theater | high | Phase 4–5 (jury / real workload) |
 | RFC-009 | Interactive debugging inner loop — channel tool-use surface for implementer | high | Phase 5+ (evidence threshold: 3+ golden runs with pytest-in-inner-loop still failing) |
 | RFC-010 | Fixture taxonomy — classify fixtures by architectural complexity class and gate Phase N exit criteria on the hardest exercised class | high | Phase 2 exit criteria |
-| RFC-011 | Unified gate evaluation — extract shared subprocess execution layer to eliminate drift between outer and inner gate implementations | medium | Phase 3 (multi-channel gates) |
+| RFC-011 | Unified subprocess execution layer — typed wrapper eliminating gate/runner subprocess footguns (closes CLASS-005 + CLASS-008; status `in_progress`, target validation GR-039) | medium | Phase 5 in-flight |
 | RFC-022 | Initiative primitive for work-item bundling and operational granularity | medium | Phase 5 (first real workload) |
 
 ## Resolved

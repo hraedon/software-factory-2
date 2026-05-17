@@ -44,3 +44,33 @@ Add a coverage threshold to CI. Require new code paths to carry at least one int
 | 110  | Missing adversarial/fuzz tests for channel output parsing |
 | 117  | Scheduler pagination has no integration test |
 | 153  | Three test files have conditionally-skipped assertions |
+
+## Status under RFC-030
+
+**Decision: symptom-fixed-because (Path B). No systemic-fix RFC.**
+
+The 14 instances fall into three orthogonal categories rather than one
+common shape: (1) test infrastructure gaps (006, 007, 022) — now
+resolved by MockSubstrate and public fixtures; (2) code-path coverage
+misses (011, 014, 019, 020, 031, 064, 081, 110, 117) — scattered
+across the codebase with no common code area or discipline failure;
+(3) test-quality defects (029, 153) — design flaws in individual tests.
+No single invariant rule would catch all three categories. A
+pre-commit hook requiring `tests/test_*.py` for every src file would
+over-police light-touch unit tests; RFC-027 (mutation testing) is
+Phase 6 work and catches *ineffective* tests, not *missing* ones.
+
+The 14 instances are the artifact of a build-first-test-later delivery
+cadence that is now resolved. Each fixed instance contributed to
+strengthened test infrastructure; the class is stabilizing, not
+expanding into new code areas. Continue fixing symptom-by-symptom
+until instances drop to ≤3 active, at which point the class can be
+formally closed. Under RFC-030's promotion rule, no new RFC is
+required and the instances table remains open to new entries —
+provided each new entry is fixed in-flight rather than accumulated as
+debt.
+
+The trigger to revisit this rationale: any cluster of 3+ new instances
+in a single golden run, or any single new instance whose shape matches
+none of the three categories above. Either would suggest the
+"orthogonal shapes" assessment has decayed.
