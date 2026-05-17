@@ -4,7 +4,6 @@ import ast
 import difflib
 import logging
 import re
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +20,7 @@ from factory.constants import (
     TEMPFILE_PREFIX_PYTEST,
 )
 from factory.sandbox import gate_subprocess_env
+from factory.subprocess import run as run_subprocess
 
 _IMPORT_FEEDBACK_KIND_DOTTED_SUBMODULE = "dotted_submodule"
 _IMPORT_FEEDBACK_KIND_WRONG_MODULE_NAME = "wrong_module_name"
@@ -866,14 +866,14 @@ def _run_import_check(
             module_copy = Path(tmpdir) / f"{module_stem}.py"
             module_copy.write_text(artifact_path.read_text())
             copy_dependency_pyis(tmpdir, dependency_pyi_paths)
-            result = subprocess.run(
-                [exe, "-c", f"import {module_stem}"],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=tmpdir,
+            result = run_subprocess(
+                cmd=[exe, "-c", f"import {module_stem}"],
+                cwd=Path(tmpdir),
                 env=gate_subprocess_env(PYTHONPATH=tmpdir),
+                timeout_s=timeout,
             )
+            if result.timed_out:
+                return _fail([f"import check timed out after {timeout}s"])
             if result.returncode != 0:
                 lines = result.stderr.strip().splitlines()
                 diags = lines[:5] if lines else ["import check failed"]
@@ -896,8 +896,6 @@ def _run_import_check(
                     "import_feedback_kind": feedback_kind,
                     "import_feedback": feedback_msg,
                 }
-    except subprocess.TimeoutExpired:
-        return _fail([f"import check timed out after {timeout}s"])
     except Exception as e:
         return _fail([f"import check failed: {e}"])
     return _ok()
@@ -924,14 +922,14 @@ def _run_collect_only(
                 iface_py = Path(tmpdir) / "interface.py"
                 iface_py.write_text(interface_pyi_path.read_text())
             copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
-            result = subprocess.run(
-                [exe, "-m", "pytest", "--collect-only", "-q", str(test_copy)],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=tmpdir,
+            result = run_subprocess(
+                cmd=[exe, "-m", "pytest", "--collect-only", "-q", str(test_copy)],
+                cwd=Path(tmpdir),
                 env=gate_subprocess_env(PYTHONPATH=tmpdir),
+                timeout_s=timeout,
             )
+            if result.timed_out:
+                return _fail([f"pytest collect-only timed out after {timeout}s"])
             if result.returncode != 0:
                 if "No module named pytest" in result.stderr:
                     return _fail(["pytest not installed"])
@@ -941,8 +939,6 @@ def _run_collect_only(
                 diags = combined[:5] if combined else ["pytest collect-only failed"]
                 raw = _truncate_raw_output(result.stdout + "\n" + result.stderr)
                 return _fail(diags, raw)
-    except subprocess.TimeoutExpired:
-        return _fail([f"pytest collect-only timed out after {timeout}s"])
     except Exception as e:
         return _fail([f"pytest collect-only failed: {e}"])
     return _ok()
@@ -968,8 +964,8 @@ def _run_mypy_fast(
             stub_copy = Path(tmpdir) / "interface.pyi"
             stub_copy.write_text(interface_pyi_path.read_text())
             copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
-            result = subprocess.run(
-                [
+            result = run_subprocess(
+                cmd=[
                     exe,
                     "-m",
                     "mypy",
@@ -980,20 +976,18 @@ def _run_mypy_fast(
                     "--allow-empty-bodies",
                     str(impl_copy),
                 ],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=tmpdir,
+                cwd=Path(tmpdir),
                 env=gate_subprocess_env(MYPYPATH=tmpdir),
+                timeout_s=timeout,
             )
+            if result.timed_out:
+                return _fail([f"mypy timed out after {timeout}s"])
             if result.returncode != 0:
                 if "No module named mypy" in result.stderr:
                     return _fail(["mypy not installed"])
                 lines = result.stdout.strip().splitlines()
                 diags = lines[:10] if lines else ["mypy reported errors"]
                 return _fail(diags, _truncate_raw_output(result.stdout))
-    except subprocess.TimeoutExpired:
-        return _fail([f"mypy timed out after {timeout}s"])
     except Exception as e:
         return _fail([f"mypy invocation failed: {e}"])
     return _ok()
@@ -1031,8 +1025,8 @@ def _run_ruff_fast(
             tmp_copy = Path(tmpdir) / artifact_path.name
             tmp_copy.write_text(original_content)
             ruff_env = gate_subprocess_env()
-            subprocess.run(
-                [
+            run_subprocess(
+                cmd=[
                     exe,
                     "-m",
                     "ruff",
@@ -1043,32 +1037,30 @@ def _run_ruff_fast(
                     INNER_GATE_RUFF_UNSAFE_FIXES,
                     str(tmp_copy),
                 ],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
+                cwd=Path(tmpdir),
                 env=ruff_env,
+                timeout_s=timeout,
             )
-            subprocess.run(
-                [exe, "-m", "ruff", "check", "--fix", *check_args, str(tmp_copy)],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
+            run_subprocess(
+                cmd=[exe, "-m", "ruff", "check", "--fix", *check_args, str(tmp_copy)],
+                cwd=Path(tmpdir),
                 env=ruff_env,
+                timeout_s=timeout,
             )
-            subprocess.run(
-                [exe, "-m", "ruff", "format", str(tmp_copy)],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
+            run_subprocess(
+                cmd=[exe, "-m", "ruff", "format", str(tmp_copy)],
+                cwd=Path(tmpdir),
                 env=ruff_env,
+                timeout_s=timeout,
             )
-            result = subprocess.run(
-                [exe, "-m", "ruff", "check", *check_args, str(tmp_copy)],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
+            result = run_subprocess(
+                cmd=[exe, "-m", "ruff", "check", *check_args, str(tmp_copy)],
+                cwd=Path(tmpdir),
                 env=ruff_env,
+                timeout_s=timeout,
             )
+            if result.timed_out:
+                return _fail([f"ruff timed out after {timeout}s"])
             if result.returncode != 0:
                 lines = result.stdout.strip().splitlines()
                 diags = lines[:10] if lines else ["ruff check reported errors"]
@@ -1081,8 +1073,6 @@ def _run_ruff_fast(
                     "raw_output": "",
                     "ruff_fixed_content": fixed_content,
                 }
-    except subprocess.TimeoutExpired:
-        return _fail([f"ruff timed out after {timeout}s"])
     except Exception as e:
         return _fail([f"ruff invocation failed: {e}"])
     return _ok()
@@ -1117,8 +1107,8 @@ def _run_pytest_fast(
             test_copy = Path(tmpdir) / test_suite_path.name
             test_copy.write_text(test_suite_path.read_text())
             copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
-            result = subprocess.run(
-                [
+            result = run_subprocess(
+                cmd=[
                     exe,
                     "-m",
                     "pytest",
@@ -1127,12 +1117,12 @@ def _run_pytest_fast(
                     "--tb=short",
                     "-q",
                 ],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=tmpdir,
+                cwd=Path(tmpdir),
                 env=gate_subprocess_env(PYTHONPATH=tmpdir),
+                timeout_s=timeout,
             )
+            if result.timed_out:
+                return _fail([f"pytest timed out after {timeout}s"])
             if result.returncode != 0:
                 if "No module named pytest" in result.stderr:
                     return _fail(["pytest not installed"])
@@ -1142,8 +1132,6 @@ def _run_pytest_fast(
                 diags = combined[-3:] if combined else ["pytest reported failures"]
                 raw = _truncate_raw_output(result.stdout + "\n" + result.stderr)
                 return _fail(diags, raw)
-    except subprocess.TimeoutExpired:
-        return _fail([f"pytest timed out after {timeout}s"])
     except Exception as e:
         return _fail([f"pytest invocation failed: {e}"])
     return _ok()

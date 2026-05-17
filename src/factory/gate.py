@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 import shutil
-import subprocess
 import sys
 import warnings
 from dataclasses import dataclass, field
@@ -50,6 +49,7 @@ from factory.constants import (
 from factory.output_extraction import extract_json_from_output
 from factory.pre_gate import copy_dependency_pyis
 from factory.sandbox import gate_subprocess_env
+from factory.subprocess import run as run_subprocess
 
 
 @dataclass(frozen=True)
@@ -579,14 +579,19 @@ def _run_pytest_collect(
                 iface_copy = Path(tmpdir) / "interface.py"
                 iface_copy.write_text(interface_ref_pyi_path.read_text())
             copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
-            result = subprocess.run(
-                [exe, "-m", "pytest", "--collect-only", "-q", str(test_copy)],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=tmpdir,
+            result = run_subprocess(
+                cmd=[exe, "-m", "pytest", "--collect-only", "-q", str(test_copy)],
+                cwd=Path(tmpdir),
                 env=gate_subprocess_env(PYTHONPATH=tmpdir),
+                timeout_s=timeout,
             )
+            if result.timed_out:
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_TEST_SUITE_COLLECT,
+                    diagnostics=[f"pytest --collect-only timed out after {timeout}s"],
+                    diagnostic_kind="test_collect",
+                )
             if result.returncode != 0:
                 if "No module named pytest" in result.stderr:
                     return GateResult(
@@ -614,13 +619,6 @@ def _run_pytest_collect(
                     diagnostics=["pytest --collect-only reported 0 tests"],
                     diagnostic_kind="test_collect",
                 )
-    except subprocess.TimeoutExpired:
-        return GateResult(
-            passed=False,
-            gate_name=GATE_NAME_TEST_SUITE_COLLECT,
-            diagnostics=[f"pytest --collect-only timed out after {timeout}s"],
-            diagnostic_kind="test_collect",
-        )
     except Exception as e:
         return GateResult(
             passed=False,
@@ -656,8 +654,8 @@ def _run_mypy(
             stub_copy = Path(tmpdir) / "interface.pyi"
             stub_copy.write_text(interface_pyi_path.read_text())
             copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
-            result = subprocess.run(
-                [
+            result = run_subprocess(
+                cmd=[
                     exe,
                     "-m",
                     "mypy",
@@ -668,12 +666,17 @@ def _run_mypy(
                     "--allow-empty-bodies",
                     str(impl_copy),
                 ],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=tmpdir,
+                cwd=Path(tmpdir),
                 env=gate_subprocess_env(MYPYPATH=tmpdir),
+                timeout_s=timeout,
             )
+            if result.timed_out:
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
+                    diagnostics=[f"mypy timed out after {timeout}s", "timed_out: True"],
+                    diagnostic_kind="impl_mypy",
+                )
             if result.returncode != 0:
                 if "No module named mypy" in result.stderr:
                     return GateResult(
@@ -690,13 +693,6 @@ def _run_mypy(
                     diagnostics=diagnostics,
                     diagnostic_kind="impl_mypy",
                 )
-    except subprocess.TimeoutExpired:
-        return GateResult(
-            passed=False,
-            gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
-            diagnostics=[f"mypy timed out after {timeout}s"],
-            diagnostic_kind="impl_mypy",
-        )
     except Exception as e:
         return GateResult(
             passed=False,
@@ -729,8 +725,8 @@ def _run_pytest(
             test_copy = Path(tmpdir) / test_suite_path.name
             test_copy.write_text(test_suite_path.read_text())
             copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
-            result = subprocess.run(
-                [
+            result = run_subprocess(
+                cmd=[
                     exe,
                     "-m",
                     "pytest",
@@ -739,12 +735,17 @@ def _run_pytest(
                     "--tb=short",
                     "-q",
                 ],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=tmpdir,
+                cwd=Path(tmpdir),
                 env=gate_subprocess_env(PYTHONPATH=tmpdir),
+                timeout_s=timeout,
             )
+            if result.timed_out:
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
+                    diagnostics=[f"pytest timed out after {timeout}s", "timed_out: True"],
+                    diagnostic_kind="impl_pytest",
+                )
             if result.returncode != 0:
                 if "No module named pytest" in result.stderr:
                     return GateResult(
@@ -762,13 +763,6 @@ def _run_pytest(
                     diagnostics=diagnostics,
                     diagnostic_kind="impl_pytest",
                 )
-    except subprocess.TimeoutExpired:
-        return GateResult(
-            passed=False,
-            gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
-            diagnostics=[f"pytest timed out after {timeout}s"],
-            diagnostic_kind="impl_pytest",
-        )
     except Exception as e:
         return GateResult(
             passed=False,
@@ -799,27 +793,31 @@ def _run_ruff(
             tmp_copy = Path(tmpdir) / artifact_path.name
             tmp_copy.write_text(artifact_path.read_text())
             ruff_env = gate_subprocess_env()
-            subprocess.run(
-                [ruff, "check", "--fix", str(tmp_copy)],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
+            run_subprocess(
+                cmd=[ruff, "check", "--fix", str(tmp_copy)],
+                cwd=Path(tmpdir),
                 env=ruff_env,
+                timeout_s=timeout,
             )
-            subprocess.run(
-                [ruff, "format", str(tmp_copy)],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
+            run_subprocess(
+                cmd=[ruff, "format", str(tmp_copy)],
+                cwd=Path(tmpdir),
                 env=ruff_env,
+                timeout_s=timeout,
             )
-            result = subprocess.run(
-                [ruff, "check", str(tmp_copy)],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
+            result = run_subprocess(
+                cmd=[ruff, "check", str(tmp_copy)],
+                cwd=Path(tmpdir),
                 env=ruff_env,
+                timeout_s=timeout,
             )
+            if result.timed_out:
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_IMPLEMENTATION_LINT,
+                    diagnostics=[f"ruff timed out after {timeout}s", "timed_out: True"],
+                    diagnostic_kind="impl_lint",
+                )
             if result.returncode != 0:
                 lines = result.stdout.strip().splitlines()
                 diagnostics = lines[:10] if lines else ["ruff reported lint issues"]
@@ -829,13 +827,6 @@ def _run_ruff(
                     diagnostics=diagnostics,
                     diagnostic_kind="impl_lint",
                 )
-    except subprocess.TimeoutExpired:
-        return GateResult(
-            passed=False,
-            gate_name=GATE_NAME_IMPLEMENTATION_LINT,
-            diagnostics=[f"ruff timed out after {timeout}s"],
-            diagnostic_kind="impl_lint",
-        )
     except Exception as e:
         return GateResult(
             passed=False,
@@ -1089,7 +1080,6 @@ def evaluate_integration(
     Mechanical gates: import resolution, mypy, pytest on assembled tree.
     """
     import json
-    import subprocess
     import tempfile
 
     t = gate_timeouts or GateTimeouts()
@@ -1200,14 +1190,19 @@ def evaluate_integration(
             "        errors.append(f'{pyf.name}: {exc}')\n"
             "print(json.dumps(errors))\n"
         )
-        import_result = subprocess.run(
-            [exe, "-c", _import_check_script, str(tmp_path)],
-            capture_output=True,
-            text=True,
-            timeout=t.pytest_timeout,
-            cwd=str(tmp_path),
+        import_result = run_subprocess(
+            cmd=[exe, "-c", _import_check_script, str(tmp_path)],
+            cwd=tmp_path,
             env=gate_subprocess_env(PYTHONPATH=str(tmp_path)),
+            timeout_s=t.pytest_timeout,
         )
+        if import_result.timed_out:
+            return GateResult(
+                passed=False,
+                gate_name=GATE_NAME_INTEGRATION_IMPORT,
+                diagnostics=["Import-check subprocess timed out", "timed_out: True"],
+                diagnostic_kind="integration_import",
+            )
         if import_result.returncode != 0:
             stderr = import_result.stderr.strip()
             return GateResult(
@@ -1251,8 +1246,8 @@ def evaluate_integration(
         #   emitted by interface_architect are not rejected by --strict.
         py_files_list = [str(f) for f in py_files]
         if py_files_list:
-            mypy_result = subprocess.run(
-                [
+            mypy_result = run_subprocess(
+                cmd=[
                     exe,
                     "-m",
                     "mypy",
@@ -1262,12 +1257,20 @@ def evaluate_integration(
                     "--allow-empty-bodies",
                     str(tmp_path),
                 ],
-                capture_output=True,
-                text=True,
-                timeout=t.mypy_timeout,
-                cwd=str(tmp_path),
+                cwd=tmp_path,
                 env=gate_subprocess_env(MYPYPATH=str(tmp_path)),
+                timeout_s=t.mypy_timeout,
             )
+            if mypy_result.timed_out:
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_INTEGRATION_MYPY,
+                    diagnostics=[
+                        f"mypy timed out after {t.mypy_timeout}s",
+                        "timed_out: True",
+                    ],
+                    diagnostic_kind="integration_mypy",
+                )
             if "No module named mypy" in mypy_result.stderr:
                 return GateResult(
                     passed=False,
@@ -1294,8 +1297,8 @@ def evaluate_integration(
         if integration_tests:
             test_path = tmp_path / "integration_tests.py"
             test_path.write_text(str(integration_tests))
-            pytest_result = subprocess.run(
-                [
+            pytest_result = run_subprocess(
+                cmd=[
                     exe,
                     "-m",
                     "pytest",
@@ -1307,12 +1310,20 @@ def evaluate_integration(
                     "-p",
                     "no:cacheprovider",
                 ],
-                capture_output=True,
-                text=True,
-                timeout=t.pytest_timeout,
-                cwd=str(tmp_path),
+                cwd=tmp_path,
                 env=gate_subprocess_env(PYTHONPATH=str(tmp_path)),
+                timeout_s=t.pytest_timeout,
             )
+            if pytest_result.timed_out:
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_INTEGRATION_PYTEST,
+                    diagnostics=[
+                        f"integration pytest timed out after {t.pytest_timeout}s",
+                        "timed_out: True",
+                    ],
+                    diagnostic_kind="integration_pytest",
+                )
             if "No module named pytest" in pytest_result.stderr:
                 return GateResult(
                     passed=False,
