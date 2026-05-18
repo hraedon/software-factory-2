@@ -542,7 +542,7 @@ def process_work_item(
         actor_id=actor_id,
         channel=channel.name,
         family=effective_family,
-        model=None,
+        model=invoke_result.model,
         context_hash=ctx.context_hash,
     )
     write_artifact(ad, invoke_result.artifact_name, artifact_data, manifest)
@@ -550,6 +550,7 @@ def process_work_item(
         role=role_name,
         channel=channel.name,
         family=effective_family,
+        model=invoke_result.model,
         attempt_n=attempt_number,
         context_hash=ctx.context_hash,
         prompt_template_hash=ctx.prompt_template_hash,
@@ -1088,6 +1089,9 @@ def _process_jury_work_item(
         actor_id=actor_id,
         channel="jury_aggregate",
         family="multi",
+        # RFC-034: jury aggregate spans multiple jurors with potentially
+        # different models — no single resolved model applies. None is
+        # correct here, not a gap.
         model=None,
         context_hash=ctx.context_hash,
     )
@@ -1096,6 +1100,7 @@ def _process_jury_work_item(
         role=ROLE_FRONTIER_JUDGE,
         channel="jury_aggregate",
         family="multi",
+        model=None,
         attempt_n=attempt_number,
         context_hash=ctx.context_hash,
         prompt_template_hash=ctx.prompt_template_hash,

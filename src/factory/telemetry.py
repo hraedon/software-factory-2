@@ -281,6 +281,11 @@ class GateAttempt:
     passed: bool
     prompt_template_hash: str | None = None
     duration_seconds: float | None = None
+    # RFC-034: resolved model string at the time of the attempt. None means
+    # the channel did not (or could not) resolve a single model — e.g. jury
+    # aggregate, or legacy rows from before the model field was plumbed
+    # through. NULL is treated as a distinct bucket by `compute_pass_rates`.
+    model: str | None = None
 
 
 def collect_gate_attempts(sub: Substrate, config: FactoryConfig) -> list[GateAttempt]:
@@ -316,6 +321,7 @@ def collect_gate_attempts(sub: Substrate, config: FactoryConfig) -> list[GateAtt
                                         gate_name=iga.get("gate_name", "unknown"),
                                         passed=iga.get("passed", False),
                                         duration_seconds=worker_duration,
+                                        model=worker_meta.get("model"),
                                     )
                                 )
                     except EventSchemaError:
@@ -360,6 +366,7 @@ def collect_gate_attempts(sub: Substrate, config: FactoryConfig) -> list[GateAtt
                     passed=ev.transition == TRANSITION_GATE_PASS,
                     prompt_template_hash=worker_meta.get("prompt_template_hash"),
                     duration_seconds=worker_duration,
+                    model=worker_meta.get("model"),
                 ),
             )
     return attempts
@@ -377,6 +384,9 @@ class PassRateRow:
     prompt_template_hash: str | None = None
     mean_duration_seconds: float | None = None
     median_duration_seconds: float | None = None
+    # RFC-034: resolved model string. NULL is a distinct bucket — pre-RFC-034
+    # rows or genuine "no single model" cases like jury aggregate.
+    model: str | None = None
 
     @property
     def first_attempt_rate(self) -> str:
@@ -404,13 +414,20 @@ class PassRateRow:
 
 
 def compute_pass_rates(attempts: list[GateAttempt]) -> list[PassRateRow]:
-    by_key: dict[tuple[str, str, str, str, str | None], list[GateAttempt]] = defaultdict(list)
+    # RFC-034: model is part of the grouping key so that a channel whose
+    # underlying model snapshot changes (e.g. kimi-k2.6 → kimi-k2.7) does
+    # not silently merge into one confounded bucket.
+    by_key: dict[
+        tuple[str, str, str, str, str | None, str | None], list[GateAttempt]
+    ] = defaultdict(list)
     for a in attempts:
-        key = (a.role, a.channel, a.family, a.gate_name, a.prompt_template_hash)
+        key = (a.role, a.channel, a.family, a.gate_name, a.prompt_template_hash, a.model)
         by_key[key].append(a)
 
     rows: list[PassRateRow] = []
-    for (role, channel, family, gate_name, prompt_template_hash), group in sorted(by_key.items()):
+    for (
+        role, channel, family, gate_name, prompt_template_hash, model
+    ), group in sorted(by_key.items(), key=lambda kv: tuple("" if x is None else x for x in kv[0])):
         per_item: dict[str, list[GateAttempt]] = defaultdict(list)
         for a in group:
             per_item[a.work_item_id].append(a)
@@ -450,6 +467,7 @@ def compute_pass_rates(attempts: list[GateAttempt]) -> list[PassRateRow]:
                 prompt_template_hash=prompt_template_hash,
                 mean_duration_seconds=mean_duration,
                 median_duration_seconds=median_duration,
+                model=model,
             )
         )
     return rows
@@ -460,37 +478,49 @@ def format_pass_rate_table(rows: list[PassRateRow]) -> str:
         return "No gate evaluation data found."
 
     lines: list[str] = []
-    lines.append("=" * 118)
-    lines.append("Telemetry: Per-(Role, Channel, Gate, PromptHash) Pass-Rate Report")
-    lines.append("=" * 118)
+    lines.append("=" * 138)
+    lines.append("Telemetry: Per-(Role, Channel, Model, Gate, PromptHash) Pass-Rate Report")
+    lines.append("=" * 138)
     lines.append("")
     header = (
-        f"  {'Role':22s}  {'Channel':12s}  {'Family':10s}  "
+        f"  {'Role':22s}  {'Channel':12s}  {'Family':10s}  {'Model':18s}  "
         f"{'Gate':28s}  {'Hash':>8s}  {'Items':>5s}  {'1st-Att':>7s}  "
         f"{'Overall':>7s}  {'MeanDur':>7s}"
     )
     lines.append(header)
     sep = (
-        f"  {'-' * 22}  {'-' * 12}  {'-' * 10}  {'-' * 28}  "
+        f"  {'-' * 22}  {'-' * 12}  {'-' * 10}  {'-' * 18}  {'-' * 28}  "
         f"{'-' * 8}  {'-' * 5}  {'-' * 7}  {'-' * 7}  {'-' * 7}"
     )
     lines.append(sep)
 
+    null_model_rows = 0
     for row in rows:
+        model_label = (row.model or "—")[:18]
+        if row.model is None:
+            null_model_rows += 1
         lines.append(
-            f"  {row.role:22s}  {row.channel:12s}  {row.family:10s}  "
+            f"  {row.role:22s}  {row.channel:12s}  {row.family:10s}  {model_label:18s}  "
             f"{row.gate_name:28s}  {row.hash_prefix:>8s}  {row.total_evaluations:>5d}  "
             f"{row.first_attempt_rate:>7s}  {row.overall_rate:>7s}  "
             f"{row.mean_duration_label:>7s}"
         )
 
-    # Detect confounded groups: same role/channel/family/gate with multiple hashes
+    # RFC-034: detect confounded groups along both prompt and model axes.
+    # Same role/channel/family/gate with multiple hashes OR multiple models
+    # is a comparison-group confound.
     from collections import defaultdict
 
     by_four: dict[tuple[str, str, str, str], set[str | None]] = defaultdict(set)
+    by_four_models: dict[tuple[str, str, str, str], set[str | None]] = defaultdict(set)
     for r in rows:
-        by_four[(r.role, r.channel, r.family, r.gate_name)].add(r.prompt_template_hash)
+        k = (r.role, r.channel, r.family, r.gate_name)
+        by_four[k].add(r.prompt_template_hash)
+        by_four_models[k].add(r.model)
     confounded = [(k, hashes) for k, hashes in by_four.items() if len(hashes) > 1]
+    confounded_models = [
+        (k, models) for k, models in by_four_models.items() if len(models) > 1
+    ]
     if confounded:
         lines.append("")
         for (role, channel, family, gate_name), hashes in confounded:
@@ -498,6 +528,22 @@ def format_pass_rate_table(rows: list[PassRateRow]) -> str:
                 f"  WARNING: prompt changed within comparison group "
                 f"({role}/{channel}/{family}/{gate_name}); results confounded"
             )
+    if confounded_models:
+        if not confounded:
+            lines.append("")
+        for (role, channel, family, gate_name), models in confounded_models:
+            model_list = ", ".join(sorted(m or "<null>" for m in models))
+            lines.append(
+                f"  WARNING: model changed within comparison group "
+                f"({role}/{channel}/{family}/{gate_name}); models seen: {model_list}; "
+                f"results confounded"
+            )
+    if null_model_rows and null_model_rows < len(rows):
+        lines.append("")
+        lines.append(
+            f"  NOTE: {null_model_rows}/{len(rows)} rows have model=NULL "
+            f"(pre-RFC-034 rows or genuine no-single-model cases like jury_aggregate)."
+        )
 
     total_items = sum(r.total_evaluations for r in rows)
     total_first = sum(r.first_attempt_passes for r in rows)

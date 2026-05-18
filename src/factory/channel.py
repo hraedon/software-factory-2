@@ -13,6 +13,11 @@ class InvocationResult:
     exit_code: int | None = None
     timed_out: bool = False
     family: str | None = None
+    # RFC-034: resolved model string (e.g. "claude-sonnet-4-6", "kimi/k2.6-turbo").
+    # Channels populate this with whatever model the subprocess was actually
+    # invoked against. None only for adapters that don't have a single model
+    # (e.g. the jury aggregator).
+    model: str | None = None
 
 
 @runtime_checkable

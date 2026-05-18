@@ -109,6 +109,7 @@ class SubprocessChannel:
                     exit_code=None,
                     timed_out=True,
                     family=invocation_family,
+                    model=model,
                 )
             if result.returncode == -1 and not result.timed_out:
                 return InvocationResult(
@@ -116,6 +117,7 @@ class SubprocessChannel:
                     error_message=f"{self.CMD[0] if self.CMD else 'command'} not found in PATH",
                     exit_code=None,
                     family=invocation_family,
+                    model=model,
                 )
 
             if result.returncode != 0:
@@ -124,6 +126,7 @@ class SubprocessChannel:
                     error_message=result.stderr[:2000] if result.stderr else "Non-zero exit code",
                     exit_code=result.returncode,
                     family=invocation_family,
+                    model=model,
                 )
 
             output_text = result.stdout
@@ -136,6 +139,7 @@ class SubprocessChannel:
                     ),
                     exit_code=result.returncode,
                     family=invocation_family,
+                    model=model,
                 )
 
             raw_path = outputs_dir / ARTIFACT_FILENAME_RAW_STDOUT
@@ -165,6 +169,7 @@ class SubprocessChannel:
                     error_message="; ".join(err_parts),
                     exit_code=result.returncode,
                     family=invocation_family,
+                    model=model,
                 )
 
             break
@@ -178,6 +183,7 @@ class SubprocessChannel:
                 artifact_name=None,
                 error_message="cannot_proceed",
                 family=invocation_family,
+                model=model,
             )
 
         artifact_content = extract_artifact_from_output(output_text)
@@ -190,6 +196,7 @@ class SubprocessChannel:
                 ),
                 exit_code=result.returncode,
                 family=invocation_family,
+                model=model,
             )
 
         ext = self._artifact_extension_for_role(role)
@@ -200,4 +207,5 @@ class SubprocessChannel:
             success=True,
             artifact_name=artifact_name,
             family=invocation_family,
+            model=model,
         )

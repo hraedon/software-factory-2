@@ -2,7 +2,7 @@
 number: "RFC-034"
 title: "Capture model identity (resolved model string) in telemetry keys"
 severity: high
-status: proposed
+status: implemented
 kind: design
 author: claude
 date: "2026-05-18"
@@ -42,3 +42,28 @@ This is a Phase-3 blocker: without it, the entire "data-driven placement" premis
 ## Open question
 
 Should `prompt_template_hash` and `model` interact? A new model version may need a new prompt template. If both vary independently, the cardinality of the placement table grows; if we treat them as paired, we lose the ability to A/B test prompt changes against a fixed model. **Recommend: keep them independent; document the cardinality cost.**
+
+## Resolution
+
+Implemented as specified. `model` is independent of `prompt_template_hash` in the grouping key (per the open-question recommendation).
+
+**Files changed:**
+
+- `src/factory/channel.py`: `InvocationResult` dataclass gains `model: str | None = None`.
+- `src/factory/subprocess_channel.py`: all 8 `InvocationResult(...)` return sites in `invoke()` pass `model=model` (where `model = model_override or role_config.model`). `opencode_channel.py` inherits from `SubprocessChannel` so no separate change needed.
+- `src/factory/runner.py`: the worker-submit `ArtifactManifest(...)` and `ActorMetadata(...)` (line ~536, ~549) now set `model=invoke_result.model`. The jury-aggregate site (line ~1083) keeps `model=None` with a comment — it is genuinely multi-model, not a gap.
+- `src/factory/telemetry.py`:
+  - `GateAttempt` gains `model: str | None = None`.
+  - `PassRateRow` gains `model: str | None = None`.
+  - `collect_gate_attempts` reads `worker_meta.get("model")` for both inner-gate attempts and standalone `gate_pass`/`gate_fail` events.
+  - `compute_pass_rates` adds `model` to the grouping key and the sort key (NULL-safe via `"" if x is None else x`).
+  - `format_pass_rate_table` adds a Model column (18 chars), widens the divider to 138 chars, warns on multi-model comparison groups (mirroring the existing prompt-hash confound warning), and emits a NOTE when partial NULL-model rows are present.
+- `spec.md` §10 (principle) and §7 (observability) rewritten to reflect the (role, channel, model, gate, prompt-template-hash) key.
+
+**NULL-row handling:** Existing legacy rows (pre-RFC-034 events with no `model` in actor_metadata) become a distinct `model=None` bucket — *not* merged with any resolved-model bucket. The formatter emits a NOTE counting NULL rows so operators know whether the table is on the new or old basis.
+
+**Migration story:** No explicit migration. After one full golden run on the new code, NULL-model rows can be filtered out by `--exclude-null-model` if added to the CLI (deferred). Pre-RFC-034 substrate event payloads remain readable; `to_dict()` on `ActorMetadata` already supported `model`, so the wire format is unchanged.
+
+**Tests:** new `tests/test_rfc034_model_in_telemetry.py` covers (a) `InvocationResult` default + explicit, (b) `compute_pass_rates` produces separate buckets for distinct models on the same channel, (c) NULL model is a distinct bucket, (d) formatter emits the model-drift warning and the partial-NULL note. All 63 telemetry-related tests pass.
+
+**Phase-3 implication:** with this in, the placement layer (RFC-035) has trustworthy comparison groups to make decisions over. Without it, placement was operating on confounded data.

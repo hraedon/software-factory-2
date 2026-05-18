@@ -30,7 +30,7 @@ The principal of this factory is a systems architect, not a developer. The archi
 7. **Smaller-scoped roles than v1.** A role's scope is bounded such that drift between adjacent roles is structurally limited. "Skeleton for the whole feature" is too broad; v2 targets "skeleton for this single function with this signature."
 8. **Errors loop back to contract revision, not worker retry.** When two roles' artifacts don't fit at the seam, the most likely cause is an ambiguous contract, not a bad worker. Failures route back to the contract (interface-architect role) with structured context. Only after multiple revisions does the spec surface to the principal.
 9. **Jury-and-race for load-bearing gates.** With multiple Tier-A model channels available at marginal-cost-zero, frontier judgment is composed across model families. Single-model judgment is reserved for non-load-bearing checks.
-10. **Per-role per-channel telemetry drives model placement.** Substrate's event log produces empirical pass-rate data for every (role, channel) pair. Role-to-channel binding is configurable and updated based on data, not vibes. No silent promotion of cheaper models into load-bearing roles.
+10. **Per-(role, channel, model) telemetry drives model placement.** Substrate's event log produces empirical pass-rate data for every (role, channel, model, gate, prompt-template-hash) tuple. The resolved model string is captured at invocation time (RFC-034) so that a channel whose underlying model snapshot changes (e.g. `kimi-k2.6-turbo` → `kimi-k2.7-turbo`) does not silently merge into one confounded bucket. Role-to-channel binding is configurable and updated based on data, not vibes. No silent promotion of cheaper models into load-bearing roles.
 11. **Subscription-flat-rate cost model rewards aggressive gating.** All channels are flat-rate; the budget is wall-clock time and rate limits, not tokens. v2 should look paranoid by API-cost-economics standards: every artifact runs the full battery of gates.
 
 ## 4. Pipeline
@@ -168,7 +168,7 @@ One adapter per channel: `ClaudeCodeChannel`, `OpenCodeChannel`, `KimiAPIChannel
 ## 7. Observability
 
 - **Substrate event log** is authoritative. All actor metadata (role, channel, model, family, attempt #) is captured per event.
-- **Per-role per-channel pass-rate reporter** runs nightly (or on-demand), producing the table that drives role-binding decisions. Format: `(role, channel) → first-attempt pass rate, mean attempts to pass, mean wall-clock, gate-failure breakdown`.
+- **Per-(role, channel, model) pass-rate reporter** runs nightly (or on-demand), producing the table that drives role-binding decisions. Format: `(role, channel, model, gate, prompt_template_hash) → first-attempt pass rate, mean attempts to pass, mean wall-clock, gate-failure breakdown`. The formatter warns when a comparison group contains multiple prompt hashes OR multiple models — both are confounds for placement decisions (RFC-034).
 - **Outcome dashboard** for the principal: per-spec status, per-stage timing, escalations, dead-letters. Built on substrate's event store + Prometheus metrics. Exposes the *outcome*-level view, not code-level review.
 - **Fleet health** monitor: per-channel uptime, rate-limit hits, average latency. Drives fallback decisions.
 
