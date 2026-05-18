@@ -53,7 +53,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys
 - 5 workflow YAMLs: phase1.yaml, phase2.yaml, phase3.yaml, phase4.yaml (review + jury), full_pipeline.yaml
 - Spec lint integrated into `populate_work_items.py` (BC-127)
-- 947 passing tests, 0 lint errors
+- 1008 passing tests, 0 lint errors
 - Inner gate telemetry: submit payloads carry `inner_gate_attempts`; telemetry reports inner gate first-pass rate (BC-133)
 - Jury observability: `disagreement_rationale` always populated when quorum not met; `[all_against]` tag for all-failure cases (BC-134)
 - 38 golden runs executed (GR-001 through GR-038)
@@ -71,7 +71,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
   - GR-022: Phase 4 first run — 100% lock rate (15/15) on cert-watch-mini, all 5 roles exercised
   - GR-021: 100% lock rate (24/24) on cert-watch full DAG, K2-only; inner gate first-attempt rate 74%
 
-**Known issues:** 38 open breadcrumbs + 11 RFCs + 9 defect classes (172 resolved). See `breadcrumbs/README.md`.
+**Known issues:** 2 open breadcrumbs + 20 RFCs + 9 defect classes (190 resolved). See `breadcrumbs/README.md`.
 - BC-120 (medium, deferred): implementer-initiated interface amendment — awaiting ≥3 empirical instances
 - BC-145 (high, implemented): review/jury verdict routing — phase 1 done; phase 2 deferred to RFC-025
 

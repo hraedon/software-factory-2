@@ -78,6 +78,7 @@ Rationale: "file an RFC" diffuses ownership and has no time bound; the block rul
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 190 | Scheduler downstream dedup is racey and O(N); handoff iteration unfair | high | proposed (deferred to fleet integration; single-scheduler mode is safe) |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
 ### RFCs (awaiting upstream phases)
@@ -86,6 +87,9 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Phase Needed |
 |---|---|---|---|
+| RFC-036 | Eliminate substrate private-API imports; split gate.py into a gate/ package | medium | Phase 5 in-flight |
+| RFC-035 | Data-driven channel placement layer — consume PassRateRow to propose role→channel config | high | Phase 3 (fleet integration) |
+| RFC-034 | Capture model identity (resolved model string) in telemetry keys | high | Phase 3 (fleet integration) |
 | RFC-033 | Guardrail lifecycle — tag preconditions, audit on invariant change (v1-lesson meta-defense) | medium | Phase 5 in-flight |
 | RFC-032 | Breadcrumb-velocity circuit breaker — freeze new feature scope when arrival rate exceeds absorption (v1-lesson meta-defense) | medium | Phase 5 in-flight |
 | RFC-031 | Fix-family root-cause requirement — BCs citing related BCs must explain missing invariant (v1-lesson meta-defense) | medium | Phase 5 in-flight |
@@ -108,6 +112,11 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 192 | Telemetry verify and pass-rate formatter use different unknown-rate thresholds | low | `TELEMETRY_UNKNOWN_RATE_THRESHOLD = 0.01` constant in `constants.py`; both `format_pass_rate_table` and `run_telemetry_verify` use it; label updated to `[target: <1%]` |
+| 191 | Context builder renders review_feedback twice and emits raw model text into prompt structure | medium | Deduped via `rendered_keys` set; all extra_artifact values fenced in triple-backtick code blocks; 4 tests |
+| 189 | src/factory/checkpoint.py is dead code; RFC-008 unfulfilled or cancelled | medium | Option A: module + test deleted; RFC-008 marked obsolete |
+| 188 | Integration gate writes LLM-controlled filenames without sandboxing — path traversal and arbitrary code execution | critical | `evaluate_integration` validates assembled_tree filenames (absolute, `..`, sandbox escape); `diagnostic_kind="integration_unsafe_path"`; 4 regression tests |
+| 178 | Tighten upstream_revision_of to target_work_item_types: [review, jury] by moving declaration to phase4 | low | Moved `upstream_revision_of` (with `target_work_item_types: [review, jury]`) and `review_findings` from `phase2.yaml` to `phase4.yaml` via `custom_fields__append` |
 | 187 | Pipeline subprocess writes fixture artifacts into repo root; first surfaced in GR-038 integration/outcome stages | medium | RFC-011 Step 3 (d8ab880): `SubprocessChannel.invoke()` now always uses `outputs_dir` as subprocess cwd; `invocation_cwd` override that forced cwd to repo root removed; all remaining `src/factory/` subprocess call sites migrated to `factory.subprocess.run` wrapper (explicit cwd/env/timeout required) |
 | 186 | BC-181 gate_near_budget soft-stop never hard-transitions — indefinite acquire/release churn on items stuck in gating state | medium | gate_loop now hard-transitions items at `attempt_threshold` to `cannot_proceed` via `TRANSITION_GATE_ESCALATION` with `gate_name="gate_budget_exhausted"`, replacing the prior release-and-continue soft-stop that allowed infinite cycling |
 | 185 | split GateResult.custom_fields into transition_fields and routing_fields | medium | GateResult now has separate `transition_fields` (current WI) and `routing_fields` (upstream revision) bags; `custom_fields` kept as one-cycle deprecation alias; gate_process filter helper from BC-180 removed as no longer needed |

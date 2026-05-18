@@ -25,6 +25,17 @@ transitions:
     allowed_roles__append: [cross_family_reviewer, frontier_judge]
 
 work_item_types:
+  - name: implementation
+    custom_fields__append:
+      - name: upstream_revision_of
+        type: work_item_ref
+        target_work_item_types: [review, jury]
+        required: false
+        ui_visible: true
+      - name: review_findings
+        type: json
+        required: false
+        ui_visible: false
   - name: review
     custom_fields:
       - name: spec_section

@@ -2,7 +2,7 @@
 number: "178"
 title: "Tighten upstream_revision_of to target_work_item_types: [review, jury] by moving declaration to phase4"
 severity: low
-status: proposed
+status: implemented
 kind: improvement
 author: gr035-followup
 date: "2026-05-16"
@@ -96,3 +96,7 @@ in the meantime.
 - BC-145 — original upstream-routing class of bugs.
 - BC-171 (substrate, resolved) — provides the `target_work_item_types`
   feature this BC consumes.
+
+## Resolution
+
+Moved `upstream_revision_of` (with `target_work_item_types: [review, jury]`) and `review_findings` from `phase2.yaml` to `phase4.yaml` via `custom_fields__append` on the inherited `implementation` work_item_type. Phase 2 standalone no longer declares these fields. No phase2-standalone tests referenced them. 1008 tests pass.

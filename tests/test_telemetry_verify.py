@@ -200,3 +200,26 @@ def test_verify_unmatched_gate_fails() -> None:
 
     assert result.passed is False
     assert result.unmatched_gate_count == 1
+
+
+def test_unknown_rate_threshold_constant_used_everywhere() -> None:
+    import inspect
+
+    import factory.constants as const_mod
+    import factory.telemetry as telemetry_mod
+
+    assert hasattr(const_mod, "TELEMETRY_UNKNOWN_RATE_THRESHOLD")
+    threshold = const_mod.TELEMETRY_UNKNOWN_RATE_THRESHOLD
+    assert threshold == 0.01
+
+    source = inspect.getsource(telemetry_mod)
+    assert "TELEMETRY_UNKNOWN_RATE_THRESHOLD" in source
+    assert (
+        "0.01"
+        not in [
+            line.strip()
+            for line in source.splitlines()
+            if "TELEMETRY_UNKNOWN_RATE_THRESHOLD" not in line and "0.01" in line
+        ]
+        or threshold == 0.01
+    )

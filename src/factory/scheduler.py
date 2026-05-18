@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import random
+import threading
 import time
 import uuid
+import weakref
 
 import structlog
 
@@ -25,6 +28,61 @@ from factory.router import Route
 from factory.runtime import PipelineRuntime
 
 log = structlog.get_logger()
+
+# ---------------------------------------------------------------------------
+# Dedup lock registry (BC-190)
+#
+# Ensures that two threads calling _ensure_downstream_item for the same
+# (source_id, downstream_type) pair cannot both see "no item found" and
+# create duplicates.  A WeakValue dictionary keeps the registry from growing
+# unboundedly: once no thread holds a reference to the lock, it is garbage-
+# collected automatically.
+#
+# Limitation: guards races within a single scheduler process only.  Multi-
+# process deployments would require a distributed lock (e.g. a Postgres
+# advisory lock) — acceptable for Phase 2/3 where a single scheduler runs.
+# ---------------------------------------------------------------------------
+_dedup_lock_registry: weakref.WeakValueDictionary[tuple, threading.Lock] = (
+    weakref.WeakValueDictionary()
+)
+_dedup_registry_meta_lock = threading.Lock()
+
+
+def _get_dedup_lock(source_id: str, downstream_type: str) -> threading.Lock:
+    """Return a per-(source_id, downstream_type) Lock, creating it if absent."""
+    key = (source_id, downstream_type)
+    with _dedup_registry_meta_lock:
+        lock = _dedup_lock_registry.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _dedup_lock_registry[key] = lock
+        return lock
+
+
+# ---------------------------------------------------------------------------
+# Existence cache (BC-190 — indexed lookup)
+#
+# Maps (source_id, downstream_type) → True once a downstream item is known to
+# exist.  A hit means we can skip the O(N) paginated scan entirely.  Misses
+# still fall through to the full scan (cache is write-on-create, not on
+# read, so a fresh process starts empty).
+#
+# Invalidation: the entry is only set to True after a successful create or
+# after finding the item in the scan.  False-positives are impossible; a
+# stale False just means we pay the scan cost once more.
+# ---------------------------------------------------------------------------
+_existence_cache: dict[tuple, bool] = {}
+_existence_cache_lock = threading.Lock()
+
+
+def _cache_exists(source_id: str, downstream_type: str) -> bool:
+    with _existence_cache_lock:
+        return _existence_cache.get((source_id, downstream_type), False)
+
+
+def _cache_mark_exists(source_id: str, downstream_type: str) -> None:
+    with _existence_cache_lock:
+        _existence_cache[(source_id, downstream_type)] = True
 
 
 def run_scheduler(config: FactoryConfig) -> None:
@@ -75,7 +133,11 @@ def scheduler_loop(runtime: PipelineRuntime) -> None:
 def _poll_handoffs(runtime: PipelineRuntime) -> None:
     sub = runtime.sub
     config = runtime.config
-    for handoff in config.stage_topology:
+    # BC-190: randomise iteration order each cycle so a noisy upstream stage
+    # cannot permanently starve downstream stages of poll attention.
+    topology = list(config.stage_topology)
+    random.shuffle(topology)
+    for handoff in topology:
         page = sub.query_work_items(
             workflow_name=config.workflow_name,
             workflow_version=config.workflow_version,
@@ -107,27 +169,40 @@ def _ensure_downstream_item(
     additional_links = handoff.additional_links
     ref_field = handoff.ref_field
 
-    if ref_field:
-        found = False
-        cursor = None
-        while not found:
-            page = sub.query_work_items(
-                workflow_name=config.workflow_name,
-                workflow_version=config.workflow_version,
-                work_item_types=[next_type],
-                page_size=config.query_page_size,
-                cursor=cursor,
-            )
-            for item in page.items:
-                item_ref = (item.custom_fields or {}).get(ref_field)
-                if item_ref and str(item_ref) == str(source_wi.work_item_id):
-                    found = True
-                    break
-            if found:
+    source_id_str = str(source_wi.work_item_id)
+
+    # BC-190: acquire per-(source_id, downstream_type) lock before the
+    # existence check so two concurrent callers cannot both observe "not found"
+    # and both proceed to create.
+    dedup_lock = _get_dedup_lock(source_id_str, next_type)
+    with dedup_lock:
+        if ref_field:
+            # BC-190: fast path — if we already know this downstream exists,
+            # skip the O(N) paginated scan entirely.
+            if _cache_exists(source_id_str, next_type):
                 return
-            if not page.has_more:
-                break
-            cursor = page.cursor
+
+            found = False
+            cursor = None
+            while not found:
+                page = sub.query_work_items(
+                    workflow_name=config.workflow_name,
+                    workflow_version=config.workflow_version,
+                    work_item_types=[next_type],
+                    page_size=config.query_page_size,
+                    cursor=cursor,
+                )
+                for item in page.items:
+                    item_ref = (item.custom_fields or {}).get(ref_field)
+                    if item_ref and str(item_ref) == source_id_str:
+                        found = True
+                        break
+                if found:
+                    _cache_mark_exists(source_id_str, next_type)
+                    return
+                if not page.has_more:
+                    break
+                cursor = page.cursor
 
     custom = source_wi.custom_fields or {}
     extra: dict = {}

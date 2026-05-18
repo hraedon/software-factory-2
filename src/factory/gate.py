@@ -1117,9 +1117,37 @@ def evaluate_integration(
         )
 
     with tempfile.TemporaryDirectory(prefix="sf2_integration_") as tmpdir:
-        tmp_path = Path(tmpdir)
+        tmp_path = Path(tmpdir).resolve()
         for filename, source in assembled_tree.items():
+            if not isinstance(filename, str):
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_INTEGRATION_IMPORT,
+                    diagnostics=[f"assembled_tree key {filename!r} is not a string"],
+                    diagnostic_kind="integration_unsafe_path",
+                )
+            if Path(filename).is_absolute():
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_INTEGRATION_IMPORT,
+                    diagnostics=[f"assembled_tree key {filename!r} is absolute"],
+                    diagnostic_kind="integration_unsafe_path",
+                )
+            if ".." in Path(filename).parts:
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_INTEGRATION_IMPORT,
+                    diagnostics=[f"assembled_tree key {filename!r} contains '..' segment"],
+                    diagnostic_kind="integration_unsafe_path",
+                )
             dest = tmp_path / filename
+            if not dest.resolve().is_relative_to(tmp_path):
+                return GateResult(
+                    passed=False,
+                    gate_name=GATE_NAME_INTEGRATION_IMPORT,
+                    diagnostics=[f"assembled_tree key {filename!r} escapes sandbox"],
+                    diagnostic_kind="integration_unsafe_path",
+                )
             dest.parent.mkdir(parents=True, exist_ok=True)
             try:
                 dest.write_text(str(source))

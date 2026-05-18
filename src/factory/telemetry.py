@@ -14,6 +14,7 @@ from factory.constants import (
     STATE_CANNOT_PROCEED,
     STATE_IN_PROGRESS,
     STATE_LOCKED,
+    TELEMETRY_UNKNOWN_RATE_THRESHOLD,
     TRANSITION_CHANNEL_FAIL,
     TRANSITION_GATE_FAIL,
     TRANSITION_GATE_PASS,
@@ -242,12 +243,12 @@ def format_exit_criteria_summary(metrics: ExitCriteriaMetrics) -> str:
     )
 
     ur = f"{metrics.unknown_gate_rate:.1%}"
-    ur_pass = metrics.unknown_gate_rate <= 0.10
+    ur_pass = metrics.unknown_gate_rate <= TELEMETRY_UNKNOWN_RATE_THRESHOLD
     ur_label = "PASS" if ur_pass else "FAIL"
     ur_line = (
         f"  Unknown gate rate:            {ur} "
         f"({metrics.unknown_gate_count}/{metrics.total_gate_events})  "
-        f"{ur_label:4s} [target: <=10%]"
+        f"{ur_label:4s} [target: <1%]"
     )
     lines.append(ur_line)
 
@@ -777,7 +778,7 @@ def run_telemetry_verify(config: FactoryConfig) -> VerifyResult:
 
         passed = (
             unknown_count == 0
-            and unknown_rate < 0.01
+            and unknown_rate < TELEMETRY_UNKNOWN_RATE_THRESHOLD
             and orphan_count == 0
             and unmatched_count == 0
         )

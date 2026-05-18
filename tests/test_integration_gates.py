@@ -487,3 +487,66 @@ class TestBC177HermeticPytest:
             )
         finally:
             stray.unlink(missing_ok=True)
+
+
+class TestIntegrationGatePathTraversal:
+    def test_dotdot_traversal_rejected(self, tmp_path: Path):
+        artifact = tmp_path / "integration.json"
+        artifact.write_text(
+            json.dumps({"assembled_tree": {"../escape.py": "import os; os.system('echo pwned')\n"}})
+        )
+        result = evaluate_integration(artifact)
+        assert result.passed is False
+        assert result.diagnostic_kind == "integration_unsafe_path"
+        assert "'..'" in result.diagnostics[0]
+
+    def test_absolute_path_rejected(self, tmp_path: Path):
+        artifact = tmp_path / "integration.json"
+        artifact.write_text(json.dumps({"assembled_tree": {"/tmp/evil.py": "print('pwned')\n"}}))
+        result = evaluate_integration(artifact)
+        assert result.passed is False
+        assert result.diagnostic_kind == "integration_unsafe_path"
+        assert "absolute" in result.diagnostics[0]
+
+    def test_deep_traversal_rejected(self, tmp_path: Path):
+        artifact = tmp_path / "integration.json"
+        artifact.write_text(
+            json.dumps({"assembled_tree": {"a/b/../../../etc/passwd": "root data"}})
+        )
+        result = evaluate_integration(artifact)
+        assert result.passed is False
+        assert result.diagnostic_kind == "integration_unsafe_path"
+
+    def test_symlink_escape_rejected(self, tmp_path: Path):
+        artifact = tmp_path / "integration.json"
+        artifact.write_text(
+            json.dumps(
+                {
+                    "assembled_tree": {
+                        "subdir/../../escape.py": "import os; os.system('echo pwned')\n"
+                    }
+                }
+            )
+        )
+        result = evaluate_integration(artifact)
+        assert result.passed is False
+        assert result.diagnostic_kind == "integration_unsafe_path"
+
+    def test_normal_subdirectory_path_accepted(self, tmp_path: Path):
+        artifact = tmp_path / "integration.json"
+        artifact.write_text(
+            json.dumps(
+                {
+                    "assembled_tree": {
+                        "pkg/__init__.py": "",
+                        "pkg/mod.py": "x = 1\n",
+                    },
+                    "entry_point": "pkg.mod.x",
+                    "integration_tests": (
+                        "from pkg.mod import x\ndef test_x():\n    assert x == 1\n"
+                    ),
+                }
+            )
+        )
+        result = evaluate_integration(artifact)
+        assert result.diagnostic_kind != "integration_unsafe_path"

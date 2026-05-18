@@ -657,10 +657,29 @@ def render_prompt(ctx: PromptContext) -> str:
         parts.append(ctx.import_feedback)
         parts.append("")
     if ctx.extra_artifacts:
+        rendered_keys: set[str] = set()
+        if "review_feedback" in ctx.extra_artifacts:
+            parts.append("## review_feedback")
+            parts.append("")
+            parts.append(
+                "A prior cross-family reviewer found the following defects in upstream artifacts. "
+                "Address every block-severity finding before returning. "
+                "Advise-severity findings are optional but improve quality."
+            )
+            parts.append("")
+            parts.append("```")
+            parts.append(ctx.extra_artifacts["review_feedback"])
+            parts.append("```")
+            parts.append("")
+            rendered_keys.add("review_feedback")
         for key, value in sorted(ctx.extra_artifacts.items()):
+            if key in rendered_keys:
+                continue
             parts.append(f"## {key}")
             parts.append("")
+            parts.append("```")
             parts.append(value)
+            parts.append("```")
             parts.append("")
     if ctx.export_map:
         parts.append("## available_dependency_imports")
@@ -681,16 +700,5 @@ def render_prompt(ctx: PromptContext) -> str:
         )
         for dep_name in sorted(ctx.stub_only_deps):
             parts.append(f"- {dep_name}")
-        parts.append("")
-    if "review_feedback" in ctx.extra_artifacts:
-        parts.append("## review_feedback")
-        parts.append("")
-        parts.append(
-            "A prior cross-family reviewer found the following defects in upstream artifacts. "
-            "Address every block-severity finding before returning. "
-            "Advise-severity findings are optional but improve quality."
-        )
-        parts.append("")
-        parts.append(ctx.extra_artifacts["review_feedback"])
         parts.append("")
     return "\n".join(parts)

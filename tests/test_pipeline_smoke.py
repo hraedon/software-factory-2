@@ -272,3 +272,60 @@ class TestPipelineSmoke:
         # Diagnostics should route back to interface_architect
         diagnostics = updated.custom_fields.get("diagnostics", {})
         assert diagnostics.get("diagnostic_kind") == "not_empty"
+
+
+class TestWorkflowCompositionAppendFields:
+    def test_phase4_impl_has_upstream_revision_of_with_target_types(self):
+        from substrate.testing import InMemorySubstrate
+
+        phase4_path = str(Path(__file__).parent.parent / "workflows" / "phase4.yaml")
+        sub = InMemorySubstrate()
+        sub.register_workflow_file(phase4_path)
+        wf = sub._workflows
+        try:
+            for _key, w in wf.items():
+                for wit in w.get("work_item_types", []):
+                    if wit["name"] != "implementation":
+                        continue
+                    cf_names = [cf["name"] for cf in wit.get("custom_fields", [])]
+                    assert "upstream_revision_of" in cf_names, (
+                        f"upstream_revision_of missing from implementation after "
+                        f"phase4 composition. Got: {cf_names}"
+                    )
+                    assert "review_findings" in cf_names, (
+                        f"review_findings missing from implementation after "
+                        f"phase4 composition. Got: {cf_names}"
+                    )
+                    for cf in wit.get("custom_fields", []):
+                        if cf["name"] == "upstream_revision_of":
+                            targets = cf.get("target_work_item_types")
+                            assert targets == ["review", "jury"], (
+                                f"upstream_revision_of target_work_item_types "
+                                f"should be [review, jury], got {targets}"
+                            )
+        finally:
+            sub.close()
+
+    def test_phase2_impl_lacks_upstream_revision_of(self):
+        from substrate.testing import InMemorySubstrate
+
+        phase2_path = str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
+        sub = InMemorySubstrate()
+        sub.register_workflow_file(phase2_path)
+        wf = sub._workflows
+        try:
+            for _key, w in wf.items():
+                for wit in w.get("work_item_types", []):
+                    if wit["name"] != "implementation":
+                        continue
+                    cf_names = [cf["name"] for cf in wit.get("custom_fields", [])]
+                    assert "upstream_revision_of" not in cf_names, (
+                        f"upstream_revision_of should NOT be in phase2 implementation. "
+                        f"Got: {cf_names}"
+                    )
+                    assert "review_findings" not in cf_names, (
+                        f"review_findings should NOT be in phase2 implementation. "
+                        f"Got: {cf_names}"
+                    )
+        finally:
+            sub.close()

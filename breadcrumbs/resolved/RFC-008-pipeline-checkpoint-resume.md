@@ -2,7 +2,7 @@
 number: "RFC-008"
 title: "Pipeline checkpoint and surgical resume system"
 severity: medium
-status: implemented
+status: obsolete
 kind: design
 author: opencode
 date: "2026-05-09"
