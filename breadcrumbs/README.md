@@ -78,7 +78,7 @@ Rationale: "file an RFC" diffuses ownership and has no time bound; the block rul
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 190 | Scheduler downstream dedup is racey and O(N); handoff iteration unfair | high | proposed (deferred to fleet integration; single-scheduler mode is safe) |
+| 193 | spec_section and import_feedback rendered unfenced in prompt — heading injection risk from fixture specs | low | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
 ### RFCs (awaiting upstream phases)
@@ -112,6 +112,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 190 | Scheduler downstream dedup is racey and O(N); handoff iteration unfair | high | Per-(source_id, downstream_type) `threading.Lock` in WeakValueDictionary closes TOCTOU window; in-memory existence cache skips O(N) scan on repeat calls; `random.shuffle` per poll cycle for fairness; 5 tests |
 | 192 | Telemetry verify and pass-rate formatter use different unknown-rate thresholds | low | `TELEMETRY_UNKNOWN_RATE_THRESHOLD = 0.01` constant in `constants.py`; both `format_pass_rate_table` and `run_telemetry_verify` use it; label updated to `[target: <1%]` |
 | 191 | Context builder renders review_feedback twice and emits raw model text into prompt structure | medium | Deduped via `rendered_keys` set; all extra_artifact values fenced in triple-backtick code blocks; 4 tests |
 | 189 | src/factory/checkpoint.py is dead code; RFC-008 unfulfilled or cancelled | medium | Option A: module + test deleted; RFC-008 marked obsolete |

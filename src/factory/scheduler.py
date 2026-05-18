@@ -204,74 +204,79 @@ def _ensure_downstream_item(
                     break
                 cursor = page.cursor
 
-    custom = source_wi.custom_fields or {}
-    extra: dict = {}
-    if ref_field:
-        extra[ref_field] = str(source_wi.work_item_id)
+        custom = source_wi.custom_fields or {}
+        extra: dict = {}
+        if ref_field:
+            extra[ref_field] = source_id_str
 
-    for field_name in handoff.propagate_fields:
-        field_val = custom.get(field_name)
-        if field_val:
-            extra[field_name] = field_val
+        for field_name in handoff.propagate_fields:
+            field_val = custom.get(field_name)
+            if field_val:
+                extra[field_name] = field_val
 
-    dep_refs = custom.get(CUSTOM_FIELD_DEPENDENCY_REFS) or []
-    if isinstance(dep_refs, str):
-        dep_refs = [dep_refs]
+        dep_refs = custom.get(CUSTOM_FIELD_DEPENDENCY_REFS) or []
+        if isinstance(dep_refs, str):
+            dep_refs = [dep_refs]
 
-    if dep_refs and not _all_dep_specs_locked(sub, dep_refs):
-        return
+        if dep_refs and not _all_dep_specs_locked(sub, dep_refs):
+            return
 
-    # Only propagate dependency_refs if the downstream work_item_type
-    # actually declares it (jury/integration/outcome_verification do not).
-    _has_dep_field = _downstream_has_field(sub, config, next_type, CUSTOM_FIELD_DEPENDENCY_REFS)
-    if dep_refs and _has_dep_field:
-        extra[CUSTOM_FIELD_DEPENDENCY_REFS] = dep_refs
+        # Only propagate dependency_refs if the downstream work_item_type
+        # actually declares it (jury/integration/outcome_verification do not).
+        _has_dep_field = _downstream_has_field(sub, config, next_type, CUSTOM_FIELD_DEPENDENCY_REFS)
+        if dep_refs and _has_dep_field:
+            extra[CUSTOM_FIELD_DEPENDENCY_REFS] = dep_refs
 
-    downstream, _ = sub.create_work_item(
-        workflow_name=config.workflow_name,
-        work_item_type=next_type,
-        actor_id=config.scheduler_actor_id,
-        actor_kind=ACTOR_KIND_AGENT,
-        actor_metadata={"role": next_role},
-        custom_fields={
-            CUSTOM_FIELD_SPEC_SECTION: custom.get(CUSTOM_FIELD_SPEC_SECTION, ""),
-            CUSTOM_FIELD_AC_IDS: custom.get(CUSTOM_FIELD_AC_IDS, []),
-            **extra,
-        },
-    )
+        downstream, _ = sub.create_work_item(
+            workflow_name=config.workflow_name,
+            work_item_type=next_type,
+            actor_id=config.scheduler_actor_id,
+            actor_kind=ACTOR_KIND_AGENT,
+            actor_metadata={"role": next_role},
+            custom_fields={
+                CUSTOM_FIELD_SPEC_SECTION: custom.get(CUSTOM_FIELD_SPEC_SECTION, ""),
+                CUSTOM_FIELD_AC_IDS: custom.get(CUSTOM_FIELD_AC_IDS, []),
+                **extra,
+            },
+        )
 
-    sub.create_link(
-        from_work_item_id=downstream.work_item_id,
-        to_work_item_id=source_wi.work_item_id,
-        link_type=link_type,
-        actor_id=config.scheduler_actor_id,
-        actor_kind=ACTOR_KIND_AGENT,
-    )
+        # BC-190: mark existence in cache immediately after create so any
+        # subsequent call within this process skips the scan.
+        if ref_field:
+            _cache_mark_exists(source_id_str, next_type)
 
-    for extra_link_type in additional_links:
-        if extra_link_type == LINK_TYPE_IMPLEMENTS:
-            pf = handoff.propagate_fields
-            interface_ref = None
-            if CUSTOM_FIELD_INTERFACE_REF in pf:
-                interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
-            if interface_ref:
-                import uuid as _uuid
+        sub.create_link(
+            from_work_item_id=downstream.work_item_id,
+            to_work_item_id=source_wi.work_item_id,
+            link_type=link_type,
+            actor_id=config.scheduler_actor_id,
+            actor_kind=ACTOR_KIND_AGENT,
+        )
 
-                sub.create_link(
-                    from_work_item_id=downstream.work_item_id,
-                    to_work_item_id=_uuid.UUID(interface_ref),
-                    link_type=LINK_TYPE_IMPLEMENTS,
-                    actor_id=config.scheduler_actor_id,
-                    actor_kind=ACTOR_KIND_AGENT,
-                )
+        for extra_link_type in additional_links:
+            if extra_link_type == LINK_TYPE_IMPLEMENTS:
+                pf = handoff.propagate_fields
+                interface_ref = None
+                if CUSTOM_FIELD_INTERFACE_REF in pf:
+                    interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
+                if interface_ref:
+                    import uuid as _uuid
 
-    log.info(
-        "handoff_created",
-        source_id=str(source_wi.work_item_id),
-        source_type=source_wi.work_item_type,
-        downstream_id=str(downstream.work_item_id),
-        downstream_type=next_type,
-    )
+                    sub.create_link(
+                        from_work_item_id=downstream.work_item_id,
+                        to_work_item_id=_uuid.UUID(interface_ref),
+                        link_type=LINK_TYPE_IMPLEMENTS,
+                        actor_id=config.scheduler_actor_id,
+                        actor_kind=ACTOR_KIND_AGENT,
+                    )
+
+        log.info(
+            "handoff_created",
+            source_id=source_id_str,
+            source_type=source_wi.work_item_type,
+            downstream_id=str(downstream.work_item_id),
+            downstream_type=next_type,
+        )
 
 
 def _all_dep_specs_locked(sub, dep_refs: list[str]) -> bool:

@@ -324,8 +324,7 @@ class TestWorkflowCompositionAppendFields:
                         f"Got: {cf_names}"
                     )
                     assert "review_findings" not in cf_names, (
-                        f"review_findings should NOT be in phase2 implementation. "
-                        f"Got: {cf_names}"
+                        f"review_findings should NOT be in phase2 implementation. Got: {cf_names}"
                     )
         finally:
             sub.close()
