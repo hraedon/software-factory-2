@@ -12,7 +12,7 @@ from factory.constants import (
     GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
 )
 from factory.gate import GateResult
-from factory.router import _PHASE2_DISPATCH, DiagnosticKind, route
+from factory.router import _KIND_DISPATCH, DiagnosticKind, route
 
 
 class TestPhase2Dispatch:
@@ -281,7 +281,7 @@ class TestCrossStageEscalation:
 class TestDispatchCompleteness:
     def test_all_diagnostic_kinds_have_dispatch_entries(self):
         for kind in DiagnosticKind:
-            assert kind in _PHASE2_DISPATCH, f"Missing dispatch for {kind}"
+            assert kind in _KIND_DISPATCH, f"Missing dispatch for {kind}"
 
     def test_route_has_no_target_role_field(self):
         import dataclasses

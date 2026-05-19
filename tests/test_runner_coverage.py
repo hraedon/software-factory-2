@@ -4,6 +4,7 @@ import pytest
 
 from factory.channel import InvocationResult
 from factory.config import FactoryConfig, RoleConfig
+from factory.phase_defaults import PHASE2_ROLES, PHASE2_TYPE_TO_ROLE, PHASE2_WORKER_ROLES
 from factory.runner import _create_channel, _role_for_type, process_work_item
 from factory.runtime import PipelineRuntime
 
@@ -65,9 +66,9 @@ class TestRoleForType:
 
     def test_phase2_type_to_role(self):
         config = FactoryConfig(
-            worker_roles=FactoryConfig.PHASE2_WORKER_ROLES,
-            type_to_role=FactoryConfig.PHASE2_TYPE_TO_ROLE,
-            roles=FactoryConfig.PHASE2_ROLES,
+            worker_roles=PHASE2_WORKER_ROLES,
+            type_to_role=PHASE2_TYPE_TO_ROLE,
+            roles=PHASE2_ROLES,
         )
         assert _role_for_type("interface_spec", config) == "interface_architect"
         assert _role_for_type("test_suite", config) == "test_author"

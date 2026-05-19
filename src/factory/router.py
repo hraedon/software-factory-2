@@ -94,7 +94,7 @@ class RouteContext:
     kind: DiagnosticKind | None = None
 
 
-_PHASE2_DISPATCH = {
+_KIND_DISPATCH = {
     DiagnosticKind.SYNTAX: Route(
         target_state=STATE_NEW,
     ),
@@ -287,11 +287,11 @@ class EscalationHandler(RouteHandler):
 
 class DispatchHandler(RouteHandler):
     def can_handle(self, ctx: RouteContext) -> bool:
-        return ctx.kind is not None and ctx.kind in _PHASE2_DISPATCH
+        return ctx.kind is not None and ctx.kind in _KIND_DISPATCH
 
     def build_route(self, ctx: RouteContext) -> Route:
         gr = ctx.gate_result
-        base = _PHASE2_DISPATCH.get(ctx.kind, Route(target_state=STATE_NEW))
+        base = _KIND_DISPATCH.get(ctx.kind, Route(target_state=STATE_NEW))
         return Route(
             target_state=base.target_state,
             diagnostics=gr.diagnostics if gr else [],

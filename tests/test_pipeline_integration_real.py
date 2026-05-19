@@ -9,6 +9,7 @@ from substrate._testing import drop_project_schema
 from factory.channel import InvocationResult
 from factory.config import FactoryConfig
 from factory.gate_process import process_gate_item
+from factory.phase_defaults import PHASE2_ROLES, PHASE2_TYPE_TO_ROLE, PHASE2_WORKER_ROLES
 from factory.runner import process_work_item
 from factory.runtime import PipelineRuntime
 
@@ -68,9 +69,9 @@ class TestPipelineIntegrationReal:
             hmac_key_path=KEY_PATH,
             workspace_root=workspace_root,
             workflow_version=2,
-            worker_roles=FactoryConfig.PHASE2_WORKER_ROLES,
-            type_to_role=FactoryConfig.PHASE2_TYPE_TO_ROLE,
-            roles=FactoryConfig.PHASE2_ROLES,
+            worker_roles=PHASE2_WORKER_ROLES,
+            type_to_role=PHASE2_TYPE_TO_ROLE,
+            roles=PHASE2_ROLES,
         )
         channel = _RealSmokeChannel()
 

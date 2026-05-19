@@ -5,7 +5,7 @@ from pathlib import Path
 
 from substrate._workflow_compose import resolve_includes
 
-from factory.router import _ESCALATABLE_KINDS, _PHASE2_DISPATCH, DiagnosticKind
+from factory.router import _ESCALATABLE_KINDS, _KIND_DISPATCH, DiagnosticKind
 
 WORKFLOWS_DIR = Path(__file__).parent.parent.parent / "workflows"
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -84,7 +84,7 @@ def generate_from_workflow(workflow_path: Path) -> PipelineDoc:
 def generate_router_table() -> tuple[list[str], list[str]]:
     routes = []
     for kind in DiagnosticKind:
-        base = _PHASE2_DISPATCH.get(kind)
+        base = _KIND_DISPATCH.get(kind)
         if base:
             routes.append(
                 f"| {kind.value} | {base.target_state} | "
