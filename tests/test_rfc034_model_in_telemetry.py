@@ -1,5 +1,6 @@
 """RFC-034: resolved model string flows through telemetry; placement key
 includes model so snapshot changes don't merge into confounded buckets."""
+
 from __future__ import annotations
 
 from factory.channel import InvocationResult

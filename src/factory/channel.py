@@ -20,6 +20,10 @@ class InvocationResult:
     model: str | None = None
 
 
+class ChannelDisabledError(Exception):
+    """Raised when a config selects a channel whose status is 'disabled'."""
+
+
 @runtime_checkable
 class Channel(Protocol):
     name: str

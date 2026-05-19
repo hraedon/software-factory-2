@@ -8,7 +8,7 @@ from pathlib import Path
 import structlog
 from substrate import ActorMetadata, Substrate
 
-from factory.channel import Channel
+from factory.channel import Channel, ChannelDisabledError
 from factory.config import FactoryConfig, GateTimeouts, load_config
 from factory.constants import (
     ARTIFACT_FILENAME_CANNOT_PROCEED,
@@ -1119,6 +1119,17 @@ def _process_jury_work_item(
 
 _CHANNEL_CONSTRUCTORS: dict[str, type[Channel]] = {}
 
+# tier: enforce
+# precondition: AGENTS.md "channel status" table is the source of truth for
+#   declared status; this dict must match it whenever any channel moves between
+#   validated / unvalidated / disabled. See BC-194 and RFC-037.
+# audit trigger: re-evaluate when any channel changes validated/unvalidated/disabled status
+_CHANNEL_STATUS: dict[str, str] = {
+    CHANNEL_CLAUDE_CODE: "validated",
+    CHANNEL_OPENCODE: "validated",
+    CHANNEL_GEMINI_CLI: "disabled",
+}
+
 
 def _register_channel(channel_name: str, import_path: str, class_name: str) -> None:
     import importlib
@@ -1134,9 +1145,22 @@ _SUPPORTED_CHANNEL_NAMES = ", ".join(sorted(_CHANNEL_CONSTRUCTORS))
 
 
 def _create_channels(config: FactoryConfig) -> dict[str, Channel]:
+    import warnings
+
     channel_names = set(rc.channel for rc in config.roles if rc.channel != CHANNEL_CODE)
     channels: dict[str, Channel] = {}
     for ch_name in channel_names:
+        status = _CHANNEL_STATUS.get(ch_name, "unvalidated")
+        if status == "disabled":
+            raise ChannelDisabledError(
+                f"Channel '{ch_name}' is disabled; see AGENTS.md for current channel status."
+            )
+        if status == "unvalidated":
+            warnings.warn(
+                f"Channel '{ch_name}' is unvalidated; results may be unreliable. "
+                "See AGENTS.md for current channel status.",
+                stacklevel=2,
+            )
         constructor = _CHANNEL_CONSTRUCTORS.get(ch_name)
         if constructor is None:
             raise ValueError(f"Unknown channel: {ch_name}. Supported: {_SUPPORTED_CHANNEL_NAMES}")

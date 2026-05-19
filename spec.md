@@ -1,7 +1,7 @@
 # Software Factory v2 — Design Spec
 
-**Status:** Phase 4 (skeleton validated at GR-022; multi-family jury + failover added; exit criteria pending a clean full-DAG run). Spec §10 phasing governs what is implemented vs. deferred.
-**Authoritative:** this file. Machine-readable sidecar (`spec.yaml`) deferred until Phase 1.
+**Status:** Phase 5 (integration and outcome verification; GR-038 first all-pass full-DAG run). Spec §10 phasing governs what is implemented vs. deferred.
+**Authoritative:** this file for all implemented stages and roles. Phase 6+ content is explicitly labelled as future design; those sections are proposals, not current implementation. Machine-readable sidecar (`spec.yaml`) deferred until Phase 6.
 
 ---
 
@@ -37,106 +37,125 @@ The principal of this factory is a systems architect, not a developer. The archi
 
 ### Stages
 
+The pipeline has 7 implemented stages (workflow work-item types), preceded by two manual/external steps that the factory does not automate today.
+
 ```
-Stage 0: Spec intake
-  → Socratic elaboration (existing /spec skill, lifted from socratic-specification)
-  → Produces spec.md + spec.yaml conforming to socratic-specification schema
-  → Only stage with a human gate; principal confirms intent before proceeding
+[Pre-pipeline, manual] Spec intake
+  → Socratic elaboration via /spec skill (socratic-specification project)
+  → Produces spec.md + AC list conforming to socratic-specification schema
+  → Only step with a human gate; principal confirms intent before work items are created
+  → Not implemented in the runner; principal-driven
 
-Stage 1: Decomposition
-  → Reads spec.yaml; produces work-item DAG
-  → MVP FRs first, in dependency order
-  → Each leaf work-item is small enough for a single interface-architect pass
+[Pre-pipeline, manual] Work-item DAG creation
+  → populate_work_items.py reads spec.md; creates work items in dependency order
+  → MVP FRs first; each leaf work-item is small enough for a single interface-architect pass
+  → Not a pipeline stage; operator-driven script
 
-Stage 2: Interface architect
-  → Per work-item: produces locked typed interface
-  → Output: .pyi or schema, errors enumerated, edge cases declared
+Stage 1: Interface architect  [work_item_type: interface_spec]
+  → Per work-item: produces locked typed interface (.pyi stub)
+  → Output: .pyi with full type annotations, errors enumerated, edge cases declared
   → All downstream roles consume this artifact; cannot modify it
+  → Mechanical inner gate: syntax, stub structure, structural semantics, import check
 
-Stage 3: Test authoring
+Stage 2: Test authoring  [work_item_type: test_suite]
   → Per work-item: produces tests from AC + interface
   → Tests reference only the locked interface, not the implementation
+  → Mechanical inner gate: syntax, pytest-collect, import-forbidden, assertion count
 
-Stage 4: Implementation
+Stage 3: Implementation  [work_item_type: implementation]
   → Per work-item: produces code that passes the tests
   → Bounded by interface (cannot change signatures, types, errors)
+  → Mechanical inner gate: syntax, import, mypy, ruff, pytest
 
-Stage 5: Mechanical gates
-  → Type check, test run, lint, substrate replay drift = 0
-  → Deterministic; failures route back to Stage 4 with diagnostics
+Stage 4: Mechanical gates  [gate_process, runs after each stage above]
+  → Type check (mypy --strict), test run (pytest), lint (ruff), import resolution
+  → Deterministic; failures route back to the originating stage with diagnostics
+  → Runs as a separate gate_process actor; not a separate work-item type
 
-Stage 6: Cross-family review
-  → Different-family model reviews skeleton + tests against AC + interface
+Stage 5: Cross-family review  [work_item_type: review]
+  → Different-family model reviews implementation + tests against AC + interface
   → Catches contract drift the type checker misses (test theater, tautologies)
+  → JSON verdict: {passed, findings, rationale}; structured findings route to implementer
 
-Stage 7: Frontier judge (jury)
-  → 2-3 Tier-A models independently answer: "do these tests, if they pass,
+Stage 6: Frontier judge (jury)  [work_item_type: jury]
+  → 2+ Tier-A models independently answer: "do these tests, if they pass,
     demonstrate the AC is met?"
-  → Quorum advances; disagreement routes back to Stage 2 (interface revision)
+  → Quorum advances; disagreement routes back to Stage 1 (interface revision)
 
-Stage 8: Integration
-  → Links work-items together; runs cross-cutting tests
-  → Mechanical gates again
+Stage 7: Integration  [work_item_type: integration]
+  → Assembles locked implementations into a runnable module tree (assembled_tree JSON)
+  → Mechanical gates: import resolution, mypy on assembled tree, cross-cutting pytest
+  → Mechanical inner gate: JSON shape check
 
-Stage 9: Outcome verification
+Stage 8: Outcome verification  [work_item_type: outcome_verification]
   → Runs the assembled software end-to-end against AC
-  → Produces artifact bundle for principal
+  → Model-mediated verdict: {verdict: pass/fail/cannot_proceed, rationale, routing_hint}
+  → Produces artifact bundle for principal review
 
-Stage 10: Principal review (the only human gate)
+[Post-pipeline, manual] Principal review
   → Does the running software do what was asked?
   → Yes → ship. No → feedback as new/revised AC, re-run affected stages.
+  → Not a pipeline stage; principal-driven
 ```
 
 ### Failure routing
 
-- **Stage 5 mechanical gate fail** → Stage 4 (implementation), with diagnostics in prompt.
-- **Stage 6 cross-family review fail** → Stage 4 (implementation) with critique, OR Stage 3 (test author) if the critique implicates the tests.
-- **Stage 7 jury disagreement** → Stage 2 (interface architect), with juror rationale. The most likely cause of disagreement is an ambiguous interface, not a worker mistake.
-- **Stage 2 interface revisions exhausted** (3+ attempts) → escalate to principal as a spec-ambiguity question. This is the only way work surfaces to the principal mid-pipeline.
+- **Stage 4 mechanical gate fail** → the originating stage (Stage 1/2/3) with diagnostics in prompt.
+- **Stage 5 cross-family review fail** (`review_found_defect`) → Stage 3 (implementation) with structured findings via `routing_fields`; or Stage 2 (test_author) if the critique implicates tests. `review_malformed` → retry the review stage.
+- **Stage 6 jury disagreement** → Stage 1 (interface architect), with juror rationale. The most likely cause of disagreement is an ambiguous interface, not a worker mistake.
+- **Stage 1 interface revisions exhausted** (≥ `attempt_threshold`) → escalate to `cannot_proceed`. This is the primary way a work item surfaces to the principal mid-pipeline.
+- **Stage 8 outcome verification fail** → `cannot_proceed` with `routing_hint` (work_item_type to route back to); principal can inspect the rationale and decide how to proceed.
 
 ### Substrate workflow shape
 
 Pipeline is a substrate workflow YAML with:
 
-- **Work-item types:** `feature`, `interface_spec`, `test_suite`, `implementation`, `integration`, `review`
-- **Link types:** `derived_from`, `implements`, `tests`, `reviews`, `escalation_of`
-- **Roles:** `decomposer`, `interface_architect`, `test_author`, `implementer`, `mechanical_gate`, `cross_family_reviewer`, `frontier_judge`, `integrator`, `outcome_verifier`, `coherence_reviewer`
+- **Work-item types (implemented):** `interface_spec`, `test_suite`, `implementation`, `review`, `jury`, `integration`, `outcome_verification`
+- **Link types (implemented):** `derived_from`, `implements`, `tested_by`, `reviews`, `judges`, `integrates`, `verified_by`
+- **Roles (implemented):** `interface_architect`, `test_author`, `implementer`, `mechanical_gate`, `cross_family_reviewer`, `frontier_judge`, `integrator`, `outcome_verifier`
 - **Custom fields per work-item type** enforce required artifact paths and schemas (substrate validates pre-transition).
 - **Validators** enforce artifact schema conformance before each transition.
-- **Hooks** trigger downstream stages on transition (e.g., `tests_authored` schedules an `implementation` work-item).
+- **Hooks** trigger downstream stages on transition via scheduler (e.g., `interface_spec` locked → `test_suite` creation; `test_suite` locked → `implementation` creation).
 
 ## 5. Fleet & role-to-channel binding
 
-### Available channels
+### Available channels (implemented)
 
-| Channel | Family | Access | Notes |
-|---|---|---|---|
-| Claude (Claude Code) | Anthropic | Subscription, harness | Frontier; expensive in time, free at margin |
-| OpenCode | (configurable) | Subscription, harness | Used for non-Anthropic models historically |
-| Kimi K2.5/K2.6 | Moonshot | API ($7/wk → $49/mo) | Structured-output reliable; weak on judgment |
-| GLM-5.1 | Zhipu | z.ai coding plan | Near-frontier code; family-disjoint from Claude |
-| DeepSeek V4 | DeepSeek | Ollama Pro | Near-frontier code; family-disjoint |
-| Gemini | Google | gemini-cli | Inconsistent; long context advantage |
-
-### Initial role-to-channel binding
-
-| Role | Default | Fallback | Tier | Notes |
+| Channel name | Family | Access | Status | Notes |
 |---|---|---|---|---|
-| Spec elaboration | Claude (CC) | — | A | Principal-in-the-loop |
-| Decomposer | Claude (CC headless) | GLM | A | Load-bearing |
-| Interface architect | Claude (CC headless) | GLM, DeepSeek | A | Race candidate |
-| Test author | Claude (CC headless) | GLM | A | Tests are the contract |
-| Implementer | K2 (API) | GLM, DeepSeek | B | Slot-filling, bulk |
-| Mechanical gate | (code) | — | — | Deterministic |
-| Cross-family reviewer | GLM (z.ai) | DeepSeek, K2 | B | Cheap; family-disjoint from Claude |
-| Frontier judge (juror 1) | Claude (CC headless) | — | A | |
-| Frontier judge (juror 2) | GLM (z.ai) | DeepSeek | A | Family-disjoint from juror 1 |
-| Frontier judge (juror 3, optional) | DeepSeek (Ollama Pro) | — | A | Tiebreaker |
-| Coherence reviewer (holistic) | Gemini (gemini-cli) | — | C | Probationary; uses long-context advantage |
-| Spec ambiguity resolver | Claude (CC) | — | A | Routes to principal if needed |
-| Runner-internal helpers | K2 (API) | — | B | Structured output, cheap |
+| `claude-code` | Anthropic | Subscription, harness (`ClaudeCodeChannel`) | Validated | Frontier; slow in wall-clock, free at margin |
+| `opencode` | Configurable per `model:` | Subscription/API, harness (`OpenCodeChannel`) | Validated | Wraps Kimi K2, DeepSeek, GLM, and other models via model-selector string |
+| `gemini-cli` | Google | gemini-cli CLI | Validated (GR-032+), disabled by default | Requires Node 24; `GeminiCLIChannel` in code; not in PHASE*_ROLES defaults |
+
+Models accessed via `opencode` channel (selected via `model:` field in RoleConfig):
+
+| Model | Family | Notes |
+|---|---|---|
+| `fireworks-ai/accounts/fireworks/routers/kimi-k2p6-turbo` | Moonshot (Kimi) | Primary worker model for interface_architect, test_author, implementer, integrator, outcome_verifier in Phase 3–5 defaults |
+| `ollama-cloud/deepseek-v4-pro` | DeepSeek | Used for cross_family_reviewer in Phase 5 defaults |
+| GLM-5.1 (z.ai) | Zhipu | Available via opencode; used in earlier golden runs; not in current phase defaults |
+
+### Current role-to-channel binding (Phase 5 defaults, from `config.py`)
+
+| Role | Channel | Model | Tier | Notes |
+|---|---|---|---|---|
+| Interface architect | `opencode` | Kimi K2p6-turbo | A | Load-bearing; all downstream roles depend on this artifact |
+| Test author | `opencode` | Kimi K2p6-turbo | A | Tests are the contract; produces the gate target |
+| Implementer | `opencode` | Kimi K2p6-turbo | A | Slot-filling against locked interface and test suite |
+| Cross-family reviewer | `opencode` | DeepSeek V4 Pro | A | Family-disjoint from Kimi; catches contract drift |
+| Frontier judge | `claude-code` | Sonnet (default) | A | Anthropic-family; family-disjoint from Kimi/DeepSeek jurors |
+| Integrator | `opencode` | Kimi K2p6-turbo | A | Assembles locked implementations into runnable tree |
+| Outcome verifier | `opencode` | Kimi K2p6-turbo | A | End-to-end verdict against AC |
+| Mechanical gate | `code` (subprocess) | — | — | Deterministic; no model invocation |
+
+**Tier classification (empirical, as of Phase 5):**
+- **Tier A** — load-bearing channels where the artifact is directly part of the pipeline contract. All currently active worker roles are Tier A by empirical validation (≥80% first-attempt pass rate on golden runs).
+- **Tier B** — structured bulk / lower-judgment tasks. No roles are currently assigned Tier B in the active phase defaults; this tier was planned for cheap K2 slot-filling but K2 has proven Tier A capable on interface and test roles.
+- **Tier C** — probationary. Gemini is the only current Tier C channel: validated in GR-032+ but disabled in default configs pending more data. Its cross-family-review pass rate was 6% in GR-037 (gemini-2.5-pro, strict mode).
 
 This table is **configuration**, not contract. It is updated based on telemetry (§7) and in response to model upgrades. No silent promotion: any change must be backed by pass-rate data for the affected role.
+
+**Historical note on K2 tier assignment.** Prior drafts of this spec listed K2 (Kimi) as Tier B ("slot-filling, bulk") and Claude CC as Tier A for interface_architect and test_author. Empirical telemetry (GR-021 through GR-038) showed K2 consistently performing at Tier A quality on all worker roles, including interface_architect and test_author. The tier table has been updated to reflect the empirical record. The principle "no silent promotion" applies: this update is backed by 38 golden runs of data.
 
 ### Channel adapter
 
@@ -156,7 +175,7 @@ class Channel(Protocol):
     ) -> InvocationResult
 ```
 
-One adapter per channel: `ClaudeCodeChannel`, `OpenCodeChannel`, `KimiAPIChannel`, `GLMChannel`, `DeepSeekOllamaChannel`, `GeminiCLIChannel`. Adapters handle their own quirks (headless flags, prompt shape, output capture, exit-code interpretation). The runner sees only `InvocationResult`. Role-to-channel binding lives in `factory.config.yaml`, hot-reloadable.
+Three adapters are implemented: `ClaudeCodeChannel`, `OpenCodeChannel`, `GeminiCLIChannel`. The `OpenCodeChannel` adapter handles multiple model families (Kimi, DeepSeek, GLM, etc.) via the `model_override` parameter — there is no separate KimiAPIChannel, GLMChannel, or DeepSeekOllamaChannel. Adapters handle their own quirks (headless flags, prompt shape, output capture, exit-code interpretation). The runner sees only `InvocationResult`. Role-to-channel binding lives in `FactoryConfig` (or a YAML override), hot-reloadable.
 
 ## 6. Failure handling
 
@@ -174,16 +193,17 @@ One adapter per channel: `ClaudeCodeChannel`, `OpenCodeChannel`, `KimiAPIChannel
 
 ## 8. Open questions and known risks
 
-1. **K2.6 upgrade impact (~3 days from drafting).** If K2.6 reliably handles interface-architect or test-author roles, promote and reduce Claude time. Empirical; requires telemetry from initial runs.
-2. **Long-context degradation.** Gemini and DeepSeek both nominally accept 1M context but quality drops sharply past ~200–300K tokens. Coherence-reviewer role (and any other long-context use) must be benchmarked at varying context sizes; if degradation is severe, role gets restricted to smaller windows or eliminated.
-3. **Gemini-cli inconsistency.** Probationary placement. If telemetry shows pass-rate <80% on its assigned role, drop or replace. Gemini-cli's flakiness is largely harness-shaped, not model-shaped — pure-text review tasks are more reliable than write-and-edit tasks.
-4. **Substrate dependencies.** v2 depends on substrate's API surface (events, work items, claims, transitions). The factory has validated three golden runs against current substrate. See BC-051 for the historical BC-021 note. Other blockers may emerge as v2 exercises substrate's API more aggressively (especially hooks/validators, dead-letter requeue, replay correctness on long event histories).
-5. **Runner complexity.** The channel-adapter + telemetry + failure-routing layer is a real engineering investment, not a weekend script. Underbudgeting this is the most likely failure mode for v2.
-6. **Semantic AC ambiguity.** No structural defense; pushes responsibility to spec quality. Mitigation: spec ambiguity resolver routes back to principal cheaply, and the principal's expertise *is* spec quality. The factory's job is to make ambiguity surface fast.
-7. **Fleet management overhead.** With six channels, time spent tuning model placement risks exceeding time spent producing software. Set a fleet-tuning budget cap (e.g., 10% of factory engineering time); if exceeded, freeze configuration.
-8. **First-target application domain.** v2 must validate on a small, low-stakes pipeline before being trusted with anything substantial. Candidate criteria: self-contained, behavior-testable, recoverable on failure, valuable enough to justify running. *Not* socratic-specification or software-factory itself — too entangled with the principal's tooling stack to absorb v2's early failure modes safely.
-9. **Test theater.** Even with a frontier-judge gate explicitly checking "do these tests demonstrate AC met," subtle tautologies will get through. Mitigation: outcome verification (Stage 9) is the backstop, and the principal's outcome review is the final filter. Acknowledge this is incomplete.
-10. **Cost of jury at scale.** Three-model juries on every load-bearing gate is free per-invocation but costly in wall-clock. Profile early; reduce jury size for stages where single-model judgment proves reliable.
+1. **K2 tier assignment confirmed (resolved).** K2p6-turbo handles interface-architect and test-author roles at Tier A quality (≥80% first-attempt pass rate across GR-021 through GR-038). No further upgrade analysis needed for current workloads; update tier assignment only when telemetry changes.
+2. **Long-context degradation.** Gemini and DeepSeek both nominally accept 1M context but quality drops sharply past ~200–300K tokens. Any long-context use must be benchmarked at varying context sizes; if degradation is severe, restrict to smaller windows or eliminate the role.
+3. **Gemini-cli inconsistency.** Probationary placement; disabled in phase defaults. GR-037 measured 6% review pass rate for gemini-2.5-pro (strict mode). GR-032 validated the adapter. Re-enable only with a targeted capability probe showing ≥50% pass rate on a defined role. Gemini-cli's flakiness is largely harness-shaped — pure-text review tasks are more reliable than write-and-edit tasks.
+4. **Substrate dependencies.** v2 depends on substrate's API surface (events, work items, claims, transitions). The factory has validated 38 golden runs against current substrate. See BC-051 for the historical BC-021 note. The most active risk area is hooks/validators, dead-letter requeue, and replay correctness on long event histories.
+5. **Runner complexity.** The channel-adapter + telemetry + failure-routing layer is a real engineering investment. At Phase 5 it is substantially complete (runner, gate_process, scheduler, router, pre_gate, jury, workspace modules). The primary remaining risk is integration-stage complexity for real (non-synthetic) workloads.
+6. **Semantic AC ambiguity.** No structural defense; pushes responsibility to spec quality. The factory's job is to make ambiguity surface fast via `cannot_proceed` escalation. The principal's expertise *is* spec quality.
+7. **Fleet management overhead.** With three active channel adapters and configurable models, time spent tuning model placement risks exceeding time spent producing software. Set a fleet-tuning budget cap (e.g., 10% of factory engineering time); if exceeded, freeze configuration.
+8. **First-target application domain (partially resolved).** cert-watch has been the synthetic validation workload for Phases 2–5. A real line-of-business workload has not yet been attempted. Candidate criteria: self-contained, behavior-testable, recoverable on failure, valuable enough to justify running. *Not* socratic-specification or software-factory itself.
+9. **Test theater.** Even with a frontier-judge gate explicitly checking "do these tests demonstrate AC met," subtle tautologies will get through. Mitigation: outcome verification (Stage 8) is the backstop, and the principal's outcome review is the final filter. Acknowledge this is incomplete.
+10. **Cost of jury at scale.** Two-model juries on every jury work item are free per-invocation but costly in wall-clock. GR-038 first all-pass run took ~1h40m. Profile on real workloads; reduce jury size for stages where single-model judgment proves reliable.
+11. **Outcome verification scope.** The `outcome_verifier` role is implemented and gated (Stage 8), but the role's model placement has not been empirically validated on a real workload. cert-watch golden runs exercise the infrastructure; real outcome verification requires a workload with a runnable assembled software artifact.
 
 ## 9. Memory and context
 
@@ -195,7 +215,7 @@ Per-work-item event log, custom_fields, links, workflow registry. Anything worth
 
 ### 9.2 Context derivation as a deterministic function
 
-The runner provides a `derive_context(work_item_id, role) -> PromptContext` library that builds the prompt input bundle from substrate state. Per-role specifications declare what each role consumes (e.g., implementer: locked interface + tests + prior attempts + diagnostics; judge: spec section + AC + interface + tests + implementation; coherence reviewer: full work-item subgraph plus relevant spec sections). Versioned, tested, deterministic. Two invocations of `derive_context` on the same substrate state produce byte-identical context bundles.
+The runner provides a `derive_context(work_item_id, role) -> PromptContext` library that builds the prompt input bundle from substrate state. Per-role specifications declare what each role consumes (e.g., implementer: locked interface + tests + prior attempts + diagnostics; frontier_judge: spec section + AC + interface + tests + implementation; integrator: all locked implementations in the DAG). Versioned, tested, deterministic. Two invocations of `derive_context` on the same substrate state produce byte-identical context bundles.
 
 ### 9.3 Caching as memoization, not as state
 
@@ -329,24 +349,36 @@ If the work-item is still in `in_progress` because the prior claim's TTL has not
 - **Capability gate for new channels:** DeepSeek-v4-pro reviewed via capability probe before pipeline use.
 - **Run-log discipline:** `golden-run-027-log.md` present.
 
-**Phase 5 — Integration and outcome verification. ← CURRENT**
-- Implement Stage 8 (integration) and Stage 9 (outcome verification) per §4.
-- Cross-work-item linking: integration work items assemble locked implementations into a runnable module tree.
-- Integration mechanical gates: import across modules, mypy on assembled tree, cross-cutting pytest.
-- Outcome verification: end-to-end run of assembled software against AC.
-- Review/jury verdict routing (BC-145) — shape alongside pipeline-flow changes rather than retrofitting.
-- First real workload deferred until integration stage is validated on synthetic multi-module fixtures.
+**Phase 5 — Integration and outcome verification. ✓ COMPLETE (GR-038 first all-pass full-DAG run)**
+- Implemented Stage 7 (integration) and Stage 8 (outcome verification) per §4.
+- Cross-work-item linking: integration work items assemble locked implementations into a runnable module tree (assembled_tree JSON).
+- Integration mechanical gates: import across modules, mypy on assembled tree, cross-cutting pytest — all three implemented in `evaluate_integration()`.
+- Outcome verification: end-to-end model-mediated verdict of assembled software against AC — implemented in `evaluate_outcome_verification()`.
+- Review/jury verdict routing (BC-145) — Phase 1 done (structured findings route to implementer via `routing_fields`); Phase 2 (upstream routing to test_author) deferred to RFC-025.
+- Validated on cert-watch synthetic multi-module fixtures across GR-030 through GR-038.
 
 **Phase 5 dependencies (from RFCs):**
 - RFC-017 (operational survivability) — disk monitoring, log rotation, workspace lifecycle.
-- RFC-019 (artifact bundling and output delivery) — Stage 9 artifact bundle for principal.
+- RFC-019 (artifact bundling and output delivery) — Stage 8 (outcome_verification) artifact bundle for principal.
 - RFC-020 (project archetype catalog) — cold-start templates for real workloads.
 - RFC-021 (spec mutation and invalidation) — how spec changes mid-pipeline invalidate downstream work items.
-- BC-145 (review/jury verdict routing) — structured upstream routing for review-found defects, not terminal retry.
+- BC-145 (review/jury verdict routing) — structured upstream routing for review-found defects, not terminal retry. Phase 1 done; phase 2 deferred to RFC-025.
 
-**Phase 6 — Generalization.**
-- Second and third workloads, with patterns extracted into reusable roles/skills.
+---
+
+## Phase 6 and Beyond (future design — not yet implemented)
+
+The following are design aspirations and recorded decisions for after Phase 5 exit. They are **proposals**, not implementation targets. Nothing in this section describes code that exists today.
+
+**Phase 6 — Generalization and first real workload.**
+- Second and third workloads (not cert-watch), with patterns extracted into reusable role templates.
 - At this point, decide whether v2 is ready to attempt anything from the existing software-factory v1 backlog.
+- Machine-readable spec sidecar (`spec.yaml`) produced by socratic-specification at intake; used as structured input to `populate_work_items.py` instead of freeform spec.md.
+- `coherence_reviewer` role (holistic, long-context): different-family model reviews entire assembled DAG against spec intent. Planned for Gemini (long-context advantage) once Gemini pass rate improves.
+- Spec ambiguity resolver: structured escalation path that routes back to the principal with a focused question rather than a dump of diagnostics. Requires spec.yaml sidecar and socratic-spec integration.
+- Race: running the same role on two channels in parallel; whichever produces a passing artifact first wins. Requires multi-channel dispatch refactor. Deferred until a workload demonstrates the wall-clock cost justifies the engineering complexity.
+
+---
 
 ### Gate budget
 
@@ -379,12 +411,12 @@ If a phase is at its deterministic-gate budget and a new gate is justified, the 
 
 ## 11. Glossary
 
-- **Channel** — an invocation path to a model (e.g., Claude via Claude Code headless, K2 via API). One channel per (model, harness) pair.
-- **Role** — a logical job in the pipeline (e.g., interface architect). Roles bind to channels via configuration.
-- **Tier** — capability classification of a channel. Tier A: load-bearing (Claude, GLM, DeepSeek). Tier B: structured bulk (K2). Tier C: probationary (Gemini).
-- **Jury** — multi-channel gate where 2–3 Tier-A channels independently judge an artifact and a quorum advances.
-- **Race** — running the same role on two channels in parallel; whichever produces a passing artifact first wins.
-- **Family** — model lineage (Anthropic, Zhipu, DeepSeek, etc.). "Family-disjoint" reviews use channels from different families to maximize uncorrelated failure modes.
-- **Contract** — the locked typed interface produced by Stage 2. All downstream roles read it; none may modify it without routing back to Stage 2.
-- **Outcome verification** — Stage 9 end-to-end test of assembled software. The factory's primary correctness signal at the artifact level.
-- **Outcome review** — Stage 10 principal review at the behavior level. The factory's primary correctness signal at the intent level.
+- **Channel** — an invocation path to a model (e.g., Claude via Claude Code headless, Kimi K2 via OpenCode). One channel per (adapter, model) pair; multiple models share the `opencode` adapter via `model:` selection.
+- **Role** — a logical job in the pipeline (e.g., interface architect). Roles bind to channels via `FactoryConfig.roles`.
+- **Tier** — empirical capability classification of a (role, channel, model) assignment. Tier A: load-bearing (confirmed at ≥80% first-attempt pass rate on golden runs — currently all active worker roles). Tier B: structured bulk / lower-judgment (no active assignments in Phase 5 defaults). Tier C: probationary (Gemini; validated but disabled in defaults).
+- **Jury** — multi-model gate where 2+ Tier-A models independently judge an artifact and a quorum advances (`frontier_judge` role, `jury` work-item type). Juror identity is tracked per `(channel, model)` pair for family-disjoint judgment.
+- **Race** — running the same role on two channels in parallel; whichever produces a passing artifact first wins. Not yet implemented in the runner; planned as a future optimization.
+- **Family** — model lineage (Anthropic, Moonshot, DeepSeek, Zhipu, Google, etc.). "Family-disjoint" reviews and jury compositions use channels from different families to maximize uncorrelated failure modes.
+- **Contract** — the locked typed interface (.pyi stub) produced by Stage 1 (interface_architect). All downstream roles read it; none may modify it without routing back to Stage 1.
+- **Outcome verification** — Stage 8: end-to-end model-mediated verdict of assembled software against AC. The factory's primary correctness signal at the artifact level.
+- **Principal review** — post-pipeline human gate at the behavior level. The factory's primary correctness signal at the intent level.

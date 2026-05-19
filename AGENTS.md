@@ -43,7 +43,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
 
 ## Status
 
-**Phase 5 (integration and outcome verification).** Phase 4 exit criteria met at GR-027 (88% lock rate, dual-family jury K2+DeepSeek, all constraint paths exercised). Phase 5 implements Stage 8 (integration) and Stage 9 (outcome verification) per spec §4, and addresses review/jury verdict routing (BC-145) alongside pipeline-flow changes.
+**Phase 5 (integration and outcome verification). ✓ COMPLETE at GR-038 (first all-pass full-DAG run).** Phase 4 exit criteria met at GR-027 (88% lock rate, dual-family jury K2+DeepSeek, all constraint paths exercised). Phase 5 implemented Stage 7 (integration) and Stage 8 (outcome verification) per spec §4, and addressed review/jury verdict routing (BC-145 Phase 1 done).
 
 **What exists:**
 - 7-module runner: runner, gate, gate_process, router, scheduler, config, workspace
@@ -100,11 +100,10 @@ The principal of this project is a **systems architect, not a developer**. Archi
 ## What not to build yet
 
 The phasing in `spec.md` §10 exists to prevent the v1 mistake of building the whole architecture at once. Current constraints:
-- Five-role pipeline (interface_architect, test_author, implementer, cross_family_reviewer, frontier_judge). Roles beyond these (integrator, outcome_verifier, coherence_reviewer) have no implementation.
-- Mechanical gates + single-channel review/jury gates. Multi-family jury racing is validated in skeleton but awaiting first golden-run exercise.
-- Multi-model jury: parallel invocation of distinct models through same adapter via `model_override`; unique juror keys by channel+model suffix. Validated in GR-025 (K2 + glm-5.1).
-- No integration or outcome-verification stages until Phase 5.
-- Channel adapters for DeepSeek (standalone Ollama adapter) and Gemini exist but are not yet validated in golden runs. The Gemini CLI errors with `SyntaxError: Invalid regular expression flags` under the system Node (`/usr/bin/node` is v18); a newer Node is available via nvm at `~/.nvm/versions/node/v24.15.0/bin/node` — source `~/.nvm/nvm.sh && nvm use 24` (or invoke that node binary directly) before running `gemini`.
+- Seven worker roles implemented: interface_architect, test_author, implementer, cross_family_reviewer, frontier_judge, integrator, outcome_verifier. The `coherence_reviewer` role (holistic long-context review) has no implementation — deferred to Phase 6 per spec.
+- Multi-family jury (parallel model invocation via `model_override`) validated in GR-025+.
+- Integration and outcome-verification stages implemented and validated (GR-031 through GR-038).
+- Channel adapters: ClaudeCodeChannel (validated), OpenCodeChannel (validated, handles Kimi/DeepSeek/GLM via model selector), GeminiCLIChannel (validated in GR-032+, disabled in defaults pending better pass-rate data). The Gemini CLI requires Node 24: `PATH="$HOME/.nvm/versions/node/v24.15.0/bin:$PATH"` before running `gemini`.
 If you find yourself wanting to skip ahead, file a breadcrumb explaining why and let the principal decide.
 
 ## Pointers

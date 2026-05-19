@@ -417,17 +417,17 @@ def compute_pass_rates(attempts: list[GateAttempt]) -> list[PassRateRow]:
     # RFC-034: model is part of the grouping key so that a channel whose
     # underlying model snapshot changes (e.g. kimi-k2.6 → kimi-k2.7) does
     # not silently merge into one confounded bucket.
-    by_key: dict[
-        tuple[str, str, str, str, str | None, str | None], list[GateAttempt]
-    ] = defaultdict(list)
+    by_key: dict[tuple[str, str, str, str, str | None, str | None], list[GateAttempt]] = (
+        defaultdict(list)
+    )
     for a in attempts:
         key = (a.role, a.channel, a.family, a.gate_name, a.prompt_template_hash, a.model)
         by_key[key].append(a)
 
     rows: list[PassRateRow] = []
-    for (
-        role, channel, family, gate_name, prompt_template_hash, model
-    ), group in sorted(by_key.items(), key=lambda kv: tuple("" if x is None else x for x in kv[0])):
+    for (role, channel, family, gate_name, prompt_template_hash, model), group in sorted(
+        by_key.items(), key=lambda kv: tuple("" if x is None else x for x in kv[0])
+    ):
         per_item: dict[str, list[GateAttempt]] = defaultdict(list)
         for a in group:
             per_item[a.work_item_id].append(a)
@@ -518,9 +518,7 @@ def format_pass_rate_table(rows: list[PassRateRow]) -> str:
         by_four[k].add(r.prompt_template_hash)
         by_four_models[k].add(r.model)
     confounded = [(k, hashes) for k, hashes in by_four.items() if len(hashes) > 1]
-    confounded_models = [
-        (k, models) for k, models in by_four_models.items() if len(models) > 1
-    ]
+    confounded_models = [(k, models) for k, models in by_four_models.items() if len(models) > 1]
     if confounded:
         lines.append("")
         for (role, channel, family, gate_name), hashes in confounded:

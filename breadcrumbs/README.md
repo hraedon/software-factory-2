@@ -78,6 +78,7 @@ Rationale: "file an RFC" diffuses ownership and has no time bound; the block rul
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 194 | Channel status declaration vs. constructor divergence — GLM/DeepSeek/Gemini constructible despite "disabled"/"unvalidated" status (RFC-037 worked example) | high | proposed |
 | 193 | spec_section and import_feedback rendered unfenced in prompt — heading injection risk from fixture specs | low | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
@@ -87,6 +88,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Phase Needed |
 |---|---|---|---|
+| RFC-037 | Detect → enforce → retire tiering — declared commitment level for gates, allowlists, and status fields (cross-project meta-defense) | medium | Phase 5 in-flight |
 | RFC-036 | Eliminate substrate private-API imports; split gate.py into a gate/ package | medium | Phase 5 in-flight |
 | RFC-035 | Data-driven channel placement layer — consume PassRateRow to propose role→channel config | high | Phase 3 (fleet integration) |
 | RFC-034 | Capture model identity (resolved model string) in telemetry keys | high | Phase 3 (fleet integration) |

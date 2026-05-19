@@ -1,4 +1,5 @@
 """BC-190: scheduler dedup lock, existence cache, and handoff fairness tests."""
+
 from __future__ import annotations
 
 import threading
@@ -17,7 +18,6 @@ from factory.constants import (
 )
 from factory.runtime import PipelineRuntime
 from factory.scheduler import (
-    _cache_mark_exists,
     _ensure_downstream_item,
     _existence_cache,
     _existence_cache_lock,
@@ -40,9 +40,7 @@ def mock_substrate():
     from substrate.testing import InMemorySubstrate
 
     sub = InMemorySubstrate()
-    sub.register_workflow_file(
-        str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
-    )
+    sub.register_workflow_file(str(Path(__file__).parent.parent / "workflows" / "phase2.yaml"))
     yield sub
     sub.close()
 
@@ -66,6 +64,7 @@ def handoff():
 # ---------------------------------------------------------------------------
 # 1. Dedup lock — concurrent calls must produce exactly one downstream item
 # ---------------------------------------------------------------------------
+
 
 class TestDedupLock:
     def test_concurrent_calls_produce_exactly_one_downstream(
@@ -105,9 +104,7 @@ class TestDedupLock:
             work_item_types=["test_suite"],
             page_size=100,
         )
-        assert len(page.items) == 1, (
-            f"Expected exactly 1 downstream item, got {len(page.items)}"
-        )
+        assert len(page.items) == 1, f"Expected exactly 1 downstream item, got {len(page.items)}"
         assert page.items[0].custom_fields["interface_ref"] == str(source.work_item_id)
 
     def test_sequential_duplicate_calls_still_idempotent(
@@ -137,6 +134,7 @@ class TestDedupLock:
 # ---------------------------------------------------------------------------
 # 2. Existence cache — second call must skip paginated scan
 # ---------------------------------------------------------------------------
+
 
 class TestExistenceCache:
     def test_cache_hit_skips_scan(self, mock_substrate, workspace_root, handoff):
@@ -199,25 +197,22 @@ class TestExistenceCache:
 # 3. Fairness — iteration order must vary across poll cycles
 # ---------------------------------------------------------------------------
 
+
 class TestHandoffFairness:
     def test_poll_order_varies(self, mock_substrate, workspace_root):
         """_poll_handoffs must not always visit handoffs in declaration order."""
         config = FactoryConfig.phase2(workspace_root=workspace_root)
         runtime = PipelineRuntime(sub=mock_substrate, config=config)
 
-        # Record the iteration order from several poll cycles.
-        observed_orders: list[list[str]] = []
-
-        original_query = mock_substrate.query_work_items
-
         # Intercept at _poll_handoffs level by patching random.shuffle with a
         # recorder that still does the shuffle, then sampling the order via the
         # per-handoff query calls.
         #
-        # Simpler approach: capture the handoff list order inside the loop by
-        # patching the scheduler's random.shuffle to record what was passed in.
-        import factory.scheduler as sched_mod
+        # Capture the handoff list order inside the loop by patching the
+        # scheduler's random.shuffle to record what was passed in.
         import random as random_mod
+
+        import factory.scheduler as sched_mod
 
         shuffled_orders: list[list[str]] = []
         original_shuffle = random_mod.shuffle
