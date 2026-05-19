@@ -2,7 +2,7 @@
 number: "194"
 title: Channel status declaration vs. constructor divergence — GLM/DeepSeek/Gemini constructible despite "disabled"/"unvalidated" status
 severity: high
-status: proposed
+status: implemented
 kind: defect-class
 author: claude
 date: "2026-05-19"

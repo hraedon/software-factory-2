@@ -71,9 +71,10 @@ The principal of this project is a **systems architect, not a developer**. Archi
   - GR-022: Phase 4 first run — 100% lock rate (15/15) on cert-watch-mini, all 5 roles exercised
   - GR-021: 100% lock rate (24/24) on cert-watch full DAG, K2-only; inner gate first-attempt rate 74%
 
-**Known issues:** 3 open breadcrumbs + 20 RFCs + 9 defect classes (190 resolved). See `breadcrumbs/README.md`.
+**Known issues:** 3 open breadcrumbs (0 critical, 1 high, 2 medium/low) + 20 RFCs + 9 defect classes (192 resolved). See `breadcrumbs/README.md`.
+- BC-195 (medium, proposed): integration gate subprocess has no namespace isolation — network/filesystem access unrestricted for LLM-generated code; `unshare` fix pending
+- BC-193 (low, proposed): spec_section and import_feedback rendered unfenced in prompt — heading injection risk from fixture specs
 - BC-120 (medium, deferred): implementer-initiated interface amendment — awaiting ≥3 empirical instances
-- BC-145 (high, implemented): review/jury verdict routing — phase 1 done; phase 2 deferred to RFC-025
 
 **Blocking on:** nothing. All validated channels have working adapters; unvalidated adapters disabled.
 

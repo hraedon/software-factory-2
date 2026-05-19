@@ -2,7 +2,7 @@
 number: "RFC-036"
 title: "Eliminate substrate private-API imports; split gate.py into a gate/ package"
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: claude
 date: "2026-05-18"

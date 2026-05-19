@@ -78,7 +78,7 @@ Rationale: "file an RFC" diffuses ownership and has no time bound; the block rul
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 194 | Channel status declaration vs. constructor divergence — GLM/DeepSeek/Gemini constructible despite "disabled"/"unvalidated" status (RFC-037 worked example) | high | proposed |
+| 195 | Integration gate subprocess runs as current user with full filesystem/network access — no namespace isolation | medium | proposed |
 | 193 | spec_section and import_feedback rendered unfenced in prompt — heading injection risk from fixture specs | low | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
@@ -88,8 +88,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Phase Needed |
 |---|---|---|---|
-| RFC-037 | Detect → enforce → retire tiering — declared commitment level for gates, allowlists, and status fields (cross-project meta-defense) | medium | Phase 5 in-flight |
-| RFC-036 | Eliminate substrate private-API imports; split gate.py into a gate/ package | medium | Phase 5 in-flight |
+| RFC-037 | Detect → enforce → retire tiering — declared commitment level for gates, allowlists, and status fields (cross-project meta-defense; lead example BC-194 implemented) | medium | Phase 5 in-flight |
 | RFC-035 | Data-driven channel placement layer — consume PassRateRow to propose role→channel config | high | Phase 3 (fleet integration) |
 | RFC-034 | Capture model identity (resolved model string) in telemetry keys | high | Phase 3 (fleet integration) |
 | RFC-033 | Guardrail lifecycle — tag preconditions, audit on invariant change (v1-lesson meta-defense) | medium | Phase 5 in-flight |
@@ -114,6 +113,8 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| RFC-036 | Eliminate substrate private-API imports; split gate.py into a gate/ package | medium | gate.py (1415 lines) split into gate/ package with 9 submodules; gate/__init__.py re-exports all public names for backward compat; runner.py split: inner_gate.py + jury_orchestrator.py; phase defaults extracted to phase_defaults.py; _PHASE2_DISPATCH → _KIND_DISPATCH |
+| 194 | Channel status declaration vs. constructor divergence — GLM/DeepSeek/Gemini constructible despite "disabled"/"unvalidated" status | high | _CHANNEL_STATUS table adjacent to _register_channel with tier:enforce annotation; _create_channels raises ChannelDisabledError for disabled channels and warns for unvalidated; gemini-cli first enforced case; 2 regression tests (AC-2, AC-3) |
 | 190 | Scheduler downstream dedup is racey and O(N); handoff iteration unfair | high | Per-(source_id, downstream_type) `threading.Lock` in WeakValueDictionary closes TOCTOU window; in-memory existence cache skips O(N) scan on repeat calls; `random.shuffle` per poll cycle for fairness; 5 tests |
 | 192 | Telemetry verify and pass-rate formatter use different unknown-rate thresholds | low | `TELEMETRY_UNKNOWN_RATE_THRESHOLD = 0.01` constant in `constants.py`; both `format_pass_rate_table` and `run_telemetry_verify` use it; label updated to `[target: <1%]` |
 | 191 | Context builder renders review_feedback twice and emits raw model text into prompt structure | medium | Deduped via `rendered_keys` set; all extra_artifact values fenced in triple-backtick code blocks; 4 tests |
