@@ -12,6 +12,7 @@ from substrate import Substrate
 from factory.constants import (
     CUSTOM_FIELD_AC_IDS,
     CUSTOM_FIELD_DEPENDENCY_REFS,
+    CUSTOM_FIELD_INITIATIVE_ID,
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_MODULE_NAME,
     CUSTOM_FIELD_SPEC_SECTION,
@@ -385,6 +386,9 @@ def main():
     label_to_id: dict[str, str] = {}
     pending_deps: dict[str, list[str]] = {}
     dep_name_to_label: dict[str, str] = {}
+    from factory.initiative import generate_initiative_id
+
+    initiative_id = generate_initiative_id()
     for filename, label, shape, ac_ids in items:
         if only_labels is not None and label not in only_labels:
             skipped += 1
@@ -403,6 +407,7 @@ def main():
             CUSTOM_FIELD_SPEC_SECTION: spec_text,
             CUSTOM_FIELD_AC_IDS: ac_ids,
             CUSTOM_FIELD_MODULE_NAME: module_name,
+            CUSTOM_FIELD_INITIATIVE_ID: initiative_id,
             "shape": shape,
         }
         try:

@@ -77,6 +77,7 @@ CUSTOM_FIELD_SUPERSEDES_REF = "supersedes_ref"
 CUSTOM_FIELD_SPEC_HASH = "spec_hash"
 CUSTOM_FIELD_REVIEW_FINDINGS = "review_findings"
 CUSTOM_FIELD_UPSTREAM_REVISION_OF = "upstream_revision_of"
+CUSTOM_FIELD_INITIATIVE_ID = "initiative_id"
 
 ACTOR_ID_WORKER_PREFIX = "factory-worker"
 ACTOR_ID_GATE = "factory-gate-code"
