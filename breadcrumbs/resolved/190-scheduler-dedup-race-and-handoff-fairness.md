@@ -2,7 +2,7 @@
 number: "190"
 title: "Scheduler downstream dedup is racey and O(N); handoff iteration unfair"
 severity: high
-status: proposed
+status: implemented
 kind: bug
 author: claude
 date: "2026-05-18"

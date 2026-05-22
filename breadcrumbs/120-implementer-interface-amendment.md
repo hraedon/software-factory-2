@@ -5,7 +5,7 @@ severity: medium
 status: deferred
 kind: design
 author: gemini-adversarial-review + openus-refinement
-updated: "2026-05-14"
+updated: "2026-05-22"
 date: "2026-05-11"
 tags: [runner, spec, implementer, interface_architect, stage-2, stage-4, rfc, deferred]
 related: ["077", "RFC-013", "134", "RFC-016"]
@@ -20,11 +20,13 @@ The implementer is the cheapest party to detect a broken contract (it has the in
 1. Write unnatural, over-complex code to satisfy the broken contract (wasting model budget on contortions).
 2. Escalate via `cannot_proceed`, which terminates the work item without structured remediation data.
 
-## Evidence assessment (updated 2026-05-14)
+## Evidence assessment (updated 2026-05-22)
 
-The original filing predicted the need based on complexity growth, but **zero instances** have been observed across 25 golden runs (GR-001 through GR-025). GR-014's two escalations were model-quality issues (invalid dataclass, ImportError), not contract issues. The amendment mechanism would not have helped.
+The original filing predicted the need based on complexity growth, but **zero instances** have been observed across 38 golden runs (GR-001 through GR-038) spanning 4 fixture shapes (cert-watch-mini, cert-watch full DAG, chain-of-trust, csv-toolkit). All implementer `cannot_proceed` events traced to model-quality issues (syntax errors, import errors, ruff violations), not contract mismatches. The amendment mechanism would not have helped.
 
 Spec §10 codifies a "≥3 instances before adding mechanism" rule for gates. The same discipline applies to design machinery. Telemetry and defect-class instrumentation (BC-128, BC-133) now provide the data to count contract-shaped failures cheaply. We run the count first.
+
+**Reactivation trigger condition 1 assessment (2026-05-22):** 0/3 threshold met. The implementer's inner-gate retry loop (RFC-013) and cross-family review path (BC-145 Phase 1) absorb the failure modes that BC-120 would address. The primary jury_disagree -> interface revision path was exercised end-to-end in GR-038 (4 DAG lineages through all 7 stages). BC-120 remains deferred.
 
 ## Clean two-role shape (target design if trigger fires)
 
