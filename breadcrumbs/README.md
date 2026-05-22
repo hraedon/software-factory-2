@@ -92,7 +92,10 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 | 196 | Telemetry reads all events for all work items — O(n*m) scaling | medium | proposed |
 | 199 | Unscoped query_work_items() leaks cross-project data in initiative.py and review_surface.py | medium | proposed |
 | 201 | Scheduler swallows database exceptions as 'not locked' | medium | proposed |
+| 202 | inner_gate _should_failover triggers on any non-zero exit code — too aggressive | medium | proposed |
+| 203 | gemini_channel.py hardcodes Node v24.15.0 path — not in FactoryConfig | medium | proposed |
 | 197 | Dead code with broken substrate API: store_spec_hash and load_spec_hash | low | proposed |
+| 204 | context.py hardcodes page_size=200 with no pagination | low | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
 ### RFCs (awaiting upstream phases)

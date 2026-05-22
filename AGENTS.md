@@ -56,7 +56,7 @@ Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs e
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
 - **1070 passing tests, 0 lint errors, 0 dead code findings**
 
-**Known issues:** 8 open breadcrumbs (0 critical, 3 high, 4 medium, 1 low) + 19 RFCs + 7 active defect classes + 2 stabilized (210 resolved). See `breadcrumbs/README.md`.
+**Known issues:** 11 open breadcrumbs (0 critical, 3 high, 7 medium, 1 low) + 19 RFCs + 7 active defect classes + 2 stabilized (210 resolved). See `breadcrumbs/README.md`.
 - BC-194 (high, proposed): no heartbeat on long-running model claims — claim theft risk
 - BC-198 (high, proposed): initiative requeue uses state name as transition name
 - BC-200 (high, proposed): subprocess_channel leaks full os.environ to model subprocesses
@@ -64,7 +64,10 @@ Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs e
 - BC-196 (medium, proposed): telemetry O(n*m) event scanning
 - BC-199 (medium, proposed): unscoped query_work_items() in initiative and review_surface
 - BC-201 (medium, proposed): scheduler swallows database exceptions
+- BC-202 (medium, proposed): inner_gate failover too aggressive on non-zero exit codes
+- BC-203 (medium, proposed): gemini_channel hardcodes Node v24.15.0 path
 - BC-197 (low, proposed): dead code with broken substrate API (spec_hash)
+- BC-204 (low, proposed): context.py hardcoded page_size=200, no pagination
 - BC-120 (medium, deferred): implementer-initiated interface amendment — awaiting ≥3 empirical instances
 
 **Blocking on:** nothing.

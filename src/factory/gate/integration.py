@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import shutil
-import subprocess as _sp
 import sys
 import tempfile
 from pathlib import Path
@@ -43,10 +42,13 @@ def _check_unshare() -> bool:
         )
         return False
     try:
-        r = _sp.run(
-            [unshare_path, "--user", "--map-root-user", "--net", "true"],
-            capture_output=True,
-            timeout=5,
+        from factory.subprocess import run as factory_run
+
+        r = factory_run(
+            cmd=[unshare_path, "--user", "--map-root-user", "--net", "true"],
+            cwd=Path("/"),
+            env={},
+            timeout_s=5,
         )
         _unshare_available = r.returncode == 0
     except Exception:

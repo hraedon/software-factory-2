@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -348,7 +349,9 @@ def _build_export_map_from_contents(
             try:
                 export_map[module_name] = extract_exports(content)
             except Exception:
-                pass
+                logging.getLogger("factory.context").warning(
+                    "export_extraction_failed module=%s", module_name
+                )
     return export_map
 
 

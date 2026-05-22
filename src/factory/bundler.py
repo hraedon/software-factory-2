@@ -158,7 +158,12 @@ def create_bundle(
         module_name = artifact_path.stem
 
         dest_dir = src_dir
-        if "test" in module_name.lower() or "test_" in artifact_path.name:
+        is_test = (
+            module_name.startswith("test_")
+            or module_name.endswith("_test")
+            or "test_" in artifact_path.name
+        )
+        if is_test:
             if include_tests:
                 dest_dir = tests_dir
             else:
