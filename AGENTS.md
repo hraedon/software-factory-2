@@ -54,7 +54,7 @@ Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs e
 - 5 workflow YAMLs with `extends:` composition (phase1–5, full_pipeline)
 - Unified subprocess wrapper (RFC-011): all subprocess calls use `factory.subprocess.run`
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
-- **1053 passing tests, 0 lint errors, 0 dead code findings**
+- **1070 passing tests, 0 lint errors, 0 dead code findings**
 
 **Known issues:** 1 open breadcrumb (0 critical, 0 high, 1 medium) + 19 RFCs + 7 active defect classes + 2 stabilized (210 resolved). See `breadcrumbs/README.md`.
 - BC-120 (medium, deferred): implementer-initiated interface amendment — awaiting ≥3 empirical instances
@@ -64,8 +64,8 @@ Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs e
 ### Phase 6 gate items (priority order)
 
 1. **RFC-023 (decomposer)** — Phase A (deterministic) implemented: reads `spec.yaml` or `spec.md`, produces per-FR fixture `.md` files. One module per FR, ACs assigned by `fr_ids` mapping, dependencies from `dependency_hints`. CLI via `populate_work_items.py --spec-yaml`. Phase B (model-driven decomposition with semantic module naming and FR grouping) remains future work.
-2. **RFC-026 (principal review surface)** — artifact bundle format + human review intake. Needed before any real workload.
-3. **RFC-022 (initiative primitive)** — work-item bundling for operational granularity. Low effort, factory-only.
+2. **RFC-026 (principal review surface)** — implemented: `src/factory/review_surface.py` generates `REVIEW.md` + `review.json` from substrate state. Human-readable module summaries, cannot-proceed detail, artifact listings.
+3. **RFC-022 (initiative primitive)** — implemented: `src/factory/initiative.py` provides `generate_initiative_id()`, `query_initiatives()`, `cancel_initiative()`, `requeue_initiative()`. `populate_work_items.py` assigns initiative IDs at populate time. Substrate-dependent operations require `initiative_id` custom field in workflow YAML (integration tests).
 4. **RFC-024 (coherence reviewer)** — declared role with zero implementation. Deferred per spec phasing.
 5. **RFC-027 (test efficacy)** — no mechanical verification that tests validate behavior.
 
