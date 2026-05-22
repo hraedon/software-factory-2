@@ -63,7 +63,7 @@ Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs e
 
 ### Phase 6 gate items (priority order)
 
-1. **RFC-023 (decomposer)** — Stage 1 pipeline cannot consume arbitrary specs. The entire pipeline runs on hand-curated fixture DAGs; real workloads require automatic spec decomposition. This is the single largest architectural gap.
+1. **RFC-023 (decomposer)** — Phase A (deterministic) implemented: reads `spec.yaml` or `spec.md`, produces per-FR fixture `.md` files. One module per FR, ACs assigned by `fr_ids` mapping, dependencies from `dependency_hints`. CLI via `populate_work_items.py --spec-yaml`. Phase B (model-driven decomposition with semantic module naming and FR grouping) remains future work.
 2. **RFC-026 (principal review surface)** — artifact bundle format + human review intake. Needed before any real workload.
 3. **RFC-022 (initiative primitive)** — work-item bundling for operational granularity. Low effort, factory-only.
 4. **RFC-024 (coherence reviewer)** — declared role with zero implementation. Deferred per spec phasing.

@@ -209,6 +209,18 @@ def main():
         help="Directory containing .md fixture files for custom golden-run sets",
     )
     parser.add_argument(
+        "--spec-yaml",
+        type=str,
+        default=None,
+        help="Path to spec.yaml to decompose into fixtures (RFC-023 decomposer)",
+    )
+    parser.add_argument(
+        "--spec-md",
+        type=str,
+        default=None,
+        help="Path to spec.md to decompose into fixtures (RFC-023 decomposer)",
+    )
+    parser.add_argument(
         "--skip-lint",
         action="store_true",
         help="Skip spec lint checks (use with caution)",
@@ -261,7 +273,33 @@ def main():
     else:
         workflow_version = 2
 
-    if args.fixtures:
+    if args.spec_yaml:
+        from factory.decomposer import (
+            decompose_from_spec_yaml as _decompose_yaml,
+            write_fixture_files as _write_fixtures,
+        )
+
+        spec_path = Path(args.spec_yaml)
+        result = _decompose_yaml(spec_path)
+        decomposed_dir = Path(args.workspace_root or "/tmp") / ".decomposed"
+        _write_fixtures(result, decomposed_dir)
+        print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
+        md_files = sorted(decomposed_dir.glob("*.md"))
+        items = [(f.name, f.stem, "custom", ["AC-01"]) for f in md_files]
+    elif args.spec_md:
+        from factory.decomposer import (
+            decompose_from_spec_md as _decompose_md,
+            write_fixture_files as _write_fixtures,
+        )
+
+        spec_path = Path(args.spec_md)
+        result = _decompose_md(spec_path)
+        decomposed_dir = Path(args.workspace_root or "/tmp") / ".decomposed"
+        _write_fixtures(result, decomposed_dir)
+        print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
+        md_files = sorted(decomposed_dir.glob("*.md"))
+        items = [(f.name, f.stem, "custom", ["AC-01"]) for f in md_files]
+    elif args.fixtures:
         fixtures_dir = Path(args.fixtures)
         md_files = sorted(fixtures_dir.glob("*.md"))
         items = [(f.name, f.stem, "custom", ["AC-01"]) for f in md_files]

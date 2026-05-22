@@ -2,7 +2,7 @@
 number: "RFC-023"
 title: "Decomposer role — Stage 1 pipeline cannot consume arbitrary specs"
 severity: high
-status: proposed
+status: in_progress
 kind: design
 author: agent
 date: "2026-05-15"
