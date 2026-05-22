@@ -56,8 +56,7 @@ Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs e
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
 - **1070 passing tests, 0 lint errors, 0 dead code findings**
 
-**Known issues:** 8 open breadcrumbs (0 critical, 3 high, 4 medium, 1 low) + 19 RFCs + 7 active defect classes + 2 stabilized (213 resolved). See `breadcrumbs/README.md`.
-- BC-194 (high, proposed): no heartbeat on long-running model claims — claim theft risk
+**Known issues:** 7 open breadcrumbs (0 critical, 2 high, 5 medium, 0 low) + 19 RFCs + 7 active defect classes + 2 stabilized (214 resolved). See `breadcrumbs/README.md`.
 - BC-198 (high, proposed): initiative requeue uses state name as transition name
 - BC-200 (high, proposed): subprocess_channel leaks full os.environ to model subprocesses
 - BC-195 (medium, proposed): no idempotency keys on substrate mutations

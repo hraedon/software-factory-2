@@ -85,7 +85,6 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 194 | No heartbeat on long-running model claims — claim theft risk | high | proposed |
 | 198 | Initiative requeue uses state name as transition name — no valid transition from cannot_proceed | high | proposed |
 | 200 | subprocess_channel.py leaks full os.environ to model subprocesses | high | proposed |
 | 195 | No idempotency keys on substrate mutations — crash-retry creates duplicates | medium | proposed |
@@ -125,6 +124,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 194 | No heartbeat on long-running model claims — claim theft risk | high | `HeartbeatSession` context manager wraps claims in runner/gate; daemon thread calls `heartbeat_claim` periodically; `cancel_event` kills subprocess on `CLAIM_LOST`; `subprocess.run` refactored to Popen+poll for cancellation |
 | 197 | Dead code with broken substrate API: store_spec_hash and load_spec_hash | low | Removed `store_spec_hash` and `load_spec_hash` (never called from production or tests); removed unused `CUSTOM_FIELD_SPEC_HASH` constant |
 | 203 | gemini_channel.py hardcodes Node v24.15.0 path — not in FactoryConfig | medium | Added `gemini_node_bin: Path | None` to `FactoryConfig`; channel reads from config with hardcoded fallback |
 | 204 | context.py hardcodes page_size=200 with no pagination | low | Parameterized `page_size` in `_gather_other_locked_artifacts` and `derive_integrator_context`; default 200 preserved for integrator's full-scan |
