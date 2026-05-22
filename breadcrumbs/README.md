@@ -64,13 +64,20 @@ Rationale: "file an RFC" diffuses ownership and has no time bound; the block rul
 |---|---|---|---|
 | CLASS-001 | JSONB / Contract Validation Entry-Point Drift | 10 | critical |
 | CLASS-002 | Dependency Module Name Resolution | 5 | high |
-| CLASS-005 | Inner Gate vs Outer Gate Ruleset Divergence | 11 | critical |
-| CLASS-008 | Gate Subprocess Execution and Environment Handling | 12 | high |
 | CLASS-010 | Channel Reliability and Failover | 8 | critical |
 | CLASS-011 | Budget/Retry/Escalation Loop Control | 6 | critical |
 | CLASS-012 | Single Source of Truth / String Constant Gravity | 10 | high |
 | CLASS-014 | Test Coverage Gaps for Existing Code | 14 | high |
 | CLASS-021 | Artifact Integrity and Immutability | 5 | critical |
+
+### Stabilized Defect Classes
+
+Systemic fix implemented via RFC-011 (unified subprocess execution layer). Instance tables unblocked per RFC-030 Path A.
+
+| Class | Title | Instances | Max Severity | Stabilized By |
+|---|---|---|---|---|
+| CLASS-005 | Inner Gate vs Outer Gate Ruleset Divergence | 11 | critical | RFC-011 |
+| CLASS-008 | Gate Subprocess Execution and Environment Handling | 12 | high | RFC-011 |
 
 ## Open
 
@@ -94,7 +101,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-033 | Guardrail lifecycle — tag preconditions, audit on invariant change (v1-lesson meta-defense) | medium | Phase 5 in-flight |
 | RFC-032 | Breadcrumb-velocity circuit breaker — freeze new feature scope when arrival rate exceeds absorption (v1-lesson meta-defense) | medium | Phase 5 in-flight |
 | RFC-031 | Fix-family root-cause requirement — BCs citing related BCs must explain missing invariant (v1-lesson meta-defense) | medium | Phase 5 in-flight |
-| RFC-030 | Class promotion must produce an invariant, not just an RFC (v1-lesson meta-defense; CLASS-005 worked example) | high | Phase 5 in-flight |
+| RFC-030 | Class promotion must produce an invariant, not just an RFC (v1-lesson meta-defense; CLASS-005/008 stabilized by RFC-011) | high | Phase 5 in-flight |
 | RFC-027 | Test efficacy — no mechanical verification that tests actually validate behavior | high | Phase 6 |
 | RFC-028 | Per-role capability map — collapse 5-point registration into single declaration | medium | Phase 5 exit / Phase 6 |
 | RFC-029 | Attempt-count telemetry bucketing — separate prompt calibration from gate-difficulty tail | medium | Phase 5 in-flight |
@@ -106,13 +113,13 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-007 | Test efficacy scoring via mutation testing gates — v1 BC-107/186, mechanical antidote to test theater | high | Phase 4–5 (jury / real workload) |
 | RFC-009 | Interactive debugging inner loop — channel tool-use surface for implementer | high | Phase 5+ (evidence threshold: 3+ golden runs with pytest-in-inner-loop still failing) |
 | RFC-010 | Fixture taxonomy — classify fixtures by architectural complexity class and gate Phase N exit criteria on the hardest exercised class | high | Phase 2 exit criteria |
-| RFC-011 | Unified subprocess execution layer — typed wrapper eliminating gate/runner subprocess footguns (closes CLASS-005 + CLASS-008; status `in_progress`, target validation GR-039) | medium | Phase 5 in-flight |
 | RFC-022 | Initiative primitive for work-item bundling and operational granularity | medium | Phase 5 (first real workload) |
 
 ## Resolved
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| RFC-011 | Unified subprocess execution layer — typed wrapper eliminating gate/runner subprocess footguns | critical | `factory.subprocess.run` with keyword-only `cmd`/`cwd`/`env`/`timeout_s`; all 29 call sites in `src/factory/` migrated; CLASS-005 + CLASS-008 stabilized; AC-4/AC-5 await GR-039 |
 | RFC-036 | Eliminate substrate private-API imports; split gate.py into a gate/ package | medium | gate.py (1415 lines) split into gate/ package with 9 submodules; gate/__init__.py re-exports all public names for backward compat; runner.py split: inner_gate.py + jury_orchestrator.py; phase defaults extracted to phase_defaults.py; _PHASE2_DISPATCH → _KIND_DISPATCH |
 | 194 | Channel status declaration vs. constructor divergence — GLM/DeepSeek/Gemini constructible despite "disabled"/"unvalidated" status | high | _CHANNEL_STATUS table adjacent to _register_channel with tier:enforce annotation; _create_channels raises ChannelDisabledError for disabled channels and warns for unvalidated; gemini-cli first enforced case; 2 regression tests (AC-2, AC-3) |
 | 190 | Scheduler downstream dedup is racey and O(N); handoff iteration unfair | high | Per-(source_id, downstream_type) `threading.Lock` in WeakValueDictionary closes TOCTOU window; in-memory existence cache skips O(N) scan on repeat calls; `random.shuffle` per poll cycle for fairness; 5 tests |

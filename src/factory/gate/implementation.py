@@ -18,6 +18,9 @@ from factory.gate.interface_spec import _check_syntax
 from factory.gate.test_suite import _import_module_name
 
 
+# tier: enforce
+# precondition: interface_spec + test_suite gates are enforce; this gate runs after both
+# audit trigger: re-evaluate if implementation gate is split into sub-gates
 def evaluate_implementation(
     artifact_path: Path,
     test_suite_path: Path | None = None,

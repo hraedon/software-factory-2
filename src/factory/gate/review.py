@@ -10,6 +10,9 @@ from factory.gate._base import GateResult
 from factory.output_extraction import extract_json_from_output
 
 
+# tier: enforce
+# precondition: implementation gate passed; cross-family reviewer produces structured verdict
+# audit trigger: re-evaluate if review JSON schema changes
 def _extract_json_vote(path: Path) -> dict:
     """Read a JSON artifact and return the parsed vote object."""
     if not path.exists():

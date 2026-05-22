@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess as _sp
 import sys
 import tempfile
 from pathlib import Path
+
+import structlog
 
 from factory.config import GateTimeouts
 from factory.constants import (
@@ -17,6 +20,66 @@ from factory.gate._base import GateResult, _guard_artifact_size
 from factory.sandbox import gate_subprocess_env
 from factory.subprocess import run as run_subprocess
 
+_log = structlog.get_logger()
+
+_unshare_available: bool | None = None
+
+
+# tier: enforce
+# precondition: LLM-generated code runs in subprocess during integration gate
+# audit trigger: re-evaluate when integration subprocess is removed or replaced
+# BC-195: namespace isolation for integration gate subprocess
+def _check_unshare() -> bool:
+    global _unshare_available
+    if _unshare_available is not None:
+        return _unshare_available
+    unshare_path = shutil.which("unshare")
+    if unshare_path is None:
+        _unshare_available = False
+        _log.warning(
+            "unshare_not_found",
+            msg="integration subprocesses will run without network namespace isolation",
+            bc="BC-195",
+        )
+        return False
+    try:
+        r = _sp.run(
+            [unshare_path, "--user", "--map-root-user", "--net", "true"],
+            capture_output=True,
+            timeout=5,
+        )
+        _unshare_available = r.returncode == 0
+    except Exception:
+        _unshare_available = False
+    if not _unshare_available:
+        _log.warning(
+            "unshare_not_functional",
+            msg="integration subprocesses will run without network namespace isolation",
+            bc="BC-195",
+        )
+    return _unshare_available
+
+
+def _isolated_cmd(cmd: list[str]) -> list[str]:
+    if not _check_unshare():
+        return cmd
+    return ["unshare", "--user", "--map-root-user", "--net", *cmd]
+
+
+def _integration_env(**overrides: str) -> dict[str, str]:
+    """Build gate env with PYTHONDONTWRITEBYTECODE for namespace-isolated subprocesses.
+
+    Under unshare --user --map-root-user, Python may fail to write __pycache__
+    because the UID mapping makes the temp directory's owner appear different.
+    PYTHONDONTWRITEBYTECODE prevents this.  If unshare isolation is later applied
+    to other gates (implementation, test_suite), this helper should move to
+    sandbox.py or gate_subprocess_env(). See CLASS-008.
+    """
+    env = gate_subprocess_env(**overrides)
+    if _unshare_available:
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return env
+
 
 def evaluate_integration(
     artifact_path: Path,
@@ -24,6 +87,10 @@ def evaluate_integration(
     gate_timeouts: GateTimeouts | None = None,
 ) -> GateResult:
     """Evaluate an integration artifact.
+
+    # tier: enforce
+    # precondition: assembled_tree contains LLM-generated code that is executed
+    # audit trigger: re-evaluate when integration gate is removed or replaced
 
     Expects a JSON object with `assembled_tree` (dict of filename -> source).
     Mechanical gates: import resolution, mypy, pytest on assembled tree.
@@ -165,9 +232,9 @@ def evaluate_integration(
             "print(json.dumps(errors))\n"
         )
         import_result = run_subprocess(
-            cmd=[exe, "-c", _import_check_script, str(tmp_path)],
+            cmd=_isolated_cmd([exe, "-c", _import_check_script, str(tmp_path)]),
             cwd=tmp_path,
-            env=gate_subprocess_env(PYTHONPATH=str(tmp_path)),
+            env=_integration_env(PYTHONPATH=str(tmp_path)),
             timeout_s=t.pytest_timeout,
         )
         if import_result.timed_out:
@@ -221,18 +288,20 @@ def evaluate_integration(
         py_files_list = [str(f) for f in py_files]
         if py_files_list:
             mypy_result = run_subprocess(
-                cmd=[
-                    exe,
-                    "-m",
-                    "mypy",
-                    "--strict",
-                    "--no-error-summary",
-                    "--explicit-package-bases",
-                    "--allow-empty-bodies",
-                    str(tmp_path),
-                ],
+                cmd=_isolated_cmd(
+                    [
+                        exe,
+                        "-m",
+                        "mypy",
+                        "--strict",
+                        "--no-error-summary",
+                        "--explicit-package-bases",
+                        "--allow-empty-bodies",
+                        str(tmp_path),
+                    ]
+                ),
                 cwd=tmp_path,
-                env=gate_subprocess_env(MYPYPATH=str(tmp_path)),
+                env=_integration_env(MYPYPATH=str(tmp_path)),
                 timeout_s=t.mypy_timeout,
             )
             if mypy_result.timed_out:
@@ -272,20 +341,22 @@ def evaluate_integration(
             test_path = tmp_path / "integration_tests.py"
             test_path.write_text(str(integration_tests))
             pytest_result = run_subprocess(
-                cmd=[
-                    exe,
-                    "-m",
-                    "pytest",
-                    str(test_path),
-                    "-x",
-                    "--tb=short",
-                    "-q",
-                    f"--rootdir={tmp_path}",
-                    "-p",
-                    "no:cacheprovider",
-                ],
+                cmd=_isolated_cmd(
+                    [
+                        exe,
+                        "-m",
+                        "pytest",
+                        str(test_path),
+                        "-x",
+                        "--tb=short",
+                        "-q",
+                        f"--rootdir={tmp_path}",
+                        "-p",
+                        "no:cacheprovider",
+                    ]
+                ),
                 cwd=tmp_path,
-                env=gate_subprocess_env(PYTHONPATH=str(tmp_path)),
+                env=_integration_env(PYTHONPATH=str(tmp_path)),
                 timeout_s=t.pytest_timeout,
             )
             if pytest_result.timed_out:

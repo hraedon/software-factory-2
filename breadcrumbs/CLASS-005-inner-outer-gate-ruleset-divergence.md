@@ -2,7 +2,7 @@
 number: "CLASS-005"
 title: "Inner Gate vs Outer Gate Ruleset Divergence"
 severity: critical
-status: active
+status: stabilized
 kind: defect-class
 author: rfc-016-backfill
 date: "2026-05-15"
@@ -44,8 +44,6 @@ RFC-011: Unified gate evaluation layer — extract shared subprocess execution l
 
 ## Status under RFC-030
 
-**Decision: Path A — systemic fix.**
+**Decision: Path A — systemic fix. Implemented.**
 
-The principal has chosen Path A. No `symptom-fixed-because` rationale will be written. The systemic-fix vehicle is **RFC-011 (expanded scope)**, which has been broadened to cover both CLASS-005 (inner/outer gate ruleset divergence, 11 instances) and CLASS-008 (gate subprocess execution and environment handling, 12 instances). RFC-011 is `in_progress`.
-
-The instances table above is **blocked under RFC-030** until RFC-011 lands AC-1..AC-5 (typed subprocess wrapper and unified gate evaluation layer). No new BC may be added to this class's instances table until that implementation ships.
+RFC-011 `implemented` as of 2026-05-20. `factory.subprocess.run` provides the typed wrapper invariant: keyword-only `cmd`, `cwd`, `env`, `timeout_s` with no defaults. All 29 subprocess call sites in `src/factory/` migrated through the wrapper. CLASS-005 instance table is now unblocked for new entries (though the systemic fix should prevent recurrence).

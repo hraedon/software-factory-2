@@ -17,6 +17,9 @@ from factory.gate._subprocess import _run_pytest_collect
 from factory.gate.interface_spec import _check_syntax
 
 
+# tier: enforce
+# precondition: interface_spec gate has passed; test_suite validates against locked interface
+# audit trigger: re-evaluate if test collection/assertion rules change
 def evaluate_test_suite(
     artifact_path: Path,
     interface_ref_pyi_path: Path | None = None,

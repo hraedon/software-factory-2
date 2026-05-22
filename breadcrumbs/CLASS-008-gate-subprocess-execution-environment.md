@@ -2,7 +2,7 @@
 number: "CLASS-008"
 title: "Gate Subprocess Execution and Environment Handling"
 severity: high
-status: active
+status: stabilized
 kind: defect-class
 author: rfc-016-backfill
 date: "2026-05-15"
@@ -45,8 +45,6 @@ RFC-011's shared execution layer, combined with RFC-012's sandbox module (alread
 
 ## Status under RFC-030
 
-**Decision: Path A — systemic fix.**
+**Decision: Path A — systemic fix. Implemented.**
 
-The principal has chosen Path A. BC-187 (commit `550b667`), the 12th instance, was the forcing function that triggered the RFC-030 decision point for this class. No `symptom-fixed-because` rationale will be written. The systemic-fix vehicle is **RFC-011 (expanded scope)**, which has been broadened to cover both CLASS-008 (gate subprocess execution and environment handling, 12 instances) and CLASS-005 (inner/outer gate ruleset divergence, 11 instances). RFC-011 is `in_progress`.
-
-The instances table above is **blocked under RFC-030** until RFC-011 lands its typed subprocess wrapper and unified gate evaluation layer. No new BC may be added to this class's instances table until that implementation ships.
+RFC-011 `implemented` as of 2026-05-20. `factory.subprocess.run` provides the typed wrapper invariant: keyword-only `cmd`, `cwd`, `env`, `timeout_s` with no defaults. All 29 subprocess call sites in `src/factory/` migrated through the wrapper. CLASS-008 instance table is now unblocked for new entries (though the systemic fix should prevent recurrence).

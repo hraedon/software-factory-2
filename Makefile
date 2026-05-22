@@ -1,4 +1,4 @@
-.PHONY: lint format test cov audit check golden-run integration
+.PHONY: lint format test cov audit check golden-run integration smoke
 
 PYTEST := .venv/bin/python -m pytest
 VULTURE := .venv/bin/vulture
@@ -30,3 +30,11 @@ golden-run:
 	.venv/bin/python scripts/golden_run_nanny.py --config $(CONFIG) --populate $(if $(FIXTURES),--fixtures $(FIXTURES))
 	.venv/bin/python -m factory.telemetry --config $(CONFIG)
 	.venv/bin/python -m factory.telemetry --verify --config $(CONFIG)
+
+smoke:
+	@echo "=== Smoke test: 5-item pipeline with cheap model ==="
+	.venv/bin/python scripts/agent_golden_run.py \
+		--config .factory/smoke-config.yaml \
+		--fixtures tests/fixtures/csv-toolkit \
+		--log-prefix smoke
+	@echo "=== Smoke test complete ==="

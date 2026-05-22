@@ -7,6 +7,9 @@ from factory.gate._base import GateResult
 from factory.gate.review import _extract_json_vote
 
 
+# tier: enforce
+# precondition: integration gate passed; outcome verifier evaluates assembled product
+# audit trigger: re-evaluate if outcome verification schema changes
 def evaluate_outcome_verification(artifact_path: Path) -> GateResult:
     """Evaluate an outcome-verification artifact.
 

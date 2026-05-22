@@ -110,6 +110,19 @@ class TestTimeout:
         assert result.duration_s < 2.0
 
 
+class TestMissingBinary:
+    def test_missing_binary_returns_negative_code(self, tmp_path):
+        result = run(
+            cmd=["__nonexistent_binary_12345__"],
+            cwd=tmp_path,
+            env={},
+            timeout_s=5.0,
+        )
+        assert result.returncode == -1
+        assert result.timed_out is False
+        assert "binary not found" in result.stderr
+
+
 class TestModuleAlias:
     def test_module_importable_as_fsubprocess(self):
         assert hasattr(fsubprocess, "run")

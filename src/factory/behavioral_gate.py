@@ -6,6 +6,9 @@ from factory.constants import GATE_NAME_BEHAVIORAL
 from factory.gate import GateResult
 
 
+# tier: detect
+# precondition: behavioral gate is not yet implemented (Phase 6 per spec)
+# audit trigger: re-evaluate and promote to enforce when behavioral gate is implemented
 def evaluate_behavioral(
     artifact_path: Path,
     scenarios: list[dict] | None = None,

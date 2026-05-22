@@ -10,6 +10,9 @@ from factory.gate._base import GateResult
 from factory.gate.review import _extract_json_vote
 
 
+# tier: enforce
+# precondition: review gate passed; multi-model jury produces quorum verdict
+# audit trigger: re-evaluate if jury quorum logic changes
 def evaluate_jury(artifact_path: Path) -> GateResult:
     """Evaluate a jury verdict artifact.
 

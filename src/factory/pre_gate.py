@@ -22,6 +22,11 @@ from factory.constants import (
 from factory.sandbox import gate_subprocess_env
 from factory.subprocess import run as run_subprocess
 
+# tier: enforce
+# precondition: inner gate runs before submit; catches issues before the outer gate
+# audit trigger: re-evaluate if inner gate is made optional or per-role configurable
+# (each pre_gate_* function below inherits this tier)
+
 _IMPORT_FEEDBACK_KIND_DOTTED_SUBMODULE = "dotted_submodule"
 _IMPORT_FEEDBACK_KIND_WRONG_MODULE_NAME = "wrong_module_name"
 _IMPORT_FEEDBACK_KIND_OTHER = "other_traceback"

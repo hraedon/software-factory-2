@@ -21,6 +21,9 @@ from factory.sandbox import gate_subprocess_env
 from factory.subprocess import run as run_subprocess
 
 
+# tier: enforce
+# precondition: shared by implementation, test_suite gates; wraps mypy/pytest/ruff subprocesses
+# audit trigger: re-evaluate if subprocess isolation model changes
 def _run_pytest_collect(
     artifact_path: Path,
     interface_ref_pyi_path: Path | None = None,

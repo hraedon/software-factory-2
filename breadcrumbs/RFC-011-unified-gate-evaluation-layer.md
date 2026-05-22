@@ -2,11 +2,11 @@
 number: "RFC-011"
 title: "Unified subprocess execution layer — eliminate gate/runner subprocess footguns by routing all calls through a typed wrapper"
 severity: critical
-status: in_progress
+status: implemented
 kind: design
 author: deepseek-v4-pro (adversarial review — Session 20); expanded claude (Session 25)
 date: "2026-05-11"
-updated: "2026-05-17"
+updated: "2026-05-20"
 tags: [gate, runner, subprocess, refactor, CLASS-005, CLASS-008]
 related: ["082", "079", "059", "187", "RFC-012", "RFC-030", "CLASS-005", "CLASS-008"]
 phase_needed: "Phase 3 (multi-channel gates)"
@@ -123,3 +123,13 @@ RFC-011 is the systemic-fix invariant that unblocks CLASS-005 and CLASS-008's in
 The original RFC-011 text (Session 20) proposed a `GateRunner` class focused on extracting shared gate evaluation. That proposal correctly identified the symptom (inner/outer divergence) but underspecified the root fix. The `GateRunner` approach would still leave each call site choosing its own `cwd`, `env`, and `timeout`. This rewrite shifts the invariant from "shared gate logic" to "required subprocess parameters" — a smaller surface area with stronger enforcement guarantees.
 
 v1 learned the same lesson via "string constant gravity" (BC-383): two copies of the same logic will diverge given enough time. The subprocess equivalent is: two call sites that both choose their own env will produce two different environments. The fix is not better coordination — it is eliminating the choice.
+
+## Implementation status
+
+All three migration steps complete. AC assessment:
+
+- **AC-1**: `factory.subprocess.run` exists; `cmd`, `cwd`, `env`, `timeout_s` are keyword-only with no defaults; TypeError raised on omission.
+- **AC-2**: Zero bare `subprocess.run`/`subprocess.Popen` calls in `src/factory/`. All 29 call sites route through the wrapper. No grandfathered exemptions.
+- **AC-3**: 13 tests in `tests/test_subprocess_wrapper.py` cover TypeError on missing kwargs, timeout→`timed_out=True`, missing binary→`returncode=-1`, happy-path capture, cwd/env isolation, stdin.
+- **AC-4**: Pending GR-039 validation.
+- **AC-5**: Trailing check across GR-039 and one subsequent golden run.

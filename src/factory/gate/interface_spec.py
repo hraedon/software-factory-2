@@ -14,6 +14,9 @@ from factory.constants import (
 from factory.gate._base import GateResult, _guard_artifact_size
 
 
+# tier: enforce
+# precondition: first gate in the pipeline; all downstream gates depend on this passing
+# audit trigger: re-evaluate if interface_spec format changes or becomes optional
 def evaluate_interface_spec(artifact_path: Path, ac_ids: list[str] | None = None) -> GateResult:
     size_guard = _guard_artifact_size(artifact_path)
     if size_guard is not None:

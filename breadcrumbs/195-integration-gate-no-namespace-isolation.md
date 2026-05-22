@@ -2,7 +2,7 @@
 number: "195"
 title: Integration gate subprocess runs as current user with no namespace isolation
 severity: medium
-status: proposed
+status: implemented
 kind: improvement
 author: claude
 date: "2026-05-19"
