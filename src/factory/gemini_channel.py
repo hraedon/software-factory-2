@@ -11,7 +11,7 @@ from factory.constants import (
 )
 from factory.subprocess_channel import SubprocessChannel
 
-_NVM_NODE_BIN = Path.home() / ".nvm" / "versions" / "node" / "v24.15.0" / "bin"
+_DEFAULT_NODE_BIN = Path.home() / ".nvm" / "versions" / "node" / "v24.15.0" / "bin"
 
 
 class GeminiCLIChannel(SubprocessChannel):
@@ -33,14 +33,24 @@ class GeminiCLIChannel(SubprocessChannel):
         return FAMILY_GEMINI
 
     def _extra_env(self) -> dict[str, str] | None:
-        if _NVM_NODE_BIN.is_dir():
+        node_bin = self._config.gemini_node_bin or _DEFAULT_NODE_BIN
+        if node_bin.is_dir():
             current_path = os.environ.get("PATH", "")
-            node_bin = str(_NVM_NODE_BIN)
-            if node_bin not in current_path:
-                return {"PATH": f"{node_bin}:{current_path}"}
+            bin_str = str(node_bin)
+            if bin_str not in current_path:
+                return {"PATH": f"{bin_str}:{current_path}"}
         return None
 
-    def invoke(self, role, prompt, outputs_dir, timeout, extra_env=None, model_override=None):
+    def invoke(
+        self,
+        role,
+        prompt,
+        outputs_dir,
+        timeout,
+        extra_env=None,
+        model_override=None,
+        cancel_event=None,
+    ):
         merged_env = extra_env or {}
         node_env = self._extra_env()
         if node_env:
@@ -52,4 +62,5 @@ class GeminiCLIChannel(SubprocessChannel):
             timeout,
             extra_env=merged_env or None,
             model_override=model_override,
+            cancel_event=cancel_event,
         )

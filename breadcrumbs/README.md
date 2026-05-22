@@ -93,9 +93,6 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 | 199 | Unscoped query_work_items() leaks cross-project data in initiative.py and review_surface.py | medium | proposed |
 | 201 | Scheduler swallows database exceptions as 'not locked' | medium | proposed |
 | 202 | inner_gate _should_failover triggers on any non-zero exit code — too aggressive | medium | proposed |
-| 203 | gemini_channel.py hardcodes Node v24.15.0 path — not in FactoryConfig | medium | proposed |
-| 197 | Dead code with broken substrate API: store_spec_hash and load_spec_hash | low | proposed |
-| 204 | context.py hardcodes page_size=200 with no pagination | low | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
 ### RFCs (awaiting upstream phases)
@@ -128,6 +125,9 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 197 | Dead code with broken substrate API: store_spec_hash and load_spec_hash | low | Removed `store_spec_hash` and `load_spec_hash` (never called from production or tests); removed unused `CUSTOM_FIELD_SPEC_HASH` constant |
+| 203 | gemini_channel.py hardcodes Node v24.15.0 path — not in FactoryConfig | medium | Added `gemini_node_bin: Path | None` to `FactoryConfig`; channel reads from config with hardcoded fallback |
+| 204 | context.py hardcodes page_size=200 with no pagination | low | Parameterized `page_size` in `_gather_other_locked_artifacts` and `derive_integrator_context`; default 200 preserved for integrator's full-scan |
 | 193 | spec_section and import_feedback rendered unfenced in prompt — heading injection risk from fixture specs | low | Both fields fenced in triple-backtick code blocks in `render_prompt`; `custom_fields_update` added to SubmitPayload known-fields |
 | 195 | Integration gate subprocess namespace isolation — unshare --user --map-root-user --net | medium | `evaluate_integration` runs all subprocesses (import, mypy, pytest) under `unshare --user --map-root-user --net` when available; graceful degradation with structlog warning; PYTHONDONTWRITEBYTECODE set; validated in GR-039 |
 | RFC-011 | Unified subprocess execution layer — typed wrapper eliminating gate/runner subprocess footguns | critical | `factory.subprocess.run` with keyword-only `cmd`/`cwd`/`env`/`timeout_s`; all 29 call sites in `src/factory/` migrated; CLASS-005 + CLASS-008 stabilized; validated in GR-039 |

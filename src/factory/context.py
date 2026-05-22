@@ -396,6 +396,7 @@ def derive_integrator_context(
     work_item_id: str,
     spec_content: str | None = None,
     spec_glossary: dict[str, str] | None = None,
+    page_size: int = 200,
 ) -> PromptContext:
     """Derive context for the integrator role.
 
@@ -452,7 +453,11 @@ def derive_integrator_context(
                             extra_artifacts.update(dep_contents)
                             export_map = _build_export_map_from_contents(dep_contents)
 
-    other_impls, other_ifaces = _gather_other_locked_artifacts(substrate, focal_impl_id)
+    other_impls, other_ifaces = _gather_other_locked_artifacts(
+        substrate,
+        focal_impl_id,
+        page_size=page_size,
+    )
     for mod_name, source in other_impls.items():
         key = f"locked_impl_{mod_name}"
         if key not in extra_artifacts:
@@ -477,6 +482,7 @@ def derive_integrator_context(
 def _gather_other_locked_artifacts(
     substrate: Substrate,
     exclude_impl_id: str | None = None,
+    page_size: int = 200,
 ) -> tuple[dict[str, str], dict[str, str]]:
     """Gather all locked implementation and interface_spec artifacts
     across the project, excluding the focal implementation.
@@ -489,7 +495,7 @@ def _gather_other_locked_artifacts(
     page = substrate.query_work_items(
         work_item_types=[WORK_ITEM_TYPE_IMPLEMENTATION],
         current_states=[STATE_LOCKED],
-        page_size=200,
+        page_size=page_size,
     )
     for item in page.items:
         item_id = str(item.work_item_id)
@@ -508,7 +514,7 @@ def _gather_other_locked_artifacts(
     page = substrate.query_work_items(
         work_item_types=[WORK_ITEM_TYPE_INTERFACE_SPEC],
         current_states=[STATE_LOCKED],
-        page_size=200,
+        page_size=page_size,
     )
     for item in page.items:
         c = item.custom_fields or {}
