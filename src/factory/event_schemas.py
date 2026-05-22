@@ -39,7 +39,11 @@ class SubmitPayload:
     def from_dict(cls, d: dict) -> SubmitPayload:
         if not isinstance(d, dict):
             raise EventSchemaError("SubmitPayload must be a dict")
-        _warn_unknown_fields("SubmitPayload", d, {"duration_seconds", "inner_gate_attempts"})
+        _warn_unknown_fields(
+            "SubmitPayload",
+            d,
+            {"duration_seconds", "inner_gate_attempts", "custom_fields_update"},
+        )
         duration = d.get("duration_seconds")
         if duration is not None and not isinstance(duration, (int, float)):
             raise EventSchemaError("SubmitPayload 'duration_seconds' must be a number")

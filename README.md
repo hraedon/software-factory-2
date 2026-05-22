@@ -2,10 +2,10 @@
 
 Autonomous pipeline for producing functional software from a specification, targeting the segment of work that today is either (a) sloppily produced by non-developers using isolated AI tools, or (b) doesn't get built at all because engaging a developer costs too much.
 
-[![Tests](https://img.shields.io/badge/tests-947%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-1053%20passing-brightgreen)]()
 [![Lint](https://img.shields.io/badge/lint-0%20errors-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)]()
-[![Status](https://img.shields.io/badge/status-Phase%205%20active-orange)]()
+[![Status](https://img.shields.io/badge/status-Phase%205%20complete-brightgreen)]()
 
 This is a personal research project exploring the architecture of autonomous software development pipelines. It is developed incrementally with empirical validation via "golden runs" against curated spec fixtures. The codebase, spec, and debate records are public as evidence of structured reasoning about the problem.
 
@@ -38,17 +38,15 @@ Errors loop back to contract revision, not worker retry. Gates are mechanical-fi
 
 ## Current metrics
 
-- **Tests:** 947 passing, 13 skipped, 0 lint errors, 0 dead code findings
-- **Golden runs:** 34 executed (GR-001 through GR-034)
-  - GR-034: Phase 5 100% integration lock — validates `inner_gate_retries=3`; 19/20 locked (95%)
-  - GR-033: Phase 5 post-migration replication — workflow composition (`extends:`) live
-  - GR-032: Phase 5 multi-family — Claude+Gemini+K2 concurrent
-  - GR-031: Phase 5 validation — 17/19 locked (89%), 1st locked integration item
-  - GR-027: Phase 4 exit — 30/34 locked (88%), dual-family jury (K2 + DeepSeek)
+- **Tests:** 1053 passing, 0 lint errors, 0 dead code findings
+- **Golden runs:** 39 executed (GR-001 through GR-039)
+  - GR-039: RFC-011 validation — unified subprocess wrapper, BC-195 namespace isolation, 85% lock rate
+  - GR-038: First ALL-PASS full-DAG run — K2+Sonnet, 4 end-to-end DAG lineages through all 7 stages
+  - GR-034: Best Phase 5 lock rate — 95% (19/20), first 100% integration lock
+  - GR-027: Phase 4 exit — 88% lock rate, dual-family jury (K2 + DeepSeek)
   - GR-022: Phase 4 first run — 100% lock rate (15/15)
-  - GR-021: 100% lock rate (24/24), inner gate first-attempt rate 74%
-- **Breadcrumbs:** 172 resolved, 38 open, 11 RFCs, 9 defect classes
-- **Channel adapters:** OpenCode (K2, GLM-5.1, DeepSeek via model selection); Claude Code (stable); Gemini CLI (disabled, unvalidated)
+- **Breadcrumbs:** 210 resolved, 1 open bug, 19 RFCs, 9 defect classes (7 active + 2 stabilized)
+- **Channel adapters:** OpenCode (K2, GLM-5.1, DeepSeek via model selection); Claude Code (stable); Gemini CLI (validated, disabled in defaults)
 - **Workflow composition:** phase2–5 use `extends:` inheritance from phase1 (63% line reduction)
 
 ## Dependencies

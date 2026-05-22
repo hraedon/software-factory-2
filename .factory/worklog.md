@@ -4,7 +4,36 @@ Reverse-chronological session log. Prepend new entries above existing ones.
 
 ---
 
+## 2026-05-22 — Session 47: Cleanup, BC-193/BC-185 fixes, doc refresh, Phase 6 prep
+
+**Invocation:** GLM-5.1
+
+**Focus:** Pre-push cleanup across the repo; fix open low-severity BCs; update stale documentation for Phase 5→6 transition; begin Phase 6 implementation.
+
+### Changes
+
+1. **BC-193 resolved** — fenced `spec_section` and `import_feedback` in `render_prompt` (`context.py`), matching BC-191 pattern for `extra_artifacts`.
+2. **BC-185 schema noise fixed** — added `custom_fields_update` to `SubmitPayload` known-fields set in `event_schemas.py`, eliminating 13× telemetry warnings per golden run.
+3. **RFC-036 moved to resolved/** — file was `status: implemented` but still in active `breadcrumbs/` directory.
+4. **README.md updated** — badges (947→1053 tests, Phase 5 active→complete), golden run highlights through GR-039, breadcrumb metrics (210 resolved, 1 open bug, 19 RFCs).
+5. **AGENTS.md rewritten** — trimmed Phase 5 from ~52 lines of run-by-run detail to a 1-paragraph summary + Phase 6 gate items table; removed duplicate Monitoring section; fixed test counts (1010→1053, 915→1053); added Phase 6 priority list.
+6. **breadcrumbs/README.md updated** — BC-193 moved from Open to Resolved; only BC-120 remains open.
+7. **Worklog catch-up** — added this entry plus summaries for sessions 42–46 below.
+
+### Session history since last worklog entry (sessions 42–46)
+
+| Session | Model | Key work |
+|---------|-------|----------|
+| 42 | K2 | GR-035 (Phase 5 full-DAG attempt, 3 BC-145 routing bugs discovered), BC-145 ordering/idempotency fixes |
+| 43 | K2 | GR-036 (BC-145 fix validation, 31/37 locked), BC-180 (review_findings field-declaration gap) |
+| 44 | K2 | GR-037 (BC-180/185 validation, gemini cross-family reviewer, 45 clean routing), BC-186 (gating-cycle hard-transition), GR-038 (first ALL-PASS full-DAG, K2+Sonnet) |
+| 45 | GLM-5.1 | BC-175/176/177 integration gate fixes, BC-145 upstream routing refinements, RFC-030/031/032/033 meta-defense RFCs |
+| 46 | Claude | RFC-011 implementation (3-step migration), BC-188–192 adversarial review, BC-194 channel status enforcement, BC-195 namespace isolation, GR-039 (RFC-011 validation), Phase 6 readiness audit |
+
+---
+
 ## 2026-05-16 — Session 41: GR-034 — `inner_gate_retries=3` validation, best Phase 5 lock rate
+
 
 **Invocation:** OpenCode (kimi-k2p6-turbo)
 

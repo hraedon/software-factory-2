@@ -43,59 +43,33 @@ The principal of this project is a **systems architect, not a developer**. Archi
 
 ## Status
 
-**Phase 5 (integration and outcome verification). ✓ COMPLETE at GR-038 (first all-pass full-DAG run).** Phase 4 exit criteria met at GR-027 (88% lock rate, dual-family jury K2+DeepSeek, all constraint paths exercised). Phase 5 implemented Stage 7 (integration) and Stage 8 (outcome verification) per spec §4, and addressed review/jury verdict routing (BC-145 Phase 1 done).
+**Phase 5 complete. Phase 6 in progress.**
+
+Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs executed through GR-039. All pipeline stages (interface_architect, test_author, implementer, cross_family_review, jury, integration, outcome_verification) validated on real model channels.
 
 **What exists:**
 - 7-module runner: runner, gate, gate_process, router, scheduler, config, workspace
-- 3 channel adapters: ClaudeCodeChannel, OpenCodeChannel (K2/GLM/DeepSeek via model selection); GeminiCLIChannel disabled (unvalidated)
-- Multi-channel dispatch: runner selects channel per-role based on config binding
-- Multi-model jury: parallel invocation of distinct models through same adapter via `model_override`; unique juror keys by channel+model
-- Credential infrastructure: `~/.config/factory/credentials.yaml` for provider API keys
-- 5 workflow YAMLs: phase1.yaml, phase2.yaml, phase3.yaml, phase4.yaml (review + jury), full_pipeline.yaml
-- Spec lint integrated into `populate_work_items.py` (BC-127)
-- 1010 passing tests, 0 lint errors
-- Inner gate telemetry: submit payloads carry `inner_gate_attempts`; telemetry reports inner gate first-pass rate (BC-133)
-- Jury observability: `disagreement_rationale` always populated when quorum not met; `[all_against]` tag for all-failure cases (BC-134)
-- 38 golden runs executed (GR-001 through GR-038)
-  - GR-038: First ALL-PASS full-DAG run — K2 workers + Sonnet cross-family reviewer + K2/Sonnet dual-family jury; cert-watch full DAG; 4 end-to-end DAG lineages through all 7 stages (jury, integration, outcome_verification each at N=4); 82% lock-within-budget rate (now informational); Sonnet at 55% cross-family pass rate (vs gemini's 6% in GR-037); BC-186 hard-transition validated by absence (zero gate_near_budget cycling); start_new_session=True saved the run when 3rd obsolete wrapper guardrail (claim_near_budget>=5) fired late; ~1h40m wall clock
-  - GR-037: BC-180/181/182/183/184/185 validation — K2 workers + gemini-2.5-pro cross-family reviewer + K2/gemini jury; cert-watch full DAG; 45 clean cross_family_review gate_fails routed via BC-185 routing_fields (zero CUSTOM_FIELD_VIOLATION); first end-to-end DAG lock through all 7 stages; gemini-strict 6% review pass rate dropped overall lock rate to 62%; BC-181 gating-cycle gap exposed and filed as BC-186; wrapper guardrails retired (false-idle threshold, obsolete gate_fail count)
-  - GR-036: GR-035 BC-145 fix validation — K2 workers + qwen3 cross-family reviewer + K2/qwen3 jury; cert-watch full DAG; ordering/idempotency fixes prevented exponential blowup but 2 review items stuck on `review_findings` field-declaration gap → BC-180; 31/37 locked (84%)
-  - GR-035: Phase 5 full-DAG cert-watch attempt — exposed 3 BC-145 routing bugs (field name typo, ordering, idempotency); 182 spurious reviews from exponential blowup; all 3 fixed before GR-036
-  - GR-034: Phase 5 first 100% integration lock — validates `inner_gate_retries=3`; 19/20 locked (95%); 2/2 integration items locked
-  - GR-033: Phase 5 post-migration replication — validates workflow composition (`extends:`) live; K2+Qwen jury, cert-watch-mini
-  - GR-032: Phase 5 multi-family validation — Claude+Gemini+K2 concurrent; BC-174 discovery+fix
-  - GR-031: Phase 5 ruff-corruption fix validation — cert-watch-mini, K2+Qwen jury, 17/19 locked (89%, accepted as near-miss), 1st locked integration item, BC-171 worked example added post-run
-  - GR-030: Phase 5 integration validation — cert-watch-mini (3 items), K2+Qwen dual-family jury, integration stage exercised (2 items, 0/2 locked), outcome_verification not reached; link type direction bug found and fixed; 12/15 locked (80%), 0/2 integration locked, 0 stuck
-  - GR-027: Phase 4 exit artifact — cert-watch full DAG, dual-family jury (K2 + DeepSeek), 30/34 locked (88%), jury_disagree exercised, 0 stuck, 4 properly escalated
-  - GR-025: Mixed-family jury (K2 + glm-5.1 via z.ai), jury_quorum=2; jury_disagree exercised
-  - GR-022: Phase 4 first run — 100% lock rate (15/15) on cert-watch-mini, all 5 roles exercised
-  - GR-021: 100% lock rate (24/24) on cert-watch full DAG, K2-only; inner gate first-attempt rate 74%
+- 3 channel adapters: ClaudeCodeChannel (validated), OpenCodeChannel (validated, K2/GLM/DeepSeek), GeminiCLIChannel (validated, disabled in defaults)
+- Multi-model jury: parallel invocation of distinct models via `model_override`
+- 5 workflow YAMLs with `extends:` composition (phase1–5, full_pipeline)
+- Unified subprocess wrapper (RFC-011): all subprocess calls use `factory.subprocess.run`
+- Spec lint, inner gate telemetry, jury observability, credential infrastructure
+- **1053 passing tests, 0 lint errors, 0 dead code findings**
 
-**Known issues:** 2 open breadcrumbs (0 critical, 0 high, 2 medium/low) + 19 RFCs + 7 active defect classes + 2 stabilized (209 resolved). See `breadcrumbs/README.md`.
-- BC-193 (low, proposed): spec_section and import_feedback rendered unfenced in prompt — heading injection risk from fixture specs
+**Known issues:** 1 open breadcrumb (0 critical, 0 high, 1 medium) + 19 RFCs + 7 active defect classes + 2 stabilized (210 resolved). See `breadcrumbs/README.md`.
 - BC-120 (medium, deferred): implementer-initiated interface amendment — awaiting ≥3 empirical instances
 
-**Blocking on:** nothing. All validated channels have working adapters; unvalidated adapters disabled.
+**Blocking on:** nothing.
 
-**Phase 4 exit criteria** (defined in `spec.md` §10, assessed at GR-027):
-- Lock-within-budget rate ≥ 90% — **88% (near-miss; accepted with cause analysis)**
-- Mean attempts to lock ≤ 2.0 — **met: 1.88**
-- Inner-gate first-pass rate ≥ 60% — **met: 71%**
-- Review first-attempt pass rate ≥ 80% — **met: 83%**
-- Jury quorum-met rate ≥ 90% — **80% (near-miss; one disagreement case)**
-- Unknown gate-name rate for review/jury events = 0% — **met: 0%**
-- Multi-family jury exercised — **met (K2 + DeepSeek)**
-- Jury disagreement path exercised — **met**
-- Review rejection path exercised — **met**
-- Channel failover exercised — **met**
-- Gate budget ≤ 15 — **met: 15**
+### Phase 6 gate items (priority order)
 
-**Phase 5 work:**
-1. Implement `integrator` role and `integration` work item type (Stage 8). — **Done. GR-031 validated: 1/3 integration items locked (first-ever locked integration item); BC-171 worked example added to integrator prompt.**
-2. Implement `outcome_verifier` role and outcome-verification work items (Stage 9). — **Done. Not yet exercised (blocked by integration failures).**
-3. Design review/jury verdict upstream routing (BC-145) — structured feedback to implementer/interface_architect instead of terminal retry.
-4. Build integration mechanical gates: cross-module import, assembled-tree mypy, cross-cutting pytest. — **Done. `evaluate_integration()` in gate.py exercises all 3 gates; GR-031: 1/3 passed all three gates.**
-5. Validate on synthetic multi-module fixtures before first real workload. — **GR-031: 17/19 locked (89%, accepted), 1st locked integration item.**
+1. **RFC-023 (decomposer)** — Stage 1 pipeline cannot consume arbitrary specs. The entire pipeline runs on hand-curated fixture DAGs; real workloads require automatic spec decomposition. This is the single largest architectural gap.
+2. **RFC-026 (principal review surface)** — artifact bundle format + human review intake. Needed before any real workload.
+3. **RFC-022 (initiative primitive)** — work-item bundling for operational granularity. Low effort, factory-only.
+4. **RFC-024 (coherence reviewer)** — declared role with zero implementation. Deferred per spec phasing.
+5. **RFC-027 (test efficacy)** — no mechanical verification that tests validate behavior.
+
+**Phase 4 exit criteria** (defined in `spec.md` §10, assessed at GR-027): all met or near-miss with cause analysis. Lock-within-budget 88%, mean attempts 1.88, inner-gate first-pass 71%, review first-attempt 83%, jury quorum-met 80%, unknown gate-name rate 0%, multi-family jury exercised, disagreement/rejection paths exercised, channel failover exercised, gate budget 15.
 
 ## What not to build yet
 
@@ -115,7 +89,7 @@ If you find yourself wanting to skip ahead, file a breadcrumb explaining why and
 ## Testing
 
 ```bash
-make test        # 915 tests, ~120s
+make test        # 1053 tests, ~120s
 make lint        # ruff check + format (no errors)
 make audit       # vulture dead-code check (no findings)
 make integration # @pytest.mark.integration only (requires Postgres)
@@ -159,15 +133,6 @@ Check progress while running:
 tail -20 /tmp/gr022-runner.log
 tail -10 /tmp/gr022-scheduler.log
 tail -10 /tmp/gr022-gate.log
-```
-
-### Monitoring
-
-Check progress while running:
-```bash
-tail -20 /tmp/gr019-runner.log
-tail -10 /tmp/gr019-scheduler.log
-tail -10 /tmp/gr019-gate.log
 ```
 
 Processes are idle when no new log lines appear for >60s. Kill with `kill <PID>` or `kill -9 <PID>` if needed, then run telemetry.

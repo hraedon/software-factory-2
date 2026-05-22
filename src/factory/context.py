@@ -613,7 +613,9 @@ def render_prompt(ctx: PromptContext) -> str:
     parts.append("")
     parts.append("## spec_section")
     parts.append("")
+    parts.append("```")
     parts.append(ctx.spec_section)
+    parts.append("```")
     parts.append("")
     parts.append("## ac_ids")
     parts.append("")
@@ -654,7 +656,9 @@ def render_prompt(ctx: PromptContext) -> str:
     if ctx.import_feedback:
         parts.append("## import_resolution_feedback")
         parts.append("")
+        parts.append("```")
         parts.append(ctx.import_feedback)
+        parts.append("```")
         parts.append("")
     if ctx.extra_artifacts:
         rendered_keys: set[str] = set()

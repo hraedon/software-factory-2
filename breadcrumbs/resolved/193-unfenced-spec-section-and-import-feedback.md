@@ -2,7 +2,7 @@
 number: "193"
 title: "spec_section and import_feedback rendered unfenced in prompt — heading injection risk from fixture specs"
 severity: low
-status: proposed
+status: resolved
 kind: bug
 author: session-scan
 date: "2026-05-18"
@@ -38,4 +38,4 @@ If the trust model for Phase 3 (RFC-034) adopts default-adversarial for all non-
 
 ## Resolution
 
-_(pending)_
+Decision: fence both fields. `spec_section` and `import_feedback` now rendered in triple-backtick code blocks, matching the BC-191 pattern for `extra_artifacts`. `render_prompt` in `context.py` updated; no test changes needed (fencing is structural, not behavioral). `custom_fields_update` added to `SubmitPayload` known-fields set to eliminate telemetry noise from BC-185 schema gap.
