@@ -85,7 +85,6 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 195 | Integration gate subprocess runs as current user with full filesystem/network access — no namespace isolation | medium | proposed |
 | 193 | spec_section and import_feedback rendered unfenced in prompt — heading injection risk from fixture specs | low | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
@@ -119,7 +118,8 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
-| RFC-011 | Unified subprocess execution layer — typed wrapper eliminating gate/runner subprocess footguns | critical | `factory.subprocess.run` with keyword-only `cmd`/`cwd`/`env`/`timeout_s`; all 29 call sites in `src/factory/` migrated; CLASS-005 + CLASS-008 stabilized; AC-4/AC-5 await GR-039 |
+| 195 | Integration gate subprocess namespace isolation — unshare --user --map-root-user --net | medium | `evaluate_integration` runs all subprocesses (import, mypy, pytest) under `unshare --user --map-root-user --net` when available; graceful degradation with structlog warning; PYTHONDONTWRITEBYTECODE set; validated in GR-039 |
+| RFC-011 | Unified subprocess execution layer — typed wrapper eliminating gate/runner subprocess footguns | critical | `factory.subprocess.run` with keyword-only `cmd`/`cwd`/`env`/`timeout_s`; all 29 call sites in `src/factory/` migrated; CLASS-005 + CLASS-008 stabilized; validated in GR-039 |
 | RFC-036 | Eliminate substrate private-API imports; split gate.py into a gate/ package | medium | gate.py (1415 lines) split into gate/ package with 9 submodules; gate/__init__.py re-exports all public names for backward compat; runner.py split: inner_gate.py + jury_orchestrator.py; phase defaults extracted to phase_defaults.py; _PHASE2_DISPATCH → _KIND_DISPATCH |
 | 194 | Channel status declaration vs. constructor divergence — GLM/DeepSeek/Gemini constructible despite "disabled"/"unvalidated" status | high | _CHANNEL_STATUS table adjacent to _register_channel with tier:enforce annotation; _create_channels raises ChannelDisabledError for disabled channels and warns for unvalidated; gemini-cli first enforced case; 2 regression tests (AC-2, AC-3) |
 | 190 | Scheduler downstream dedup is racey and O(N); handoff iteration unfair | high | Per-(source_id, downstream_type) `threading.Lock` in WeakValueDictionary closes TOCTOU window; in-memory existence cache skips O(N) scan on repeat calls; `random.shuffle` per poll cycle for fairness; 5 tests |
