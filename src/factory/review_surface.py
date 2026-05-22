@@ -48,12 +48,11 @@ class ReviewReport:
 def generate_review_report(config: FactoryConfig) -> ReviewReport:
     from substrate import Substrate
 
-    sub = Substrate(config.dsn, config.hmac_key_path)
-    project = sub.get_project(config.project_name)
-    if not project:
-        raise ValueError(f"Project not found: {config.project_name}")
-
-    work_items = sub.query_work_items(project_id=config.project_name)
+    sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
+    try:
+        work_items = sub.query_work_items()
+    finally:
+        sub.close()
 
     locked = 0
     cannot_proceed = 0

@@ -56,7 +56,10 @@ Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs e
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
 - **1070 passing tests, 0 lint errors, 0 dead code findings**
 
-**Known issues:** 1 open breadcrumb (0 critical, 0 high, 1 medium) + 19 RFCs + 7 active defect classes + 2 stabilized (210 resolved). See `breadcrumbs/README.md`.
+**Known issues:** 4 open breadcrumbs (0 critical, 1 high, 3 medium) + 19 RFCs + 7 active defect classes + 2 stabilized (210 resolved). See `breadcrumbs/README.md`.
+- BC-194 (high, proposed): no heartbeat on long-running model claims — claim theft risk
+- BC-195 (medium, proposed): no idempotency keys on substrate mutations
+- BC-196 (medium, proposed): telemetry O(n*m) event scanning
 - BC-120 (medium, deferred): implementer-initiated interface amendment — awaiting ≥3 empirical instances
 
 **Blocking on:** nothing.

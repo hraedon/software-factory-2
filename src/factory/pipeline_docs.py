@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from substrate._workflow_compose import resolve_includes
+from substrate import compose_workflow
 
 from factory.router import _ESCALATABLE_KINDS, _KIND_DISPATCH, DiagnosticKind
 
@@ -12,7 +12,7 @@ PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 
 def _load_workflow_yaml(path: Path) -> dict:
-    composed, _ = resolve_includes(path)
+    composed, _ = compose_workflow(path)
     return composed
 
 

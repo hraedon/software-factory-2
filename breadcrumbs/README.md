@@ -85,6 +85,9 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 194 | No heartbeat on long-running model claims — claim theft risk | high | proposed |
+| 195 | No idempotency keys on substrate mutations — crash-retry creates duplicates | medium | proposed |
+| 196 | Telemetry reads all events for all work items — O(n*m) scaling | medium | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
 ### RFCs (awaiting upstream phases)

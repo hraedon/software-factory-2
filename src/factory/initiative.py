@@ -27,8 +27,8 @@ def generate_initiative_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
-def query_initiatives(sub: Any, project_name: str) -> list[InitiativeSummary]:
-    work_items = sub.query_work_items(project_id=project_name)
+def query_initiatives(sub: Any) -> list[InitiativeSummary]:
+    work_items = sub.query_work_items()
     by_initiative: dict[str, dict[str, int]] = {}
 
     for wi in work_items:
@@ -59,8 +59,10 @@ def query_initiatives(sub: Any, project_name: str) -> list[InitiativeSummary]:
     ]
 
 
-def cancel_initiative(sub: Any, project_name: str, initiative_id: str, reason: str) -> int:
-    work_items = sub.query_work_items(project_id=project_name)
+def cancel_initiative(sub: Any, initiative_id: str, reason: str) -> int:
+    from substrate import SubstrateError
+
+    work_items = sub.query_work_items()
     cancelled = 0
 
     for wi in work_items:
@@ -70,20 +72,18 @@ def cancel_initiative(sub: Any, project_name: str, initiative_id: str, reason: s
         if wi.current_state in (STATE_LOCKED, STATE_CANNOT_PROCEED):
             continue
 
-        claim = sub.acquire_claim(
-            work_item_id=wi.work_item_id,
-            actor_id="factory-initiative-cancel",
-            role="initiative_cancel",
+        try:
+            sub.acquire_claim(wi.work_item_id, "factory-initiative-cancel")
+        except SubstrateError:
+            continue
+
+        sub.transition(
+            wi.work_item_id,
+            "cannot_proceed",
+            "factory-initiative-cancel",
+            custom_fields={"cannot_proceed_reason": reason},
         )
-        if claim:
-            sub.transition(
-                work_item_id=wi.work_item_id,
-                claim_id=claim.claim_id,
-                transition="cannot_proceed",
-                payload={},
-                custom_fields={"cannot_proceed_reason": reason},
-            )
-            cancelled += 1
+        cancelled += 1
 
     _initiative_log.info(
         "cancel_initiative: initiative=%s cancelled=%d reason=%s",
@@ -94,8 +94,10 @@ def cancel_initiative(sub: Any, project_name: str, initiative_id: str, reason: s
     return cancelled
 
 
-def requeue_initiative(sub: Any, project_name: str, initiative_id: str) -> int:
-    work_items = sub.query_work_items(project_id=project_name)
+def requeue_initiative(sub: Any, initiative_id: str) -> int:
+    from substrate import SubstrateError
+
+    work_items = sub.query_work_items()
     requeued = 0
 
     for wi in work_items:
@@ -105,20 +107,17 @@ def requeue_initiative(sub: Any, project_name: str, initiative_id: str) -> int:
         if wi.current_state != STATE_CANNOT_PROCEED:
             continue
 
-        claim = sub.acquire_claim(
-            work_item_id=wi.work_item_id,
-            actor_id="factory-initiative-requeue",
-            role="initiative_requeue",
+        try:
+            sub.acquire_claim(wi.work_item_id, "factory-initiative-requeue")
+        except SubstrateError:
+            continue
+
+        sub.transition(
+            wi.work_item_id,
+            "new",
+            "factory-initiative-requeue",
         )
-        if claim:
-            sub.transition(
-                work_item_id=wi.work_item_id,
-                claim_id=claim.claim_id,
-                transition="new",
-                payload={},
-                custom_fields={},
-            )
-            requeued += 1
+        requeued += 1
 
     _initiative_log.info(
         "requeue_initiative: initiative=%s requeued=%d",
