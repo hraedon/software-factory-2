@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import argparse
 import signal
+import threading
 import time
 from pathlib import Path
 
 import structlog
 from substrate import ActorMetadata, Substrate
+from substrate._errors import ErrorCode, SubstrateError
 
 from factory.config import FactoryConfig, load_config
 from factory.constants import (
@@ -125,8 +127,23 @@ def gate_loop(runtime: PipelineRuntime) -> None:
                 )
                 claimed = True
                 break
+            from factory.heartbeat import HeartbeatSession
+
             try:
-                process_gate_item(runtime, wi, actor_id, claim)
+                with HeartbeatSession(
+                    sub,
+                    wi.work_item_id,
+                    actor_id,
+                    claim.attempt_number,
+                    config.claim_ttl_seconds,
+                ) as heartbeat:
+                    process_gate_item(
+                        runtime,
+                        wi,
+                        actor_id,
+                        claim,
+                        cancel_event=heartbeat.cancel_event,
+                    )
                 _crash_state.pop(wi_id_str, None)
                 claimed = True
                 break
@@ -170,7 +187,16 @@ def gate_loop(runtime: PipelineRuntime) -> None:
                     claimed = True
                     break
                 else:
-                    sub.release_claim(wi.work_item_id, actor_id)
+                    try:
+                        sub.release_claim(wi.work_item_id, actor_id)
+                    except SubstrateError as exc:
+                        if exc.code == ErrorCode.CLAIM_LOST:
+                            log.warning(
+                                "release_after_claim_lost",
+                                work_item_id=wi_id_str,
+                            )
+                        else:
+                            raise
         if not claimed and not shutting_down:
             time.sleep(poll_interval)
     log.info("gate_loop_exiting")
@@ -219,6 +245,7 @@ def process_gate_item(
     wi,
     actor_id: str,
     claim,
+    cancel_event: threading.Event | None = None,
 ) -> None:
     sub = runtime.sub
     config = runtime.config
@@ -401,6 +428,13 @@ def process_gate_item(
     ).to_dict()
 
     transition_name = TRANSITION_GATE_PASS if gate_result.passed else TRANSITION_GATE_FAIL
+    if cancel_event is not None and cancel_event.is_set():
+        log.warning(
+            "abandoning_gate_after_claim_lost",
+            work_item_id=str(work_item_id),
+            attempt=claim.attempt_number,
+        )
+        return
     routing = route(
         wi.current_state,
         transition_name,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 from pathlib import Path
 from typing import ClassVar
@@ -65,6 +66,7 @@ class SubprocessChannel:
         timeout: int,
         extra_env: dict[str, str] | None = None,
         model_override: str | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> InvocationResult:
         outputs_dir.mkdir(parents=True, exist_ok=True)
         role_config = self._config.get_role_config(role)
@@ -101,7 +103,16 @@ class SubprocessChannel:
                 env=env_override,
                 timeout_s=effective_timeout,
                 stdin=prompt,
+                cancel_event=cancel_event,
             )
+            if result.cancelled:
+                return InvocationResult(
+                    success=False,
+                    error_message="cancelled (claim lost)",
+                    exit_code=None,
+                    family=invocation_family,
+                    model=model,
+                )
             if result.timed_out:
                 return InvocationResult(
                     success=False,

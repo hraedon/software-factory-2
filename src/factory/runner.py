@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import threading
 import time
 from pathlib import Path
 
 import structlog
 from substrate import ActorMetadata, Substrate
+from substrate._errors import ErrorCode, SubstrateError
 
 from factory.channel import Channel, ChannelDisabledError
 from factory.config import FactoryConfig, load_config
@@ -240,14 +242,39 @@ def worker_loop(runtime: PipelineRuntime) -> None:
                 work_item_id=str(wi.work_item_id),
                 attempt=claim.attempt_number,
             )
+            from factory.heartbeat import HeartbeatSession
+
             try:
-                process_work_item(runtime, wi, actor_id, claim, role_name)
+                with HeartbeatSession(
+                    sub,
+                    wi.work_item_id,
+                    actor_id,
+                    claim.attempt_number,
+                    config.claim_ttl_seconds,
+                ) as heartbeat:
+                    process_work_item(
+                        runtime,
+                        wi,
+                        actor_id,
+                        claim,
+                        role_name,
+                        cancel_event=heartbeat.cancel_event,
+                    )
                 claimed = True
                 channel_consecutive_failures.pop(channel.name, None)
                 channel_backoff_until.pop(channel.name, None)
             except Exception:
                 log.exception("process_error", work_item_id=str(wi.work_item_id))
-                sub.release_claim(wi.work_item_id, actor_id)
+                try:
+                    sub.release_claim(wi.work_item_id, actor_id)
+                except SubstrateError as exc:
+                    if exc.code == ErrorCode.CLAIM_LOST:
+                        log.warning(
+                            "release_after_claim_lost",
+                            work_item_id=str(wi.work_item_id),
+                        )
+                    else:
+                        raise
                 prev = channel_consecutive_failures.get(channel.name, 0)
                 new_count = prev + 1
                 channel_consecutive_failures[channel.name] = new_count
@@ -292,6 +319,7 @@ def process_work_item(
     actor_id: str,
     claim,
     role_name: str,
+    cancel_event: threading.Event | None = None,
 ) -> None:
     sub = runtime.sub
     config = runtime.config
@@ -343,6 +371,7 @@ def process_work_item(
             ad,
             timeout,
             extra_env,
+            cancel_event=cancel_event,
         )
         return
 
@@ -351,8 +380,19 @@ def process_work_item(
         timeout = config.per_channel_timeout[channel.name]
     prompt = render_prompt(ctx)
     invocation_start = time.monotonic()
-    invoke_result = channel.invoke(role_name, prompt, ad, timeout, extra_env=extra_env)
+    invoke_kwargs: dict = {"extra_env": extra_env}
+    if cancel_event is not None:
+        invoke_kwargs["cancel_event"] = cancel_event
+    invoke_result = channel.invoke(role_name, prompt, ad, timeout, **invoke_kwargs)
     invocation_end = time.monotonic()
+    if cancel_event is not None and cancel_event.is_set():
+        log.warning(
+            "abandoning_invocation_after_claim_lost",
+            work_item_id=work_item_id,
+            attempt=attempt_number,
+            role=role_name,
+        )
+        return
     duration_seconds = round(invocation_end - invocation_start, 3)
     effective_family = invoke_result.family or channel.family
     fallback_channel = None
@@ -371,13 +411,18 @@ def process_work_item(
                 fallback=fallback_channel,
             )
             fb_start = time.monotonic()
+            fb_kwargs: dict = {
+                "extra_env": extra_env,
+                "model_override": fallback_model,
+            }
+            if cancel_event is not None:
+                fb_kwargs["cancel_event"] = cancel_event
             invoke_result = fb_channel.invoke(
                 role_name,
                 prompt,
                 ad,
                 timeout,
-                extra_env=extra_env,
-                model_override=fallback_model,
+                **fb_kwargs,
             )
             duration_seconds += round(time.monotonic() - fb_start, 3)
             if invoke_result.success:

@@ -318,7 +318,7 @@ class TestGateCrashLoopCircuitBreaker:
 
         call_count = [0]
 
-        def _always_crash(rt, wi, actor_id, claim):
+        def _always_crash(rt, wi, actor_id, claim, **_kwargs):
             call_count[0] += 1
             raise RuntimeError("CUSTOM_FIELD_VIOLATION: field not found")
 
@@ -373,7 +373,7 @@ class TestGateCrashLoopCircuitBreaker:
         ]
         call_count = [0]
 
-        def _sequence_crash(rt, wi, actor_id, claim):
+        def _sequence_crash(rt, wi, actor_id, claim, **_kwargs):
             idx = call_count[0]
             call_count[0] += 1
             raise errors[idx]
@@ -413,7 +413,7 @@ class TestGateCrashLoopCircuitBreaker:
 
         call_count = [0]
 
-        def _crash_then_succeed(rt, wi, actor_id, claim):
+        def _crash_then_succeed(rt, wi, actor_id, claim, **_kwargs):
             call_count[0] += 1
             if call_count[0] < crash_threshold:
                 raise RuntimeError("CUSTOM_FIELD_VIOLATION: transient crash")

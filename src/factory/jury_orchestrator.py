@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 
 import structlog
@@ -69,6 +70,7 @@ def _process_jury_work_item(
     ad: Path,
     timeout: int,
     extra_env: dict[str, str] | None,
+    cancel_event: threading.Event | None = None,
 ) -> None:
     from factory.jury import run_jury
 
@@ -118,6 +120,12 @@ def _process_jury_work_item(
         )
     except Exception:
         log.exception("jury_invoke_failed", work_item_id=work_item_id)
+        if cancel_event is not None and cancel_event.is_set():
+            log.warning(
+                "abandoning_jury_after_claim_lost",
+                work_item_id=work_item_id,
+            )
+            return
         sub.transition(
             wi.work_item_id,
             TRANSITION_CHANNEL_FAIL,
@@ -136,6 +144,12 @@ def _process_jury_work_item(
                     "duration_seconds": 0,
                 }
             ).to_dict(),
+        )
+        return
+    if cancel_event is not None and cancel_event.is_set():
+        log.warning(
+            "abandoning_jury_verdict_after_claim_lost",
+            work_item_id=work_item_id,
         )
         return
     verdict_path = ad / ARTIFACT_FILENAME_JURY_VERDICT

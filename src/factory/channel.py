@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
@@ -37,4 +38,5 @@ class Channel(Protocol):
         timeout: int,
         extra_env: dict[str, str] | None = None,
         model_override: str | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> InvocationResult: ...
