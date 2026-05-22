@@ -86,8 +86,13 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 | # | Title | Severity | Status |
 |---|---|---|---|
 | 194 | No heartbeat on long-running model claims — claim theft risk | high | proposed |
+| 198 | Initiative requeue uses state name as transition name — no valid transition from cannot_proceed | high | proposed |
+| 200 | subprocess_channel.py leaks full os.environ to model subprocesses | high | proposed |
 | 195 | No idempotency keys on substrate mutations — crash-retry creates duplicates | medium | proposed |
 | 196 | Telemetry reads all events for all work items — O(n*m) scaling | medium | proposed |
+| 199 | Unscoped query_work_items() leaks cross-project data in initiative.py and review_surface.py | medium | proposed |
+| 201 | Scheduler swallows database exceptions as 'not locked' | medium | proposed |
+| 197 | Dead code with broken substrate API: store_spec_hash and load_spec_hash | low | proposed |
 | 120 | Implementer-initiated interface amendment — structured cannot_proceed for contract renegotiation | medium | deferred (awaiting ≥3 empirical instances post-RFC-013) |
 
 ### RFCs (awaiting upstream phases)
