@@ -297,6 +297,7 @@ def _all_dep_specs_locked(sub, dep_refs: list[str]) -> bool:
         try:
             dep_wi = sub.get_work_item(_uuid.UUID(ref))
         except Exception:
+            log.warning("_all_dep_specs_locked_error", ref=ref, exc_info=True)
             return False
         if not dep_wi or dep_wi.current_state != STATE_LOCKED:
             return False

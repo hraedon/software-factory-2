@@ -44,7 +44,7 @@ TRANSITION_CHANNEL_FAIL = "channel_fail"
 TRANSITION_ROUTE_TO_CANNOT_PROCEED = "cannot_proceed"
 TRANSITION_REVIEW_PASS = "review_pass"
 TRANSITION_REVIEW_FAIL = "review_fail"
-TRANSITION_JURY_PASS = "jury_pass"
+TRANSITION_REQUEUE = "requeue"
 TRANSITION_JURY_FAIL = "jury_fail"
 TRANSITION_JURY_DISAGREE = "jury_disagree"
 

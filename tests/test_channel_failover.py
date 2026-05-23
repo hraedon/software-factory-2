@@ -20,16 +20,28 @@ class TestShouldFailover:
         result = InvocationResult(success=False, error_message="Empty output from opencode")
         assert _should_failover(result) is True
 
-    def test_timeout_returns_true(self):
-        result = InvocationResult(success=False, timed_out=True)
+    def test_nonzero_exit_model_error_returns_false(self):
+        result = InvocationResult(success=False, exit_code=1)
+        assert _should_failover(result) is False
+
+    def test_exit_code_126_returns_true(self):
+        result = InvocationResult(success=False, exit_code=126)
         assert _should_failover(result) is True
 
-    def test_nonzero_exit_returns_true(self):
-        result = InvocationResult(success=False, exit_code=1)
+    def test_exit_code_127_returns_true(self):
+        result = InvocationResult(success=False, exit_code=127)
         assert _should_failover(result) is True
 
     def test_tool_not_found_returns_true(self):
         result = InvocationResult(success=False, error_message="gemini not found in PATH")
+        assert _should_failover(result) is True
+
+    def test_connection_error_returns_true(self):
+        result = InvocationResult(success=False, error_message="connection refused")
+        assert _should_failover(result) is True
+
+    def test_timeout_in_message_returns_true(self):
+        result = InvocationResult(success=False, error_message="request timeout")
         assert _should_failover(result) is True
 
     def test_generic_error_returns_false(self):

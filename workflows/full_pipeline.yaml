@@ -70,6 +70,20 @@ transitions:
     to: cannot_proceed
     allowed_roles: [mechanical_gate]
 
+  - name: requeue
+    from: cannot_proceed
+    to: new
+    allowed_roles:
+      - decomposer
+      - interface_architect
+      - test_author
+      - implementer
+      - cross_family_reviewer
+      - frontier_judge
+      - integrator
+      - outcome_verifier
+      - spec_ambiguity_resolver
+
 roles:
   - name: decomposer
   - name: interface_architect

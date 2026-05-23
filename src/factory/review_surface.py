@@ -50,7 +50,10 @@ def generate_review_report(config: FactoryConfig) -> ReviewReport:
 
     sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
     try:
-        work_items = sub.query_work_items()
+        work_items = sub.query_work_items(
+            workflow_name=config.workflow_name,
+            workflow_version=config.workflow_version,
+        )
     finally:
         sub.close()
 

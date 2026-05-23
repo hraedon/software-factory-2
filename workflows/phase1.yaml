@@ -38,6 +38,11 @@ transitions:
     to: new
     allowed_roles: [interface_architect]
 
+  - name: requeue
+    from: cannot_proceed
+    to: new
+    allowed_roles: [interface_architect]
+
   - name: gate_pass
     from: gating
     to: locked

@@ -8,7 +8,11 @@ from typing import Any
 from factory.constants import (
     CUSTOM_FIELD_INITIATIVE_ID,
     STATE_CANNOT_PROCEED,
+    STATE_IN_PROGRESS,
     STATE_LOCKED,
+    STATE_NEW,
+    TRANSITION_REQUEUE,
+    TRANSITION_ROUTE_TO_CANNOT_PROCEED,
 )
 from factory.idempotency import make_event_id
 
@@ -28,8 +32,19 @@ def generate_initiative_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
-def query_initiatives(sub: Any) -> list[InitiativeSummary]:
-    work_items = sub.query_work_items()
+def query_initiatives(
+    sub: Any,
+    *,
+    workflow_name: str | None = None,
+    workflow_version: int | None = None,
+) -> list[InitiativeSummary]:
+    kwargs: dict[str, Any] = {}
+    if workflow_name is not None:
+        kwargs["workflow_name"] = workflow_name
+    if workflow_version is not None:
+        kwargs["workflow_version"] = workflow_version
+
+    work_items = sub.query_work_items(**kwargs)
     by_initiative: dict[str, dict[str, int]] = {}
 
     for wi in work_items:
@@ -60,17 +75,41 @@ def query_initiatives(sub: Any) -> list[InitiativeSummary]:
     ]
 
 
-def cancel_initiative(sub: Any, initiative_id: str, reason: str) -> int:
+def cancel_initiative(
+    sub: Any,
+    initiative_id: str,
+    reason: str,
+    *,
+    workflow_name: str | None = None,
+    workflow_version: int | None = None,
+) -> int:
     from substrate import SubstrateError
 
-    work_items = sub.query_work_items()
+    kwargs: dict[str, Any] = {}
+    if workflow_name is not None:
+        kwargs["workflow_name"] = workflow_name
+    if workflow_version is not None:
+        kwargs["workflow_version"] = workflow_version
+
+    work_items = sub.query_work_items(**kwargs)
     cancelled = 0
+
+    expected_states = {STATE_IN_PROGRESS, STATE_NEW}
+    transition_name = TRANSITION_ROUTE_TO_CANNOT_PROCEED
 
     for wi in work_items:
         custom: dict[str, Any] = wi.custom_fields or {}
         if custom.get(CUSTOM_FIELD_INITIATIVE_ID) != initiative_id:
             continue
         if wi.current_state in (STATE_LOCKED, STATE_CANNOT_PROCEED):
+            continue
+        if wi.current_state not in expected_states:
+            _initiative_log.warning(
+                "cancel_initiative_skip_state",
+                work_item_id=str(wi.work_item_id),
+                current_state=wi.current_state,
+                expected_states=list(expected_states),
+            )
             continue
 
         try:
@@ -86,11 +125,11 @@ def cancel_initiative(sub: Any, initiative_id: str, reason: str) -> int:
 
         sub.transition(
             wi.work_item_id,
-            "cannot_proceed",
+            transition_name,
             "factory-initiative-cancel",
             custom_fields={"cannot_proceed_reason": reason},
             event_id=make_event_id(
-                wi.work_item_id, "cannot_proceed", 0, extra=f"cancel-{initiative_id}"
+                wi.work_item_id, transition_name, 0, extra=f"cancel-{initiative_id}"
             ),
         )
         cancelled += 1
@@ -104,17 +143,36 @@ def cancel_initiative(sub: Any, initiative_id: str, reason: str) -> int:
     return cancelled
 
 
-def requeue_initiative(sub: Any, initiative_id: str) -> int:
+def requeue_initiative(
+    sub: Any,
+    initiative_id: str,
+    *,
+    workflow_name: str | None = None,
+    workflow_version: int | None = None,
+) -> int:
     from substrate import SubstrateError
 
-    work_items = sub.query_work_items()
+    kwargs: dict[str, Any] = {}
+    if workflow_name is not None:
+        kwargs["workflow_name"] = workflow_name
+    if workflow_version is not None:
+        kwargs["workflow_version"] = workflow_version
+
+    work_items = sub.query_work_items(**kwargs)
     requeued = 0
+    transition_name = TRANSITION_REQUEUE
 
     for wi in work_items:
         custom: dict[str, Any] = wi.custom_fields or {}
         if custom.get(CUSTOM_FIELD_INITIATIVE_ID) != initiative_id:
             continue
         if wi.current_state != STATE_CANNOT_PROCEED:
+            _initiative_log.warning(
+                "requeue_initiative_skip_state",
+                work_item_id=str(wi.work_item_id),
+                current_state=wi.current_state,
+                expected_state=STATE_CANNOT_PROCEED,
+            )
             continue
 
         try:
@@ -130,9 +188,11 @@ def requeue_initiative(sub: Any, initiative_id: str) -> int:
 
         sub.transition(
             wi.work_item_id,
-            "new",
+            transition_name,
             "factory-initiative-requeue",
-            event_id=make_event_id(wi.work_item_id, "new", 0, extra=f"requeue-{initiative_id}"),
+            event_id=make_event_id(
+                wi.work_item_id, transition_name, 0, extra=f"requeue-{initiative_id}"
+            ),
         )
         requeued += 1
 

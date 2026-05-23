@@ -37,7 +37,13 @@ log = structlog.get_logger()
 
 
 def _should_failover(invoke_result) -> bool:
-    """Determine if a failed invocation warrants immediate fallback channel retry."""
+    """Determine if a failed invocation warrants immediate fallback channel retry.
+
+    Appropriate failover triggers: timeout, binary not found, empty output,
+    transport-level connection failures.
+    Inappropriate: model-level errors (exit codes 1/2 indicate model refusal,
+    malformed output, or usage errors; switching channels will not help).
+    """
     if invoke_result.success:
         return False
     error = (invoke_result.error_message or "").lower()
@@ -45,10 +51,24 @@ def _should_failover(invoke_result) -> bool:
         return True
     if invoke_result.timed_out:
         return True
-    if invoke_result.exit_code not in (None, 0):
-        return True
     if "not found in path" in error:
         return True
+    if "timeout" in error:
+        return True
+    if "connection" in error:
+        return True
+    if invoke_result.exit_code in (126, 127):
+        # 126 = command not executable, 127 = command not found
+        return True
+    if invoke_result.exit_code is None:
+        # None exit code usually means the process never started (transport
+        # failure) or was killed by a signal.  Only failover if we also see
+        # a transport-level keyword in the error message; otherwise treat it
+        # as a model-level failure (e.g. parsing error, bad output) that
+        # switching channels will not fix.
+        if any(k in error for k in ("not found in path", "timeout", "connection", "empty output")):
+            return True
+        return False
     return False
 
 
