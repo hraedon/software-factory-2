@@ -49,6 +49,7 @@ from factory.gate import (
     evaluate_review,
     evaluate_test_suite,
 )
+from factory.idempotency import make_event_id
 from factory.router import route
 from factory.runtime import PipelineRuntime
 from factory.venv import ensure_gate_venv
@@ -124,6 +125,12 @@ def gate_loop(runtime: PipelineRuntime) -> None:
                     TRANSITION_GATE_ESCALATION,
                     actor_id,
                     actor_metadata=actor_metadata,
+                    event_id=make_event_id(
+                        wi.work_item_id,
+                        TRANSITION_GATE_ESCALATION,
+                        claim.attempt_number,
+                        extra="budget",
+                    ),
                 )
                 claimed = True
                 break
@@ -183,12 +190,27 @@ def gate_loop(runtime: PipelineRuntime) -> None:
                         TRANSITION_GATE_ESCALATION,
                         actor_id,
                         actor_metadata=actor_metadata,
+                        event_id=make_event_id(
+                            wi.work_item_id,
+                            TRANSITION_GATE_ESCALATION,
+                            claim.attempt_number,
+                            extra="crash",
+                        ),
                     )
                     claimed = True
                     break
                 else:
                     try:
-                        sub.release_claim(wi.work_item_id, actor_id)
+                        sub.release_claim(
+                            wi.work_item_id,
+                            actor_id,
+                            event_id=make_event_id(
+                                wi.work_item_id,
+                                "release_claim",
+                                claim.attempt_number,
+                                extra="crash",
+                            ),
+                        )
                     except SubstrateError as exc:
                         if exc.code == ErrorCode.CLAIM_LOST:
                             log.warning(
@@ -448,6 +470,7 @@ def process_gate_item(
             transition_name,
             actor_id,
             actor_metadata=actor_metadata,
+            event_id=make_event_id(wi.work_item_id, TRANSITION_GATE_PASS, claim.attempt_number),
         )
         log.info("gate_passed", work_item_id=str(work_item_id))
     else:
@@ -471,6 +494,7 @@ def process_gate_item(
                 if cf_key == "diagnostics":
                     continue
                 custom_fields_payload[cf_key] = cf_value
+        extra_label = gate_result.gate_name if not gate_result.passed else ""
         sub.transition(
             work_item_id,
             transition_name,
@@ -478,6 +502,9 @@ def process_gate_item(
             actor_metadata=actor_metadata,
             payload=GateFailPayload(diagnostics=diagnostics).to_dict(),
             custom_fields=custom_fields_payload,
+            event_id=make_event_id(
+                wi.work_item_id, transition_name, claim.attempt_number, extra=extra_label
+            ),
         )
         log.info(
             TRANSITION_GATE_ESCALATION

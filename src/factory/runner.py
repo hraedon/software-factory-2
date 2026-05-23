@@ -44,6 +44,7 @@ from factory.context import (
     render_prompt,
 )
 from factory.event_schemas import ChannelFailPayload, SubmitPayload
+from factory.idempotency import make_event_id
 from factory.inner_gate import (
     _build_export_map,  # noqa: F401 - re-exported for test compatibility
     _handle_invoke_failure,
@@ -190,7 +191,12 @@ def worker_loop(runtime: PipelineRuntime) -> None:
                     consecutive_failures=backoff,
                     message="Cooldown elapsed, probing one item",
                 )
-            claim = sub.acquire_claim(wi.work_item_id, actor_id, config.claim_ttl_seconds)
+            claim = sub.acquire_claim(
+                wi.work_item_id,
+                actor_id,
+                config.claim_ttl_seconds,
+                event_id=make_event_id(wi.work_item_id, "acquire_claim", 0),
+            )
             if claim.attempt_number >= config.attempt_threshold:
                 log.warning(
                     "claim_near_budget",
@@ -206,6 +212,9 @@ def worker_loop(runtime: PipelineRuntime) -> None:
                         role=role_name,
                         channel=channel.name,
                     ).to_dict(),
+                    event_id=make_event_id(
+                        wi.work_item_id, TRANSITION_CLAIM, claim.attempt_number, extra="budget"
+                    ),
                 )
                 sub.transition(
                     wi.work_item_id,
@@ -224,6 +233,12 @@ def worker_loop(runtime: PipelineRuntime) -> None:
                             "diagnostic_kind": "cannot_proceed_seam",
                         }
                     },
+                    event_id=make_event_id(
+                        wi.work_item_id,
+                        TRANSITION_ROUTE_TO_CANNOT_PROCEED,
+                        claim.attempt_number,
+                        extra="budget",
+                    ),
                 )
                 continue
             sub.transition(
@@ -236,6 +251,7 @@ def worker_loop(runtime: PipelineRuntime) -> None:
                     family=channel.family,
                     attempt_n=claim.attempt_number,
                 ).to_dict(),
+                event_id=make_event_id(wi.work_item_id, TRANSITION_CLAIM, claim.attempt_number),
             )
             log.info(
                 "claim_acquired",
@@ -266,7 +282,13 @@ def worker_loop(runtime: PipelineRuntime) -> None:
             except Exception:
                 log.exception("process_error", work_item_id=str(wi.work_item_id))
                 try:
-                    sub.release_claim(wi.work_item_id, actor_id)
+                    sub.release_claim(
+                        wi.work_item_id,
+                        actor_id,
+                        event_id=make_event_id(
+                            wi.work_item_id, "release_claim", claim.attempt_number, extra="error"
+                        ),
+                    )
                 except SubstrateError as exc:
                     if exc.code == ErrorCode.CLAIM_LOST:
                         log.warning(
@@ -508,6 +530,9 @@ def process_work_item(
                     "duration_seconds": duration_seconds,
                 }
             ).to_dict(),
+            event_id=make_event_id(
+                wi.work_item_id, TRANSITION_CHANNEL_FAIL, attempt_number, extra="oversized"
+            ),
         )
         return
 
@@ -548,6 +573,7 @@ def process_work_item(
             CUSTOM_FIELD_ARTIFACT_PATH: str(artifact_path),
             CUSTOM_FIELD_ARTIFACT_HASH: sha,
         },
+        event_id=make_event_id(wi.work_item_id, TRANSITION_SUBMIT, attempt_number),
     )
 
 
@@ -578,6 +604,9 @@ def _resume_and_submit(
             CUSTOM_FIELD_ARTIFACT_PATH: str(artifact_path),
             CUSTOM_FIELD_ARTIFACT_HASH: manifest.artifact_sha256,
         },
+        event_id=make_event_id(
+            wi.work_item_id, TRANSITION_SUBMIT, resumable_attempt, extra="resume"
+        ),
     )
 
 

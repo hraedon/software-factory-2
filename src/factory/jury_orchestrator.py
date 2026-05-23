@@ -19,6 +19,7 @@ from factory.constants import (
 )
 from factory.context import PromptContext, render_prompt
 from factory.event_schemas import ChannelFailPayload
+from factory.idempotency import make_event_id
 from factory.runtime import PipelineRuntime
 from factory.workspace import ArtifactManifest, compute_sha256, write_artifact
 
@@ -103,6 +104,9 @@ def _process_jury_work_item(
                     "error_message": "No jury channels configured for frontier_judge role",
                 }
             ).to_dict(),
+            event_id=make_event_id(
+                wi.work_item_id, TRANSITION_CHANNEL_FAIL, attempt_number, extra="no_jury"
+            ),
         )
         return
 
@@ -144,6 +148,9 @@ def _process_jury_work_item(
                     "duration_seconds": 0,
                 }
             ).to_dict(),
+            event_id=make_event_id(
+                wi.work_item_id, TRANSITION_CHANNEL_FAIL, attempt_number, extra="jury_exc"
+            ),
         )
         return
     if cancel_event is not None and cancel_event.is_set():
@@ -211,4 +218,5 @@ def _process_jury_work_item(
             CUSTOM_FIELD_ARTIFACT_PATH: str(verdict_path),
             CUSTOM_FIELD_ARTIFACT_HASH: sha,
         },
+        event_id=make_event_id(wi.work_item_id, TRANSITION_SUBMIT, attempt_number),
     )

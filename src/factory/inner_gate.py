@@ -29,6 +29,7 @@ from factory.constants import (
 )
 from factory.context import PromptContext, render_prompt
 from factory.event_schemas import ChannelFailPayload
+from factory.idempotency import make_event_id
 from factory.pre_gate import GateScope, PreGateDeps, PreGateResult
 from factory.runtime import PipelineRuntime
 
@@ -58,7 +59,9 @@ def _resolve_pre_gate_deps(sub: Substrate, wi, config: FactoryConfig) -> PreGate
     interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
     interface_pyi_path = _resolve_ref_artifact(sub, interface_ref) if interface_ref else None
     if interface_ref:
-        dep_pyi_paths, dep_spec_paths = _resolve_dependency_refs(sub, custom)
+        dep_pyi_paths, dep_spec_paths = _resolve_dependency_refs(
+            sub, custom, page_size=config.query_page_size
+        )
     else:
         dep_pyi_paths, dep_spec_paths = [], None
     test_suite_ref = custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
@@ -134,6 +137,12 @@ def _handle_invoke_failure(
                 custom_fields={
                     "diagnostics": json.loads(cp_data),
                 },
+                event_id=make_event_id(
+                    work_item_id,
+                    TRANSITION_ROUTE_TO_CANNOT_PROCEED,
+                    attempt_number,
+                    extra="cannot_proceed",
+                ),
             )
         else:
             diag_base = {
@@ -156,6 +165,9 @@ def _handle_invoke_failure(
                     prompt_template_hash=ctx.prompt_template_hash,
                 ).to_dict(),
                 payload=ChannelFailPayload(diagnostics=diag_base).to_dict(),
+                event_id=make_event_id(
+                    work_item_id, TRANSITION_CHANNEL_FAIL, attempt_number, extra="cannot_proceed"
+                ),
             )
         return
     log.error(
@@ -185,6 +197,9 @@ def _handle_invoke_failure(
             prompt_template_hash=ctx.prompt_template_hash,
         ).to_dict(),
         payload=ChannelFailPayload(diagnostics=diag).to_dict(),
+        event_id=make_event_id(
+            work_item_id, TRANSITION_CHANNEL_FAIL, attempt_number, extra="invoke_failure"
+        ),
     )
 
 

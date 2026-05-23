@@ -39,6 +39,7 @@ class FakeSubstrate:
         actor_metadata=None,
         payload=None,
         custom_fields=None,
+        event_id=None,
     ):
         self.events.append(FakeEvent(transition, actor_metadata, payload, custom_fields))
 

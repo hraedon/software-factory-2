@@ -2,7 +2,7 @@
 number: "195"
 title: "No idempotency keys on substrate mutations — crash-retry creates duplicates"
 severity: medium
-status: proposed
+status: implemented
 kind: bug
 author: external-review
 date: "2026-05-22"
@@ -24,7 +24,15 @@ If the process crashes between a successful mutation and the acknowledgment (or 
 
 ## Fix
 
-Generate a deterministic `event_id` (e.g., `uuid.uuid5(NAMESPACE, f"{work_item_id}:{transition_name}:{attempt}")`) before each mutation call. Pass it to the substrate method. This makes mutations idempotent across retries.
+1. Created `factory.idempotency.make_event_id()` which generates a stable UUIDv4 per logical operation keyed by `(work_item_id, transition, attempt, extra)`.
+2. Wired `event_id` into every substrate mutation call site in `src/factory/`:
+   - `runner.py`: `acquire_claim`, `release_claim`, `transition` (CLAIM, SUBMIT, CHANNEL_FAIL, ROUTE_TO_CANNOT_PROCEED)
+   - `gate_process.py`: `acquire_claim`, `release_claim`, `transition` (GATE_PASS, GATE_FAIL/GATE_ESCALATION)
+   - `scheduler.py`: `create_work_item`, `create_link` (downstream handoffs)
+   - `inner_gate.py`: `transition` (CHANNEL_FAIL, ROUTE_TO_CANNOT_PROCEED)
+   - `jury_orchestrator.py`: `transition` (CHANNEL_FAIL, SUBMIT)
+   - `initiative.py`: `acquire_claim`, `transition` (cancel + requeue)
+3. Added thread-safe cache (`_event_id_cache`) so the same logical operation always generates the same v4 UUID within a process lifetime, satisfying substrate's UUIDv4 requirement while providing idempotency within the process crash window.
 
 ### Why this isn't the previous fix recurring
 

@@ -24,6 +24,7 @@ from factory.constants import (
     WORK_ITEM_TYPE_JURY,
 )
 from factory.gate import GateResult
+from factory.idempotency import make_event_id
 from factory.router import Route
 from factory.runtime import PipelineRuntime
 
@@ -238,6 +239,9 @@ def _ensure_downstream_item(
                 CUSTOM_FIELD_AC_IDS: custom.get(CUSTOM_FIELD_AC_IDS, []),
                 **extra,
             },
+            event_id=make_event_id(
+                source_wi.work_item_id, "create_work_item", 0, extra=f"{next_type}"
+            ),
         )
 
         # BC-190: mark existence in cache immediately after create so any
@@ -251,6 +255,7 @@ def _ensure_downstream_item(
             link_type=link_type,
             actor_id=config.scheduler_actor_id,
             actor_kind=ACTOR_KIND_AGENT,
+            event_id=make_event_id(downstream.work_item_id, "create_link", 0, extra=link_type),
         )
 
         for extra_link_type in additional_links:
@@ -268,6 +273,12 @@ def _ensure_downstream_item(
                         link_type=LINK_TYPE_IMPLEMENTS,
                         actor_id=config.scheduler_actor_id,
                         actor_kind=ACTOR_KIND_AGENT,
+                        event_id=make_event_id(
+                            downstream.work_item_id,
+                            "create_link",
+                            0,
+                            extra=f"{LINK_TYPE_IMPLEMENTS}",
+                        ),
                     )
 
         log.info(
@@ -402,6 +413,9 @@ def ensure_upstream_revision(
         actor_kind=ACTOR_KIND_AGENT,
         actor_metadata={"role": upstream_role, "revision_of": str(source_wi.work_item_id)},
         custom_fields=custom,
+        event_id=make_event_id(
+            source_wi.work_item_id, "create_work_item", 0, extra=f"revision-{upstream_type}"
+        ),
     )
 
     log.info(

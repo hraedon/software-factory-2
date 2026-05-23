@@ -30,6 +30,32 @@ from factory.event_schemas import (
 
 log = logging.getLogger(__name__)
 
+
+def _query_work_items_and_events(
+    sub: Substrate, config: FactoryConfig
+) -> tuple[dict[str, object], dict[str, list]]:
+    """Load all work items and their events once.
+
+    Returns (work_items_by_id, events_by_id) where work_items_by_id maps
+    work_item_id str to the work item object and events_by_id maps the same
+    id str to a list of Event objects.  This eliminates O(nxm) re-scanning
+    when multiple telemetry collectors consume the same data (BC-196).
+    """
+    page = sub.query_work_items(
+        workflow_name=config.workflow_name,
+        workflow_version=config.workflow_version,
+        page_size=config.query_page_size,
+    )
+    work_items_by_id: dict[str, object] = {}
+    events_by_id: dict[str, list] = {}
+    for wi in page.items:
+        wi_id = str(wi.work_item_id)
+        events = sub.read_events(work_item_id=wi.work_item_id, limit=config.telemetry_event_limit)
+        work_items_by_id[wi_id] = wi
+        events_by_id[wi_id] = events
+    return work_items_by_id, events_by_id
+
+
 DETERMINISTIC_GATES = frozenset(
     {
         "interface_spec",
@@ -110,17 +136,22 @@ class ExitCriteriaMetrics:
 
 
 def compute_exit_criteria(
-    sub: Substrate, config: FactoryConfig, attempts: list[GateAttempt]
+    sub: Substrate,
+    config: FactoryConfig,
+    attempts: list[GateAttempt],
+    work_items: dict[str, object] | None = None,
 ) -> ExitCriteriaMetrics:
-    page = sub.query_work_items(
-        workflow_name=config.workflow_name,
-        workflow_version=config.workflow_version,
-        page_size=config.query_page_size,
-    )
+    if work_items is None:
+        page = sub.query_work_items(
+            workflow_name=config.workflow_name,
+            workflow_version=config.workflow_version,
+            page_size=config.query_page_size,
+        )
+        work_items = {str(wi.work_item_id): wi for wi in page.items}
     locked = 0
     cannot_proceed = 0
-    total = len(page.items)
-    for wi in page.items:
+    total = len(work_items)
+    for wi in work_items.values():
         if wi.current_state == STATE_LOCKED:
             locked += 1
         elif wi.current_state == STATE_CANNOT_PROCEED:
@@ -403,15 +434,15 @@ class GateAttempt:
     inner_retry: int | None = None
 
 
-def collect_gate_attempts(sub: Substrate, config: FactoryConfig) -> list[GateAttempt]:
-    page = sub.query_work_items(
-        workflow_name=config.workflow_name,
-        workflow_version=config.workflow_version,
-        page_size=config.query_page_size,
-    )
+def collect_gate_attempts(
+    sub: Substrate,
+    config: FactoryConfig,
+    events_by_id: dict[str, list] | None = None,
+) -> list[GateAttempt]:
+    if events_by_id is None:
+        _, events_by_id = _query_work_items_and_events(sub, config)
     attempts: list[GateAttempt] = []
-    for wi in page.items:
-        events = sub.read_events(work_item_id=wi.work_item_id, limit=config.telemetry_event_limit)
+    for wi_id, events in events_by_id.items():
         worker_meta: dict = {}
         worker_duration: float | None = None
         for ev in events:
@@ -427,8 +458,12 @@ def collect_gate_attempts(sub: Substrate, config: FactoryConfig) -> list[GateAtt
                             for iga in parsed.inner_gate_attempts:
                                 attempts.append(
                                     GateAttempt(
-                                        work_item_id=str(wi.work_item_id),
-                                        work_item_type=wi.work_item_type,
+                                        work_item_id=wi_id,
+                                        work_item_type=(
+                                            ev.work_item_type
+                                            if hasattr(ev, "work_item_type")
+                                            else "unknown"
+                                        ),
                                         role=worker_meta.get("role", "unknown"),
                                         channel=worker_meta.get("channel", "unknown"),
                                         family=worker_meta.get("family", "unknown"),
@@ -467,13 +502,15 @@ def collect_gate_attempts(sub: Substrate, config: FactoryConfig) -> list[GateAtt
                 gate_name = GATE_NAME_UNKNOWN
                 log.warning(
                     "telemetry_gate_name_unknown: work_item_id=%s transition=%s",
-                    str(wi.work_item_id),
+                    wi_id,
                     ev.transition,
                 )
             attempts.append(
                 GateAttempt(
-                    work_item_id=str(wi.work_item_id),
-                    work_item_type=wi.work_item_type,
+                    work_item_id=wi_id,
+                    work_item_type=(
+                        ev.work_item_type if hasattr(ev, "work_item_type") else "unknown"
+                    ),
                     role=worker_meta.get("role", "unknown"),
                     channel=worker_meta.get("channel", "unknown"),
                     family=worker_meta.get("family", "unknown"),
@@ -707,29 +744,23 @@ class ContractComplaintMetrics:
     samples: list[str]
 
 
-def collect_contract_complaints(sub: Substrate, config: FactoryConfig) -> ContractComplaintMetrics:
-    """Scan cannot_proceed events for contract-shaped complaints.
-
-    This is the cheap instrumentation for BC-120: instead of building a
-    structured amendment artifact, we regex-scan rationales and count hits.
-    Reactivation trigger: ≥3 instances where cross-family reviewer agreed
-    contract was proximate cause AND inner gate (post-RFC-013) could not
-    resolve via richer diagnostics.
-    """
-    page = sub.query_work_items(
-        workflow_name=config.workflow_name,
-        workflow_version=config.workflow_version,
-        page_size=config.query_page_size,
-    )
+def collect_contract_complaints(
+    sub: Substrate,
+    config: FactoryConfig,
+    work_items: dict[str, object] | None = None,
+    events_by_id: dict[str, list] | None = None,
+) -> ContractComplaintMetrics:
+    if work_items is None or events_by_id is None:
+        work_items, events_by_id = _query_work_items_and_events(sub, config)
     total = 0
     contract_shaped = 0
     cross_family_agreed = 0
     samples: list[str] = []
 
-    for wi in page.items:
+    for wi_id, wi in work_items.items():
         if wi.current_state != STATE_CANNOT_PROCEED:
             continue
-        events = sub.read_events(work_item_id=wi.work_item_id, limit=config.telemetry_event_limit)
+        events = events_by_id.get(wi_id, [])
         for ev in events:
             if ev.transition != TRANSITION_ROUTE_TO_CANNOT_PROCEED:
                 continue
@@ -792,14 +823,19 @@ def format_contract_complaint_summary(metrics: ContractComplaintMetrics) -> str:
 def run_telemetry_report(config: FactoryConfig) -> str:
     sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
     try:
-        attempts = collect_gate_attempts(sub, config)
+        work_items, events_by_id = _query_work_items_and_events(sub, config)
+        attempts = collect_gate_attempts(sub, config, events_by_id=events_by_id)
         rows = compute_pass_rates(attempts)
-        metrics = compute_exit_criteria(sub, config, attempts)
+        metrics = compute_exit_criteria(sub, config, attempts, work_items=work_items)
         detail = format_pass_rate_table(rows)
         summary = format_exit_criteria_summary(metrics)
-        complaint_metrics = collect_contract_complaints(sub, config)
+        complaint_metrics = collect_contract_complaints(
+            sub, config, work_items=work_items, events_by_id=events_by_id
+        )
         complaint_summary = format_contract_complaint_summary(complaint_metrics)
-        routing_metrics = collect_routing_hints(sub, config)
+        routing_metrics = collect_routing_hints(
+            sub, config, work_items=work_items, events_by_id=events_by_id
+        )
         routing_summary = format_routing_hint_summary(routing_metrics)
         return summary + "\n" + complaint_summary + "\n" + routing_summary + "\n" + detail
     finally:
@@ -814,26 +850,23 @@ class RoutingHintMetrics:
     samples: list[dict]
 
 
-def collect_routing_hints(sub: Substrate, config: FactoryConfig) -> RoutingHintMetrics:
-    """Scan gate_fail events on outcome_verification items for routing_hint telemetry.
-
-    This is the cheap instrumentation for BC-145: count how often outcome_verifier
-    produces a structured routing_hint, and what work_item_type it points to.
-    """
-    page = sub.query_work_items(
-        workflow_name=config.workflow_name,
-        workflow_version=config.workflow_version,
-        page_size=config.query_page_size,
-    )
+def collect_routing_hints(
+    sub: Substrate,
+    config: FactoryConfig,
+    work_items: dict[str, object] | None = None,
+    events_by_id: dict[str, list] | None = None,
+) -> RoutingHintMetrics:
+    if work_items is None or events_by_id is None:
+        work_items, events_by_id = _query_work_items_and_events(sub, config)
     total = 0
     present = 0
     by_type: dict[str, int] = {}
     samples: list[dict] = []
 
-    for wi in page.items:
+    for wi_id, wi in work_items.items():
         if wi.work_item_type != "outcome_verification":
             continue
-        events = sub.read_events(work_item_id=wi.work_item_id, limit=config.telemetry_event_limit)
+        events = events_by_id.get(wi_id, [])
         for ev in events:
             if ev.transition != TRANSITION_GATE_FAIL:
                 continue
@@ -900,24 +933,18 @@ class VerifyResult:
 def run_telemetry_verify(config: FactoryConfig) -> VerifyResult:
     sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
     try:
-        attempts = collect_gate_attempts(sub, config)
+        work_items, events_by_id = _query_work_items_and_events(sub, config)
+        attempts = collect_gate_attempts(sub, config, events_by_id=events_by_id)
         rows = compute_pass_rates(attempts)
 
         unknown_count = sum(1 for a in attempts if a.gate_name == GATE_NAME_UNKNOWN)
         unknown_rate = unknown_count / len(attempts) if attempts else 0.0
 
         # Orphan submits: work-items with a submit but no gate event and not in_progress
-        page = sub.query_work_items(
-            workflow_name=config.workflow_name,
-            workflow_version=config.workflow_version,
-            page_size=config.query_page_size,
-        )
         orphan_count = 0
         unmatched_count = 0
-        for wi in page.items:
-            events = sub.read_events(
-                work_item_id=wi.work_item_id, limit=config.telemetry_event_limit
-            )
+        for wi_id, wi in work_items.items():
+            events = events_by_id.get(wi_id, [])
             has_submit = False
             has_gate = False
             for ev in events:

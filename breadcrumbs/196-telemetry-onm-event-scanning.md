@@ -2,7 +2,7 @@
 number: "196"
 title: "Telemetry reads all events for all work items — O(n*m) scaling"
 severity: medium
-status: proposed
+status: implemented
 kind: improvement
 author: external-review
 date: "2026-05-22"
@@ -23,4 +23,11 @@ related: []
 
 ## Fix
 
-Add substrate support for filtered event queries (e.g., `query_events(event_types=["gate_pass", "gate_fail"])`) to push the aggregation server-side. Short-term: cache the event list per telemetry run instead of re-reading for each analysis pass.
+1. Added `_query_work_items_and_events()` in `telemetry.py` which fetches all work items once and reads events per work item once into dicts keyed by work_item_id.
+2. Updated all four telemetry consumers to accept caches:
+   - `collect_gate_attempts(sub, config, events_by_id=...)`
+   - `compute_exit_criteria(sub, config, attempts, work_items=...)`
+   - `collect_contract_complaints(sub, config, work_items=..., events_by_id=...)`
+   - `collect_routing_hints(sub, config, work_items=..., events_by_id=...)`
+3. `run_telemetry_report()` and `run_telemetry_verify()` now build the cache once and pass it to each collector, reducing substrate event reads from 4×N to 1×N per run.
+4. No substrate API changes required — fix is entirely client-side.

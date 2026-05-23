@@ -10,6 +10,7 @@ from factory.constants import (
     STATE_CANNOT_PROCEED,
     STATE_LOCKED,
 )
+from factory.idempotency import make_event_id
 
 _initiative_log = logging.getLogger("factory.initiative")
 
@@ -73,7 +74,13 @@ def cancel_initiative(sub: Any, initiative_id: str, reason: str) -> int:
             continue
 
         try:
-            sub.acquire_claim(wi.work_item_id, "factory-initiative-cancel")
+            sub.acquire_claim(
+                wi.work_item_id,
+                "factory-initiative-cancel",
+                event_id=make_event_id(
+                    wi.work_item_id, "acquire_claim", 0, extra="cancel-initiative"
+                ),
+            )
         except SubstrateError:
             continue
 
@@ -82,6 +89,9 @@ def cancel_initiative(sub: Any, initiative_id: str, reason: str) -> int:
             "cannot_proceed",
             "factory-initiative-cancel",
             custom_fields={"cannot_proceed_reason": reason},
+            event_id=make_event_id(
+                wi.work_item_id, "cannot_proceed", 0, extra=f"cancel-{initiative_id}"
+            ),
         )
         cancelled += 1
 
@@ -108,7 +118,13 @@ def requeue_initiative(sub: Any, initiative_id: str) -> int:
             continue
 
         try:
-            sub.acquire_claim(wi.work_item_id, "factory-initiative-requeue")
+            sub.acquire_claim(
+                wi.work_item_id,
+                "factory-initiative-requeue",
+                event_id=make_event_id(
+                    wi.work_item_id, "acquire_claim", 0, extra="requeue-initiative"
+                ),
+            )
         except SubstrateError:
             continue
 
@@ -116,6 +132,7 @@ def requeue_initiative(sub: Any, initiative_id: str) -> int:
             wi.work_item_id,
             "new",
             "factory-initiative-requeue",
+            event_id=make_event_id(wi.work_item_id, "new", 0, extra=f"requeue-{initiative_id}"),
         )
         requeued += 1
 
