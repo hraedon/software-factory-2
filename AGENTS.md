@@ -54,7 +54,7 @@ Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs e
 - 5 workflow YAMLs with `extends:` composition (phase1–5, full_pipeline)
 - Unified subprocess wrapper (RFC-011): all subprocess calls use `factory.subprocess.run`
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
-- **1079 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
+- **1082 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
 
 **Known issues:** 7 open breadcrumbs (0 critical, 2 high, 5 medium, 0 low) + 18 RFCs + 7 active defect classes + 2 stabilized (214 resolved). See `breadcrumbs/README.md`.
 - BC-198 (high, proposed): initiative requeue uses state name as transition name

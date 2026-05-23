@@ -1,3 +1,36 @@
+---
+
+## 2026-05-23 — Session 48: Resolve 4 open breadcrumbs (BC-198, BC-199, BC-201, BC-202)
+
+**Invocation:** K2
+
+**Focus:** Close out 4 of the 5 remaining open medium/high breadcrumbs discovered in Session 47 audit. BC-200 (env leak) remains as the sole open bug; deferred to next session due to cross-module impact assessment needed.
+
+### Changes
+
+1. **BC-198 resolved** — Removed `"new"` and `"cannot_proceed"` state-name-as-transition-name usage from `initiative.py`.
+   - Added `TRANSITION_REQUEUE = "requeue"` to `constants.py`.
+   - Added `requeue` transition definition to `phase1.yaml` and `full_pipeline.yaml` (from `cannot_proceed` → `new`).
+   - `requeue_initiative()` now uses `TRANSITION_REQUEUE` constant and logs skip warnings for non-`cannot_proceed` items.
+   - `cancel_initiative()` now validates item is in `{STATE_IN_PROGRESS, STATE_NEW}` before transitioning to ` TRANSITION_ROUTE_TO_CANNOT_PROCEED`, logs skips for unexpected states.
+
+2. **BC-199 resolved** — `query_work_items()` scoping added to `initiative.py` and `review_surface.py`.
+   - `query_initiatives()`, `cancel_initiative()`, `requeue_initiative()` accept optional `workflow_name` / `workflow_version` keyword args and forward them to substrate.
+   - `generate_review_report()` passes `workflow_name=config.workflow_name, workflow_version=config.workflow_version` to `query_work_items()`.
+
+3. **BC-201 resolved** — Scheduler exception transparency improved in `_all_dep_specs_locked()`.
+   - Replaced bare `except Exception: return False` with `log.warning(..., exc_info=True)` before returning `False`.  Preserves the safe fallback behavior while providing runtime visibility.
+   - `_downstream_has_field()` also surfaced for similar treatment but left as-is (the `pass` there is acceptable because `False` is the safe default for dependency_refs propagation).
+
+4. **BC-202 resolved** — `inner_gate._should_failover()` narrowed from "any non-zero exit code" to known-retryable failures only.
+   - Retryable triggers: `timed_out`, empty output, exit codes 126/127, transport keywords (`"timeout"`, `"connection"`, `"not found in path"` in error message).
+   - No longer retryable: exit codes 1/2 (model refusal/usage error), generic errors with `exit_code=None` and no transport keyword.
+   - Added 6 new test cases in `test_channel_failover.py` covering the boundary conditions.
+
+5. **Test suite** — 1082 passed, 13 skipped, 0 lint errors, 0 vulture findings.
+
+**Remaining open bug:** BC-200 (high) — `subprocess_channel.py` leaks full `os.environ` to model subprocesses.
+
 # Software Factory v2 — Worklog
 
 Reverse-chronological session log. Prepend new entries above existing ones.
