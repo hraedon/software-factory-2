@@ -659,8 +659,151 @@ class TestComputeExitCriteria:
         assert metrics.inner_gate_first_passes == 0
         assert metrics.inner_gate_first_pass_rate == 0.0
 
+        # RFC-029 buckets: retry=0 failed, retry=1 passed
+        assert metrics.inner_gate_attempt_1_recovery_count == 1
+        assert metrics.inner_gate_attempt_1_total == 1
+        assert metrics.inner_gate_attempt_1_recovery_rate == 1.0
+        assert metrics.inner_gate_attempt_0_passes == 0
+        assert metrics.inner_gate_attempt_2plus_count == 0
+        assert metrics.inner_gate_exhausted_budget_count == 0
+        assert len(metrics.inner_gate_item_attempts) == 1
+        assert metrics.inner_gate_item_attempts[0][1] == 2  # 2 evals
 
-class TestContractComplaintPatterns:
+    def test_rfc029_attempt_0_pass_bucket(self, mock_substrate):
+        """Item that passes inner gate on first evaluation → bucket_0."""
+        from factory.telemetry import compute_exit_criteria
+
+        config = _make_config(mock_substrate)
+        wm = _worker_md()
+        wi, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            actor_id="test-actor",
+            actor_kind="agent",
+            custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
+        )
+        wid = wi.work_item_id
+        mock_substrate.transition(
+            wid, TRANSITION_CLAIM, "test-actor", actor_metadata={"role": wm["role"]}
+        )
+        mock_substrate.transition(
+            wid,
+            TRANSITION_SUBMIT,
+            "test-actor",
+            actor_metadata=wm,
+            payload={
+                "inner_gate_attempts": [
+                    {"retry": 0, "gate_name": "inner_mypy", "passed": True, "diagnostics": []},
+                ]
+            },
+        )
+        attempts = collect_gate_attempts(mock_substrate, config)
+        metrics = compute_exit_criteria(mock_substrate, config, attempts)
+        assert metrics.inner_gate_attempt_0_passes == 1
+        assert metrics.inner_gate_attempt_1_total == 0
+        assert metrics.inner_gate_attempt_2plus_total == 0
+        assert metrics.inner_gate_exhausted_budget_total == 0
+
+    def test_rfc029_attempt_2plus_bucket(self, mock_substrate):
+        """Item needing retry 0 fail, retry 1 fail, retry 2 pass → bucket_2plus."""
+        from factory.telemetry import compute_exit_criteria
+
+        config = _make_config(mock_substrate)
+        wm = _worker_md()
+        wi, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            actor_id="test-actor",
+            actor_kind="agent",
+            custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
+        )
+        wid = wi.work_item_id
+        mock_substrate.transition(
+            wid, TRANSITION_CLAIM, "test-actor", actor_metadata={"role": wm["role"]}
+        )
+        mock_substrate.transition(
+            wid,
+            TRANSITION_SUBMIT,
+            "test-actor",
+            actor_metadata=wm,
+            payload={
+                "inner_gate_attempts": [
+                    {
+                        "retry": 0,
+                        "gate_name": "inner_mypy",
+                        "passed": False,
+                        "diagnostics": ["err"],
+                    },
+                    {
+                        "retry": 1,
+                        "gate_name": "inner_mypy",
+                        "passed": False,
+                        "diagnostics": ["err"],
+                    },
+                    {"retry": 2, "gate_name": "inner_mypy", "passed": True, "diagnostics": []},
+                ]
+            },
+        )
+        attempts = collect_gate_attempts(mock_substrate, config)
+        metrics = compute_exit_criteria(mock_substrate, config, attempts)
+        assert metrics.inner_gate_attempt_2plus_count == 1
+        assert metrics.inner_gate_attempt_2plus_total == 1
+        assert metrics.inner_gate_attempt_2plus_rate == 1.0
+        assert metrics.inner_gate_attempt_0_passes == 0
+        assert metrics.inner_gate_attempt_1_total == 0
+        assert metrics.inner_gate_exhausted_budget_total == 0
+        assert len(metrics.inner_gate_item_attempts) == 1
+        assert metrics.inner_gate_item_attempts[0][1] == 3
+
+    def test_rfc029_exhausted_budget_bucket(self, mock_substrate):
+        """Item that never passes within retries → exhausted."""
+        from factory.telemetry import compute_exit_criteria
+
+        config = _make_config(mock_substrate)
+        wm = _worker_md()
+        wi, _ = mock_substrate.create_work_item(
+            workflow_name="software_factory",
+            work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
+            actor_id="test-actor",
+            actor_kind="agent",
+            custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
+        )
+        wid = wi.work_item_id
+        mock_substrate.transition(
+            wid, TRANSITION_CLAIM, "test-actor", actor_metadata={"role": wm["role"]}
+        )
+        mock_substrate.transition(
+            wid,
+            TRANSITION_SUBMIT,
+            "test-actor",
+            actor_metadata=wm,
+            payload={
+                "inner_gate_attempts": [
+                    {
+                        "retry": 0,
+                        "gate_name": "inner_mypy",
+                        "passed": False,
+                        "diagnostics": ["err"],
+                    },
+                    {
+                        "retry": 1,
+                        "gate_name": "inner_pytest",
+                        "passed": False,
+                        "diagnostics": ["err"],
+                    },
+                ]
+            },
+        )
+        attempts = collect_gate_attempts(mock_substrate, config)
+        metrics = compute_exit_criteria(mock_substrate, config, attempts)
+        assert metrics.inner_gate_exhausted_budget_count == 2
+        assert metrics.inner_gate_exhausted_budget_total == 2
+        assert metrics.inner_gate_exhausted_budget_rate == 1.0
+        assert metrics.inner_gate_attempt_0_passes == 0
+        assert metrics.inner_gate_attempt_1_total == 0
+        assert metrics.inner_gate_attempt_2plus_total == 0
+        assert len(metrics.inner_gate_item_attempts) == 2
+
     def test_signature_match(self):
         assert _looks_like_contract_complaint("function signature is wrong") is True
         assert _looks_like_contract_complaint("signature mismatch") is True

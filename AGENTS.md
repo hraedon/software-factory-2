@@ -54,9 +54,9 @@ Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs e
 - 5 workflow YAMLs with `extends:` composition (phase1–5, full_pipeline)
 - Unified subprocess wrapper (RFC-011): all subprocess calls use `factory.subprocess.run`
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
-- **1070 passing tests, 0 lint errors, 0 dead code findings**
+- **1079 passing tests, 0 lint errors, 0 dead code findings**
 
-**Known issues:** 7 open breadcrumbs (0 critical, 2 high, 5 medium, 0 low) + 19 RFCs + 7 active defect classes + 2 stabilized (214 resolved). See `breadcrumbs/README.md`.
+**Known issues:** 7 open breadcrumbs (0 critical, 2 high, 5 medium, 0 low) + 18 RFCs + 7 active defect classes + 2 stabilized (214 resolved). See `breadcrumbs/README.md`.
 - BC-198 (high, proposed): initiative requeue uses state name as transition name
 - BC-200 (high, proposed): subprocess_channel leaks full os.environ to model subprocesses
 - BC-195 (medium, proposed): no idempotency keys on substrate mutations
@@ -73,7 +73,7 @@ Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs e
 1. **RFC-023 (decomposer)** — Phase A (deterministic) implemented: reads `spec.yaml` or `spec.md`, produces per-FR fixture `.md` files. One module per FR, ACs assigned by `fr_ids` mapping, dependencies from `dependency_hints`. CLI via `populate_work_items.py --spec-yaml`. Phase B (model-driven decomposition with semantic module naming and FR grouping) remains future work.
 2. **RFC-026 (principal review surface)** — implemented: `src/factory/review_surface.py` generates `REVIEW.md` + `review.json` from substrate state. Human-readable module summaries, cannot-proceed detail, artifact listings.
 3. **RFC-022 (initiative primitive)** — implemented: `src/factory/initiative.py` provides `generate_initiative_id()`, `query_initiatives()`, `cancel_initiative()`, `requeue_initiative()`. `populate_work_items.py` assigns initiative IDs at populate time. Substrate-dependent operations require `initiative_id` custom field in workflow YAML (integration tests).
-4. **RFC-024 (coherence reviewer)** — declared role with zero implementation. Deferred per spec phasing.
+4. **RFC-024 (coherence reviewer)** — removed per Option A; role deleted from all configuration. May be reintroduced in Phase 6 with concrete evidence of a structural-coherence gap.
 5. **RFC-027 (test efficacy)** — no mechanical verification that tests validate behavior.
 
 **Phase 4 exit criteria** (defined in `spec.md` §10, assessed at GR-027): all met or near-miss with cause analysis. Lock-within-budget 88%, mean attempts 1.88, inner-gate first-pass 71%, review first-attempt 83%, jury quorum-met 80%, unknown gate-name rate 0%, multi-family jury exercised, disagreement/rejection paths exercised, channel failover exercised, gate budget 15.
@@ -81,7 +81,7 @@ Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs e
 ## What not to build yet
 
 The phasing in `spec.md` §10 exists to prevent the v1 mistake of building the whole architecture at once. Current constraints:
-- Seven worker roles implemented: interface_architect, test_author, implementer, cross_family_reviewer, frontier_judge, integrator, outcome_verifier. The `coherence_reviewer` role (holistic long-context review) has no implementation — deferred to Phase 6 per spec.
+- Seven worker roles implemented: interface_architect, test_author, implementer, cross_family_reviewer, frontier_judge, integrator, outcome_verifier. The `coherence_reviewer` role was removed from dead configuration (RFC-024 Option A, 2026-05-22); it may be reintroduced in Phase 6 if real workloads demonstrate a structural-coherence gap that integrator + outcome_verifier miss.
 - Multi-family jury (parallel model invocation via `model_override`) validated in GR-025+.
 - Integration and outcome-verification stages implemented and validated (GR-031 through GR-038).
 - Channel adapters: ClaudeCodeChannel (validated), OpenCodeChannel (validated, handles Kimi/DeepSeek/GLM via model selector), GeminiCLIChannel (validated in GR-032+, disabled in defaults pending better pass-rate data). The Gemini CLI requires Node 24: `PATH="$HOME/.nvm/versions/node/v24.15.0/bin:$PATH"` before running `gemini`.
@@ -174,11 +174,11 @@ The wrapper enforces the BC-140 safety protocol:
    - Tails logs every 30s automatically.
 
 4. **Monitoring guardrails** (pause and alert if tripped):
-   - `claim_near_budget` — item at attempt threshold; hard-stop already enforced in runner (BC-139), but ≥3 such items indicates systemic failure.
-   - `gate_failed.*cross_family_review` — review item cycling; kills run if ≥3 occurrences.
-   - `gate_failed.*jury` — jury item cycling; kills run if ≥3 occurrences.
-   - `channel_invoke_failed` — model channel down/rate-limited; kills run if ≥5 occurrences.
-   - Idle detection: no new log lines for 90s → assumes completion, runs telemetry.
+   - `claim_near_budget` — WARN-ONLY; hard-stop enforced in runner (BC-139) and gate (BC-186), so this is expected terminal behavior, not a runaway signal. Retired as fatal post-BC-139/BC-186.
+   - `gate_failed.*cross_family_review` — WARN-ONLY; post-BC-180/BC-185, gate_fail is the legitimate REVIEW_FOUND_DEFECT path creating upstream revisions. 3+ across different items is normal pipeline activity. Retired as fatal.
+   - `gate_failed.*jury` — WARN-ONLY; same rationale as cross_family_review. BC-181 (gate_near_budget) and BC-182 (self-circuit-breaker) cover crash-loop detection. Retired as fatal.
+   - `channel_invoke_failed` — model channel down/rate-limited; kills run if ≥5 occurrences. The only remaining fatal threshold.
+   - Idle detection: no new log lines for 15 min (30 cycles × 30s) → assumes completion, runs telemetry.
 
    **RFC-033 — guardrail tagging requirement**: whenever you add or modify a guardrail (any code path that aborts or escalates based on a heuristic threshold), you must add two inline comment lines immediately above the threshold: `# Precondition: <BC or invariant that makes the failure mode possible>` and `# Audit trigger: re-evaluate when <specific condition>`. See `breadcrumbs/RFC-033-guardrail-lifecycle.md` for rationale and worked examples. Three guardrails falsely killed healthy runs this week because their preconditions changed without triggering re-evaluation.
 

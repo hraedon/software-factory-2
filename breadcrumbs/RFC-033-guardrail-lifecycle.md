@@ -2,7 +2,7 @@
 number: "RFC-033"
 title: "Guardrail lifecycle: tag preconditions, audit on invariant change"
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: claude
 date: "2026-05-17"

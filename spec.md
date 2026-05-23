@@ -374,7 +374,6 @@ The following are design aspirations and recorded decisions for after Phase 5 ex
 - Second and third workloads (not cert-watch), with patterns extracted into reusable role templates.
 - At this point, decide whether v2 is ready to attempt anything from the existing software-factory v1 backlog.
 - Machine-readable spec sidecar (`spec.yaml`) produced by socratic-specification at intake; used as structured input to `populate_work_items.py` instead of freeform spec.md.
-- `coherence_reviewer` role (holistic, long-context): different-family model reviews entire assembled DAG against spec intent. Planned for Gemini (long-context advantage) once Gemini pass rate improves.
 - Spec ambiguity resolver: structured escalation path that routes back to the principal with a focused question rather than a dump of diagnostics. Requires spec.yaml sidecar and socratic-spec integration.
 - Race: running the same role on two channels in parallel; whichever produces a passing artifact first wins. Requires multi-channel dispatch refactor. Deferred until a workload demonstrates the wall-clock cost justifies the engineering complexity.
 

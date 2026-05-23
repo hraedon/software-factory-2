@@ -2,7 +2,7 @@
 number: "RFC-030"
 title: "Class promotion must produce an invariant, not just an RFC"
 severity: high
-status: proposed
+status: implemented
 kind: design
 author: claude
 date: "2026-05-17"
@@ -60,7 +60,8 @@ Small. The only new artifact is the symptom-fixed-because rationale, and it is r
 
 - **AC-1**: `breadcrumbs/README.md` is updated to replace the existing promotion rule text with the new three-part rule, citing RFC-030.
 - **AC-2**: CLASS-005's body documents its status under the new rule, and the principal has either (a) assigned an owner and target run to RFC-011, or (b) written and signed the symptom-fixed-because rationale in CLASS-005. (Demonstrated via the worked example in deliverable 2 of the RFC-030 implementation session.)
-- **AC-3**: This RFC's status moves to `implemented` once AC-1 and AC-2 are both satisfied.
+- **AC-3**: `scripts/check_class_block_rule.py` exists and is wired into `make check` (via `class-block` target).
+- **AC-4**: This RFC's status moves to `implemented` once AC-1, AC-2 and AC-3 are both satisfied.
 
 ## Out of scope
 

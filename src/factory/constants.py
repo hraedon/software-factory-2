@@ -16,7 +16,6 @@ ROLE_CROSS_FAMILY_REVIEWER = "cross_family_reviewer"
 ROLE_FRONTIER_JUDGE = "frontier_judge"
 ROLE_INTEGRATOR = "integrator"
 ROLE_OUTCOME_VERIFIER = "outcome_verifier"
-ROLE_COHERENCE_REVIEWER = "coherence_reviewer"
 
 CHANNEL_CLAUDE_CODE = "claude-code"
 CHANNEL_OPENCODE = "opencode"

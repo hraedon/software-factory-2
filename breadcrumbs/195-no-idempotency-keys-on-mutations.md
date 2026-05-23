@@ -25,3 +25,7 @@ If the process crashes between a successful mutation and the acknowledgment (or 
 ## Fix
 
 Generate a deterministic `event_id` (e.g., `uuid.uuid5(NAMESPACE, f"{work_item_id}:{transition_name}:{attempt}")`) before each mutation call. Pass it to the substrate method. This makes mutations idempotent across retries.
+
+### Why this isn't the previous fix recurring
+
+The invariant missing in BC-194 was "claims must heartbeat to prevent theft." BC-195 addresses the absence of a different invariant: "mutations must carry idempotency keys to be idempotent across crash-retries." The BC-194 fix (HeartbeatSession) does not prevent duplicate substrate events on process crash. This is a genuinely different defect class (at-least-once delivery vs claim lifecycle), not a recurrence of the heartbeat issue.

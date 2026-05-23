@@ -93,6 +93,20 @@ class ExitCriteriaMetrics:
     inner_gate_first_pass_rate: float
     inner_gate_first_passes: int
     inner_gate_evaluations: int
+    # RFC-029 attempt-count buckets
+    inner_gate_attempt_0_pass_rate: float
+    inner_gate_attempt_0_passes: int
+    inner_gate_attempt_1_recovery_rate: float
+    inner_gate_attempt_1_recovery_count: int
+    inner_gate_attempt_1_total: int
+    inner_gate_attempt_2plus_rate: float
+    inner_gate_attempt_2plus_count: int
+    inner_gate_attempt_2plus_total: int
+    inner_gate_exhausted_budget_rate: float
+    inner_gate_exhausted_budget_count: int
+    inner_gate_exhausted_budget_total: int
+    # RFC-029 per-item attempt log for hard-tail diagnosis
+    inner_gate_item_attempts: list[tuple[str, int, str]]
 
 
 def compute_exit_criteria(
@@ -165,16 +179,65 @@ def compute_exit_criteria(
     inner_first_passes = 0
     inner_evaluations = 0
     for item_attempts in inner_per_item.values():
-        sorted_ia = sorted(item_attempts, key=lambda a: (a.attempt_n, a.gate_name))
+        sorted_ia = sorted(item_attempts, key=lambda a: (a.attempt_n, a.inner_retry or 0))
         by_gate_ia: dict[str, list[GateAttempt]] = defaultdict(list)
         for sa in sorted_ia:
             by_gate_ia[sa.gate_name].append(sa)
         for gate_attempts in by_gate_ia.values():
-            gate_sorted = sorted(gate_attempts, key=lambda a: a.attempt_n)
+            gate_sorted = sorted(gate_attempts, key=lambda a: (a.attempt_n, a.inner_retry or 0))
             inner_evaluations += 1
             if gate_sorted[0].passed:
                 inner_first_passes += 1
     inner_rate = inner_first_passes / inner_evaluations if inner_evaluations else 0.0
+
+    # RFC-029: attempt-count bucketing per (work_item_id, gate_name).
+    # For each group, flatten inner evaluations across all substrate submits
+    # and count how many evaluations were needed before first pass.
+    bucket_0_passes = 0
+    bucket_1_recovery_count = 0
+    bucket_1_total = 0
+    bucket_2plus_count = 0
+    bucket_2plus_total = 0
+    exhausted_count = 0
+    exhausted_total = 0
+    item_attempt_log: list[tuple[str, int, str]] = []
+    for item_attempts in inner_per_item.values():
+        sorted_ia = sorted(item_attempts, key=lambda a: (a.attempt_n, a.inner_retry or 0))
+        by_gate_ia = defaultdict(list)
+        for sa in sorted_ia:
+            by_gate_ia[sa.gate_name].append(sa)
+        for gate_name, gate_attempts in by_gate_ia.items():
+            gate_sorted = sorted(gate_attempts, key=lambda a: (a.attempt_n, a.inner_retry or 0))
+            first_pass_idx = None
+            for idx, a in enumerate(gate_sorted):
+                if a.passed:
+                    first_pass_idx = idx
+                    break
+            if first_pass_idx == 0:
+                bucket_0_passes += 1
+                item_attempt_log.append((gate_attempts[0].work_item_id, 1, gate_name))
+            elif first_pass_idx == 1:
+                bucket_1_recovery_count += 1
+                bucket_1_total += 1
+                item_attempt_log.append((gate_attempts[0].work_item_id, 2, gate_name))
+            elif first_pass_idx is not None:
+                bucket_2plus_count += 1
+                bucket_2plus_total += 1
+                item_attempt_log.append(
+                    (gate_attempts[0].work_item_id, first_pass_idx + 1, gate_name)
+                )
+            else:
+                exhausted_count += 1
+                exhausted_total += 1
+                item_attempt_log.append(
+                    (gate_attempts[0].work_item_id, len(gate_sorted), gate_name)
+                )
+
+    total_inner_groups = bucket_0_passes + bucket_1_total + bucket_2plus_total + exhausted_total
+    bucket_0_rate = bucket_0_passes / total_inner_groups if total_inner_groups else 0.0
+    bucket_1_rate = bucket_1_recovery_count / bucket_1_total if bucket_1_total else 0.0
+    bucket_2plus_rate = bucket_2plus_count / bucket_2plus_total if bucket_2plus_total else 0.0
+    exhausted_rate = exhausted_count / exhausted_total if exhausted_total else 0.0
 
     return ExitCriteriaMetrics(
         lock_within_budget_rate=lock_rate,
@@ -193,6 +256,18 @@ def compute_exit_criteria(
         inner_gate_first_pass_rate=inner_rate,
         inner_gate_first_passes=inner_first_passes,
         inner_gate_evaluations=inner_evaluations,
+        inner_gate_attempt_0_pass_rate=bucket_0_rate,
+        inner_gate_attempt_0_passes=bucket_0_passes,
+        inner_gate_attempt_1_recovery_rate=bucket_1_rate,
+        inner_gate_attempt_1_recovery_count=bucket_1_recovery_count,
+        inner_gate_attempt_1_total=bucket_1_total,
+        inner_gate_attempt_2plus_rate=bucket_2plus_rate,
+        inner_gate_attempt_2plus_count=bucket_2plus_count,
+        inner_gate_attempt_2plus_total=bucket_2plus_total,
+        inner_gate_exhausted_budget_rate=exhausted_rate,
+        inner_gate_exhausted_budget_count=exhausted_count,
+        inner_gate_exhausted_budget_total=exhausted_total,
+        inner_gate_item_attempts=sorted(item_attempt_log, key=lambda t: (-t[1], t[0])),
     )
 
 
@@ -234,8 +309,44 @@ def format_exit_criteria_summary(metrics: ExitCriteriaMetrics) -> str:
             f"{ig_label:4s} [target: >=60%]"
         )
         lines.append(ig_line)
+
+        # RFC-029: attempt-count buckets
+        lines.append("")
+        lines.append("  Inner gate attempt buckets (RFC-029):")
+        total_inner_groups = (
+            metrics.inner_gate_attempt_0_passes
+            + metrics.inner_gate_attempt_1_total
+            + metrics.inner_gate_attempt_2plus_total
+            + metrics.inner_gate_exhausted_budget_total
+        )
+        a0 = f"{metrics.inner_gate_attempt_0_pass_rate:.0%}"
+        lines.append(
+            f"    attempt-0 pass:              {a0} "
+            f"({metrics.inner_gate_attempt_0_passes}/{total_inner_groups})"
+        )
+        a1 = f"{metrics.inner_gate_attempt_1_recovery_rate:.0%}"
+        lines.append(
+            f"    attempt-1 recovery:          {a1} "
+            f"({metrics.inner_gate_attempt_1_recovery_count}/{metrics.inner_gate_attempt_1_total})"
+        )
+        a2p = f"{metrics.inner_gate_attempt_2plus_rate:.0%}"
+        lines.append(
+            f"    attempt-2+ needed:           {a2p} "
+            f"({metrics.inner_gate_attempt_2plus_count}/{metrics.inner_gate_attempt_2plus_total})"
+        )
+        ex = f"{metrics.inner_gate_exhausted_budget_rate:.0%}"
+        lines.append(
+            f"    exhausted budget:            {ex} "
+            f"({metrics.inner_gate_exhausted_budget_count}/{metrics.inner_gate_exhausted_budget_total})"
+        )
+
+        if metrics.inner_gate_item_attempts:
+            lines.append("")
+            lines.append("  Per-item inner gate attempt log (hard tail):")
+            for wid, att_count, gate_name in metrics.inner_gate_item_attempts:
+                lines.append(f"    {wid[:22]}  {att_count:>2d} evals  {gate_name}")
     else:
-        lines.append("  Inner gate first-pass rate:    \u2014 (no inner gate data in substrate)")
+        lines.append("  Inner gate first-pass rate:    — (no inner gate data in substrate)")
 
     lines.append("")
     lines.append(
@@ -262,7 +373,7 @@ def format_exit_criteria_summary(metrics: ExitCriteriaMetrics) -> str:
     )
     lines.append(dr_line)
 
-    all_pass = ma_pass and fa_pass and ur_pass and dr_pass
+    all_pass = ma_pass and fa_pass and ig_pass and ur_pass and dr_pass
     lines.append("")
     lines.append(f"  Overall: {'ALL PASS' if all_pass else 'SOME FAIL'}")
     lines.append("")
@@ -286,6 +397,10 @@ class GateAttempt:
     # aggregate, or legacy rows from before the model field was plumbed
     # through. NULL is treated as a distinct bucket by `compute_pass_rates`.
     model: str | None = None
+    # RFC-029: retry number within a single substrate attempt for inner-gate
+    # evaluations. 0 = first inner evaluation, 1 = first retry, etc. None
+    # for outer-gate events (they have no retry concept within one event).
+    inner_retry: int | None = None
 
 
 def collect_gate_attempts(sub: Substrate, config: FactoryConfig) -> list[GateAttempt]:
@@ -322,6 +437,7 @@ def collect_gate_attempts(sub: Substrate, config: FactoryConfig) -> list[GateAtt
                                         passed=iga.get("passed", False),
                                         duration_seconds=worker_duration,
                                         model=worker_meta.get("model"),
+                                        inner_retry=iga.get("retry"),
                                     )
                                 )
                     except EventSchemaError:

@@ -1,4 +1,4 @@
-.PHONY: lint format test cov audit check golden-run integration smoke
+.PHONY: lint format test cov audit check class-block golden-run integration smoke
 
 PYTEST := .venv/bin/python -m pytest
 VULTURE := .venv/bin/vulture
@@ -20,7 +20,10 @@ cov:
 audit:
 	$(VULTURE) src/factory/ tests/ .vulture_whitelist.py --min-confidence 80 --exclude "tests/fixtures/capability-probe"
 
-check: lint audit test
+class-block:
+	.venv/bin/python scripts/check_class_block_rule.py
+
+check: lint audit class-block test
 
 integration:
 	$(PYTEST) tests/ -q -m integration

@@ -25,7 +25,6 @@ transitions:
       - frontier_judge
       - integrator
       - outcome_verifier
-      - coherence_reviewer
       - spec_ambiguity_resolver
 
   - name: submit
@@ -40,7 +39,6 @@ transitions:
       - frontier_judge
       - integrator
       - outcome_verifier
-      - coherence_reviewer
       - spec_ambiguity_resolver
 
   - name: cannot_proceed
@@ -55,7 +53,6 @@ transitions:
       - frontier_judge
       - integrator
       - outcome_verifier
-      - coherence_reviewer
       - spec_ambiguity_resolver
 
   - name: gate_pass
@@ -83,7 +80,6 @@ roles:
   - name: frontier_judge
   - name: integrator
   - name: outcome_verifier
-  - name: coherence_reviewer
   - name: spec_ambiguity_resolver
 
 work_item_types:
@@ -179,7 +175,7 @@ work_item_types:
     custom_fields:
       - name: review_type
         type: enum
-        enum_values: [cross_family, jury, coherence]
+        enum_values: [cross_family, jury]
         required: true
         ui_visible: true
       - name: verdict

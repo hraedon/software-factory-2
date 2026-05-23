@@ -2,7 +2,7 @@
 number: "RFC-029"
 title: "Attempt-count telemetry bucketing — separate prompt calibration from gate-difficulty tail"
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: claude-opus-4-7
 date: "2026-05-16"
@@ -63,6 +63,20 @@ This experiment is cheap (4 short runs) and does not require this RFC to land fi
 ## Phase needed
 
 Phase 5 in-flight. Bucketing is a small addition to existing telemetry and can land alongside any Phase 5 GR. The validation A/B can run independently.
+
+## Implementation
+
+- Added `inner_retry` field to `GateAttempt` dataclass to carry retry position from `SubmitPayload.inner_gate_attempts[i].retry`.
+- Added 12 new fields to `ExitCriteriaMetrics` covering four buckets:
+  - `inner_gate_attempt_0_pass_rate`, `inner_gate_attempt_0_passes`
+  - `inner_gate_attempt_1_recovery_rate`, `inner_gate_attempt_1_recovery_count`, `inner_gate_attempt_1_total`
+  - `inner_gate_attempt_2plus_rate`, `inner_gate_attempt_2plus_count`, `inner_gate_attempt_2plus_total`
+  - `inner_gate_exhausted_budget_rate`, `inner_gate_exhausted_budget_count`, `inner_gate_exhausted_budget_total`
+  - `inner_gate_item_attempts` (hard-tail log)
+- `compute_exit_criteria` now groups inner gate attempts by (`work_item_id`, `gate_name`), sorts by (`attempt_n`, `inner_retry`), and bucketizes.
+- `format_exit_criteria_summary` renders the four buckets and the per-item attempt log.
+- `collect_gate_attempts` propagates `retry` from payload into `GateAttempt.inner_retry`.
+- Added 4 unit tests in `tests/test_telemetry.py` covering attempt-0 pass, retry-then-pass (recovery), 2+ retries, and exhausted budget.
 
 ## Risks
 

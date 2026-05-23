@@ -6,6 +6,8 @@ Schema follows substrate's breadcrumbs convention; see `/projects/substrate/brea
 
 ## Schema
 
+### Frontmatter
+
 ```yaml
 ---
 number: "001"
@@ -19,6 +21,18 @@ tags: [topic, stage-N, dep-substrate-NNN]
 related: ["002", "003"]
 ---
 ```
+
+### Fix section template
+
+Every BC that is resolved with a code change must include a `## Fix` section.
+If the BC's `related:` field cites another BC that shares at least one tag,
+the `## Fix` section **must** include a subsection titled `### Why this isn't the previous fix recurring`.
+That subsection must either:
+
+1. Name the invariant that was absent in the prior fix, and explain how the new fix establishes it.
+2. Explicitly state: "I don't have the invariant yet; this is another symptom fix." In that case the fix is held until someone proposes the invariant.
+
+See RFC-031 for rationale and a worked example.
 
 ## Severity
 
@@ -103,15 +117,14 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-037 | Detect → enforce → retire tiering — declared commitment level for gates, allowlists, and status fields (cross-project meta-defense; lead example BC-194 implemented) | medium | Phase 5 in-flight |
 | RFC-035 | Data-driven channel placement layer — consume PassRateRow to propose role→channel config | high | Phase 3 (fleet integration) |
 | RFC-034 | Capture model identity (resolved model string) in telemetry keys | high | Phase 3 (fleet integration) |
-| RFC-033 | Guardrail lifecycle — tag preconditions, audit on invariant change (v1-lesson meta-defense) | medium | Phase 5 in-flight |
+| RFC-033 | Guardrail lifecycle — tag preconditions, audit on invariant change (v1-lesson meta-defense) | medium | Phase 5 |
 | RFC-032 | Breadcrumb-velocity circuit breaker — freeze new feature scope when arrival rate exceeds absorption (v1-lesson meta-defense) | medium | Phase 5 in-flight |
-| RFC-031 | Fix-family root-cause requirement — BCs citing related BCs must explain missing invariant (v1-lesson meta-defense) | medium | Phase 5 in-flight |
-| RFC-030 | Class promotion must produce an invariant, not just an RFC (v1-lesson meta-defense; CLASS-005/008 stabilized by RFC-011) | high | Phase 5 in-flight |
+| RFC-031 | Fix-family root-cause requirement — BCs citing related BCs must explain missing invariant (v1-lesson meta-defense) | medium | Phase 5 |
+| RFC-030 | Class promotion must produce an invariant, not just an RFC (v1-lesson meta-defense; CLASS-005/008 stabilized by RFC-011) | high | Phase 5 |
 | RFC-027 | Test efficacy — no mechanical verification that tests actually validate behavior | high | Phase 6 |
 | RFC-028 | Per-role capability map — collapse 5-point registration into single declaration | medium | Phase 5 exit / Phase 6 |
-| RFC-029 | Attempt-count telemetry bucketing — separate prompt calibration from gate-difficulty tail | medium | Phase 5 in-flight |
+| RFC-029 | Attempt-count telemetry bucketing — separate prompt calibration from gate-difficulty tail | medium | Phase 5 |
 | RFC-026 | Principal review surface — pipeline needs artifact bundle format and feedback intake | high | Phase 6 (first real workload) |
-| RFC-024 | Coherence reviewer — declared role with zero design or implementation | high | Phase 6 |
 | RFC-023 | Decomposer role — Stage 1 pipeline cannot consume arbitrary specs | high | Phase 6 (generalization) |
 | RFC-002 | Critical observer degradation — v1 BC-359 shows silent swallowing loses telemetry data | high | Phase 3 (hooks/observers) |
 | RFC-003 | Channel adapter auth-mode detection — v1 BC-376 shows env var injection breaks native auth | high | Phase 3 (multi-channel adapters) |
@@ -132,6 +145,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | 195 | Integration gate subprocess namespace isolation — unshare --user --map-root-user --net | medium | `evaluate_integration` runs all subprocesses (import, mypy, pytest) under `unshare --user --map-root-user --net` when available; graceful degradation with structlog warning; PYTHONDONTWRITEBYTECODE set; validated in GR-039 |
 | RFC-011 | Unified subprocess execution layer — typed wrapper eliminating gate/runner subprocess footguns | critical | `factory.subprocess.run` with keyword-only `cmd`/`cwd`/`env`/`timeout_s`; all 29 call sites in `src/factory/` migrated; CLASS-005 + CLASS-008 stabilized; validated in GR-039 |
 | RFC-036 | Eliminate substrate private-API imports; split gate.py into a gate/ package | medium | gate.py (1415 lines) split into gate/ package with 9 submodules; gate/__init__.py re-exports all public names for backward compat; runner.py split: inner_gate.py + jury_orchestrator.py; phase defaults extracted to phase_defaults.py; _PHASE2_DISPATCH → _KIND_DISPATCH |
+| RFC-024 | Coherence reviewer — declared role with zero design or implementation | high | Role removed from all dead-configuration sites (constants.py, spec.md, full_pipeline.yaml) per RFC-024 Option A. May be reintroduced in Phase 6 with concrete evidence of a structural-coherence gap. See resolved/RFC-024-coherence-reviewer.md. |
 | 194 | Channel status declaration vs. constructor divergence — GLM/DeepSeek/Gemini constructible despite "disabled"/"unvalidated" status | high | _CHANNEL_STATUS table adjacent to _register_channel with tier:enforce annotation; _create_channels raises ChannelDisabledError for disabled channels and warns for unvalidated; gemini-cli first enforced case; 2 regression tests (AC-2, AC-3) |
 | 190 | Scheduler downstream dedup is racey and O(N); handoff iteration unfair | high | Per-(source_id, downstream_type) `threading.Lock` in WeakValueDictionary closes TOCTOU window; in-memory existence cache skips O(N) scan on repeat calls; `random.shuffle` per poll cycle for fairness; 5 tests |
 | 192 | Telemetry verify and pass-rate formatter use different unknown-rate thresholds | low | `TELEMETRY_UNKNOWN_RATE_THRESHOLD = 0.01` constant in `constants.py`; both `format_pass_rate_table` and `run_telemetry_verify` use it; label updated to `[target: <1%]` |

@@ -2,7 +2,7 @@
 number: "RFC-031"
 title: "Fix-family root-cause requirement: BCs that cite related BCs must explain the missing invariant"
 severity: medium
-status: proposed
+status: implemented
 kind: design
 author: claude
 date: "2026-05-17"
