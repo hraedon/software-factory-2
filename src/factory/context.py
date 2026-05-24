@@ -56,6 +56,38 @@ class PromptContext:
     import_feedback: str = ""
 
 
+def render_decomposer_prompt(
+    spec_text: str,
+    glossary: dict[str, str] | None = None,
+    prior_failures: list[Any] | None = None,
+) -> str:
+    """Render a decomposer prompt from spec text without a substrate work item."""
+    prompt_path = PROMPTS_DIR / "decomposer.md"
+    if not prompt_path.exists():
+        raise FileNotFoundError(f"Prompt template not found: {prompt_path}")
+    template = prompt_path.read_text()
+    parts = [template, "", "---", ""]
+    parts.append("## spec_text")
+    parts.append("")
+    parts.append("```")
+    parts.append(spec_text)
+    parts.append("```")
+    parts.append("")
+    if glossary:
+        parts.append("## glossary")
+        parts.append("")
+        for term, definition in sorted(glossary.items()):
+            parts.append(f"- **{term}**: {definition}")
+        parts.append("")
+    if prior_failures:
+        parts.append("## prior_failures")
+        parts.append("")
+        for entry in prior_failures:
+            parts.append(f"- attempt {entry.attempt_number}: {entry.diagnostic}")
+        parts.append("")
+    return "\n".join(parts)
+
+
 def _to_uuid(value: str | uuid.UUID) -> uuid.UUID:
     if isinstance(value, uuid.UUID):
         return value

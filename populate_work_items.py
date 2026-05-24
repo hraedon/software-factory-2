@@ -9,17 +9,16 @@ from pathlib import Path
 
 from substrate import Substrate
 
+from factory.config import FactoryConfig
 from factory.constants import (
     CUSTOM_FIELD_AC_IDS,
     CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_INITIATIVE_ID,
-    CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_MODULE_NAME,
     CUSTOM_FIELD_SPEC_SECTION,
     ROLE_INTERFACE_ARCHITECT,
     WORK_ITEM_TYPE_INTERFACE_SPEC,
 )
-from factory.config import FactoryConfig
 
 ROOT_DIR = Path(__file__).resolve().parent
 FIXTURES_DIR = ROOT_DIR / "tests" / "fixtures" / "primary-spec"
@@ -201,7 +200,10 @@ def main():
         "--config",
         type=str,
         default=None,
-        help="Path to factory config YAML (overrides --dsn, --project, --key-path, --workspace-root)",
+        help=(
+            "Path to factory config YAML"
+            " (overrides --dsn, --project, --key-path, --workspace-root)"
+        ),
     )
     parser.add_argument(
         "--fixtures",
@@ -222,6 +224,19 @@ def main():
         help="Path to spec.md to decompose into fixtures (RFC-023 decomposer)",
     )
     parser.add_argument(
+        "--decomposer-channel",
+        type=str,
+        default=None,
+        choices=["opencode", "claude-code", "gemini-cli"],
+        help="Model channel for RFC-023 Phase B model-driven decomposition",
+    )
+    parser.add_argument(
+        "--decomposer-model",
+        type=str,
+        default=None,
+        help="Model override for --decomposer-channel (e.g. fireworks-ai/.../kimi-k2p6-turbo)",
+    )
+    parser.add_argument(
         "--skip-lint",
         action="store_true",
         help="Skip spec lint checks (use with caution)",
@@ -235,7 +250,10 @@ def main():
         "--archetype",
         type=str,
         default=None,
-        help="Project archetype for skeleton generation (e.g. cli-tool, web-service, library-module)",
+        help=(
+            "Project archetype for skeleton generation"
+            " (e.g. cli-tool, web-service, library-module)"
+        ),
     )
     args = parser.parse_args()
 
@@ -277,6 +295,8 @@ def main():
     if args.spec_yaml:
         from factory.decomposer import (
             decompose_from_spec_yaml as _decompose_yaml,
+        )
+        from factory.decomposer import (
             write_fixture_files as _write_fixtures,
         )
 
@@ -290,12 +310,58 @@ def main():
     elif args.spec_md:
         from factory.decomposer import (
             decompose_from_spec_md as _decompose_md,
+        )
+        from factory.decomposer import (
             write_fixture_files as _write_fixtures,
         )
 
         spec_path = Path(args.spec_md)
         result = _decompose_md(spec_path)
         decomposed_dir = Path(args.workspace_root or "/tmp") / ".decomposed"
+        _write_fixtures(result, decomposed_dir)
+        print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
+        md_files = sorted(decomposed_dir.glob("*.md"))
+        items = [(f.name, f.stem, "custom", ["AC-01"]) for f in md_files]
+    elif args.decomposer_channel and (args.spec_yaml or args.spec_md):
+        from factory.decomposer_model import DecomposeError, decompose_from_model
+
+        spec_path = Path(args.spec_yaml or args.spec_md)
+        ws_root = Path(args.workspace_root or "/tmp")
+        ws_root.mkdir(parents=True, exist_ok=True)
+        _cfg = config or FactoryConfig()
+
+        # Build channel from CLI arguments
+        if args.decomposer_channel == "opencode":
+            from factory.opencode_channel import OpenCodeChannel
+
+            channel = OpenCodeChannel(_cfg)
+        elif args.decomposer_channel == "claude-code":
+            from factory.claude_code_channel import ClaudeCodeChannel
+
+            channel = ClaudeCodeChannel(_cfg)
+        elif args.decomposer_channel == "gemini-cli":
+            from factory.gemini_channel import GeminiCLIChannel
+
+            channel = GeminiCLIChannel(_cfg)
+        else:
+            print(f"ERROR: unknown decomposer channel {args.decomposer_channel}", file=sys.stderr)
+            sys.exit(1)
+
+        try:
+            result = decompose_from_model(
+                channel,
+                _cfg,
+                spec_path,
+                spec_yaml_path=Path(args.spec_yaml) if args.spec_yaml else None,
+                workspace_root=ws_root,
+                max_retries=2,
+            )
+        except DecomposeError as exc:
+            print(f"ERROR: model-driven decomposition failed: {exc}", file=sys.stderr)
+            sys.exit(1)
+        from factory.decomposer import write_fixture_files as _write_fixtures
+
+        decomposed_dir = ws_root / ".decomposed"
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
         md_files = sorted(decomposed_dir.glob("*.md"))
@@ -315,9 +381,7 @@ def main():
 
     only_labels = set(args.only.split(",")) if args.only else None
 
-    sub = _open_or_create_project(
-        dsn, project, key_path, workflow_path, args.reset, workspace_root
-    )
+    sub = _open_or_create_project(dsn, project, key_path, workflow_path, args.reset, workspace_root)
     _config = FactoryConfig()
     if config is not None:
         _config = config
@@ -348,7 +412,7 @@ def main():
         print(f"  Applied archetype '{args.archetype}': {len(created_files)} files created")
 
     if not args.skip_lint:
-        from factory.spec_lint import spec_lint, format_lint_results
+        from factory.spec_lint import format_lint_results, spec_lint
 
         lint_results: list[tuple[str, object]] = []
         for filename, label, _shape, _ac_ids in items:
@@ -371,12 +435,17 @@ def main():
             if args.strict_lint:
                 any_finding = any(r.findings for _, r in lint_results)
                 if any_finding:
-                    print("\n--strict-lint: treating warnings as errors. Aborting.", file=sys.stderr)
+                    print(
+                        "\n--strict-lint: treating warnings as errors. Aborting.", file=sys.stderr
+                    )
                     sys.exit(1)
             else:
                 any_error = any(r.errors for _, r in lint_results)
                 if any_error:
-                    print("\nSpec lint found errors. Fix or use --skip-lint to override.", file=sys.stderr)
+                    print(
+                        "\nSpec lint found errors. Fix or use --skip-lint to override.",
+                        file=sys.stderr,
+                    )
                     sys.exit(1)
     else:
         print("WARNING: --skip-lint used; spec lint checks bypassed")
@@ -464,8 +533,10 @@ def main():
                 )
                 print(f"  [{wi_id_str[:8]}] dependency_refs updated: {resolved}")
 
-    print(f"\nCreated {len(created)} work-items, skipped {skipped} existing, "
-          f"in project '{project}' (workflow_version={workflow_version})")
+    print(
+        f"\nCreated {len(created)} work-items, skipped {skipped} existing, "
+        f"in project '{project}' (workflow_version={workflow_version})"
+    )
     print("\nSummary:")
     for label, shape, wi_id in created:
         print(f"  {label}  {shape:20s}  {wi_id}")

@@ -1,0 +1,345 @@
+from __future__ import annotations
+
+import ast
+import random
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+
+from factory.constants import (
+    GATE_NAME_INNER_MYPY,
+    GATE_NAME_INNER_PYTEST,
+    GATE_NAME_MUTATION_SPOT_CHECK,
+)
+from factory.gate._base import GateResult
+
+log = __import__("logging").getLogger(__name__)
+
+
+def _check_syntax(content: str) -> GateResult:
+    import ast
+    try:
+        ast.parse(content)
+        return GateResult(passed=True, gate_name="syntax")
+    except SyntaxError as exc:
+        return GateResult(
+            passed=False, gate_name="syntax",
+            diagnostics=[f"Syntax error: {exc}"], diagnostic_kind="syntax"
+        )
+
+
+def _check_impl_imports(content: str) -> GateResult:
+    try:
+        __import__("builtins").__import__("ast").parse(content)
+        return GateResult(passed=True, gate_name="imports")
+    except Exception as exc:
+        return GateResult(
+            passed=False, gate_name="imports",
+            diagnostics=[f"Import check failed: {exc}"], diagnostic_kind="impl_import"
+        )
+
+
+def _run_pytest(
+    artifact_path: Path,
+    test_suite_path: Path,
+    interface_pyi_path: Path | None = None,
+    dependency_pyi_paths: list[tuple[str, Path]] | None = None,
+    python_executable: str | None = None,
+    timeout: int = 300,
+) -> GateResult:
+    import shutil, sys
+    from factory.pre_gate import copy_dependency_pyis
+    from factory.sandbox import gate_subprocess_env
+    from factory.subprocess import run as run_subprocess
+    from factory.constants import GATE_NAME_IMPLEMENTATION_PYTEST, TEMPFILE_PREFIX_PYTEST
+    exe = python_executable or sys.executable
+    try:
+        with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_PYTEST) as tmpdir:
+            impl_content = artifact_path.read_text()
+            impl_copy = Path(tmpdir) / artifact_path.name
+            impl_copy.write_text(impl_content)
+            if artifact_path.stem != "interface":
+                iface_copy = Path(tmpdir) / f"interface{artifact_path.suffix}"
+                iface_copy.write_text(impl_content)
+            test_copy = Path(tmpdir) / test_suite_path.name
+            test_copy.write_text(test_suite_path.read_text())
+            copy_dependency_pyis(tmpdir, dependency_pyi_paths)
+            result = run_subprocess(
+                cmd=[exe, "-m", "pytest", str(test_copy), "-x", "--tb=short", "-q"],
+                cwd=Path(tmpdir),
+                env=gate_subprocess_env(PYTHONPATH=tmpdir),
+                timeout_s=timeout,
+            )
+            if result.timed_out:
+                return GateResult(
+                    passed=False, gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
+                    diagnostics=[f"pytest timed out after {timeout}s", "timed_out: True"],
+                    diagnostic_kind="impl_pytest",
+                )
+            if result.returncode != 0:
+                lines = result.stdout.strip().splitlines() + result.stderr.strip().splitlines()
+                return GateResult(
+                    passed=False, gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
+                    diagnostics=lines[:10] or ["pytest reported failures"],
+                    diagnostic_kind="impl_pytest",
+                )
+    except Exception as e:
+        return GateResult(
+            passed=False, gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
+            diagnostics=[f"pytest invocation failed: {e}"], diagnostic_kind="impl_pytest"
+        )
+    return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_PYTEST)
+
+
+@dataclass(frozen=True)
+class Mutation:
+    """A single source-code mutation."""
+
+    description: str
+    line_no: int | None
+    original: str
+    mutated: str
+
+
+class _Mutator(ast.NodeTransformer):
+    """Simple AST mutator for Python source.
+
+    Operators implemented:
+    - Swap comparison operators (> <, == !=, >= <=)
+    - Delete a return statement (replace with Pass)
+    - Change a numeric constant (increment/decrement by 1)
+    """
+
+    _COMPARISON_SWAPS: dict[type, type] = {
+        ast.Gt: ast.Lt,
+        ast.Lt: ast.Gt,
+        ast.GtE: ast.LtE,
+        ast.LtE: ast.GtE,
+        ast.Eq: ast.NotEq,
+        ast.NotEq: ast.Eq,
+    }
+
+    def __init__(self, index: int) -> None:
+        self.index = index
+        self.visited = 0
+        self.mutation: Mutation | None = None
+
+    def visit_Compare(self, node: ast.Compare) -> ast.AST:
+        if self.mutation is not None:
+            return self.generic_visit(node)
+        if len(node.ops) == 1:
+            op = node.ops[0]
+            swap = self._COMPARISON_SWAPS.get(type(op))
+            if swap is not None:
+                if self.visited == self.index:
+                    node.ops[0] = swap()  # type: ignore[arg-type]
+                    self.mutation = Mutation(
+                        description=f"swapped {type(op).__name__} to {swap.__name__}",
+                        line_no=node.lineno if hasattr(node, "lineno") else None,
+                        original=type(op).__name__,
+                        mutated=swap.__name__,
+                    )
+                    return node
+                self.visited += 1
+        return self.generic_visit(node)
+
+    def visit_Constant(self, node: ast.Constant) -> ast.AST:
+        if self.mutation is not None:
+            return self.generic_visit(node)
+        if isinstance(node.value, bool):
+            return self.generic_visit(node)
+        if isinstance(node.value, (int, float)):
+            if self.visited == self.index:
+                if isinstance(node.value, int):
+                    delta = 1 if node.value >= 0 else -1
+                    new_val = node.value + delta
+                else:
+                    new_val = node.value + 1.0
+                self.mutation = Mutation(
+                    description=f"changed constant {node.value} to {new_val}",
+                    line_no=node.lineno if hasattr(node, "lineno") else None,
+                    original=str(node.value),
+                    mutated=str(new_val),
+                )
+                return ast.Constant(value=new_val)
+            self.visited += 1
+        return self.generic_visit(node)
+
+    def visit_Return(self, node: ast.Return) -> ast.AST:
+        if self.mutation is not None:
+            return self.generic_visit(node)
+        if self.visited == self.index:
+            self.mutation = Mutation(
+                description="deleted return statement",
+                line_no=node.lineno if hasattr(node, "lineno") else None,
+                original="return ...",
+                mutated="pass",
+            )
+            return ast.Pass()
+        self.visited += 1
+        return self.generic_visit(node)
+
+
+def _generate_mutations(source: str, max_mutations: int = 10) -> list[tuple[str, Mutation]]:
+    """Return list of (mutated_source, mutation_info) pairs."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
+
+    results: list[tuple[str, Mutation]] = []
+    for i in range(max_mutations):
+        mutator = _Mutator(i)
+        mutated_tree = ast.fix_missing_locations(mutator.visit(ast.parse(source)))
+        if mutator.mutation is None:
+            continue
+        mutated_source = ast.unparse(mutated_tree)
+        results.append((mutated_source, mutator.mutation))
+    return results
+
+
+def _run_suite_on_mutant(
+    mutated_source: str,
+    test_suite_path: Path,
+    interface_pyi_path: Path,
+    python_executable: str,
+    timeout: int,
+) -> GateResult:
+    """Run inner gate (syntax, imports, mypy, pytest) on a single mutant."""
+    syntax_result = _check_syntax(mutated_source)
+    if not syntax_result.passed:
+        # Mutant is un-syntactic — irrelevant for test-efficacy measurement
+        return GateResult(passed=True, gate_name=GATE_NAME_MUTATION_SPOT_CHECK, skipped=True)
+
+    with tempfile.TemporaryDirectory(prefix="sf2_mutant_") as tmpdir:
+        mutant_path = Path(tmpdir) / "mutant.py"
+        mutant_path.write_text(mutated_source)
+        import_result = _check_impl_imports(mutated_source)
+        if not import_result.passed:
+            return GateResult(
+                passed=True,
+                gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
+                skipped=True,
+            )
+
+        pytest_result = _run_pytest(
+            artifact_path=mutant_path,
+            test_suite_path=test_suite_path,
+            interface_pyi_path=interface_pyi_path,
+            python_executable=python_executable,
+            timeout=timeout,
+        )
+        return pytest_result
+
+
+def evaluate_mutation_spot_check(
+    implementation_path: Path,
+    test_suite_path: Path,
+    interface_pyi_path: Path,
+    python_executable: str | None = None,
+    timeout: int = 300,
+    sample_size: int = 3,
+    fail_threshold: float = 0.5,
+    seed: int | None = None,
+) -> GateResult:
+    """Spot-check mutation gate for test efficacy.
+
+    Applies N random mutations to the locked implementation and checks
+    whether the test suite catches each mutant.
+
+    A "caught" mutant is one where the test suite fails after the mutation.
+    A "live" (surviving) mutant means the test suite passes, revealing a gap
+    in test coverage.
+
+    The gate *fails* if the live rate exceeds *fail_threshold*.
+
+    Args:
+        implementation_path: Path to the locked .py implementation.
+        test_suite_path: Path to the test suite for this module.
+        interface_pyi_path: Path to the interface .pyi stub.
+        python_executable: Python executable for subprocess tests.
+        timeout: Timeout per test run in seconds.
+        sample_size: Number of mutants to evaluate.
+        fail_threshold: Hard-fail threshold for live-mutant rate.
+        seed: Optional RNG seed for reproducibility.
+    """
+    import sys
+
+    if seed is not None:
+        random.seed(seed)
+
+    source = implementation_path.read_text()
+    mutations = _generate_mutations(source, max_mutations=sample_size * 3)
+    if not mutations:
+        return GateResult(
+            passed=True,
+            gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
+            diagnostics=["No mutations could be generated for this source."],
+            skipped=True,
+        )
+
+    random.shuffle(mutations)
+    selected = mutations[:sample_size]
+
+    exe = python_executable or sys.executable
+    live_mutants = 0
+    caught_mutants = 0
+    skipped_mutants = 0
+    details: list[str] = []
+
+    for mutated_source, mutation in selected:
+        result = _run_suite_on_mutant(
+            mutated_source=mutated_source,
+            test_suite_path=test_suite_path,
+            interface_pyi_path=interface_pyi_path,
+            python_executable=exe,
+            timeout=timeout,
+        )
+        if result.skipped or result.gate_name in (
+            GATE_NAME_INNER_MYPY,
+            GATE_NAME_INNER_PYTEST,
+        ):
+            # Skipped / un-buildable mutants don't count toward the rate
+            if result.skipped:
+                skipped_mutants += 1
+                details.append(
+                    f"  SKIPPED: {mutation.description} at line {mutation.line_no}"
+                )
+            continue
+        if result.passed:
+            # Test suite PASSED on the mutant → test efficacy gap
+            live_mutants += 1
+            details.append(
+                f"  LIVE (missed): {mutation.description} at line {mutation.line_no}"
+            )
+        else:
+            caught_mutants += 1
+            details.append(
+                f"  CAUGHT: {mutation.description} at line {mutation.line_no}"
+            )
+
+    evaluated = live_mutants + caught_mutants
+    if evaluated == 0:
+        return GateResult(
+            passed=True,
+            gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
+            diagnostics=["All mutants were ineligible (syntax/import errors)."],
+            skipped=True,
+        )
+
+    live_rate = live_mutants / evaluated
+    passed = live_rate <= fail_threshold
+
+    diagnostics = [
+        f"Mutation spot-check: {sample_size} mutants, "
+        f"{caught_mutants} caught, {live_mutants} live, {skipped_mutants} skipped. "
+        f"Live rate: {live_rate:.0%} (threshold: {fail_threshold:.0%})."
+    ]
+    diagnostics.extend(details)
+
+    return GateResult(
+        passed=passed,
+        gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
+        diagnostics=diagnostics,
+        diagnostic_kind="mutation_uncaught" if not passed else "",
+    )

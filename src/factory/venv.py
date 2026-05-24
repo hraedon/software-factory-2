@@ -7,6 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from factory.sandbox import strip_sensitive_env
 from factory.subprocess import run as run_subprocess
 
 
@@ -58,7 +59,7 @@ def ensure_project_venv(project_dir: Path) -> Path:
 
         shutil.rmtree(venv_dir)
 
-    _env = dict(os.environ)
+    _env = strip_sensitive_env(os.environ)
 
     if has_uv:
         result = run_subprocess(
@@ -84,14 +85,14 @@ def ensure_project_venv(project_dir: Path) -> Path:
             result = run_subprocess(
                 cmd=["uv", "pip", "install", "--python", str(venv_python), f"-r{requirements}"],
                 cwd=project_dir,
-                env=_env,
+                env=strip_sensitive_env(os.environ),
                 timeout_s=300,
             )
         else:
             result = run_subprocess(
                 cmd=[str(venv_python), "-m", "pip", "install", f"-r{requirements}"],
                 cwd=project_dir,
-                env=_env,
+                env=strip_sensitive_env(os.environ),
                 timeout_s=300,
             )
         if result.returncode != 0:
@@ -107,7 +108,7 @@ _GATE_TOOLS = ["pytest", "mypy", "ruff"]
 
 def _installed_versions_string(gate_python: Path) -> str:
     parts = []
-    _env = dict(os.environ)
+    _env = strip_sensitive_env(os.environ)
     for tool in _GATE_TOOLS:
         result = run_subprocess(
             cmd=[str(gate_python), "-m", "pip", "show", tool],
@@ -167,7 +168,7 @@ def ensure_gate_venv(project_dir: Path) -> Path:
     if gate_venv_dir.exists():
         shutil.rmtree(gate_venv_dir)
 
-    _env = dict(os.environ)
+    _env = strip_sensitive_env(os.environ)
 
     if has_uv:
         result = run_subprocess(
@@ -195,14 +196,14 @@ def ensure_gate_venv(project_dir: Path) -> Path:
         result = run_subprocess(
             cmd=["uv", "pip", "install", "--python", str(gate_python), *packages],
             cwd=project_dir,
-            env=_env,
+            env=strip_sensitive_env(os.environ),
             timeout_s=300,
         )
     else:
         result = run_subprocess(
             cmd=[str(gate_python), "-m", "pip", "install", *packages],
             cwd=project_dir,
-            env=_env,
+            env=strip_sensitive_env(os.environ),
             timeout_s=300,
         )
     if result.returncode != 0:

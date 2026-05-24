@@ -9,6 +9,7 @@ WORK_ITEM_TYPE_INTEGRATION = "integration"
 WORK_ITEM_TYPE_OUTCOME_VERIFICATION = "outcome_verification"
 
 ROLE_INTERFACE_ARCHITECT = "interface_architect"
+ROLE_DECOMPOSER = "decomposer"
 ROLE_TEST_AUTHOR = "test_author"
 ROLE_IMPLEMENTER = "implementer"
 ROLE_MECHANICAL_GATE = "mechanical_gate"
@@ -143,6 +144,7 @@ GATE_NAME_OUTCOME_E2E = "outcome_e2e"
 GATE_NAME_UNKNOWN_TYPE = "unknown_type"
 GATE_NAME_BEHAVIORAL = "behavioral"
 GATE_NAME_UNKNOWN = "unknown"
+GATE_NAME_MUTATION_SPOT_CHECK = "mutation_spot_check"
 
 CHANNEL_TO_FAMILY = {
     CHANNEL_CLAUDE_CODE: FAMILY_ANTHROPIC,

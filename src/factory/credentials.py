@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 import yaml
+
+from factory.sandbox import strip_sensitive_env
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ def inject_credentials_into_env(
     if env is not None:
         merged = dict(env)
     else:
-        merged = dict(os.environ)
+        merged = strip_sensitive_env()
     provider_creds = credentials.get(provider)
     if not provider_creds:
         return merged

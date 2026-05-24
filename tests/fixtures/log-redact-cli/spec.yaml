@@ -1,0 +1,230 @@
+meta:
+  name: "log-redact"
+  spec_level: 2
+  desired_level: 3
+  date: "2026-05-24"
+  extensions: []
+
+glossary:
+  - term: "structured log"
+    definition: "A JSON object per line (JSON Lines) containing at minimum 'timestamp', 'level', and 'message' fields. Extra fields are allowed and preserved through redaction."
+  - term: "redaction rule"
+    definition: "A declarative rule that matches a field or pattern and replaces matched content with a fixed string or a hash. Rules are ordered and evaluated in sequence."
+  - term: "rule scope"
+    definition: "The set of field names a rule applies to. 'all' means every field; otherwise a list like ['message', 'user_agent']."
+  - term: "audit entry"
+    definition: "A JSONL line emitted to the audit stream describing what was redacted: original line number, rule id, matched field, and replacement type (mask or hash)."
+  - term: "replacement type"
+    definition: "One of: 'mask' (replaced with fixed string like '[REDACTED]'), 'hash' (SHA-256 hex digest of original value), or 'delete' (field removed entirely)."
+
+scope:
+  in_scope:
+    - Loading redaction rules from a YAML file
+    - Reading structured logs from stdin or a file path
+    - Applying rules to matched fields in order
+    - Emitting redacted JSON Lines to stdout or a file path
+    - Emitting an audit JSONL stream describing every redaction action
+    - Validating rule files before applying them
+    - Handling malformed input lines gracefully (pass through unmodified with a warning)
+  out_of_scope:
+    - In-place file modification (the tool is a pure filter)
+    - Regex backreferences or capture-group replacement
+    - Real-time tailing or streaming (batch processing only)
+    - Encryption or tokenization (hash is the only reversible-ish operation)
+    - Multi-threading or distributed processing
+    - Configuration hot-reload
+
+mvp:
+  description: "A CLI tool that reads a JSONL log file, applies a set of YAML redaction rules, and emits redacted JSONL plus an audit JSONL trail."
+  fr_ids: ["FR-01", "FR-02", "FR-03", "FR-04", "FR-05"]
+  rationale: "All FRs are required for the tool to be coherent. Skipping rules parsing means no redaction; skipping redaction means the tool is a passthrough; skipping audit means compliance is unverifiable."
+  architectural_prerequisites:
+    - fr_id: "FR-01"
+      requires: "YAML parsing and validation"
+      resolution: "invisible_infrastructure"
+    - fr_id: "FR-04"
+      requires: "Structured JSONL output"
+      resolution: "invisible_infrastructure"
+
+functional_requirements:
+  - id: "FR-01"
+    mvp: true
+    text: "Given a YAML rules file path, the system loads, validates, and orders redaction rules. Invalid rules files produce a structured error before any log processing begins."
+  - id: "FR-02"
+    mvp: true
+    text: "Given a JSONL log file or stdin stream, the system reads each line, parses it as JSON, and preserves the line order. Malformed lines are passed through unmodified with a warning emitted to stderr."
+  - id: "FR-03"
+    mvp: true
+    text: "Given a parsed log line and a loaded ruleset, the system evaluates rules in order. For each matching rule, it applies the configured replacement to the matched field(s) and records an audit entry."
+  - id: "FR-04"
+    mvp: true
+    text: "Given redacted log lines, the system emits JSON Lines to stdout or an optional output file path, preserving line order and valid JSON for every successfully parsed input line."
+  - id: "FR-05"
+    mvp: true
+    text: "Given redaction actions performed during a run, the system emits an audit JSONL stream to a configurable audit file path. Each entry describes what was redacted: line number, rule id, field name, replacement type."
+
+data:
+  inputs:
+    - name: "structured log JSONL"
+      format: "JSON Lines (one JSON object per line)"
+      source: "stdin or file path"
+      validation: "Each line must parse as JSON; malformed lines are passed through with warning"
+    - name: "redaction rules YAML"
+      format: "YAML list of rule objects"
+      source: "File path passed via --rules flag"
+      validation: "Schema validation: required fields, allowed replacement types, valid regex (if applicable)"
+  outputs:
+    - name: "redacted JSONL"
+      format: "JSON Lines"
+      destination: "stdout or --output file path"
+    - name: "audit JSONL"
+      format: "JSON Lines"
+      destination: "--audit file path (optional; if omitted, no audit is written)"
+  persisted_state:
+    - description: "None. The tool is stateless and idempotent."
+      location: "N/A"
+      retention: "N/A"
+
+business_rules:
+  - id: "BR-01"
+    text: "Rules are evaluated in file order. The first matching rule wins per field. If a field matches rule A, it is not evaluated against rule B even if rule B would also match."
+  - id: "BR-02"
+    text: "The 'all' scope applies to every field in the log line except 'timestamp' and 'level', which are never redacted."
+  - id: "BR-03"
+    text: "Hash replacement produces a SHA-256 hex digest of the UTF-8 encoded original value. The digest is deterministic and stable across runs."
+  - id: "BR-04"
+    text: "If the rules file is missing, the CLI exits with code 2 and prints a single-line error message to stderr. No output is produced."
+  - id: "BR-05"
+    text: "If --output is omitted, redacted JSONL is written to stdout. If --audit is omitted, no audit stream is produced."
+
+failure_modes:
+  - failure: "Rules file missing"
+    trigger: "--rules points to a non-existent path"
+    response: "Exit code 2; single-line error to stderr; no output"
+    notification: "stderr"
+  - failure: "Rules file invalid YAML"
+    trigger: "YAML syntax error or schema mismatch"
+    response: "Exit code 3; structured error to stderr listing first invalid rule"
+    notification: "stderr"
+  - failure: "Log line malformed"
+    trigger: "Line is not valid JSON"
+    response: "Pass through unmodified; emit warning to stderr with line number"
+    notification: "stderr"
+  - failure: "Regex compilation failure in rule"
+    trigger: "A rule's 'pattern' is not a valid Python regex"
+    response: "Fail at load time (exit code 3) with rule id in error message"
+    notification: "stderr"
+  - failure: "Output file not writable"
+    trigger: "--output path points to a directory or permission denied"
+    response: "Exit code 4; error to stderr"
+    notification: "stderr"
+
+nfr:
+  performance: "Process 100,000 lines in under 30 seconds on a single core — derived from: 'must be usable in CI pipelines'"
+  reliability: "Malformed input never crashes the tool; it is passed through with a warning — derived from: 'logs may contain binary or truncated lines'"
+  operability: "Single binary, no daemon, no config directory — derived from: 'must run in CI and locally without setup'"
+
+high_coupling_decisions:
+  - decision: "Rule ordering is file-order, first-match-wins"
+    status: "decided"
+    notes: "Prevents ambiguity. If two rules match the same field, the first one in the file is the one that applies."
+  - decision: "Regex replacement is literal only (no backreferences)"
+    status: "decided"
+    notes: "Keeps rule syntax simple and replacement deterministic. Backreferences are out of scope."
+  - decision: "Audit stream is optional"
+    status: "decided"
+    notes: "Not every use case needs compliance tracing. The tool works without --audit."
+  - decision: "Hash is SHA-256 hex, not truncated"
+    status: "decided"
+    notes: "Truncation risks collision. Full hex is verbose but unambiguous."
+
+acceptance_criteria:
+  - id: "AC-LOG-01"
+    fr_ids: ["FR-01"]
+    condition: "Given a valid rules YAML with two rules, load_rules returns an ordered list of Rule objects with correct scopes and replacement types"
+  - id: "AC-LOG-02"
+    fr_ids: ["FR-01"]
+    condition: "Given a rules YAML missing the 'rules' top-level key, load_rules raises RulesFileError with message containing 'missing top-level key: rules'"
+  - id: "AC-LOG-03"
+    fr_ids: ["FR-02"]
+    condition: "Given a JSONL file with 3 valid lines and 1 malformed line, read_log_lines yields 4 LogLine objects where the malformed line has parse_error set and raw_text preserved"
+  - id: "AC-LOG-04"
+    fr_ids: ["FR-03"]
+    condition: "Given a log line with field 'email' and a rule matching 'email' with replacement_type='mask', apply_rules replaces the email value with '[REDACTED]'"
+  - id: "AC-LOG-05"
+    fr_ids: ["FR-03"]
+    condition: "Given a log line with field 'ssn' and a rule matching 'ssn' with replacement_type='hash', apply_rules replaces the ssn value with the SHA-256 hex digest of the original value"
+  - id: "AC-LOG-06"
+    fr_ids: ["FR-03"]
+    condition: "Given two rules where both match field 'message', apply_rules applies only the first matching rule and records a single audit entry"
+  - id: "AC-LOG-07"
+    fr_ids: ["FR-04"]
+    condition: "Given redacted lines, emit_redacted writes valid JSON Lines preserving the original line order and count"
+  - id: "AC-LOG-08"
+    fr_ids: ["FR-05"]
+    condition: "Given redaction actions from a run, emit_audit writes one JSONL line per action containing line_number, rule_id, field_name, and replacement_type"
+  - id: "AC-LOG-09"
+    fr_ids: ["FR-05"]
+    condition: "Given a run with no redactions, emit_audit writes a single header line with action='run_start' but no redaction entries"
+
+untestable_items:
+  - item: "Human readability of mask replacement strings"
+    reason: "No mechanical gate can distinguish '[REDACTED]' from a poor choice like 'X'. The rules file author decides."
+  - item: "Regex performance on adversarial input"
+    reason: "ReDoS is a class of attack the spec acknowledges but does not mechanically prevent. Out of scope."
+
+work_decomposition:
+  value_phases:
+    - phase: 1
+      label: "MVP"
+      fr_ids: ["FR-01", "FR-02", "FR-03", "FR-04", "FR-05"]
+      rationale: "All FRs are required for a coherent tool. Skipping any one produces a broken or incomplete experience."
+
+  dependency_hints:
+    - fr_id: "FR-01"
+      requires: []
+      parallel_with: []
+    - fr_id: "FR-02"
+      requires: []
+      parallel_with: ["FR-01"]
+    - fr_id: "FR-03"
+      requires: ["FR-01", "FR-02"]
+      parallel_with: []
+    - fr_id: "FR-04"
+      requires: ["FR-03"]
+      parallel_with: ["FR-05"]
+    - fr_id: "FR-05"
+      requires: ["FR-03"]
+      parallel_with: ["FR-04"]
+
+assumptions:
+  - assumption: "Input is UTF-8 encoded JSON Lines"
+    rationale: "Standard for modern structured logging. Non-UTF-8 is treated as malformed and passed through."
+  - assumption: "Rules file fits in memory"
+    rationale: "YAML files for this tool are expected to be under 1 MB. Streaming parse is unnecessary."
+  - assumption: "Output destination has enough disk space"
+    rationale: "The tool does not check disk space. Disk-full is handled by the OS and raises an IOError propagated to the user."
+
+handoff:
+  decisions_made:
+    - decision: "Rule evaluation order is file-order, first-match-wins"
+      rationale: "Simple, predictable, and avoids the need for a priority system."
+    - decision: "Regex replacement is literal only"
+      rationale: "Backreferences add complexity and security risk. Out of scope."
+    - decision: "Audit is optional (--audit flag)"
+      rationale: "Not all deployments need compliance tracing. Making it optional reduces friction."
+    - decision: "timestamp and level fields are never redacted"
+      rationale: "These are structural fields required for log ordering and filtering. Redacting them would destroy log usability."
+  intent_signals:
+    - signal: "Must run in CI pipelines without setup"
+      relevance: "Drives the single-binary, no-config-directory, no-daemon design."
+    - signal: "Compliance teams need an audit trail"
+      relevance: "Drives the optional --audit stream. When present, it must be complete and machine-parseable."
+    - signal: "Logs may contain malformed or binary data"
+      relevance: "Drives the pass-through-with-warning behavior for unparseable lines."
+
+delta_to_next_level:
+  - gap: "No performance benchmarking for large files (>1M lines)"
+    what_would_close_it: "Add a benchmark test and NFR for million-line files"
+  - gap: "No support for rule negation or conditional rules"
+    what_would_close_it: "Specify rule predicates (e.g., 'when field X equals Y') and extend schema"

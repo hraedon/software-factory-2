@@ -97,9 +97,7 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 
 ### Active Bugs & Improvements
 
-| # | Title | Severity | Status |
-|---|---|---|---|
-| 200 | subprocess_channel.py leaks full os.environ to model subprocesses | high | proposed |
+No open bugs. 🎉
 
 ### RFCs (awaiting upstream phases)
 
@@ -130,6 +128,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 200 | subprocess_channel.py leaks full os.environ to model subprocesses | high | Replaced `**os.environ` with `**strip_sensitive_env(os.environ)` in `subprocess_channel.py`, `venv.py`, and `credentials.py`; all model, gate-tool, and venv-management subprocesses now scrub `DATABASE_URL`, `*_API_KEY`, tokens, and password/credential/secret env vars; added 3 regression tests |
 | 196 | Telemetry reads all events for all work items — O(n*m) scaling | medium | Added `_query_work_items_and_events()` cache; updated all four telemetry consumers to accept caches; 4×N → 1×N reduction |
 | 195 | No idempotency keys on substrate mutations — crash-retry creates duplicates | medium | Created `factory.idempotency.make_event_id()`; wired `event_id` into all substrate mutation call sites; added thread-safe cache for UUID stability |
 | 202 | inner_gate _should_failover triggers on any non-zero exit code — too aggressive | medium | Narrowed to retryable failures only: timeout, empty output, exit codes 126/127, transport keywords ("connection", "timeout", "not found in path"); exit code 1/2 and generic errors no longer trigger failover |

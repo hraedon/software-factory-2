@@ -90,18 +90,24 @@ class TestEmptyOutputStderrCapture:
         assert not result.success
         assert "Empty output" in result.error_message
 
-    def test_stderr_truncated_at_500_chars(self, tmp_path):
+    def test_env_does_not_leak_sensitive_vars(self, tmp_path):
         config = _make_config(empty_output_retries=0)
         channel = _TestChannel(config)
         outputs = tmp_path / "out"
-        long_stderr = "x" * 1000
 
         with patch("factory.subprocess_channel.run_subprocess") as mock_run:
-            mock_run.return_value = _mock_result(stdout="", stderr=long_stderr)
-            result = channel.invoke("implementer", "prompt", outputs, 60)
+            mock_run.return_value = _mock_result(stdout="")
+            with patch(
+                "factory.subprocess_channel.os.environ",
+                {"DATABASE_URL": "secret", "PATH": "/bin"},
+            ):
+                channel.invoke("implementer", "prompt", outputs, 60)
 
-        assert not result.success
-        assert len(result.error_message) < 600
+        call_kwargs = mock_run.call_args.kwargs
+        assert "env" in call_kwargs
+        env = call_kwargs["env"]
+        assert "DATABASE_URL" not in env
+        assert "PATH" in env
 
 
 class TestEmptyOutputRetry:

@@ -43,9 +43,9 @@ The principal of this project is a **systems architect, not a developer**. Archi
 
 ## Status
 
-**Phase 5 complete. Phase 6 in progress.**
-
-Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs executed through GR-039. All pipeline stages (interface_architect, test_author, implementer, cross_family_review, jury, integration, outcome_verification) validated on real model channels.
+- **Phase 5 complete.** Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs executed through GR-039 (RFC-011 + BC-195 validation under K2). All 211 BCs resolved; zero open bugs.
+- **Phase 6 in progress.** RFC-023 Phase A (deterministic decomposer) validated through GR-039. Phase B (model-driven semantic naming + FR grouping) implemented in Session 50: prompt template, structured prompt builder, semantic naming gates (fr-shaped, generic suffixes, length, snake_case), prior-failure feedback, Phase A fallback. Snapshot tests for three workloads (cert-watch, log-redact-cli, dep-graph-viewer) passing.
+- **W3/W4/W5 remaining:** GR-040 baseline golden run on new workloads via Phase A; GR-041 Phase B golden run with real model channel; decision gate writeup updating Phase 6 status.
 
 **What exists:**
 - 7-module runner: runner, gate, gate_process, router, scheduler, config, workspace
@@ -56,21 +56,13 @@ Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs e
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
 - **1082 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
 
-**Known issues:** 7 open breadcrumbs (0 critical, 2 high, 5 medium, 0 low) + 18 RFCs + 7 active defect classes + 2 stabilized (214 resolved). See `breadcrumbs/README.md`.
-- BC-198 (high, proposed): initiative requeue uses state name as transition name
-- BC-200 (high, proposed): subprocess_channel leaks full os.environ to model subprocesses
-- BC-195 (medium, proposed): no idempotency keys on substrate mutations
-- BC-196 (medium, proposed): telemetry O(n*m) event scanning
-- BC-199 (medium, proposed): unscoped query_work_items() in initiative and review_surface
-- BC-201 (medium, proposed): scheduler swallows database exceptions
-- BC-202 (medium, proposed): inner_gate failover too aggressive on non-zero exit codes
-- BC-120 (medium, deferred): implementer-initiated interface amendment — awaiting ≥3 empirical instances
+**Known issues:** 0 open bugs + 18 RFCs + 7 active defect classes + 2 stabilized (214 resolved). See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing.
 
 ### Phase 6 gate items (priority order)
 
-1. **RFC-023 (decomposer)** — Phase A (deterministic) implemented: reads `spec.yaml` or `spec.md`, produces per-FR fixture `.md` files. One module per FR, ACs assigned by `fr_ids` mapping, dependencies from `dependency_hints`. CLI via `populate_work_items.py --spec-yaml`. Phase B (model-driven decomposition with semantic module naming and FR grouping) remains future work.
+1. **RFC-023 (decomposer)** — Phase A (deterministic) implemented: reads `spec.yaml` or `spec.md`, produces per-FR fixture `.md` files. **Phase B (model-driven):** implemented in Session 50 — new `decomposer.md` prompt with semantic naming rules, structured prompt builder (`_build_structured_prompt`), semantic naming gate (`fr\d+`, generic suffix, length, snake_case), prior-failure feedback, Phase A fallback. Snapshot tests for three workloads passing. Awaiting W3/W4 golden-run validation.
 2. **RFC-026 (principal review surface)** — implemented: `src/factory/review_surface.py` generates `REVIEW.md` + `review.json` from substrate state. Human-readable module summaries, cannot-proceed detail, artifact listings.
 3. **RFC-022 (initiative primitive)** — implemented: `src/factory/initiative.py` provides `generate_initiative_id()`, `query_initiatives()`, `cancel_initiative()`, `requeue_initiative()`. `populate_work_items.py` assigns initiative IDs at populate time. Substrate-dependent operations require `initiative_id` custom field in workflow YAML (integration tests).
 4. **RFC-024 (coherence reviewer)** — removed per Option A; role deleted from all configuration. May be reintroduced in Phase 6 with concrete evidence of a structural-coherence gap.

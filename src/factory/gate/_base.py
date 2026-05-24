@@ -37,6 +37,9 @@ class GateResult:
             object.__setattr__(self, "custom_fields", {})
 
 
+# tier: enforce
+# precondition: artifact size gates must block oversized artifacts before they reach subprocess gates
+# audit trigger: re-evaluate if MAX_ARTIFACT_SIZE_BYTES changes or if streaming artifact parsing is introduced
 def _guard_artifact_size(artifact_path: Path) -> GateResult | None:
     try:
         size = artifact_path.stat().st_size

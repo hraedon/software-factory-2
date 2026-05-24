@@ -1,0 +1,213 @@
+meta:
+  name: "dep-graph-viewer"
+  spec_level: 2
+  desired_level: 3
+  date: "2026-05-24"
+  extensions: []
+
+glossary:
+  - term: "work item"
+    definition: "A unit of work in the substrate workflow engine. Has a type, state, id, and custom fields. Represented as a node in the dependency graph."
+  - term: "event log"
+    definition: "The append-only table of substrate events. Each event describes a state transition, link creation, or custom field update. The primary data source for the viewer."
+  - term: "link"
+    definition: "A typed, directed edge between two work items in substrate. Link types include 'depends_on', 'derived_from', 'tested_by', etc."
+  - term: "DOT graph"
+    definition: "A plain-text graph description language consumed by Graphviz. Nodes and edges are declared with attributes for labels, colors, and shapes."
+  - term: "run"
+    definition: "A single execution of the sf2 pipeline identified by a project name and a set of work items. The viewer produces one DOT graph per run."
+
+scope:
+  in_scope:
+    - Connecting to a substrate PostgreSQL database
+    - Querying the event log for a specified project
+    - Building an in-memory graph of work items and their links
+    - Rendering the graph as valid DOT output
+    - Writing DOT to stdout or a file path
+    - Filtering by work-item type and link type
+    - Labeling nodes with module names and states
+    - Coloring edges by link type
+  out_of_scope:
+    - Rendering the DOT to an image (Graphviz or other renderer is external)
+    - Real-time event streaming or live updates
+    - Filtering by custom field values
+    - Querying across multiple projects simultaneously
+    - Authentication or authorization (assumes local access)
+    - Web UI or HTTP server mode
+
+mvp:
+  description: "A CLI tool that reads a substrate event log for a given project, builds a dependency graph of work items, and emits a DOT file suitable for Graphviz rendering."
+  fr_ids: ["FR-01", "FR-02", "FR-03", "FR-04"]
+  rationale: "All FRs are required for a complete tool. Skipping the reader means no data; skipping the graph builder means no structure; skipping the DOT emitter means no output."
+  architectural_prerequisites:
+    - fr_id: "FR-01"
+      requires: "PostgreSQL connection via substrate DSN"
+      resolution: "invisible_infrastructure"
+    - fr_id: "FR-04"
+      requires: "Valid DOT syntax generation"
+      resolution: "invisible_infrastructure"
+
+functional_requirements:
+  - id: "FR-01"
+    mvp: true
+    text: "Given a PostgreSQL DSN and a project name, the system connects to the substrate database and reads the event log for that project. Connection failures produce a structured error."
+  - id: "FR-02"
+    mvp: true
+    text: "Given an event log stream, the system reconstructs all work items (nodes) and their typed links (edges) for the project. Nodes are identified by work-item id and labeled by module name from custom fields."
+  - id: "FR-03"
+    mvp: true
+    text: "Given a reconstructed graph, the system filters nodes by work-item type (e.g., 'interface_spec', 'implementation') and edges by link type (e.g., 'depends_on', 'derived_from'). Unfiltered graph is the default."
+  - id: "FR-04"
+    mvp: true
+    text: "Given a filtered graph, the system emits valid DOT syntax to stdout or an optional output file. Nodes include labels (module name) and colors (by state). Edges include labels (link type) and styles (by link type)."
+
+data:
+  inputs:
+    - name: "substrate event log"
+      format: "PostgreSQL table (substrate.events)"
+      source: "Local or remote PostgreSQL instance via --dsn"
+      validation: "DSN must connect successfully; project must exist in substrate.projects"
+  outputs:
+    - name: "DOT graph"
+      format: "Graphviz DOT plain text"
+      destination: "stdout or --output file path"
+  persisted_state:
+    - description: "None. The tool is read-only and stateless."
+      location: "N/A"
+      retention: "N/A"
+
+business_rules:
+  - id: "BR-01"
+    text: "Nodes with no edges are included in the output (isolated nodes are valid)."
+  - id: "BR-02"
+    text: "Links are directed. The DOT output uses '->' for all edges."
+  - id: "BR-03"
+    text: "Node color is determined by work-item state: locked=green, in_progress=yellow, new=gray, cannot_proceed=red. Unknown states use gray."
+  - id: "BR-04"
+    text: "Edge style is determined by link type: solid for 'depends_on', dashed for 'derived_from', dotted for 'tested_by'. Unknown types use solid."
+  - id: "BR-05"
+    text: "If the project name is not found, the tool exits with code 2 and prints a clear error to stderr."
+
+failure_modes:
+  - failure: "PostgreSQL connection refused"
+    trigger: "--dsn points to an unreachable host or wrong port"
+    response: "Exit code 2; connection error to stderr"
+    notification: "stderr"
+  - failure: "Project not found"
+    trigger: "The --project name does not exist in substrate"
+    response: "Exit code 2; 'Project not found' to stderr"
+    notification: "stderr"
+  - failure: "Empty event log"
+    trigger: "Project exists but has zero events"
+    response: "Emit a DOT graph with a single node labeled 'No data' and exit 0"
+    notification: "stdout (DOT output)"
+  - failure: "Invalid DOT output path"
+    trigger: "--output points to a non-writable directory"
+    response: "Exit code 4; permission error to stderr"
+    notification: "stderr"
+
+nfr:
+  performance: "Render a graph of 500 nodes/1000 edges in under 5 seconds — derived from: 'must be usable interactively for a typical sf2 golden run'"
+  reliability: "Read-only access to substrate; no mutations are performed — derived from: 'must be safe to run against production substrate'"
+  operability: "Single binary, no daemon, no config file — derived from: 'must run ad-hoc from any machine with psycopg2 installed'"
+
+high_coupling_decisions:
+  - decision: "Node labels use module_name from custom_fields, falling back to work-item id"
+    status: "decided"
+    notes: "module_name is the human-readable identifier in sf2. If absent, the UUID is still unique but less readable."
+  - decision: "Color palette is fixed (green/yellow/gray/red); no custom theming"
+    status: "decided"
+    notes: "Theming is out of scope. The four colors convey state at a glance."
+  - decision: "Edge styles are fixed per link type; no custom styling"
+    status: "decided"
+    notes: "Link types are controlled by substrate workflows. The viewer maps known types to styles and defaults to solid for unknown types."
+
+acceptance_criteria:
+  - id: "AC-DGV-01"
+    fr_ids: ["FR-01"]
+    condition: "Given a valid DSN, read_event_log returns a list of Event objects for the specified project, ordered by event timestamp ascending"
+  - id: "AC-DGV-02"
+    fr_ids: ["FR-01"]
+    condition: "Given a DSN with unreachable host, read_event_log raises ConnectionError with message containing 'could not connect'"
+  - id: "AC-DGV-03"
+    fr_ids: ["FR-02"]
+    condition: "Given a list of events including work-item creation and link creation, build_graph returns a Graph with correct nodes and directed edges"
+  - id: "AC-DGV-04"
+    fr_ids: ["FR-02"]
+    condition: "Given a node with custom_fields containing module_name='foo', the graph node's label is 'foo', not its UUID"
+  - id: "AC-DGV-05"
+    fr_ids: ["FR-03"]
+    condition: "Given --filter-type implementation, filter_graph returns only nodes of type 'implementation' and edges between them"
+  - id: "AC-DGV-06"
+    fr_ids: ["FR-03"]
+    condition: "Given --filter-type interface_spec,review, nodes of both types are included; all other types are excluded"
+  - id: "AC-DGV-07"
+    fr_ids: ["FR-04"]
+    condition: "Given a graph with one node in state 'locked' and one 'depends_on' edge, emit_dot produces syntactically valid DOT with a green node and a solid edge"
+  - id: "AC-DGV-08"
+    fr_ids: ["FR-04"]
+    condition: "Given a graph with 100 nodes, emit_dot completes in under 1 second and produces output that graphviz dot -Tpng accepts without error"
+  - id: "AC-DGV-09"
+    fr_ids: ["FR-04"]
+    condition: "Given an empty graph, emit_dot produces a minimal DOT graph declaration with a comment 'No work items found'"
+
+untestable_items:
+  - item: "Visual aesthetics of the rendered graph"
+    reason: "No mechanical gate can verify that a DOT layout is 'readable'. Graphviz handles layout; the viewer only produces correct syntax."
+  - item: "Performance on extremely large substrates (>10k nodes)"
+    reason: "Not a current use case. sf2 golden runs produce <200 nodes. Performance beyond this is nice-to-have, not required."
+
+work_decomposition:
+  value_phases:
+    - phase: 1
+      label: "MVP"
+      fr_ids: ["FR-01", "FR-02", "FR-03", "FR-04"]
+      rationale: "All FRs are required. The tool is a pure read-only pipeline: read -> build -> filter -> emit."
+
+  dependency_hints:
+    - fr_id: "FR-01"
+      requires: []
+      parallel_with: []
+    - fr_id: "FR-02"
+      requires: []
+      parallel_with: ["FR-01"]
+    - fr_id: "FR-03"
+      requires: ["FR-02"]
+      parallel_with: []
+    - fr_id: "FR-04"
+      requires: ["FR-03"]
+      parallel_with: []
+
+assumptions:
+  - assumption: "The substrate database schema is compatible with sf2's current substrate version"
+    rationale: "The tool dogfoods substrate. Schema drift is handled by pinning to the same substrate version sf2 uses."
+  - assumption: "psycopg2 is available in the Python environment"
+    rationale: "PostgreSQL driver is a soft dependency. If absent, the tool fails at import time with a clear message."
+  - assumption: "Graphviz is available on the host for rendering"
+    rationale: "The tool produces DOT, not images. Rendering is the user's responsibility and out of scope."
+
+handoff:
+  decisions_made:
+    - decision: "Node labels prefer module_name over work-item id"
+      rationale: "module_name is the human-readable name assigned by sf2. UUIDs are opaque."
+    - decision: "The tool is read-only and never mutates substrate state"
+      rationale: "Safety. It can run against production substrate without risk."
+    - decision: "Color palette is fixed (green/yellow/gray/red)"
+      rationale: "The four colors map to the four most common states. Unknown states default to gray."
+    - decision: "DOT output is always directed (digraph)"
+      rationale: "Substrate links are directed. An undirected graph would be incorrect."
+  intent_signals:
+    - signal: "Must be safe to run against production substrate"
+      relevance: "Drives the read-only design. No writes, no transactions that could lock tables."
+    - signal: "Must be usable from any machine with PostgreSQL access"
+      relevance: "Drives the single-binary, no-config-file design. All parameters are CLI flags."
+    - signal: "Must render the same shape as the substrate web UI"
+      relevance: "Drives the AC for correctness: the DOT graph should represent the same dependency structure the web UI shows."
+
+delta_to_next_level:
+  - gap: "No real-time event subscription or live update"
+    what_would_close_it: "Add a --watch mode that polls substrate at an interval and re-emits DOT"
+  - gap: "No filtering by custom field values or state"
+    what_would_close_it: "Add --filter-state and --filter-custom-field CLI flags"
+  - gap: "No support for grouping nodes by initiative or family"
+    what_would_close_it: "Add subgraph/cluster output for DOT, grouped by initiative_id or workflow_name"

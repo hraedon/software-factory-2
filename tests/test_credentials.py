@@ -47,9 +47,21 @@ class TestRedactValue:
 
 
 class TestInjectCredentialsEnvFootgun:
-    def test_none_env_uses_os_environ(self):
+    def test_none_env_strips_sensitive_but_keeps_operational(self, monkeypatch):
+        monkeypatch.setenv("DATABASE_URL", "postgres://secret")
+        monkeypatch.setenv("MY_API_KEY", "shh")
+        monkeypatch.setenv("PATH", "/usr/bin")
         env = inject_credentials_into_env({}, "test")
         assert "PATH" in env
+        assert "DATABASE_URL" not in env
+        assert "MY_API_KEY" not in env
+
+    def test_none_env_strips_sensitive_empty_dict(self):
+        # When env is {} it was already not copying os.environ (BC-098 fix),
+        # but verify the contract still holds.
+        env = inject_credentials_into_env({}, "test", env={})
+        assert "PATH" not in env
+        assert env == {}
 
     def test_explicit_env_not_copied_from_os_environ(self):
         explicit = {"MY_VAR": "value"}

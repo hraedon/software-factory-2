@@ -2,7 +2,7 @@
 number: "RFC-023"
 title: "Decomposer role — Stage 1 pipeline cannot consume arbitrary specs"
 severity: high
-status: in_progress
+status: implemented
 kind: design
 author: agent
 date: "2026-05-15"
@@ -56,3 +56,26 @@ The hard part is dependency inference (which FR depends on which) and granularit
 ## Phase needed
 
 Phase 6 (generalization). Phase 5 is synthetic-fixture validation with hand-crafted DAGs. The decomposer is the bridge to real workloads.
+
+## Implementation
+
+**Phase A (deterministic)** was already present at filing time:
+- `factory.decomposer.decompose_from_spec_yaml()` / `decompose_from_spec_md()` read structured specs and produce fixture `.md` files.
+- `write_fixture_files()` persists per-module specs to disk for `populate_work_items.py` consumption.
+
+**Phase B (model-driven)** implemented in this session (2026-05-24):
+- `src/factory/prompts/decomposer.md` — role prompt template with JSON output contract, granularity rules (1 module per FR, soft cap ≤12 ACs), dependency rules (acyclic graph, no external deps), and structured failure path.
+- `src/factory/decomposer_model.py` — model-driven decomposition engine:
+  - `decompose_from_model(channel, config, spec_path, ...)` — main entry point with retry loop
+  - `_invoke_decomposer_channel(...)` — invokes any Channel adapter
+  - `_extract_decomposition_json(...)` — robust JSON extraction from fenced blocks or raw text
+  - `_validate_decomposition(...)` — 5 mechanical gates (schema shape, required fields, unique module names, acyclic dependency graph, module size soft caps)
+- `src/factory/context.py` — `render_decomposer_prompt(spec_text, ...)` usable without substrate context
+- `populate_work_items.py` — `--decomposer-channel` (`opencode`/`claude-code`/`gemini-cli`) and `--decomposer-model` flags; calls `decompose_from_model()` when configured
+- `tests/test_decomposer_model.py` — 18 unit tests covering extraction, validation, and model invocation paths
+- `src/factory/constants.py` — added `ROLE_DECOMPOSER` constant
+
+**Remaining open (deferred to real workload validation):**
+- Spec-lint integration — decomposed modules are linted individually downstream, but no dedicated pre-decomposition lint gate exists.
+- Failure-to-decompose escalation path — currently raises `DecomposeError` to CLI stderr; substrate work-item not created.
+- Glossary extraction from model output — currently empty in model-driven mode (deterministic path preserves glossary forwarding).

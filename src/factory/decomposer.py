@@ -8,6 +8,10 @@ from pathlib import Path
 import yaml
 
 
+class DecomposerError(Exception):
+    """Raised when deterministic decomposition encounters an error."""
+
+
 @dataclass(frozen=True)
 class DecomposedModule:
     module_name: str

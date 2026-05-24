@@ -21,6 +21,7 @@ from factory.constants import (
     ROLE_OUTCOME_VERIFIER,
 )
 from factory.output_extraction import extract_artifact_from_output, extract_json_from_output
+from factory.sandbox import strip_sensitive_env
 from factory.subprocess import run as run_subprocess
 
 _JSON_ARTIFACT_ROLES = frozenset({ROLE_INTEGRATOR, ROLE_OUTCOME_VERIFIER})
@@ -90,7 +91,7 @@ class SubprocessChannel:
         # invocation_cwd was previously used as the subprocess cwd, which caused
         # model-generated artifacts to leak into /projects/software-factory-2.
         subprocess_cwd = outputs_dir
-        env_override: dict[str, str] = {**os.environ, **(extra_env or {})}
+        env_override: dict[str, str] = {**strip_sensitive_env(os.environ), **(extra_env or {})}
 
         max_empty_retries = self._config.empty_output_retries
         retry_delay = self._config.empty_output_retry_delay_seconds

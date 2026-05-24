@@ -1,6 +1,73 @@
 ---
 
-## 2026-05-23 — Session 48: Resolve 4 open breadcrumbs (BC-198, BC-199, BC-201, BC-202)
+## 2026-05-24 — Session 50: Opus Plan — W1.2/W1.3/W2.1/W2.2 (Phase 6 Second Domain + RFC-023 Phase B)
+
+**Invocation:** K2
+
+**Focus:** Implement Opus' Phase 6 plan for a second-domain workload + RFC-023 Phase B (model-driven decomposer with semantic module naming). Principal selected Candidates 1 (log-redact-cli) and 2 (dep-graph-viewer).
+
+### Changes
+
+1. **W1.2 — Spec authoring**
+   - Authored Level-2+ `spec.yaml` and `spec.md` for two new workloads under `tests/fixtures/`:
+     - `log-redact-cli/` — structured-log redaction CLI (5 FRs: rule_loader, ingestion, redaction, output, audit).
+     - `dep-graph-viewer/` — substrate event-log to DOT graph viewer (4 FRs: reader, builder, filter, emitter).
+   - Both include complete YAML schemas (meta, glossary, scope, MVP, FRs, ACs, business rules, failure modes, NFRs, dependency hints).
+
+2. **W1.3 — Phase A baseline validation**
+   - Script `.factory/w13_populate.py` validates deterministic decomposition on both workloads.
+   - Both produce FR-shaped module names (`fr01`…`fr05`) confirming Phase A behavior remains stable.
+   - Fixtures copied to permanent dirs (`wi_fr01.md`…`wi_fr05.md`).
+
+3. **W2.1 — RFC-023 Phase B contract locked**
+   - New contract doc: `plans/rfc023-phaseb-contract.md`
+   - Defines: semantic naming rules, FR grouping rules, channel placement (Sonnet primary, K2 review), co-design discipline, integration point in `populate_work_items.py`, rollback plan (Phase A fallback).
+
+4. **W2.2 — Phase B implementation**
+   - **Prompt:** `src/factory/prompts/decomposer.md` rewritten with Phase B section: semantic naming rules (no `fr\d+`, no generic suffixes), FR grouping rules, dependency preservation rules, pre-flight checklist updated.
+   - **Model invocation:** `_invoke_decomposer_channel` now uses `_build_structured_prompt()` which passes structured YAML data directly to the model instead of dumping JSON blob. Prior failures are fed back.
+   - **Gates:** `_validate_decomposition()` extended with:
+     - `semantic_naming` gate: rejects `fr\d+`, forbidden suffixes, >40 chars, invalid snake_case.
+     - Optional `phase_b=False` flag for Phase A fallback.
+   - **Fallback behavior:** `decompose_from_model()` now falls back to Phase A deterministic when all model attempts fail, instead of raising `DecomposeError`. Logged at INFO.
+   - **Tests:** 8 new tests in `test_decomposer_model.py` covering semantic naming gates, fallback integration.
+
+### Test results
+
+46 decomposer tests passed. Lint clean. Full suite not yet run (timeout on broad `tests/`).
+
+### Remaining items (W3/W4/W5)
+
+- **W2.3** — Add synthetic snapshot tests (no model invocation).
+- **W3** — GR-040: golden run via new workloads through Phase A baseline.
+- **W4** — GR-041: golden run via Phase B decomposer (requires real model channel.
+- **W5** — Decision-gate writeup, AGENTS.md Phase 6 status update.
+
+### Post-fix: open bugs = 0 🎉
+
+All 211 BCs remain resolved. Zero open bugs.
+---
+
+## 2026-05-23 — Session 49: Resolve BC-200 (env leak to model subprocesses)
+
+**Invocation:** K2
+
+**Focus:** Fix the single remaining open high-severity bug identified in Session 48. Three locations were leaking the full `os.environ` (including `DATABASE_URL` and API keys) to subprocesses that don't need them.
+
+### Changes
+
+1. **BC-200 resolved** — Environment scrubbing applied across three files.
+   - `subprocess_channel.py:93`: `env_override = {**strip_sensitive_env(os.environ), **(extra_env or {})}` replaces raw `os.environ` inheritance. Model channel subprocesses now see only operational vars (`PATH`, `HOME`, `LANG`, `TMPDIR`) plus any explicitly injected provider API key.
+   - `venv.py:61,110,170`: All venv creation and pip/uv install calls now use `strip_sensitive_env(os.environ)` instead of `dict(os.environ)`. Prevents `DATABASE_URL` / `SECRET_KEY` / etc. from reaching the pip/uv child process.
+   - `credentials.py:44`: `inject_credentials_into_env()` with `env=None` now calls `strip_sensitive_env()` instead of copying `os.environ`. Explicit `env` dicts are unaffected (already safe per BC-098).
+   - Added 3 regression tests covering all three call sites.
+2. **Test suite** — 1084 passed, 13 skipped, 0 lint errors, 0 vulture findings.
+
+### Post-fix: open bugs = 0 🎉
+
+All 211 BCs are now resolved. Zero open bugs remain in the `breadcrumbs/README.md` active table.
+
+# Software Factory v2 — Worklog
 
 **Invocation:** K2
 
