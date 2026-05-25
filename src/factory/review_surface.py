@@ -12,6 +12,7 @@ from factory.constants import (
     CUSTOM_FIELD_SPEC_SECTION,
     STATE_CANNOT_PROCEED,
     STATE_LOCKED,
+    UNKNOWN_FALLBACK,
 )
 
 _review_log = logging.getLogger("factory.review_surface")
@@ -88,7 +89,7 @@ def generate_review_report(config: FactoryConfig) -> ReviewReport:
         )
 
         if state == STATE_CANNOT_PROCEED:
-            reason = custom.get("cannot_proceed_reason", "unknown")
+            reason = custom.get("cannot_proceed_reason", UNKNOWN_FALLBACK)
             cp_details.append(
                 CannotProceedDetail(
                     module_name=module_name,

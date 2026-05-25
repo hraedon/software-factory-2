@@ -21,6 +21,18 @@ class TestSafeArtifactPath:
         p = _safe_artifact_path("/tmp/ws/item-1/attempt-01/artifact.py")
         assert p is not None
 
+    def test_absolute_path_escape_rejected(self):
+        from factory.dep_resolution import _validate_readable_path
+
+        assert not _validate_readable_path(Path("/etc/passwd"))
+        assert not _validate_readable_path(Path("/home/user/.ssh/id_rsa"))
+
+    def test_absolute_tmp_path_allowed(self):
+        from factory.dep_resolution import _validate_readable_path
+
+        assert _validate_readable_path(Path("/tmp/ws/item-1/artifact.py"))
+        assert _validate_readable_path(Path("/var/tmp/ws/artifact.py"))
+
     def test_none_returns_none(self):
         assert _safe_artifact_path(None) is None
 

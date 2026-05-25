@@ -97,7 +97,10 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 
 ### Active Bugs & Improvements
 
-No open bugs. 🎉
+| # | Title | Severity | Status |
+|---|---|---|---|
+| 207 | Broad except Exception blocks silently swallow errors in 16 locations | medium | proposed |
+| 206 | Dead production modules with zero callers (~1300 lines) | medium | proposed |
 
 ### RFCs (awaiting upstream phases)
 

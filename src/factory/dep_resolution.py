@@ -52,6 +52,14 @@ def _safe_artifact_path(raw: str | None) -> Path | None:
     return p
 
 
+def _validate_readable_path(p: Path) -> bool:
+    if p.is_absolute():
+        resolved = p.resolve()
+        allowed_prefixes = ("/tmp/", "/var/tmp/", "/private/tmp/")
+        return any(str(resolved).startswith(prefix) for prefix in allowed_prefixes)
+    return True
+
+
 def resolve_dep_artifacts(
     substrate: Substrate,
     dep_refs: list[str],
@@ -68,7 +76,7 @@ def resolve_dep_artifacts(
             dep_spec = dep_wi.custom_fields.get(CUSTOM_FIELD_SPEC_SECTION, "")
             module_name = _extract_module_name_from_spec(dep_spec) if dep_spec else None
         spec_path = _safe_artifact_path(dep_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH))
-        if spec_path is None or not spec_path.exists():
+        if spec_path is None or not spec_path.exists() or not _validate_readable_path(spec_path):
             continue
         if module_name is None:
             module_name = spec_path.stem
@@ -81,7 +89,7 @@ def resolve_dep_artifacts(
             if impl_wi and impl_wi.custom_fields:
                 raw_impl = impl_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
                 impl_path = _safe_artifact_path(raw_impl)
-                if impl_path and impl_path.exists():
+                if impl_path and impl_path.exists() and _validate_readable_path(impl_path):
                     is_stub_only = False
         elif dep_wi.work_item_type == WORK_ITEM_TYPE_IMPLEMENTATION:
             if dep_wi.current_state == STATE_LOCKED:

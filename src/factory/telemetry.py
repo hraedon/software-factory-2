@@ -20,6 +20,7 @@ from factory.constants import (
     TRANSITION_GATE_PASS,
     TRANSITION_ROUTE_TO_CANNOT_PROCEED,
     TRANSITION_SUBMIT,
+    UNKNOWN_FALLBACK,
 )
 from factory.event_schemas import (
     ChannelFailPayload,
@@ -463,13 +464,13 @@ def collect_gate_attempts(
                                         work_item_type=(
                                             ev.work_item_type
                                             if hasattr(ev, "work_item_type")
-                                            else "unknown"
+                                            else UNKNOWN_FALLBACK
                                         ),
-                                        role=worker_meta.get("role", "unknown"),
-                                        channel=worker_meta.get("channel", "unknown"),
-                                        family=worker_meta.get("family", "unknown"),
+                                        role=worker_meta.get("role", UNKNOWN_FALLBACK),
+                                        channel=worker_meta.get("channel", UNKNOWN_FALLBACK),
+                                        family=worker_meta.get("family", UNKNOWN_FALLBACK),
                                         attempt_n=md.get("attempt_n", 0) or 0,
-                                        gate_name=iga.get("gate_name", "unknown"),
+                                        gate_name=iga.get("gate_name", UNKNOWN_FALLBACK),
                                         passed=iga.get("passed", False),
                                         duration_seconds=worker_duration,
                                         model=worker_meta.get("model"),
@@ -510,11 +511,11 @@ def collect_gate_attempts(
                 GateAttempt(
                     work_item_id=wi_id,
                     work_item_type=(
-                        ev.work_item_type if hasattr(ev, "work_item_type") else "unknown"
+                        ev.work_item_type if hasattr(ev, "work_item_type") else UNKNOWN_FALLBACK
                     ),
-                    role=worker_meta.get("role", "unknown"),
-                    channel=worker_meta.get("channel", "unknown"),
-                    family=worker_meta.get("family", "unknown"),
+                    role=worker_meta.get("role", UNKNOWN_FALLBACK),
+                    channel=worker_meta.get("channel", UNKNOWN_FALLBACK),
+                    family=worker_meta.get("family", UNKNOWN_FALLBACK),
                     attempt_n=md.get("attempt_n", 0) or 0,
                     gate_name=gate_name,
                     passed=ev.transition == TRANSITION_GATE_PASS,
@@ -877,7 +878,7 @@ def collect_routing_hints(
             hint = diagnostics.get("routing_hint")
             if isinstance(hint, dict):
                 present += 1
-                hint_type = hint.get("work_item_type", "unknown")
+                hint_type = hint.get("work_item_type", UNKNOWN_FALLBACK)
                 by_type[hint_type] = by_type.get(hint_type, 0) + 1
                 if len(samples) < 5:
                     samples.append(

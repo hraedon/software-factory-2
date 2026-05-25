@@ -148,10 +148,6 @@ def _extract_constraints_locally(failure_text: str) -> list[str]:
     return constraints[:5]
 
 
-def format_summarized_failures(summary: FailureSummary) -> str:
-    return summary.format_for_prompt()
-
-
 def build_summarizer_prompt(
     failures: list[FailureEntry],
     new_attempt: int = 0,

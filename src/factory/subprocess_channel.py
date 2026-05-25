@@ -28,6 +28,12 @@ _JSON_ARTIFACT_ROLES = frozenset({ROLE_INTEGRATOR, ROLE_OUTCOME_VERIFIER})
 
 log = structlog.get_logger()
 
+_CRED_PATTERN = __import__("re").compile(r"(?:sk-|fk-|zai-|gsk-|pk-|AIza)[A-Za-z0-9_-]+")
+
+
+def _redact_stderr(text: str) -> str:
+    return _CRED_PATTERN.sub(lambda m: m.group()[:4] + "****", text)
+
 
 class SubprocessChannel:
     CMD: ClassVar[list[str]] = []
@@ -133,9 +139,11 @@ class SubprocessChannel:
                 )
 
             if result.returncode != 0:
+                raw_err = result.stderr[:2000] if result.stderr else "Non-zero exit code"
+                redacted_err = _redact_stderr(raw_err)
                 return InvocationResult(
                     success=False,
-                    error_message=result.stderr[:2000] if result.stderr else "Non-zero exit code",
+                    error_message=redacted_err,
                     exit_code=result.returncode,
                     family=invocation_family,
                     model=model,
@@ -175,7 +183,7 @@ class SubprocessChannel:
                 cmd_label = self.CMD[0] if self.CMD else "channel"
                 err_parts = [f"Empty output from {cmd_label}"]
                 if last_stderr.strip():
-                    err_parts.append(f"stderr: {last_stderr[:500]}")
+                    err_parts.append(f"stderr: {_redact_stderr(last_stderr[:500])}")
                 return InvocationResult(
                     success=False,
                     error_message="; ".join(err_parts),

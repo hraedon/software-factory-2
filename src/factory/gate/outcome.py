@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from factory.constants import GATE_NAME_OUTCOME_E2E
+from factory.constants import GATE_NAME_OUTCOME_E2E, UNKNOWN_FALLBACK
 from factory.gate._base import GateResult
 from factory.gate.review import _extract_json_vote
 
@@ -35,7 +35,7 @@ def evaluate_outcome_verification(artifact_path: Path) -> GateResult:
         diagnostics.append(f"Outcome verification failed: {rationale or 'no rationale provided'}")
         vote_hint = vote.get("routing_hint")
         if isinstance(vote_hint, dict):
-            hint_type = vote_hint.get("work_item_type", "unknown")
+            hint_type = vote_hint.get("work_item_type", UNKNOWN_FALLBACK)
             hint_reason = vote_hint.get("reason", "")
             diagnostics.append(f"Routing hint: {hint_type} — {hint_reason}")
             routing_hint = vote_hint

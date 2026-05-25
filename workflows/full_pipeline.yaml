@@ -25,7 +25,6 @@ transitions:
       - frontier_judge
       - integrator
       - outcome_verifier
-      - spec_ambiguity_resolver
 
   - name: submit
     from: in_progress
@@ -39,7 +38,6 @@ transitions:
       - frontier_judge
       - integrator
       - outcome_verifier
-      - spec_ambiguity_resolver
 
   - name: cannot_proceed
     from: in_progress
@@ -53,7 +51,6 @@ transitions:
       - frontier_judge
       - integrator
       - outcome_verifier
-      - spec_ambiguity_resolver
 
   - name: gate_pass
     from: gating
@@ -82,7 +79,6 @@ transitions:
       - frontier_judge
       - integrator
       - outcome_verifier
-      - spec_ambiguity_resolver
 
 roles:
   - name: decomposer
@@ -94,7 +90,6 @@ roles:
   - name: frontier_judge
   - name: integrator
   - name: outcome_verifier
-  - name: spec_ambiguity_resolver
 
 work_item_types:
   - name: feature

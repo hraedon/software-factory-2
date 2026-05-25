@@ -18,6 +18,7 @@ from factory.constants import (
     STATE_LOCKED,
     STATE_NEW,
     TRANSITION_GATE_FAIL,
+    UNKNOWN_FALLBACK,
 )
 
 log = structlog.get_logger()
@@ -161,7 +162,7 @@ class StateReporter:
             if isinstance(diagnostics, str):
                 continue
             dkind = diagnostics.get("diagnostic_kind", "generic")
-            gate = diagnostics.get("gate_name", "unknown")
+            gate = diagnostics.get("gate_name", UNKNOWN_FALLBACK)
             msg = diagnostics.get("message", "")
             if dkind not in kind_counts:
                 kind_counts[dkind] = []

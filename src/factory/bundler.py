@@ -269,9 +269,13 @@ def verify_bundle_integrity(bundle_path: Path) -> BundleGateResult:
     items = manifest_data.get("work_items", [])
     errors: list[str] = []
     for item in items:
-        src_path = bundle_path / item.get("src_path", "")
+        raw_src = item.get("src_path", "")
+        src_path = (bundle_path / raw_src).resolve()
+        if not src_path.is_relative_to(bundle_path.resolve()):
+            errors.append(f"Path escapes bundle: {raw_src}")
+            continue
         if not src_path.exists():
-            errors.append(f"Missing artifact: {item.get('src_path')}")
+            errors.append(f"Missing artifact: {raw_src}")
             continue
         actual_sha = _sha256_file(src_path)
         expected_sha = item.get("artifact_sha256", "")
