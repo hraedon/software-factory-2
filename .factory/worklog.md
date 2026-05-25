@@ -1,5 +1,42 @@
 ---
 
+## 2026-05-25 — Session 52: Adversarial review completion — string constants, telemetry parity, mutation_gate cleanup
+
+**Invocation:** DeepSeek (interrupted by usage limits), completed by K2
+
+**Focus:** Finish Deepseek's interrupted adversarial review: string-constant gravity fixes, telemetry deterministic/model-mediated gate split, mutation_gate cleanup, BC-208 filed.
+
+### Changes
+
+1. **String constants (CLASS-012)**
+   - `constants.py`: Added `GATE_NAME_ARTIFACT_OVERSIZED`, `GATE_NAME_BUDGET_EXHAUSTED`, `GATE_NAME_CRASH_LOOP`.
+   - `gate/_base.py`: Replaced bare `"artifact_oversized"` with constant.
+   - `gate_process.py`: Replaced bare `"gate_budget_exhausted"` and `"gate_crash_loop"` with constants.
+
+2. **mutation_gate.py cleanup**
+   - Replaced `__import__("logging")` with proper `import logging`.
+   - Replaced bare `"syntax"` and `"imports"` gate names with `GATE_NAME_IMPLEMENTATION_SYNTAX` and `GATE_NAME_IMPLEMENTATION_IMPORTS`.
+   - Replaced hardcoded `timeout: int = 300` with `timeout: int | None = None` delegating to `GateTimeouts.pytest_timeout`.
+   - Removed stray `import sys` inside function body.
+
+3. **Telemetry parity**
+   - Moved `cross_family_review`, `jury`, `jury_quorum`, `jury_disagree` out of `DETERMINISTIC_GATES` into new `MODEL_MEDIATED_GATES` frozenset.
+   - Added `artifact_oversized` to `DETERMINISTIC_GATES`.
+   - Added `outcome_e2e` to `MODEL_MEDIATED_GATES`.
+   - Test parity updated with new exclusion constants.
+
+4. **BC-208 filed**: mutation_gate._run_pytest duplicates pre_gate/gate pytest logic with divergent diagnostics, dependency handling, timeout defaults. CLASS-005 instance #12.
+
+5. **AGENTS.md updated**: known issues 2 → 3 open bugs.
+
+### Test results
+
+1150 passed, 13 skipped, 0 lint errors, 0 vulture findings.
+
+### Post-fix: 3 open bugs (BC-206 medium, BC-207 medium, BC-208 high), repo green.
+
+---
+
 ## 2026-05-25 — Session 51: Pre-W3 cleanup — lint fixes, telemetry parity, mutation + placement tests
 
 **Invocation:** K2
