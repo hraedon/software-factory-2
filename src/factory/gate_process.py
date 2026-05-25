@@ -20,6 +20,8 @@ from factory.constants import (
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_TEST_SUITE_REF,
     FAMILY_CODE,
+    GATE_NAME_BUDGET_EXHAUSTED,
+    GATE_NAME_CRASH_LOOP,
     GATE_NAME_IMPLEMENTATION_DEPENDENCY,
     GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
     GATE_NAME_TEST_SUITE_DEPENDENCY,
@@ -117,7 +119,7 @@ def gate_loop(runtime: PipelineRuntime) -> None:
                     role=gate_role,
                     channel=gate_rc.channel if gate_rc else CHANNEL_CODE,
                     family=gate_rc.family if gate_rc else FAMILY_CODE,
-                    gate_name="gate_budget_exhausted",
+                    gate_name=GATE_NAME_BUDGET_EXHAUSTED,
                     attempt_n=claim.attempt_number,
                 ).to_dict()
                 sub.transition(
@@ -182,7 +184,7 @@ def gate_loop(runtime: PipelineRuntime) -> None:
                         role=gate_role,
                         channel=gate_rc.channel if gate_rc else CHANNEL_CODE,
                         family=gate_rc.family if gate_rc else FAMILY_CODE,
-                        gate_name="gate_crash_loop",
+                        gate_name=GATE_NAME_CRASH_LOOP,
                         attempt_n=claim.attempt_number,
                     ).to_dict()
                     sub.transition(

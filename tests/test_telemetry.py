@@ -469,6 +469,12 @@ class TestDeterministicGateParity:
             constants.GATE_NAME_UNKNOWN_TYPE,
             constants.GATE_NAME_BEHAVIORAL,
             constants.GATE_NAME_OUTCOME_E2E,
+            constants.GATE_NAME_CROSS_FAMILY_REVIEW,
+            constants.GATE_NAME_JURY,
+            constants.GATE_NAME_JURY_QUORUM,
+            constants.GATE_NAME_JURY_DISAGREE,
+            constants.GATE_NAME_BUDGET_EXHAUSTED,
+            constants.GATE_NAME_CRASH_LOOP,
         }
         missing = []
         for name, value in gate_constants.items():

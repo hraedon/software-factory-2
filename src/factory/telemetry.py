@@ -83,6 +83,7 @@ DETERMINISTIC_GATES = frozenset(
         "implementation_file_exists",
         "implementation_not_empty",
         "implementation_dependency",
+        "artifact_oversized",
         "inner_pytest",
         "inner_import",
         "inner_test_collect",
@@ -90,15 +91,21 @@ DETERMINISTIC_GATES = frozenset(
         "inner_ruff",
         "inner_import_symbols",
         "inner_json_shape",
-        "cross_family_review",
-        "jury",
-        "jury_quorum",
-        "jury_disagree",
         "integration_import",
         "integration_mypy",
         "integration_pytest",
         "integration",
         "mutation_spot_check",
+    }
+)
+
+MODEL_MEDIATED_GATES = frozenset(
+    {
+        "cross_family_review",
+        "jury",
+        "jury_quorum",
+        "jury_disagree",
+        "outcome_e2e",
     }
 )
 

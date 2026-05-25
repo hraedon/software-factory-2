@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import logging
 import random
 import sys
 import tempfile
@@ -8,8 +9,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
 
+from factory.config import GateTimeouts
 from factory.constants import (
+    GATE_NAME_IMPLEMENTATION_IMPORTS,
     GATE_NAME_IMPLEMENTATION_PYTEST,
+    GATE_NAME_IMPLEMENTATION_SYNTAX,
     GATE_NAME_INNER_MYPY,
     GATE_NAME_INNER_PYTEST,
     GATE_NAME_MUTATION_SPOT_CHECK,
@@ -20,17 +24,17 @@ from factory.pre_gate import copy_dependency_pyis
 from factory.sandbox import gate_subprocess_env
 from factory.subprocess import run as run_subprocess
 
-log = __import__("logging").getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 def _check_syntax(content: str) -> GateResult:
     try:
         ast.parse(content)
-        return GateResult(passed=True, gate_name="syntax")
+        return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_SYNTAX)
     except SyntaxError as exc:
         return GateResult(
             passed=False,
-            gate_name="syntax",
+            gate_name=GATE_NAME_IMPLEMENTATION_SYNTAX,
             diagnostics=[f"Syntax error: {exc}"],
             diagnostic_kind="syntax",
         )
@@ -39,11 +43,11 @@ def _check_syntax(content: str) -> GateResult:
 def _check_impl_imports(content: str) -> GateResult:
     try:
         ast.parse(content)
-        return GateResult(passed=True, gate_name="imports")
+        return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_IMPORTS)
     except Exception as exc:
         return GateResult(
             passed=False,
-            gate_name="imports",
+            gate_name=GATE_NAME_IMPLEMENTATION_IMPORTS,
             diagnostics=[f"Import check failed: {exc}"],
             diagnostic_kind="impl_import",
         )
@@ -55,10 +59,12 @@ def _run_pytest(
     interface_pyi_path: Path | None = None,
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
-    timeout: int = 300,
+    timeout: int | None = None,
     implementation_name: str | None = None,
 ) -> GateResult:
     exe = python_executable or sys.executable
+    if timeout is None:
+        timeout = GateTimeouts.pytest_timeout
     try:
         with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_PYTEST) as tmpdir:
             impl_content = artifact_path.read_text()
@@ -252,7 +258,7 @@ def evaluate_mutation_spot_check(
     test_suite_path: Path,
     interface_pyi_path: Path,
     python_executable: str | None = None,
-    timeout: int = 300,
+    timeout: int | None = None,
     sample_size: int = 3,
     fail_threshold: float = 0.5,
     seed: int | None = None,
@@ -278,8 +284,6 @@ def evaluate_mutation_spot_check(
         fail_threshold: Hard-fail threshold for live-mutant rate.
         seed: Optional RNG seed for reproducibility.
     """
-    import sys
-
     if seed is not None:
         random.seed(seed)
 
@@ -297,6 +301,9 @@ def evaluate_mutation_spot_check(
     selected = mutations[:sample_size]
 
     exe = python_executable or sys.executable
+    if timeout is None:
+        timeout = GateTimeouts.pytest_timeout
+
     live_mutants = 0
     caught_mutants = 0
     skipped_mutants = 0

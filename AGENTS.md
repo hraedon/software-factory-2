@@ -56,7 +56,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
 - **1150 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
 
-**Known issues:** 2 open bugs + 17 RFCs + 7 active defect classes + 2 stabilized (220 resolved). See `breadcrumbs/README.md`.
+**Known issues:** 3 open bugs (1 high, 2 medium) + 17 RFCs + 7 active defect classes + 2 stabilized (220 resolved). See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing.
 

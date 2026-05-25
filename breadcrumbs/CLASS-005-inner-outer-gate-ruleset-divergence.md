@@ -7,7 +7,7 @@ kind: defect-class
 author: rfc-016-backfill
 date: "2026-05-15"
 tags: [gate, inner-gate, outer-gate, rfc-011]
-related: ["075", "079", "082", "085", "086", "114", "122", "123", "124", "131", "154", "RFC-011"]
+related: ["075", "079", "082", "085", "086", "114", "122", "123", "124", "131", "154", "208", "RFC-011"]
 ---
 
 ## Shape
@@ -41,6 +41,7 @@ RFC-011: Unified gate evaluation layer — extract shared subprocess execution l
 | 124  | Selective ruff rule set — inner gate rules diverge from outer |
 | 131  | Runtime import resolution feedback — inner gate only |
 | 154  | _run_ruff_fast modifies artifact in-place inside inner gate |
+| 208  | mutation_gate._run_pytest duplicates pre_gate/gate pytest logic with divergent diagnostic truncation, dependency handling, and timeout default |
 
 ## Status under RFC-030
 

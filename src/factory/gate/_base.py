@@ -4,7 +4,7 @@ import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from factory.constants import MAX_ARTIFACT_SIZE_BYTES
+from factory.constants import GATE_NAME_ARTIFACT_OVERSIZED, MAX_ARTIFACT_SIZE_BYTES
 
 
 @dataclass(frozen=True)
@@ -50,7 +50,7 @@ def _guard_artifact_size(artifact_path: Path) -> GateResult | None:
     if size > MAX_ARTIFACT_SIZE_BYTES:
         return GateResult(
             passed=False,
-            gate_name="artifact_oversized",
+            gate_name=GATE_NAME_ARTIFACT_OVERSIZED,
             diagnostics=[
                 f"Artifact size {size} bytes exceeds gate limit {MAX_ARTIFACT_SIZE_BYTES} bytes"
             ],
