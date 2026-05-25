@@ -2,40 +2,50 @@ from __future__ import annotations
 
 import ast
 import random
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 
 from factory.constants import (
+    GATE_NAME_IMPLEMENTATION_PYTEST,
     GATE_NAME_INNER_MYPY,
     GATE_NAME_INNER_PYTEST,
     GATE_NAME_MUTATION_SPOT_CHECK,
+    TEMPFILE_PREFIX_PYTEST,
 )
 from factory.gate._base import GateResult
+from factory.pre_gate import copy_dependency_pyis
+from factory.sandbox import gate_subprocess_env
+from factory.subprocess import run as run_subprocess
 
 log = __import__("logging").getLogger(__name__)
 
 
 def _check_syntax(content: str) -> GateResult:
-    import ast
     try:
         ast.parse(content)
         return GateResult(passed=True, gate_name="syntax")
     except SyntaxError as exc:
         return GateResult(
-            passed=False, gate_name="syntax",
-            diagnostics=[f"Syntax error: {exc}"], diagnostic_kind="syntax"
+            passed=False,
+            gate_name="syntax",
+            diagnostics=[f"Syntax error: {exc}"],
+            diagnostic_kind="syntax",
         )
 
 
 def _check_impl_imports(content: str) -> GateResult:
     try:
-        __import__("builtins").__import__("ast").parse(content)
+        ast.parse(content)
         return GateResult(passed=True, gate_name="imports")
     except Exception as exc:
         return GateResult(
-            passed=False, gate_name="imports",
-            diagnostics=[f"Import check failed: {exc}"], diagnostic_kind="impl_import"
+            passed=False,
+            gate_name="imports",
+            diagnostics=[f"Import check failed: {exc}"],
+            diagnostic_kind="impl_import",
         )
 
 
@@ -46,17 +56,15 @@ def _run_pytest(
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
     timeout: int = 300,
+    implementation_name: str | None = None,
 ) -> GateResult:
-    import shutil, sys
-    from factory.pre_gate import copy_dependency_pyis
-    from factory.sandbox import gate_subprocess_env
-    from factory.subprocess import run as run_subprocess
-    from factory.constants import GATE_NAME_IMPLEMENTATION_PYTEST, TEMPFILE_PREFIX_PYTEST
     exe = python_executable or sys.executable
     try:
         with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_PYTEST) as tmpdir:
             impl_content = artifact_path.read_text()
-            impl_copy = Path(tmpdir) / artifact_path.name
+            # Use the original module name so tests can import it correctly.
+            impl_name = implementation_name or artifact_path.name
+            impl_copy = Path(tmpdir) / impl_name
             impl_copy.write_text(impl_content)
             if artifact_path.stem != "interface":
                 iface_copy = Path(tmpdir) / f"interface{artifact_path.suffix}"
@@ -72,21 +80,25 @@ def _run_pytest(
             )
             if result.timed_out:
                 return GateResult(
-                    passed=False, gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
+                    passed=False,
+                    gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
                     diagnostics=[f"pytest timed out after {timeout}s", "timed_out: True"],
                     diagnostic_kind="impl_pytest",
                 )
             if result.returncode != 0:
                 lines = result.stdout.strip().splitlines() + result.stderr.strip().splitlines()
                 return GateResult(
-                    passed=False, gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
+                    passed=False,
+                    gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
                     diagnostics=lines[:10] or ["pytest reported failures"],
                     diagnostic_kind="impl_pytest",
                 )
     except Exception as e:
         return GateResult(
-            passed=False, gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
-            diagnostics=[f"pytest invocation failed: {e}"], diagnostic_kind="impl_pytest"
+            passed=False,
+            gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
+            diagnostics=[f"pytest invocation failed: {e}"],
+            diagnostic_kind="impl_pytest",
         )
     return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_PYTEST)
 
@@ -110,7 +122,7 @@ class _Mutator(ast.NodeTransformer):
     - Change a numeric constant (increment/decrement by 1)
     """
 
-    _COMPARISON_SWAPS: dict[type, type] = {
+    _COMPARISON_SWAPS: ClassVar[dict[type, type]] = {
         ast.Gt: ast.Lt,
         ast.Lt: ast.Gt,
         ast.GtE: ast.LtE,
@@ -183,7 +195,7 @@ class _Mutator(ast.NodeTransformer):
 def _generate_mutations(source: str, max_mutations: int = 10) -> list[tuple[str, Mutation]]:
     """Return list of (mutated_source, mutation_info) pairs."""
     try:
-        tree = ast.parse(source)
+        ast.parse(source)
     except SyntaxError:
         return []
 
@@ -202,6 +214,7 @@ def _run_suite_on_mutant(
     mutated_source: str,
     test_suite_path: Path,
     interface_pyi_path: Path,
+    implementation_path: Path,
     python_executable: str,
     timeout: int,
 ) -> GateResult:
@@ -212,7 +225,8 @@ def _run_suite_on_mutant(
         return GateResult(passed=True, gate_name=GATE_NAME_MUTATION_SPOT_CHECK, skipped=True)
 
     with tempfile.TemporaryDirectory(prefix="sf2_mutant_") as tmpdir:
-        mutant_path = Path(tmpdir) / "mutant.py"
+        # Write mutant under the *original* module name so tests can import it.
+        mutant_path = Path(tmpdir) / implementation_path.name
         mutant_path.write_text(mutated_source)
         import_result = _check_impl_imports(mutated_source)
         if not import_result.passed:
@@ -228,6 +242,7 @@ def _run_suite_on_mutant(
             interface_pyi_path=interface_pyi_path,
             python_executable=python_executable,
             timeout=timeout,
+            implementation_name=implementation_path.name,
         )
         return pytest_result
 
@@ -292,6 +307,7 @@ def evaluate_mutation_spot_check(
             mutated_source=mutated_source,
             test_suite_path=test_suite_path,
             interface_pyi_path=interface_pyi_path,
+            implementation_path=implementation_path,
             python_executable=exe,
             timeout=timeout,
         )
@@ -302,21 +318,15 @@ def evaluate_mutation_spot_check(
             # Skipped / un-buildable mutants don't count toward the rate
             if result.skipped:
                 skipped_mutants += 1
-                details.append(
-                    f"  SKIPPED: {mutation.description} at line {mutation.line_no}"
-                )
+                details.append(f"  SKIPPED: {mutation.description} at line {mutation.line_no}")
             continue
         if result.passed:
             # Test suite PASSED on the mutant → test efficacy gap
             live_mutants += 1
-            details.append(
-                f"  LIVE (missed): {mutation.description} at line {mutation.line_no}"
-            )
+            details.append(f"  LIVE (missed): {mutation.description} at line {mutation.line_no}")
         else:
             caught_mutants += 1
-            details.append(
-                f"  CAUGHT: {mutation.description} at line {mutation.line_no}"
-            )
+            details.append(f"  CAUGHT: {mutation.description} at line {mutation.line_no}")
 
     evaluated = live_mutants + caught_mutants
     if evaluated == 0:

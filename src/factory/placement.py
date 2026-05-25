@@ -3,8 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from factory.config import FactoryConfig
@@ -81,11 +80,7 @@ def _rate_for_role_channel(
     ]
     total_evaluations = sum(r.total_evaluations for r in matching)
     first_attempt_passes = sum(r.first_attempt_passes for r in matching)
-    rate = (
-        first_attempt_passes / total_evaluations
-        if total_evaluations > 0
-        else 0.0
-    )
+    rate = first_attempt_passes / total_evaluations if total_evaluations > 0 else 0.0
     return rate, total_evaluations
 
 
@@ -131,13 +126,13 @@ def propose(
         for ch, mod in options:
             if ch == rc.channel and mod == rc.model:
                 continue
-            rate, samples = _rate_for_role_channel(
-                rc.role, ch, mod, rows, policy.gate_filter
-            )
+            rate, samples = _rate_for_role_channel(rc.role, ch, mod, rows, policy.gate_filter)
             if samples < policy.min_samples:
                 continue
             # Prefer current if rate is within confidence threshold
-            if policy.fallback_to_current and abs(rate - current_rate) <= policy.confidence_threshold:
+            if policy.fallback_to_current and (
+                abs(rate - current_rate) <= policy.confidence_threshold
+            ):
                 continue
             if rate > best_rate:
                 best_channel = ch
@@ -200,11 +195,9 @@ def apply(
         # Live mode is intentionally destructive and requires explicit consent.
         # In a non-interactive context this is a no-op with loud logging.
         log.warning(
-            "placement_live_mode_skipped",
-            msg=(
-                "Live mode requires explicit interactive confirmation. "
-                "Re-run with --interactive or use propose-pr mode."
-            ),
+            "placement_live_mode_skipped: Live mode requires explicit "
+            "interactive confirmation. Re-run with --interactive or use "
+            "propose-pr mode.",
         )
         return None
 
@@ -256,8 +249,6 @@ def _main(argv: list[str] | None = None) -> None:
         help=f"Minimum samples required for a comparison group (default: {DEFAULT_MIN_SAMPLES})",
     )
     args = parser.parse_args(argv)
-
-    import sys
 
     from substrate import Substrate
 

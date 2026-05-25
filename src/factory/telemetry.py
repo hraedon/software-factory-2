@@ -97,6 +97,7 @@ DETERMINISTIC_GATES = frozenset(
         "integration_mypy",
         "integration_pytest",
         "integration",
+        "mutation_spot_check",
     }
 )
 

@@ -125,24 +125,21 @@ class TestValidateDecomposition:
         data = {"modules": [_valid_module("fr01", "FR-01")]}
         results = _validate_decomposition(data)
         assert any(
-            r.gate_name == "semantic_naming" and "FR-shaped" in r.diagnostic
-            for r in results
+            r.gate_name == "semantic_naming" and "FR-shaped" in r.diagnostic for r in results
         )
 
     def test_fr_shaped_name_case_insensitive(self):
         data = {"modules": [_valid_module("FR01", "FR-01")]}
         results = _validate_decomposition(data)
         assert any(
-            r.gate_name == "semantic_naming" and "FR-shaped" in r.diagnostic
-            for r in results
+            r.gate_name == "semantic_naming" and "FR-shaped" in r.diagnostic for r in results
         )
 
     def test_generic_suffix_fails(self):
         data = {"modules": [_valid_module("data_handler", "FR-01")]}
         results = _validate_decomposition(data)
         assert any(
-            r.gate_name == "semantic_naming" and "generic suffix" in r.diagnostic
-            for r in results
+            r.gate_name == "semantic_naming" and "generic suffix" in r.diagnostic for r in results
         )
 
     def test_valid_semantic_name_passes(self):
@@ -153,9 +150,7 @@ class TestValidateDecomposition:
             ]
         }
         results = _validate_decomposition(data)
-        assert not any(
-            r.gate_name == "semantic_naming" and not r.passed for r in results
-        )
+        assert not any(r.gate_name == "semantic_naming" and not r.passed for r in results)
 
     def test_phase_a_does_not_reject_fr_names(self):
         data = {"modules": [_valid_module("fr01", "FR-01")]}
@@ -166,16 +161,14 @@ class TestValidateDecomposition:
         data = {"modules": [_valid_module("a" * 41, "FR-01")]}
         results = _validate_decomposition(data)
         assert any(
-            r.gate_name == "semantic_naming" and "<=40 chars" in r.diagnostic
-            for r in results
+            r.gate_name == "semantic_naming" and "<=40 chars" in r.diagnostic for r in results
         )
 
     def test_non_snake_case_name_fails(self):
         data = {"modules": [_valid_module("RuleLoader", "FR-01")]}
         results = _validate_decomposition(data)
         assert any(
-            r.gate_name == "semantic_naming" and "snake_case" in r.diagnostic
-            for r in results
+            r.gate_name == "semantic_naming" and "snake_case" in r.diagnostic for r in results
         )
 
 
@@ -216,14 +209,14 @@ class TestDecomposeFromModel:
         )
         assert len(result.modules) == 1
 
+
 class TestRenderYamlForPrompt:
     def test_loads_spec_yaml(self, tmp_path: Path):
         from factory.decomposer_model import _render_yaml_for_prompt
 
         spec_yaml = tmp_path / "spec.yaml"
         spec_yaml.write_text(
-            "meta:\n  name: test\n"
-            "functional_requirements:\n  - id: FR-01\n    text: do thing\n"
+            "meta:\n  name: test\nfunctional_requirements:\n  - id: FR-01\n    text: do thing\n"
         )
         data = _render_yaml_for_prompt(spec_yaml)
         assert data["meta"]["name"] == "test"

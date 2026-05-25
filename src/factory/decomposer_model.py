@@ -382,8 +382,7 @@ def _build_structured_prompt(
         parts.append("")
         for entry in prior_failures:
             parts.append(
-                f"- attempt {entry.gate_name}: "
-                f"{entry.diagnostic_kind} — {entry.diagnostic}"
+                f"- attempt {entry.gate_name}: {entry.diagnostic_kind} — {entry.diagnostic}"
             )
         parts.append("")
 

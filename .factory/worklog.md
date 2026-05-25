@@ -1,5 +1,34 @@
 ---
 
+## 2026-05-25 — Session 51: Pre-W3 cleanup — lint fixes, telemetry parity, mutation + placement tests
+
+**Invocation:** K2
+
+**Focus:** Clean up uncommitted changes from Session 50 (post-Opus plan execution) so the repo is green before launching W3 golden runs. Fix lint errors in new files, add missing unit tests, update AGENTS.md counts.
+
+### Changes
+
+1. **Lint fixes across 4 source files**
+   - `src/factory/mutation_gate.py`: split multi-import line, remove unused `shutil`, fix `ClassVar` annotation (RUF012), remove unused `tree` variable.
+   - `src/factory/placement.py`: remove unused `time`/`field` imports, fix line-too-long, remove dead `sys` import.
+   - `src/factory/gate/_base.py`: split RFC-033 tier tag lines to stay within 100 cols.
+   - `src/factory/telemetry.py`: add `mutation_spot_check` to `DETERMINISTIC_GATES` set.
+
+2. **Unit tests added**
+   - `tests/test_mutation_gate.py` (15 tests): AST mutator shape, mutation generation, per-mutant gate runs (caught vs live), full spot-check integration, seed reproducibility.
+   - `tests/test_placement.py` (13 tests): `_rate_for_role_channel`, `propose` (best current, propose change, no data, min-samples filter, confidence threshold, code role ignored), `apply` (dry-run, live, invalid mode).
+
+3. **AGENTS.md updated**
+   - Test count: 1082 → 1143 (reflects Session 50 additions + this session).
+
+### Test results
+
+1143 passed, 13 skipped, 0 lint errors, 0 vulture findings.
+
+### Post-fix: open bugs = 0, repo green.
+
+---
+
 ## 2026-05-24 — Session 50: Opus Plan — W1.2/W1.3/W2.1/W2.2 (Phase 6 Second Domain + RFC-023 Phase B)
 
 **Invocation:** K2
