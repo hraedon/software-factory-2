@@ -28,7 +28,14 @@ class ArtifactManifest:
     created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
+def _validate_path_component(value: str, label: str) -> str:
+    if "/" in value or "\\" in value or ".." in value:
+        raise ValueError(f"Invalid {label}: {value!r} (path traversal detected)")
+    return value
+
+
 def attempt_dir(work_root_path: Path, work_item_id: str, attempt_number: int) -> Path:
+    _validate_path_component(work_item_id, "work_item_id")
     return work_root_path / work_item_id / f"attempt-{attempt_number:04d}"
 
 
@@ -38,6 +45,7 @@ def write_artifact(
     data: bytes,
     manifest: ArtifactManifest,
 ) -> Path:
+    _validate_path_component(artifact_name, "artifact_name")
     attempt_path.mkdir(parents=True, exist_ok=True)
     dest = attempt_path / artifact_name
     tmp = attempt_path / f".{artifact_name}.tmp"
@@ -86,12 +94,13 @@ def find_resumable_artifact(
     work_root_path: Path,
     work_item_id: str,
 ) -> tuple[int, ArtifactManifest] | None:
+    _validate_path_component(work_item_id, "work_item_id")
     item_dir = work_root_path / work_item_id
     if not item_dir.exists():
         return None
     candidates: list[tuple[int, ArtifactManifest]] = []
     for entry in sorted(item_dir.iterdir()):
-        if not entry.is_dir():
+        if not entry.is_dir() or entry.is_symlink():
             continue
         if entry.name.startswith(".") or entry.name == CORRUPT_DIR_NAME:
             continue
@@ -129,6 +138,7 @@ def quarantine_attempt(attempt_path: Path) -> Path:
 
 
 def list_attempt_dirs(work_root_path: Path, work_item_id: str) -> list[Path]:
+    _validate_path_component(work_item_id, "work_item_id")
     item_dir = work_root_path / work_item_id
     if not item_dir.exists():
         return []

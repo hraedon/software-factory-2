@@ -36,10 +36,6 @@ def _load_spec_text(spec_path: Path, spec_yaml_path: Path | None) -> str:
         return "# Test spec\n\nNo content.\n"
     if spec_path.suffix in (".yaml", ".yml"):
         text = spec_path.read_text()
-        try:
-            import yaml
-        except ImportError:  # pragma: no cover
-            raise ImportError("PyYAML is required for YAML decomposition")
         data = yaml.safe_load(text)
         return json.dumps(data, indent=2, ensure_ascii=False)
     return spec_path.read_text()

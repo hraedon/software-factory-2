@@ -40,6 +40,8 @@ LOGS_ROOT = REPO_ROOT / ".factory" / "logs"
 
 
 def _log_dir_for(log_prefix: str) -> Path:
+    if "/" in log_prefix or "\\" in log_prefix or ".." in log_prefix:
+        _fatal(f"Invalid log-prefix: {log_prefix!r} (must not contain path separators or '..')")
     return LOGS_ROOT / log_prefix
 
 # RFC-033: each DANGER_SIGNALS entry is a guardrail; preconditions and audit
@@ -84,6 +86,16 @@ DANGER_SIGNALS = [
 def _fatal(msg: str) -> None:
     print(f"[FATAL] {msg}", file=sys.stderr)
     sys.exit(1)
+
+
+def _safe_rmtree(path: Path, label: str) -> None:
+    """Remove a directory tree with safety checks: resolve symlinks and validate prefix."""
+    resolved = path.resolve()
+    if not str(resolved).startswith("/tmp/"):
+        _fatal(f"Refusing to {label} outside /tmp/: {resolved}")
+    if resolved.exists():
+        shutil.rmtree(resolved)
+        _info(f"Removed {label}: {resolved}")
 
 
 def _warn(msg: str) -> None:
@@ -294,30 +306,36 @@ def _launch_processes(
         env["XDG_DATA_HOME"] = str(xdg_data_home)
         _info(f"XDG_DATA_HOME={xdg_data_home} (isolated opencode DB)")
 
+    runner_fh = open(runner_log, "w")
     runner = subprocess.Popen(
         [sys.executable, "-m", "factory.runner", "--config", str(config_path)],
-        stdout=open(runner_log, "w"),
+        stdout=runner_fh,
         stderr=subprocess.STDOUT,
         cwd=str(REPO_ROOT),
         env=env,
         start_new_session=True,
     )
+    runner_fh.close()
+    gate_fh = open(gate_log, "w")
     gate = subprocess.Popen(
         [sys.executable, "-m", "factory.gate_process", "--config", str(config_path)],
-        stdout=open(gate_log, "w"),
+        stdout=gate_fh,
         stderr=subprocess.STDOUT,
         cwd=str(REPO_ROOT),
         env=env,
         start_new_session=True,
     )
+    gate_fh.close()
+    sched_fh = open(sched_log, "w")
     scheduler = subprocess.Popen(
         [sys.executable, "-m", "factory.scheduler", "--config", str(config_path)],
-        stdout=open(sched_log, "w"),
+        stdout=sched_fh,
         stderr=subprocess.STDOUT,
         cwd=str(REPO_ROOT),
         env=env,
         start_new_session=True,
     )
+    sched_fh.close()
 
     _info(f"Runner PID={runner.pid}, Gate PID={gate.pid}, Scheduler PID={scheduler.pid}")
     _info(f"Logs: {runner_log}, {gate_log}, {sched_log}")
@@ -469,7 +487,7 @@ def _cleanup_offered(
     (and the isolated opencode DB inside it) is also removed.
     """
     wr = Path(workspace_root)
-    resolved_log_dir = Path(log_dir) if log_dir else _log_dir_for(log_prefix)
+    resolved_log_dir = Path(log_dir).resolve() if log_dir else _log_dir_for(log_prefix)
     _info("=== Cleanup ===")
     _info(f"Workspace: {wr}")
     _info(f"Log dir: {resolved_log_dir}")
@@ -477,15 +495,10 @@ def _cleanup_offered(
         _info(f"Isolated opencode DB: {xdg_data_home}")
     _info("NOTE: This script NEVER touches ~/.local/share/opencode/ or any application DB.")
     _info("Auto-cleaning workspace + logs + isolated DB (non-interactive mode)...")
-    if wr.exists():
-        shutil.rmtree(wr)
-        _info(f"Removed {wr}")
-    if resolved_log_dir.exists():
-        shutil.rmtree(resolved_log_dir)
-        _info(f"Removed {resolved_log_dir}")
-    if xdg_data_home is not None and xdg_data_home.exists():
-        shutil.rmtree(xdg_data_home)
-        _info(f"Removed {xdg_data_home}")
+    _safe_rmtree(wr, "remove workspace")
+    _safe_rmtree(resolved_log_dir, "remove logs")
+    if xdg_data_home is not None:
+        _safe_rmtree(xdg_data_home, "remove isolated DB")
 
 
 def main() -> None:
@@ -553,12 +566,9 @@ def main() -> None:
             _warn("Process crash detected — preserving logs for forensics.")
             _warn(f"Log dir: {_log_dir_for(log_prefix)}")
             wr = Path(cfg["workspace_root"])
-            if wr.exists():
-                shutil.rmtree(wr)
-                _info(f"Removed workspace: {wr}")
-            if xdg_data_home is not None and xdg_data_home.exists():
-                shutil.rmtree(xdg_data_home)
-                _info(f"Removed isolated DB: {xdg_data_home}")
+            _safe_rmtree(wr, "remove workspace")
+            if xdg_data_home is not None:
+                _safe_rmtree(xdg_data_home, "remove isolated DB")
         else:
             _cleanup_offered(
                 cfg["workspace_root"],

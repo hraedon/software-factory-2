@@ -19,14 +19,14 @@ from factory.mutation_gate import (
     evaluate_mutation_spot_check,
 )
 
-SIMPLE_IMPL = '''
+SIMPLE_IMPL = """
 def max_of(a: int, b: int) -> int:
     if a > b:
         return a
     return b
-'''
+"""
 
-TEST_SUITE_STRICT = '''
+TEST_SUITE_STRICT = """
 import pytest
 
 def test_max_of_basic():
@@ -34,20 +34,20 @@ def test_max_of_basic():
     assert max_of(3, 1) == 3
     assert max_of(1, 3) == 3
     assert max_of(2, 2) == 2
-'''
+"""
 
-BRANCHED_IMPL = '''
+BRANCHED_IMPL = """
 def classify(x: int) -> str:
     if x > 10:
         return "big"
     return "small"
-'''
+"""
 
-TEST_SUITE_LAX = '''
+TEST_SUITE_LAX = """
 def test_classify_small():
     from impl import classify
     assert classify(5) == "small"
-'''
+"""
 
 
 def _write_impl_and_tests(tmpdir: Path, impl: str, tests: str) -> tuple[Path, Path]:
@@ -140,15 +140,15 @@ class TestRunSuiteOnMutant:
             interface_pyi_path=tmp_path / "i.pyi",
             implementation_path=tmp_path / "impl.py",
             python_executable=sys.executable,
-            timeout=60,)
+            timeout=60,
+        )
         assert isinstance(result, GateResult)
         assert result.passed is True
         assert result.skipped is True
         assert result.gate_name == GATE_NAME_MUTATION_SPOT_CHECK
 
     def test_caught_mutant(self, tmp_path: Path):
-        impl_path, test_path = _write_impl_and_tests(
-            tmp_path, SIMPLE_IMPL, TEST_SUITE_STRICT)
+        impl_path, test_path = _write_impl_and_tests(tmp_path, SIMPLE_IMPL, TEST_SUITE_STRICT)
         source = impl_path.read_text()
         muts = _generate_mutations(source, max_mutations=10)
         assert muts
@@ -165,13 +165,13 @@ class TestRunSuiteOnMutant:
             interface_pyi_path=tmp_path / "i.pyi",
             implementation_path=impl_path,
             python_executable=sys.executable,
-            timeout=60,)
+            timeout=60,
+        )
         assert result.passed is False
 
     def test_live_mutant(self, tmp_path: Path):
         """A mutant that deletes the untested branch should survive lax tests."""
-        impl_path, test_path = _write_impl_and_tests(
-            tmp_path, BRANCHED_IMPL, TEST_SUITE_LAX)
+        impl_path, test_path = _write_impl_and_tests(tmp_path, BRANCHED_IMPL, TEST_SUITE_LAX)
         source = impl_path.read_text()
         muts = _generate_mutations(source, max_mutations=10)
         assert muts
@@ -183,14 +183,16 @@ class TestRunSuiteOnMutant:
                 live_mutant = src
                 break
         assert live_mutant is not None, (
-            "No return-deletion mutation on line 4 (the untested branch)")
+            "No return-deletion mutation on line 4 (the untested branch)"
+        )
         result = _run_suite_on_mutant(
             mutated_source=live_mutant,
             test_suite_path=test_path,
             interface_pyi_path=tmp_path / "i.pyi",
             implementation_path=impl_path,
             python_executable=sys.executable,
-            timeout=60,)
+            timeout=60,
+        )
         assert result.passed is True
 
 
@@ -198,29 +200,29 @@ class TestEvaluateMutationSpotCheck:
     """Integration-level tests for the full spot-check gate."""
 
     def test_pass_when_tests_are_strict(self, tmp_path: Path):
-        impl_path, test_path = _write_impl_and_tests(
-            tmp_path, SIMPLE_IMPL, TEST_SUITE_STRICT)
+        impl_path, test_path = _write_impl_and_tests(tmp_path, SIMPLE_IMPL, TEST_SUITE_STRICT)
         result = evaluate_mutation_spot_check(
             implementation_path=impl_path,
             test_suite_path=test_path,
             interface_pyi_path=tmp_path / "i.pyi",
             sample_size=3,
             fail_threshold=0.5,
-            seed=42,)
+            seed=42,
+        )
         assert result.passed is True
         assert result.gate_name == GATE_NAME_MUTATION_SPOT_CHECK
         assert "caught" in " ".join(result.diagnostics).lower()
 
     def test_fail_when_tests_are_lax(self, tmp_path: Path):
-        impl_path, test_path = _write_impl_and_tests(
-            tmp_path, BRANCHED_IMPL, TEST_SUITE_LAX)
+        impl_path, test_path = _write_impl_and_tests(tmp_path, BRANCHED_IMPL, TEST_SUITE_LAX)
         result = evaluate_mutation_spot_check(
             implementation_path=impl_path,
             test_suite_path=test_path,
             interface_pyi_path=tmp_path / "i.pyi",
             sample_size=3,
             fail_threshold=0.0,
-            seed=42,)
+            seed=42,
+        )
         # With fail_threshold=0.0, any live mutant causes a gate fail.
         # The lax test covers only the "small" branch, so deleting the
         # "big" return is a live mutant.
@@ -238,26 +240,28 @@ class TestEvaluateMutationSpotCheck:
             test_suite_path=test_path,
             interface_pyi_path=tmp_path / "i.pyi",
             sample_size=3,
-            seed=42,)
+            seed=42,
+        )
         assert result.passed is True
         assert result.skipped is True
 
     def test_reproducible_with_same_seed(self, tmp_path: Path):
-        impl_path, test_path = _write_impl_and_tests(
-            tmp_path, SIMPLE_IMPL, TEST_SUITE_STRICT)
+        impl_path, test_path = _write_impl_and_tests(tmp_path, SIMPLE_IMPL, TEST_SUITE_STRICT)
         result_1 = evaluate_mutation_spot_check(
             implementation_path=impl_path,
             test_suite_path=test_path,
             interface_pyi_path=tmp_path / "i.pyi",
             sample_size=3,
             fail_threshold=0.8,
-            seed=123,)
+            seed=123,
+        )
         result_2 = evaluate_mutation_spot_check(
             implementation_path=impl_path,
             test_suite_path=test_path,
             interface_pyi_path=tmp_path / "i.pyi",
             sample_size=3,
             fail_threshold=0.8,
-            seed=123,)
+            seed=123,
+        )
         # Same seed should pick the same mutants and produce identical diagnostics
         assert result_1.diagnostics == result_2.diagnostics

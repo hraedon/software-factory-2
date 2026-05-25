@@ -180,24 +180,20 @@ def _render_module_spec(module: DecomposedModule) -> str:
 
 def _parse_frs_from_md(text: str) -> dict[str, str]:
     fr_map: dict[str, str] = {}
-    for m in re.finditer(r"^-?\s*(FR-\d+)\s*(?:\*\*\[.*?\]\*\*)?\s*:\s*(.+)$", text, re.MULTILINE):
+    pattern = r"^-?\s*(FR-(?:[A-Z]+-)?\d+)\s*(?:\*\*\[.*?\]\*\*)?\s*:\s*(.+)$"
+    for m in re.finditer(pattern, text, re.MULTILINE):
         fr_map[m.group(1)] = m.group(2).strip()
     return fr_map
 
 
 def _parse_acs_from_md(text: str) -> dict[str, list[dict]]:
     ac_by_fr: dict[str, list[dict]] = {}
-    for m in re.finditer(r"^-?\s*(AC-[A-Z]*-\d+)\s*\[([^\]]+)\]\s*:\s*(.+)$", text, re.MULTILINE):
+    pattern = r"^-?\s*(AC-(?:[A-Z]+-)?\d+)\s*\[([^\]]+)\]\s*:\s*(.+)$"
+    for m in re.finditer(pattern, text, re.MULTILINE):
         ac_id = m.group(1)
         fr_refs = m.group(2)
         condition = m.group(3).strip()
-        for fr_match in re.finditer(r"FR-\d+", fr_refs):
-            ac_by_fr.setdefault(fr_match.group(0), []).append({"id": ac_id, "condition": condition})
-    for m in re.finditer(r"^-?\s*(AC-\d+)\s*\[([^\]]+)\]\s*:\s*(.+)$", text, re.MULTILINE):
-        ac_id = m.group(1)
-        fr_refs = m.group(2)
-        condition = m.group(3).strip()
-        for fr_match in re.finditer(r"FR-\d+", fr_refs):
+        for fr_match in re.finditer(r"FR-(?:[A-Z]+-)?\d+", fr_refs):
             ac_by_fr.setdefault(fr_match.group(0), []).append({"id": ac_id, "condition": condition})
     return ac_by_fr
 
@@ -214,12 +210,12 @@ def _parse_deps_from_md(text: str) -> dict[str, list[str]]:
         if in_deps and stripped.startswith("#"):
             break
         if in_deps:
-            m = re.match(r"^-?\s*(FR-\d+)\s*:\s*(.+)$", stripped)
+            m = re.match(r"^-?\s*(FR-(?:[A-Z]+-)?\d+)\s*:\s*(.+)$", stripped)
             if m:
                 fr_id = m.group(1)
                 dep_text = m.group(2)
                 requires: list[str] = []
-                for dep_match in re.finditer(r"FR-\d+", dep_text):
+                for dep_match in re.finditer(r"FR-(?:[A-Z]+-)?\d+", dep_text):
                     requires.append(dep_match.group(0))
                 dep_map[fr_id] = requires
     return dep_map

@@ -54,9 +54,9 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - 5 workflow YAMLs with `extends:` composition (phase1–5, full_pipeline)
 - Unified subprocess wrapper (RFC-011): all subprocess calls use `factory.subprocess.run`
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
-- **1143 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
+- **1148 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
 
-**Known issues:** 0 open bugs + 18 RFCs + 7 active defect classes + 2 stabilized (214 resolved). See `breadcrumbs/README.md`.
+**Known issues:** 0 open bugs + 18 RFCs + 7 active defect classes + 2 stabilized (215 resolved). See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing.
 
@@ -88,7 +88,7 @@ If you find yourself wanting to skip ahead, file a breadcrumb explaining why and
 ## Testing
 
 ```bash
-make test        # 1053 tests, ~120s
+make test        # 1148 tests, ~140s
 make lint        # ruff check + format (no errors)
 make audit       # vulture dead-code check (no findings)
 make integration # @pytest.mark.integration only (requires Postgres)

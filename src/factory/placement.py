@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -203,7 +204,7 @@ def apply(
 
     out = output_dir or Path("runs")
     out.mkdir(parents=True, exist_ok=True)
-    stamp = int(__import__("time").time())
+    stamp = int(time.time())
     path = out / f"placement-{stamp}.diff"
     path.write_text(diff.to_json(indent=2))
     log.info("placement_diff_written", path=str(path), mode=mode)

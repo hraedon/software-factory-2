@@ -183,7 +183,7 @@ def _terminate(proc: subprocess.Popen) -> None:
     except (ProcessLookupError, PermissionError):
         pgid = None
     try:
-        if pgid is not None:
+        if pgid is not None and pgid == proc.pid:
             os.killpg(pgid, signal.SIGTERM)
         else:
             proc.terminate()
@@ -195,7 +195,7 @@ def _terminate(proc: subprocess.Popen) -> None:
     except subprocess.TimeoutExpired:
         pass
     try:
-        if pgid is not None:
+        if pgid is not None and pgid == proc.pid:
             os.killpg(pgid, signal.SIGKILL)
         else:
             proc.kill()

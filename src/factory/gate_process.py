@@ -37,7 +37,7 @@ from factory.constants import (
     WORK_ITEM_TYPE_REVIEW,
     WORK_ITEM_TYPE_TEST_SUITE,
 )
-from factory.dep_resolution import _to_uuid, resolve_dep_artifacts
+from factory.dep_resolution import _safe_artifact_path, _to_uuid, resolve_dep_artifacts
 from factory.event_schemas import GateFailPayload
 from factory.gate import (
     GateResult,
@@ -225,15 +225,13 @@ def gate_loop(runtime: PipelineRuntime) -> None:
 
 
 def _resolve_ref_artifact(sub: Substrate, ref: str) -> Path | None:
+    ref_path = None
     wi = sub.get_work_item(_to_uuid(ref))
     if wi and wi.custom_fields:
-        ref_path = wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
-        if ref_path:
-            p = Path(ref_path)
-            if ".." in p.parts:
-                return None
-            return p
-    return None
+        raw = wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
+        if raw:
+            ref_path = _safe_artifact_path(raw)
+    return ref_path
 
 
 def _resolve_dependency_refs(
