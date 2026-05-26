@@ -98,6 +98,9 @@ class TestFromYaml:
             "roles": [
                 {"role": "implementer", "channel": "kimi", "timeout_seconds": 900},
             ],
+            "type_to_role": [
+                ["implementation", "implementer"],
+            ],
         }
         yaml_path = tmp_path / "roles.yaml"
         yaml_path.write_text(yaml.dump(data))

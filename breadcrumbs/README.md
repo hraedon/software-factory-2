@@ -99,9 +99,14 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 
 | # | Title | Severity | Status |
 |---|---|---|---|---|
-| 208 | mutation_gate.py _run_pytest duplicates pre_gate and gate pytest logic | high | proposed |
-| 207 | Broad except Exception blocks silently swallow errors in 16 locations | medium | proposed |
-| 206 | Dead production modules with zero callers (~1300 lines) | medium | proposed |
+| 216 | Spec review stage — model-mediated architectural review before decomposition | high | implemented |
+| 215 | Scheduler dedup lock is single-process only — no HA support | low | proposed |
+| 211 | No Prometheus metrics endpoint despite spec §7 claiming one | medium | proposed |
+| 210 | No streaming/incremental telemetry — operators have no visibility during long runs | medium | proposed |
+| 209 | No real workload validation — all 39 golden runs use synthetic cert-watch fixtures | high | proposed |
+| 208 | mutation_gate.py _run_pytest duplicates pre_gate and gate pytest logic | high | in_progress |
+| 207 | Broad except Exception blocks silently swallow errors in 16 locations | medium | in_progress |
+| 206 | Dead production modules with zero callers (~1300 lines) | medium | in_progress |
 
 ### RFCs (awaiting upstream phases)
 
@@ -132,6 +137,10 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 216 | Spec review stage — model-mediated architectural review before decomposition | high | `spec_review.py` module + `prompts/spec_review.md` + 28 tests; model-mediated review with confidence-scored findings; Phase B.5 mechanical orphaned-module gate in `decomposer_model.py`; wired into `populate_work_items.py --spec-review`; socratic-spec process.md updated (composition checks blocking, cross-model requirement removed) |
+| 214 | __import__('re') in subprocess_channel.py — code smell | low | Replaced with normal `import re` at top of file |
+| 213 | Substrate private API imports in production code | medium | Replaced `from substrate._errors import` with `from substrate import` in runner.py, heartbeat.py, gate_process.py |
+| 212 | No config schema validation — invalid configs accepted without error | high | Added `FactoryConfig.validate()` checking attempt_threshold, inner_gate_retries, poll_interval_seconds, claim_ttl_seconds, jury_quorum, query_page_size, role-to-type consistency; `from_yaml()` raises ValueError on invalid configs |
 | 200 | subprocess_channel.py leaks full os.environ to model subprocesses | high | Replaced `**os.environ` with `**strip_sensitive_env(os.environ)` in `subprocess_channel.py`, `venv.py`, and `credentials.py`; all model, gate-tool, and venv-management subprocesses now scrub `DATABASE_URL`, `*_API_KEY`, tokens, and password/credential/secret env vars; added 3 regression tests |
 | 196 | Telemetry reads all events for all work items — O(n*m) scaling | medium | Added `_query_work_items_and_events()` cache; updated all four telemetry consumers to accept caches; 4×N → 1×N reduction |
 | 195 | No idempotency keys on substrate mutations — crash-retry creates duplicates | medium | Created `factory.idempotency.make_event_id()`; wired `event_id` into all substrate mutation call sites; added thread-safe cache for UUID stability |

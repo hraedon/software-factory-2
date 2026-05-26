@@ -12,10 +12,8 @@ from typing import ClassVar
 from factory.config import GateTimeouts
 from factory.constants import (
     GATE_NAME_IMPLEMENTATION_IMPORTS,
-    GATE_NAME_IMPLEMENTATION_PYTEST,
     GATE_NAME_IMPLEMENTATION_SYNTAX,
     GATE_NAME_INNER_MYPY,
-    GATE_NAME_INNER_PYTEST,
     GATE_NAME_MUTATION_SPOT_CHECK,
     TEMPFILE_PREFIX_PYTEST,
 )
@@ -62,17 +60,25 @@ def _run_pytest(
     timeout: int | None = None,
     implementation_name: str | None = None,
 ) -> GateResult:
+    """Run pytest for mutation testing. Wraps result with mutation gate name.
+
+    Note: This is a local variant because mutation testing requires the real
+    interface .pyi stub (not a dummy created from implementation content).
+    Delegates to gate._subprocess._run_pytest would lose the interface stub.
+    """
     exe = python_executable or sys.executable
     if timeout is None:
         timeout = GateTimeouts.pytest_timeout
     try:
         with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_PYTEST) as tmpdir:
             impl_content = artifact_path.read_text()
-            # Use the original module name so tests can import it correctly.
             impl_name = implementation_name or artifact_path.name
             impl_copy = Path(tmpdir) / impl_name
             impl_copy.write_text(impl_content)
-            if artifact_path.stem != "interface":
+            if interface_pyi_path is not None and interface_pyi_path.exists():
+                iface_copy = Path(tmpdir) / f"interface{artifact_path.suffix}"
+                iface_copy.write_text(interface_pyi_path.read_text())
+            elif artifact_path.stem != "interface":
                 iface_copy = Path(tmpdir) / f"interface{artifact_path.suffix}"
                 iface_copy.write_text(impl_content)
             test_copy = Path(tmpdir) / test_suite_path.name
@@ -87,26 +93,35 @@ def _run_pytest(
             if result.timed_out:
                 return GateResult(
                     passed=False,
-                    gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
+                    gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
                     diagnostics=[f"pytest timed out after {timeout}s", "timed_out: True"],
                     diagnostic_kind="impl_pytest",
                 )
             if result.returncode != 0:
-                lines = result.stdout.strip().splitlines() + result.stderr.strip().splitlines()
+                if "No module named pytest" in result.stderr:
+                    return GateResult(
+                        passed=False,
+                        gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
+                        diagnostics=["pytest not installed"],
+                        diagnostic_kind="tool_not_found",
+                    )
+                lines = result.stdout.strip().splitlines()
+                err_lines = result.stderr.strip().splitlines()
+                diagnostics = (lines + err_lines)[-3:] or ["pytest reported failures"]
                 return GateResult(
                     passed=False,
-                    gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
-                    diagnostics=lines[:10] or ["pytest reported failures"],
+                    gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
+                    diagnostics=diagnostics,
                     diagnostic_kind="impl_pytest",
                 )
     except Exception as e:
         return GateResult(
             passed=False,
-            gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
+            gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
             diagnostics=[f"pytest invocation failed: {e}"],
             diagnostic_kind="impl_pytest",
         )
-    return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_PYTEST)
+    return GateResult(passed=True, gate_name=GATE_NAME_MUTATION_SPOT_CHECK)
 
 
 @dataclass(frozen=True)
@@ -318,10 +333,7 @@ def evaluate_mutation_spot_check(
             python_executable=exe,
             timeout=timeout,
         )
-        if result.skipped or result.gate_name in (
-            GATE_NAME_INNER_MYPY,
-            GATE_NAME_INNER_PYTEST,
-        ):
+        if result.skipped or result.gate_name == GATE_NAME_INNER_MYPY:
             # Skipped / un-buildable mutants don't count toward the rate
             if result.skipped:
                 skipped_mutants += 1

@@ -2,7 +2,7 @@
 number: "206"
 title: Dead production modules with zero callers (~1300 lines)
 severity: medium
-status: proposed
+status: in_progress
 kind: improvement
 author: adversarial-review
 date: "2026-05-25"
@@ -32,6 +32,10 @@ Additionally, two functions are dead:
 
 These modules were built for planned Phase 6+ features. They have test coverage but no production integration. The `render_decomposer_prompt` function was removed in the current session's adversarial review.
 
-## Proposed fix
+## Partial fix (Session 53)
 
-Either integrate these modules into production paths (per their RFCs) or gate them behind feature flags with `# Phase N: pending integration` markers and tracking breadcrumbs. Remove `render_decomposer_prompt` was already done.
+Added Phase 6 feature-flag docstrings to all five modules (`state_reporter.py`, `bundler.py`, `spec_hash.py`, `prompt_audit.py`, `ops/__init__.py`) documenting RFC number, integration trigger, and BC tracking. This makes the dead-code status discoverable without removing the code.
+
+## Remaining
+
+Either integrate these modules into production paths (per their RFCs) or remove them. The docstring markers are a stopgap — they don't reduce maintenance burden, only make it visible.

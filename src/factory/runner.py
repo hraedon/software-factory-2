@@ -6,8 +6,7 @@ import time
 from pathlib import Path
 
 import structlog
-from substrate import ActorMetadata, Substrate
-from substrate._errors import ErrorCode, SubstrateError
+from substrate import ActorMetadata, ErrorCode, Substrate, SubstrateError
 
 from factory.channel import Channel, ChannelDisabledError
 from factory.config import FactoryConfig, load_config

@@ -576,6 +576,10 @@ def derive_outcome_verifier_context(
                     try:
                         data = json.loads(p.read_text())
                     except Exception:
+                        logging.getLogger("factory.context").warning(
+                            "integration_artifact_parse_failed path=%s", artifact_path,
+                            exc_info=True,
+                        )
                         data = {}
                     assembled_tree = data.get("assembled_tree") or {}
                     for filename, source in assembled_tree.items():

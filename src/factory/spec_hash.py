@@ -1,3 +1,9 @@
+"""Spec mutation detection via SHA-256 tracking.
+
+Phase 6: pending integration (RFC-021). Implemented and tested but not wired
+into production paths. Tracked in BC-206. Integrate when spec mutation
+invalidation policy is needed for real workloads.
+"""
 from __future__ import annotations
 
 import hashlib

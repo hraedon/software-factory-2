@@ -226,6 +226,31 @@ class FactoryConfig:
                 )
         return warnings
 
+    def validate(self) -> list[str]:
+        """Validate config invariants. Returns list of errors (empty = valid)."""
+        errors: list[str] = []
+        if self.attempt_threshold < 1:
+            errors.append(f"attempt_threshold must be >= 1, got {self.attempt_threshold}")
+        if self.inner_gate_retries < 0:
+            errors.append(f"inner_gate_retries must be >= 0, got {self.inner_gate_retries}")
+        if self.poll_interval_seconds <= 0:
+            errors.append(f"poll_interval_seconds must be > 0, got {self.poll_interval_seconds}")
+        if self.claim_ttl_seconds <= 0:
+            errors.append(f"claim_ttl_seconds must be > 0, got {self.claim_ttl_seconds}")
+        if self.jury_quorum < 1:
+            errors.append(f"jury_quorum must be >= 1, got {self.jury_quorum}")
+        if self.query_page_size < 1:
+            errors.append(f"query_page_size must be >= 1, got {self.query_page_size}")
+        # Verify all roles in type_to_role have corresponding RoleConfig entries
+        configured_roles = {rc.role for rc in self.roles}
+        for type_name, role_name in self.type_to_role:
+            if role_name not in configured_roles:
+                errors.append(
+                    f"type_to_role maps {type_name} -> {role_name}, "
+                    f"but {role_name} has no RoleConfig in roles"
+                )
+        return errors
+
     @property
     def scheduler_actor_id(self) -> str:
         return ACTOR_ID_SCHEDULER
@@ -304,6 +329,11 @@ class FactoryConfig:
             import logging
 
             logging.getLogger(__name__).warning(w)
+        validation_errors = cfg.validate()
+        if validation_errors:
+            raise ValueError(
+                "Invalid FactoryConfig:\n" + "\n".join(f"  - {e}" for e in validation_errors)
+            )
         return cfg
 
     @classmethod

@@ -41,7 +41,7 @@ log = structlog.get_logger()
 #
 # Limitation: guards races within a single scheduler process only.  Multi-
 # process deployments would require a distributed lock (e.g. a Postgres
-# advisory lock) — acceptable for Phase 2/3 where a single scheduler runs.
+# advisory lock).  Acceptable for Phase 5 single-scheduler mode.
 # ---------------------------------------------------------------------------
 _dedup_lock_registry: weakref.WeakValueDictionary[tuple, threading.Lock] = (
     weakref.WeakValueDictionary()
@@ -312,7 +312,12 @@ def _downstream_has_field(sub, config: FactoryConfig, work_item_type: str, field
             if wit.name == work_item_type:
                 return any(cf.name == field_name for cf in wit.custom_fields)
     except Exception:
-        pass
+        log.warning(
+            "_downstream_has_field_query_failed",
+            work_item_type=work_item_type,
+            field_name=field_name,
+            exc_info=True,
+        )
     return False
 
 

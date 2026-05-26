@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -28,7 +29,7 @@ _JSON_ARTIFACT_ROLES = frozenset({ROLE_INTEGRATOR, ROLE_OUTCOME_VERIFIER})
 
 log = structlog.get_logger()
 
-_CRED_PATTERN = __import__("re").compile(r"(?:sk-|fk-|zai-|gsk-|pk-|AIza)[A-Za-z0-9_-]+")
+_CRED_PATTERN = re.compile(r"(?:sk-|fk-|zai-|gsk-|pk-|AIza)[A-Za-z0-9_-]+")
 
 
 def _redact_stderr(text: str) -> str:

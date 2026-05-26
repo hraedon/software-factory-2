@@ -59,6 +59,55 @@ _PRIMARY_DSN = "postgresql://substrate_test:substrate_test@localhost:5432/substr
 _KEY_PATH = str(ROOT_DIR / "tests" / "test_keys.json")
 
 
+def _run_spec_review(spec_path: Path, config, args) -> None:
+    """Run model-mediated spec review before decomposition. Exits if low-confidence gaps found."""
+    from factory.spec_review import format_review_output, review_spec
+
+    _cfg = config or FactoryConfig()
+
+    # Build channel from decomposer-channel args (reuse same channel)
+    if args.decomposer_channel:
+        if args.decomposer_channel == "opencode":
+            from factory.opencode_channel import OpenCodeChannel
+
+            channel = OpenCodeChannel(_cfg)
+        elif args.decomposer_channel == "claude-code":
+            from factory.claude_code_channel import ClaudeCodeChannel
+
+            channel = ClaudeCodeChannel(_cfg)
+        elif args.decomposer_channel == "gemini-cli":
+            from factory.gemini_channel import GeminiCLIChannel
+
+            channel = GeminiCLIChannel(_cfg)
+        else:
+            print(f"ERROR: unknown channel {args.decomposer_channel}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # Default to opencode for spec review
+        from factory.opencode_channel import OpenCodeChannel
+
+        channel = OpenCodeChannel(_cfg)
+
+    result = review_spec(
+        channel=channel,
+        config=_cfg,
+        spec_path=spec_path,
+        confidence_threshold=args.spec_review_threshold,
+    )
+
+    output = format_review_output(result)
+    print(output)
+
+    if not result.passed and not args.force:
+        print(
+            f"\nERROR: {len(result.surfaced_findings)} finding(s) below confidence "
+            f"threshold {args.spec_review_threshold}. Answer the questions above or "
+            f"use --force to proceed anyway.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 def _resolve_spec_text(filename: str, label: str) -> str | None:
     if label.startswith("S"):
         path = SECONDARY_DIR / filename
@@ -247,6 +296,22 @@ def main():
         help="Treat lint warnings as errors",
     )
     parser.add_argument(
+        "--spec-review",
+        action="store_true",
+        help="Run model-mediated spec review before decomposition (catches composition gaps)",
+    )
+    parser.add_argument(
+        "--spec-review-threshold",
+        type=float,
+        default=0.7,
+        help="Confidence threshold for spec review findings (default 0.7)",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Proceed despite spec review surfaced findings",
+    )
+    parser.add_argument(
         "--archetype",
         type=str,
         default=None,
@@ -301,6 +366,11 @@ def main():
         )
 
         spec_path = Path(args.spec_yaml)
+
+        # Run spec review if requested
+        if args.spec_review:
+            _run_spec_review(spec_path, config, args)
+
         result = _decompose_yaml(spec_path)
         decomposed_dir = Path(args.workspace_root or "/tmp") / ".decomposed"
         _write_fixtures(result, decomposed_dir)
@@ -316,6 +386,11 @@ def main():
         )
 
         spec_path = Path(args.spec_md)
+
+        # Run spec review if requested
+        if args.spec_review:
+            _run_spec_review(spec_path, config, args)
+
         result = _decompose_md(spec_path)
         decomposed_dir = Path(args.workspace_root or "/tmp") / ".decomposed"
         _write_fixtures(result, decomposed_dir)
@@ -329,6 +404,10 @@ def main():
         ws_root = Path(args.workspace_root or "/tmp")
         ws_root.mkdir(parents=True, exist_ok=True)
         _cfg = config or FactoryConfig()
+
+        # Run spec review if requested
+        if args.spec_review:
+            _run_spec_review(spec_path, config, args)
 
         # Build channel from CLI arguments
         if args.decomposer_channel == "opencode":

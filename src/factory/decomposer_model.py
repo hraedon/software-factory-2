@@ -314,6 +314,36 @@ def _validate_decomposition(data: dict, *, phase_b: bool = True) -> list[Decompo
                 )
             )
 
+    # Gate 6: Phase B.5 — composition (orphaned module detection)
+    # A module is orphaned if no other module lists it in dependency_fr_ids.
+    # Root modules (no dependencies) are not orphaned — they're entry points.
+    # Leaf modules (no dependents) that also have no ACs referencing external
+    # concepts are suspicious but not blocking (they may be standalone utilities).
+    if phase_b:
+        referenced: set[str] = set()
+        for m in modules:
+            for dep in m.get("dependency_fr_ids", []):
+                referenced.add(dep)
+        for m in modules:
+            fr_id = m["fr_id"]
+            has_deps = bool(m.get("dependency_fr_ids"))
+            is_referenced = fr_id in referenced
+            if has_deps and not is_referenced:
+                # Module depends on others but nothing depends on it — orphaned leaf
+                results.append(
+                    DecompositionGateResult(
+                        passed=True,  # warning, not failure
+                        gate_name="composition_check",
+                        diagnostic_kind="orphaned_module",
+                        diagnostic=(
+                            f"Module {fr_id} ({m.get('module_name', '?')}) depends on "
+                            f"{m['dependency_fr_ids']} but no other module depends on it. "
+                            f"If this module has a runtime lifecycle (scheduler, background job), "
+                            f"it may need a wiring AC."
+                        ),
+                    )
+                )
+
     # If no failures so far, one pass result
     if not any(not r.passed for r in results):
         results.append(

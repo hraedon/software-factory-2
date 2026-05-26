@@ -1,3 +1,9 @@
+"""Artifact bundling and output delivery.
+
+Phase 6: pending integration (RFC-019). Implemented and tested but not wired
+into production paths. Tracked in BC-206. Integrate when outcome verification
+requires artifact bundle delivery to principal.
+"""
 from __future__ import annotations
 
 import hashlib

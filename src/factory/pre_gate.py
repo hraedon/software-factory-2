@@ -665,6 +665,7 @@ def _stub_content_to_py(stub_content: str) -> str:
     try:
         return ast.unparse(transformed)
     except Exception:
+        _pre_gate_log.debug("ast_unparse_fallback", exc_info=True)
         return stub_content
 
 
@@ -886,7 +887,11 @@ def _run_import_check(
                 try:
                     artifact_lines = artifact_path.read_text().splitlines()
                 except Exception:
-                    pass
+                    _pre_gate_log.debug(
+                        "artifact_read_failed_for_feedback",
+                        path=str(artifact_path),
+                        exc_info=True,
+                    )
                 available_modules = (
                     [name for name, _ in dependency_pyi_paths] if dependency_pyi_paths else []
                 )

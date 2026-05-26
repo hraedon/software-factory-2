@@ -2,7 +2,7 @@
 number: "207"
 title: Broad except Exception blocks silently swallow errors in 16 locations
 severity: medium
-status: proposed
+status: in_progress
 kind: improvement
 author: adversarial-review
 date: "2026-05-25"
@@ -23,12 +23,24 @@ related: ["201"]
 
 Many of these log a generic message and continue, losing the traceback and original exception type. This makes debugging failures significantly harder.
 
-## Proposed fix
+## Partial fix (Session 53)
 
-At minimum, replace all instances with:
-```python
-except Exception as exc:
-    log.exception("descriptive_event_name", detail=...)
-```
+Added structured logging to the most critical silent-swallowing locations:
 
-This preserves the `continue` behavior but adds full traceback visibility. For scheduler and integration gate blocks (highest risk), consider narrower exception types.
+1. `scheduler.py:314` — `_downstream_has_field()`: bare `except Exception: pass` → now logs warning with exc_info
+2. `pre_gate.py:667` — `ast.unparse()` fallback → now logs debug with exc_info
+3. `pre_gate.py:888` — artifact read for feedback → now logs debug with exc_info
+4. `context.py:578` — integration artifact JSON parse → now logs warning with exc_info
+5. `gate/review.py:22` — review artifact file read → now logs debug with exc_info
+
+The following locations already logged properly and needed no change:
+- `scheduler.py:118,127` (log.exception), `scheduler.py:299` (log.warning with exc_info=True)
+- `runner.py:282` (log.exception)
+- `jury_orchestrator.py:125` (log.exception)
+- `heartbeat.py:82` (log.exception)
+- `context.py:351` (logging.warning)
+- `jury.py:150` (log.exception)
+
+## Remaining
+
+~8 locations in `state_reporter.py` (dead module), `gate/integration.py`, and `gate/_subprocess.py` still use broad exception handling. The gate subprocess locations are acceptable (they return GateResult with the error message). The state_reporter locations are in dead code (BC-206).

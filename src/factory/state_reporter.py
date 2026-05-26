@@ -1,3 +1,9 @@
+"""Pipeline state snapshot reporter.
+
+Phase 6: pending integration (RFC-018). Implemented and tested but not wired
+into production paths. Tracked in BC-206. Integrate when first real workload
+requires live state reporting.
+"""
 from __future__ import annotations
 
 import argparse

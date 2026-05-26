@@ -2,7 +2,7 @@
 number: "208"
 title: "mutation_gate.py _run_pytest duplicates pre_gate and gate pytest logic"
 severity: high
-status: proposed
+status: in_progress
 kind: improvement
 author: adversarial-review
 date: "2026-05-25"
@@ -29,6 +29,16 @@ The mutation_gate copy diverges from the other two in several ways:
 
 Additionally, `mutation_gate.evaluate_mutation_spot_check` had a hardcoded `timeout: int = 300` default that bypassed `GateTimeouts.pytest_timeout`. This was fixed in Session 52.
 
-## Proposed fix
+## Partial fix (Session 53)
 
-Extract a shared pytest runner into `gate/_subprocess.py` that all three callers use, with the same diagnostic truncation strategy, dependency handling, and timeout source. Alternatively, have `mutation_gate._run_pytest` delegate to `gate._subprocess._run_pytest` (the outer gate version) since it already handles all the edge cases.
+1. **Telemetry corruption fixed**: `_run_pytest` in mutation_gate.py now returns `GATE_NAME_MUTATION_SPOT_CHECK` instead of `GATE_NAME_IMPLEMENTATION_PYTEST`. This ensures mutation test failures are correctly categorized in telemetry.
+2. **Gate name check fixed**: `evaluate_mutation_spot_check` now checks for `GATE_NAME_MUTATION_SPOT_CHECK` instead of `GATE_NAME_INNER_PYTEST` when filtering ineligible results.
+3. **"pytest not installed" check added**: mutation_gate's `_run_pytest` now handles "No module named pytest" with `tool_not_found` diagnostic_kind.
+4. **Diagnostic truncation aligned**: Changed from `lines[:10]` to `(lines + err_lines)[-3:]` matching pre_gate's strategy.
+5. **Real interface stub handling**: Added logic to copy the real interface .pyi stub when `interface_pyi_path` is provided, instead of always creating a dummy from implementation content.
+6. **Unused imports removed**: `GATE_NAME_IMPLEMENTATION_PYTEST` and `GATE_NAME_INNER_PYTEST` no longer imported.
+7. **Gate name filter bug fixed**: `evaluate_mutation_spot_check` had a gate name check that included `GATE_NAME_MUTATION_SPOT_CHECK`, which caused ALL pytest results to be filtered as ineligible (the check was meant to filter inner-gate failures only). Fixed to check only `GATE_NAME_INNER_MYPY`.
+
+## Remaining
+
+The three-way duplication still exists. Full unification would extract a shared pytest runner in `gate/_subprocess.py` that all callers delegate to. The mutation_gate variant is intentionally different (uses real interface .pyi, not dummy), so full unification requires the shared function to accept an optional `interface_pyi_path` parameter.

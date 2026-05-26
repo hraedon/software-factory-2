@@ -1,3 +1,9 @@
+"""Prompt conflict detection and directive gap analysis.
+
+Phase 6: pending integration (RFC-001). Implemented and tested but not wired
+into production paths. Tracked in BC-206. Integrate when prompt template
+management requires automated conflict detection.
+"""
 from __future__ import annotations
 
 import re

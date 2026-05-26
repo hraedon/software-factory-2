@@ -24,7 +24,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 import structlog
-from substrate._errors import ErrorCode, SubstrateError
+from substrate import ErrorCode, SubstrateError
 
 if TYPE_CHECKING:
     from substrate import Substrate

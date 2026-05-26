@@ -20,6 +20,11 @@ def _extract_json_vote(path: Path) -> dict:
     try:
         text = path.read_text()
     except Exception:
+        import logging
+
+        logging.getLogger("factory.gate.review").debug(
+            "review_artifact_read_failed", path=str(path), exc_info=True
+        )
         return {}
     extracted = extract_json_from_output(text)
     if extracted is None:
