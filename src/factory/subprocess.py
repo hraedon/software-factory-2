@@ -7,7 +7,7 @@ of bug (cwd inherited from caller) and the BC-059 class (no timeout) into
 compile-time-equivalent errors rather than runtime surprises discovered in golden
 run logs.
 
-BC-194: callers that hold a substrate claim while a subprocess runs may pass a
+BC-194: callers that hold a regista claim while a subprocess runs may pass a
 ``cancel_event``. When set (by a HeartbeatSession on detected claim theft) the
 running subprocess is sent SIGTERM (then SIGKILL after a short grace period) and
 the result is returned with ``cancelled=True``.
@@ -79,7 +79,7 @@ def run(
         proc = subprocess.Popen(
             cmd,
             cwd=cwd,
-            env=env if env else None,
+            env=env if env is not None else None,
             stdin=stdin_pipe,
             stdout=stdout_pipe,
             stderr=stderr_pipe,
@@ -103,41 +103,45 @@ def run(
     out_bytes = b""
     err_bytes = b""
 
-    if cancel_event is None:
-        try:
-            out_bytes, err_bytes = proc.communicate(input=stdin_bytes, timeout=timeout_s)
-        except subprocess.TimeoutExpired:
-            timed_out = True
-    else:
-        first_wait = min(_CANCEL_POLL_INTERVAL, timeout_s)
-        try:
-            out_bytes, err_bytes = proc.communicate(input=stdin_bytes, timeout=first_wait)
-        except subprocess.TimeoutExpired:
-            while True:
-                if cancel_event.is_set():
-                    cancelled = True
-                    break
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    timed_out = True
-                    break
-                wait_chunk = min(_CANCEL_POLL_INTERVAL, remaining)
-                try:
-                    out_bytes, err_bytes = proc.communicate(timeout=wait_chunk)
-                    break
-                except subprocess.TimeoutExpired:
-                    continue
+    try:
+        if cancel_event is None:
+            try:
+                out_bytes, err_bytes = proc.communicate(input=stdin_bytes, timeout=timeout_s)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+        else:
+            first_wait = min(_CANCEL_POLL_INTERVAL, timeout_s)
+            try:
+                out_bytes, err_bytes = proc.communicate(input=stdin_bytes, timeout=first_wait)
+            except subprocess.TimeoutExpired:
+                while True:
+                    if cancel_event.is_set():
+                        cancelled = True
+                        break
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        timed_out = True
+                        break
+                    wait_chunk = min(_CANCEL_POLL_INTERVAL, remaining)
+                    try:
+                        out_bytes, err_bytes = proc.communicate(timeout=wait_chunk)
+                        break
+                    except subprocess.TimeoutExpired:
+                        continue
 
-    if cancelled or timed_out:
-        _terminate(proc)
-        try:
-            tail_out, tail_err = proc.communicate(timeout=_TERM_GRACE_SECONDS)
-            if tail_out:
-                out_bytes = (out_bytes or b"") + tail_out
-            if tail_err:
-                err_bytes = (err_bytes or b"") + tail_err
-        except subprocess.TimeoutExpired:
-            pass
+        if cancelled or timed_out:
+            _terminate(proc)
+            try:
+                tail_out, tail_err = proc.communicate(timeout=_TERM_GRACE_SECONDS)
+                if tail_out:
+                    out_bytes = (out_bytes or b"") + tail_out
+                if tail_err:
+                    err_bytes = (err_bytes or b"") + tail_err
+            except subprocess.TimeoutExpired:
+                pass
+    finally:
+        if proc.poll() is None:
+            _terminate(proc)
 
     duration = time.monotonic() - t0
     if capture:

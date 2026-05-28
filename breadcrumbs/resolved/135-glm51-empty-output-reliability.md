@@ -31,7 +31,7 @@ Transient z.ai provider issue. Reproducibility investigation (May 14) showed:
 
 ## Mitigations implemented
 
-1. **Empty-output retry** (`subprocess_channel.py`): Configurable retry on empty stdout (default: 1 retry, 3s delay). Handles transient provider issues without substrate round-trip overhead. `FactoryConfig.empty_output_retries` and `empty_output_retry_delay_seconds` control behavior.
+1. **Empty-output retry** (`subprocess_channel.py`): Configurable retry on empty stdout (default: 1 retry, 3s delay). Handles transient provider issues without regista round-trip overhead. `FactoryConfig.empty_output_retries` and `empty_output_retry_delay_seconds` control behavior.
 
 2. **Stderr diagnostic capture** (`subprocess_channel.py`): On empty output, stderr is saved to `raw_stderr.txt` and included (up to 500 chars) in the `InvocationResult.error_message`. Previously stderr was silently discarded, making root cause analysis impossible.
 
@@ -44,4 +44,4 @@ Transient z.ai provider issue. Reproducibility investigation (May 14) showed:
 - Multi-family jury with quorum=2 is structurally validated but unreliable with glm-5.1 as a juror
 - Isolated role validation shows glm-5.1 works for interface_architect and test_author but not implementer
 - The `model_override` infrastructure and unique juror key system work correctly; this is a model reliability issue, not a pipeline bug
-- With the retry mitigation, transient z.ai issues will be absorbed without substrate overhead
+- With the retry mitigation, transient z.ai issues will be absorbed without regista overhead

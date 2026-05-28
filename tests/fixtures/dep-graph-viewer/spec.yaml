@@ -7,11 +7,11 @@ meta:
 
 glossary:
   - term: "work item"
-    definition: "A unit of work in the substrate workflow engine. Has a type, state, id, and custom fields. Represented as a node in the dependency graph."
+    definition: "A unit of work in the regista workflow engine. Has a type, state, id, and custom fields. Represented as a node in the dependency graph."
   - term: "event log"
-    definition: "The append-only table of substrate events. Each event describes a state transition, link creation, or custom field update. The primary data source for the viewer."
+    definition: "The append-only table of regista events. Each event describes a state transition, link creation, or custom field update. The primary data source for the viewer."
   - term: "link"
-    definition: "A typed, directed edge between two work items in substrate. Link types include 'depends_on', 'derived_from', 'tested_by', etc."
+    definition: "A typed, directed edge between two work items in regista. Link types include 'depends_on', 'derived_from', 'tested_by', etc."
   - term: "DOT graph"
     definition: "A plain-text graph description language consumed by Graphviz. Nodes and edges are declared with attributes for labels, colors, and shapes."
   - term: "run"
@@ -19,7 +19,7 @@ glossary:
 
 scope:
   in_scope:
-    - Connecting to a substrate PostgreSQL database
+    - Connecting to a regista PostgreSQL database
     - Querying the event log for a specified project
     - Building an in-memory graph of work items and their links
     - Rendering the graph as valid DOT output
@@ -36,12 +36,12 @@ scope:
     - Web UI or HTTP server mode
 
 mvp:
-  description: "A CLI tool that reads a substrate event log for a given project, builds a dependency graph of work items, and emits a DOT file suitable for Graphviz rendering."
+  description: "A CLI tool that reads a regista event log for a given project, builds a dependency graph of work items, and emits a DOT file suitable for Graphviz rendering."
   fr_ids: ["FR-01", "FR-02", "FR-03", "FR-04"]
   rationale: "All FRs are required for a complete tool. Skipping the reader means no data; skipping the graph builder means no structure; skipping the DOT emitter means no output."
   architectural_prerequisites:
     - fr_id: "FR-01"
-      requires: "PostgreSQL connection via substrate DSN"
+      requires: "PostgreSQL connection via regista DSN"
       resolution: "invisible_infrastructure"
     - fr_id: "FR-04"
       requires: "Valid DOT syntax generation"
@@ -50,7 +50,7 @@ mvp:
 functional_requirements:
   - id: "FR-01"
     mvp: true
-    text: "Given a PostgreSQL DSN and a project name, the system connects to the substrate database and reads the event log for that project. Connection failures produce a structured error."
+    text: "Given a PostgreSQL DSN and a project name, the system connects to the regista database and reads the event log for that project. Connection failures produce a structured error."
   - id: "FR-02"
     mvp: true
     text: "Given an event log stream, the system reconstructs all work items (nodes) and their typed links (edges) for the project. Nodes are identified by work-item id and labeled by module name from custom fields."
@@ -63,10 +63,10 @@ functional_requirements:
 
 data:
   inputs:
-    - name: "substrate event log"
-      format: "PostgreSQL table (substrate.events)"
+    - name: "regista event log"
+      format: "PostgreSQL table (regista.events)"
       source: "Local or remote PostgreSQL instance via --dsn"
-      validation: "DSN must connect successfully; project must exist in substrate.projects"
+      validation: "DSN must connect successfully; project must exist in regista.projects"
   outputs:
     - name: "DOT graph"
       format: "Graphviz DOT plain text"
@@ -94,7 +94,7 @@ failure_modes:
     response: "Exit code 2; connection error to stderr"
     notification: "stderr"
   - failure: "Project not found"
-    trigger: "The --project name does not exist in substrate"
+    trigger: "The --project name does not exist in regista"
     response: "Exit code 2; 'Project not found' to stderr"
     notification: "stderr"
   - failure: "Empty event log"
@@ -108,7 +108,7 @@ failure_modes:
 
 nfr:
   performance: "Render a graph of 500 nodes/1000 edges in under 5 seconds — derived from: 'must be usable interactively for a typical sf2 golden run'"
-  reliability: "Read-only access to substrate; no mutations are performed — derived from: 'must be safe to run against production substrate'"
+  reliability: "Read-only access to regista; no mutations are performed — derived from: 'must be safe to run against production regista'"
   operability: "Single binary, no daemon, no config file — derived from: 'must run ad-hoc from any machine with psycopg2 installed'"
 
 high_coupling_decisions:
@@ -120,7 +120,7 @@ high_coupling_decisions:
     notes: "Theming is out of scope. The four colors convey state at a glance."
   - decision: "Edge styles are fixed per link type; no custom styling"
     status: "decided"
-    notes: "Link types are controlled by substrate workflows. The viewer maps known types to styles and defaults to solid for unknown types."
+    notes: "Link types are controlled by regista workflows. The viewer maps known types to styles and defaults to solid for unknown types."
 
 acceptance_criteria:
   - id: "AC-DGV-01"
@@ -179,8 +179,8 @@ work_decomposition:
       parallel_with: []
 
 assumptions:
-  - assumption: "The substrate database schema is compatible with sf2's current substrate version"
-    rationale: "The tool dogfoods substrate. Schema drift is handled by pinning to the same substrate version sf2 uses."
+  - assumption: "The regista database schema is compatible with sf2's current regista version"
+    rationale: "The tool dogfoods regista. Schema drift is handled by pinning to the same regista version sf2 uses."
   - assumption: "psycopg2 is available in the Python environment"
     rationale: "PostgreSQL driver is a soft dependency. If absent, the tool fails at import time with a clear message."
   - assumption: "Graphviz is available on the host for rendering"
@@ -190,23 +190,23 @@ handoff:
   decisions_made:
     - decision: "Node labels prefer module_name over work-item id"
       rationale: "module_name is the human-readable name assigned by sf2. UUIDs are opaque."
-    - decision: "The tool is read-only and never mutates substrate state"
-      rationale: "Safety. It can run against production substrate without risk."
+    - decision: "The tool is read-only and never mutates regista state"
+      rationale: "Safety. It can run against production regista without risk."
     - decision: "Color palette is fixed (green/yellow/gray/red)"
       rationale: "The four colors map to the four most common states. Unknown states default to gray."
     - decision: "DOT output is always directed (digraph)"
-      rationale: "Substrate links are directed. An undirected graph would be incorrect."
+      rationale: "Regista links are directed. An undirected graph would be incorrect."
   intent_signals:
-    - signal: "Must be safe to run against production substrate"
+    - signal: "Must be safe to run against production regista"
       relevance: "Drives the read-only design. No writes, no transactions that could lock tables."
     - signal: "Must be usable from any machine with PostgreSQL access"
       relevance: "Drives the single-binary, no-config-file design. All parameters are CLI flags."
-    - signal: "Must render the same shape as the substrate web UI"
+    - signal: "Must render the same shape as the regista web UI"
       relevance: "Drives the AC for correctness: the DOT graph should represent the same dependency structure the web UI shows."
 
 delta_to_next_level:
   - gap: "No real-time event subscription or live update"
-    what_would_close_it: "Add a --watch mode that polls substrate at an interval and re-emits DOT"
+    what_would_close_it: "Add a --watch mode that polls regista at an interval and re-emits DOT"
   - gap: "No filtering by custom field values or state"
     what_would_close_it: "Add --filter-state and --filter-custom-field CLI flags"
   - gap: "No support for grouping nodes by initiative or family"

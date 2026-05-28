@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MCP server: read-only access to the substrate PostgreSQL event log.
+"""MCP server: read-only access to the regista PostgreSQL event log.
 
 Exposes three tools:
   list_golden_runs   — enumerate sf2_golden_* schemas with work-item counts
@@ -195,7 +195,7 @@ TOOLS = [
     {
         "name": "list_golden_runs",
         "description": (
-            "List all sf2 golden-run schemas in the substrate database with "
+            "List all sf2 golden-run schemas in the regista database with "
             "work-item counts and state breakdown (locked / cannot_proceed / new). "
             "Use this first to discover available run names."
         ),
@@ -275,7 +275,7 @@ def main() -> None:
                 "result": {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "substrate-eventlog", "version": "1.0.0"},
+                    "serverInfo": {"name": "regista-eventlog", "version": "1.0.0"},
                 },
             })
 

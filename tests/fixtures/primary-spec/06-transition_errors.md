@@ -1,7 +1,7 @@
 # transition — Error Taxonomy
 
 ## Source
-substrate spec §5, FR-11, FR-12, §8 error table
+regista spec §5, FR-11, FR-12, §8 error table
 
 ## Spec excerpt
 

@@ -47,9 +47,9 @@ class ReviewReport:
 
 
 def generate_review_report(config: FactoryConfig) -> ReviewReport:
-    from substrate import Substrate
+    from regista import Regista
 
-    sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
+    sub = Regista(config.dsn, config.project_name, config.hmac_key_path)
     try:
         work_items = sub.query_work_items(
             workflow_name=config.workflow_name,
@@ -89,7 +89,11 @@ def generate_review_report(config: FactoryConfig) -> ReviewReport:
         )
 
         if state == STATE_CANNOT_PROCEED:
-            reason = custom.get("cannot_proceed_reason", UNKNOWN_FALLBACK)
+            diag = custom.get("diagnostics", {})
+            if isinstance(diag, dict):
+                reason = str(diag.get("rationale", diag.get("reason", UNKNOWN_FALLBACK)))
+            else:
+                reason = str(diag) if diag else UNKNOWN_FALLBACK
             cp_details.append(
                 CannotProceedDetail(
                     module_name=module_name,

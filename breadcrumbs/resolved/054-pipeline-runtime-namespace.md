@@ -14,7 +14,7 @@ related: []
 
 v1's BC-361: live Python objects (`ObserverBus`, `PipelineContext`) were stored in the `state` dict under `_`-prefixed keys, stripped before YAML serialization by naming convention. This implicit separation meant any code iterating `state.items()` encountered live objects unexpectedly, and the convention was uncontracted.
 
-Current v2 state: the runner passes `config`, `channel`, `sub` (Substrate handle), and `spec_content` as function parameters through `process_work_item`, `_handle_invoke_failure`, `_resume_and_submit`, etc. This works for Phase 2 single-channel mode but is already showing strain — `_resume_and_submit` takes 8 positional+keyword args, `process_work_item` takes 10. Each new concern (failure summaries, telemetry reporters, observer hooks) will either bloat the parameter list or get smuggled into some state-carrying structure.
+Current v2 state: the runner passes `config`, `channel`, `sub` (Regista handle), and `spec_content` as function parameters through `process_work_item`, `_handle_invoke_failure`, `_resume_and_submit`, etc. This works for Phase 2 single-channel mode but is already showing strain — `_resume_and_submit` takes 8 positional+keyword args, `process_work_item` takes 10. Each new concern (failure summaries, telemetry reporters, observer hooks) will either bloat the parameter list or get smuggled into some state-carrying structure.
 
 v1's lesson: separate serializable state from runtime live-object context *at the type level* from day one. v2 does not yet have this.
 

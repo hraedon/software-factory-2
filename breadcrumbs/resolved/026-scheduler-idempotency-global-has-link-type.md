@@ -18,6 +18,6 @@ resolution: per-source-custom-fields-ref-check
 
 Replaced the global `has_link_type` query with a per-source check: query all downstream items of the target type, then check if any has a `custom_fields` ref (e.g., `interface_ref`, `test_suite_ref`) matching the source work item ID. O(n) but correct for Phase 2's single-channel sequential mode.
 
-Note: A cleaner solution would use a substrate `query_links(to_work_item_id=X, link_type=Y)` API, which does not yet exist.
+Note: A cleaner solution would use a regista `query_links(to_work_item_id=X, link_type=Y)` API, which does not yet exist.
 
 Tests in `test_scheduler_idempotency.py`.

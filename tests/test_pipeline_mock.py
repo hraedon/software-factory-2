@@ -58,18 +58,18 @@ class CannotProceedChannel:
         return InvocationResult(success=False, artifact_name=None, error_message="cannot_proceed")
 
 
-class TestMockSubstrateFullPipeline:
-    def test_new_to_locked(self, mock_substrate, workspace_root):
-        wi, _ = mock_substrate.create_work_item(
+class TestMockRegistaFullPipeline:
+    def test_new_to_locked(self, mock_regista, workspace_root):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Test spec", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
+        mock_regista.register_actor_role("test-worker", "interface_architect")
 
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -79,7 +79,7 @@ class TestMockSubstrateFullPipeline:
         config = FactoryConfig(workspace_root=workspace_root)
         channel = FakeChannel(ac_ids=["AC-01"])
         runtime = PipelineRuntime(
-            sub=mock_substrate, config=config, spec_content="Test spec", channel=channel
+            sub=mock_regista, config=config, spec_content="Test spec", channel=channel
         )
         process_work_item(
             runtime,
@@ -89,20 +89,20 @@ class TestMockSubstrateFullPipeline:
             "interface_architect",
         )
 
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "gating"
 
-        mock_substrate.register_actor_role("test-gate", "mechanical_gate")
-        gate_claim = mock_substrate.acquire_claim(wi.work_item_id, "test-gate")
-        fresh = mock_substrate.get_work_item(wi.work_item_id)
-        gate_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        mock_regista.register_actor_role("test-gate", "mechanical_gate")
+        gate_claim = mock_regista.acquire_claim(wi.work_item_id, "test-gate")
+        fresh = mock_regista.get_work_item(wi.work_item_id)
+        gate_runtime = PipelineRuntime(sub=mock_regista, config=config)
         process_gate_item(gate_runtime, fresh, "test-gate", gate_claim)
 
-        final = mock_substrate.get_work_item(wi.work_item_id)
+        final = mock_regista.get_work_item(wi.work_item_id)
         assert final.current_state == "locked"
 
-    def test_gate_fail_returns_to_new(self, mock_substrate, workspace_root, tmp_path):
-        wi, _ = mock_substrate.create_work_item(
+    def test_gate_fail_returns_to_new(self, mock_regista, workspace_root, tmp_path):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -111,14 +111,14 @@ class TestMockSubstrateFullPipeline:
         artifact_path = tmp_path / "partial.pyi"
         artifact_path.write_text('"""Satisfies AC-01."""\ndef foo() -> int: ...\n')
 
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "submit",
             "test-worker",
@@ -126,27 +126,27 @@ class TestMockSubstrateFullPipeline:
             custom_fields={"artifact_path": str(artifact_path), "artifact_hash": "abc"},
         )
 
-        mock_substrate.register_actor_role("test-gate", "mechanical_gate")
-        gate_claim = mock_substrate.acquire_claim(wi.work_item_id, "test-gate")
-        fresh = mock_substrate.get_work_item(wi.work_item_id)
+        mock_regista.register_actor_role("test-gate", "mechanical_gate")
+        gate_claim = mock_regista.acquire_claim(wi.work_item_id, "test-gate")
+        fresh = mock_regista.get_work_item(wi.work_item_id)
 
         config = FactoryConfig(workspace_root=workspace_root)
-        gate_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        gate_runtime = PipelineRuntime(sub=mock_regista, config=config)
         process_gate_item(gate_runtime, fresh, "test-gate", gate_claim)
 
-        final = mock_substrate.get_work_item(wi.work_item_id)
+        final = mock_regista.get_work_item(wi.work_item_id)
         assert final.current_state == "new"
 
-    def test_cannot_proceed_terminates(self, mock_substrate, workspace_root):
-        wi, _ = mock_substrate.create_work_item(
+    def test_cannot_proceed_terminates(self, mock_regista, workspace_root):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Ambiguous", "ac_ids": ["AC-99"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -156,7 +156,7 @@ class TestMockSubstrateFullPipeline:
         config = FactoryConfig(workspace_root=workspace_root)
         channel = CannotProceedChannel()
         runtime = PipelineRuntime(
-            sub=mock_substrate, config=config, spec_content="Ambiguous", channel=channel
+            sub=mock_regista, config=config, spec_content="Ambiguous", channel=channel
         )
         process_work_item(
             runtime,
@@ -166,18 +166,18 @@ class TestMockSubstrateFullPipeline:
             "interface_architect",
         )
 
-        final = mock_substrate.get_work_item(wi.work_item_id)
+        final = mock_regista.get_work_item(wi.work_item_id)
         assert final.current_state == "cannot_proceed"
 
-    def test_derive_context_with_mock(self, mock_substrate):
-        wi, _ = mock_substrate.create_work_item(
+    def test_derive_context_with_mock(self, mock_regista):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Parse range", "ac_ids": ["AC-01", "AC-02"]},
         )
         ctx = derive_context(
-            mock_substrate,
+            mock_regista,
             wi.work_item_id,
             "interface_architect",
             spec_content="Parse range",
@@ -188,21 +188,21 @@ class TestMockSubstrateFullPipeline:
         assert "Parse range" in prompt
         assert "AC-01" in prompt
 
-    def test_context_determinism(self, mock_substrate):
-        wi, _ = mock_substrate.create_work_item(
+    def test_context_determinism(self, mock_regista):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Same content", "ac_ids": ["AC-01"]},
         )
         ctx1 = derive_context(
-            mock_substrate,
+            mock_regista,
             wi.work_item_id,
             "interface_architect",
             spec_content="Same content",
         )
         ctx2 = derive_context(
-            mock_substrate,
+            mock_regista,
             wi.work_item_id,
             "interface_architect",
             spec_content="Same content",

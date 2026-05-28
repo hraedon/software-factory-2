@@ -102,7 +102,7 @@ Each of these is a thing v1 did. Don't repeat:
 4. `tests/test_spec_lint.py` — one test per *implemented* check function (1, 2, 3, 5, 6, 7 — check #4 is deferred), against small inline spec fixtures. Plus an end-to-end test against the cert-watch spec set.
 5. `AGENTS.md` — one paragraph documenting lint behavior and the escape hatch.
 
-No changes to `runner.py`, `gate.py`, `pre_gate.py`, prompts, or substrate.
+No changes to `runner.py`, `gate.py`, `pre_gate.py`, prompts, or regista.
 
 ## Phase placement
 

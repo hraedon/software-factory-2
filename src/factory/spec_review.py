@@ -7,6 +7,7 @@ inferred answer and confidence score; findings above the confidence threshold
 are auto-resolved and recorded, while low-confidence findings are surfaced to
 the principal.
 """
+
 from __future__ import annotations
 
 import json
@@ -18,6 +19,7 @@ import structlog
 
 from factory.channel import Channel
 from factory.config import FactoryConfig
+from factory.constants import ROLE_INTERFACE_ARCHITECT
 
 log = structlog.get_logger()
 
@@ -128,7 +130,7 @@ def _parse_review_json(raw_text: str) -> list[dict]:
                     return obj
                 if isinstance(obj, dict) and "findings" in obj:
                     return obj["findings"]
-                idx += end
+                idx = end
                 continue
             except json.JSONDecodeError:
                 pass
@@ -178,7 +180,7 @@ def review_spec(
         outputs_dir = Path(tmpdir)
         log.info("spec_review.invoke", spec=str(spec_path), channel=channel.name)
         result = channel.invoke(
-            role="interface_architect",
+            role=ROLE_INTERFACE_ARCHITECT,
             prompt=prompt,
             outputs_dir=outputs_dir,
             timeout=120,

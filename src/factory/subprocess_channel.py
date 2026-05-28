@@ -16,11 +16,13 @@ from factory.constants import (
     ARTIFACT_FILENAME_CANNOT_PROCEED,
     ARTIFACT_FILENAME_RAW_STDERR,
     ARTIFACT_FILENAME_RAW_STDOUT,
+    FAMILY_BY_PROVIDER,
     MAX_ARTIFACT_SIZE_BYTES,
     ROLE_INTEGRATOR,
     ROLE_INTERFACE_ARCHITECT,
     ROLE_OUTCOME_VERIFIER,
 )
+from factory.credentials import CREDENTIAL_KEY_PREFIXES
 from factory.output_extraction import extract_artifact_from_output, extract_json_from_output
 from factory.sandbox import strip_sensitive_env
 from factory.subprocess import run as run_subprocess
@@ -29,7 +31,9 @@ _JSON_ARTIFACT_ROLES = frozenset({ROLE_INTEGRATOR, ROLE_OUTCOME_VERIFIER})
 
 log = structlog.get_logger()
 
-_CRED_PATTERN = re.compile(r"(?:sk-|fk-|zai-|gsk-|pk-|AIza)[A-Za-z0-9_-]+")
+_CRED_PATTERN = re.compile(
+    r"(?:" + "|".join(re.escape(p) for p in CREDENTIAL_KEY_PREFIXES) + r")[A-Za-z0-9_.-]+"
+)
 
 
 def _redact_stderr(text: str) -> str:
@@ -86,8 +90,6 @@ class SubprocessChannel:
             cmd.extend(["--model", model])
 
         if model_override:
-            from factory.constants import FAMILY_BY_PROVIDER
-
             prefix = model_override.split("/")[0]
             invocation_family = FAMILY_BY_PROVIDER.get(prefix, prefix)
         else:
@@ -151,11 +153,12 @@ class SubprocessChannel:
                 )
 
             output_text = result.stdout
-            if len(output_text.encode("utf-8")) > MAX_ARTIFACT_SIZE_BYTES:
+            output_bytes = output_text.encode("utf-8")
+            if len(output_bytes) > MAX_ARTIFACT_SIZE_BYTES:
                 return InvocationResult(
                     success=False,
                     error_message=(
-                        f"Channel output size ({len(output_text.encode('utf-8'))} bytes) "
+                        f"Channel output size ({len(output_bytes)} bytes) "
                         f"exceeds limit {MAX_ARTIFACT_SIZE_BYTES} bytes"
                     ),
                     exit_code=result.returncode,

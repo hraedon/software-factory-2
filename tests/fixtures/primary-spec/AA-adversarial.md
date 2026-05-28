@@ -1,7 +1,7 @@
 # Adversarial Item: Ambiguous Result Handling
 
 ## Source
-Hand-authored (not from substrate spec — intentionally ambiguous)
+Hand-authored (not from regista spec — intentionally ambiguous)
 
 ## Spec excerpt
 

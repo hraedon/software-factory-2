@@ -14,7 +14,7 @@ related: ["068"]
 
 The pre-BC-068 `_gate_md()` test helper in `test_telemetry.py` attached a `payload={"diagnostics": {...}}` dict to every gate event, including gate_pass events. In real `gate_process.py`, gate_pass transitions carry **no payload** — only `actor_metadata`. This made the telemetry bug invisible: the synthetic event shape always had `gate_name` in the payload, so the collector never hit the `"unknown"` fallback path that real events produced.
 
-BC-068 fixed `_gate_md()` to match production (pass events now carry `None` payload, `gate_name` lives in `actor_metadata`). But the pattern is worth flagging: test helpers that fabricate substrate event shapes should mirror the real event shapes that `gate_process.py` emits, not shapes that are convenient for the collector.
+BC-068 fixed `_gate_md()` to match production (pass events now carry `None` payload, `gate_name` lives in `actor_metadata`). But the pattern is worth flagging: test helpers that fabricate regista event shapes should mirror the real event shapes that `gate_process.py` emits, not shapes that are convenient for the collector.
 
 ## Impact
 
@@ -23,4 +23,4 @@ BC-068 fixed `_gate_md()` to match production (pass events now carry `None` payl
 
 ## Proposed improvement
 
-Consider a `replay_from_real_events` integration test pattern: extract a small golden-run event subset from substrate (or the golden-run fixtures) and assert that `collect_gate_attempts()` produces no `"unknown"` gate names and expected pass rates. This would close the shape-drift gap between synthetic tests and real event streams.
+Consider a `replay_from_real_events` integration test pattern: extract a small golden-run event subset from regista (or the golden-run fixtures) and assert that `collect_gate_attempts()` produces no `"unknown"` gate names and expected pass rates. This would close the shape-drift gap between synthetic tests and real event streams.

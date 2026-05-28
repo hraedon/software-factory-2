@@ -1,7 +1,7 @@
 # acquire_claim — Error Taxonomy
 
 ## Source
-substrate spec §5, FR-06, §8 error table
+regista spec §5, FR-06, §8 error table
 
 ## Spec excerpt
 

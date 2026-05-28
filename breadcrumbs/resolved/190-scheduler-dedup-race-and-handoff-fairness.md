@@ -23,8 +23,8 @@ Additionally, `_poll_handoffs` (same file, the handoff loop) iterates `config.st
 
 ## Proposed fix
 
-1. **Dedup lock.** Acquire a substrate claim keyed by `(handoff_id, source_id)` before the existence check, or rely on a unique constraint on `(downstream_type, ref_field, source_id)` enforced at create time. Substrate's `acquire_claim` semantics fit; alternatively a SQL `INSERT ... ON CONFLICT DO NOTHING` if we expose it.
-2. **Indexed lookup.** Maintain an explicit `(source_id, downstream_type) → downstream_id` index (substrate custom field or sidecar table) so the existence check is O(1) instead of O(N).
+1. **Dedup lock.** Acquire a regista claim keyed by `(handoff_id, source_id)` before the existence check, or rely on a unique constraint on `(downstream_type, ref_field, source_id)` enforced at create time. Regista's `acquire_claim` semantics fit; alternatively a SQL `INSERT ... ON CONFLICT DO NOTHING` if we expose it.
+2. **Indexed lookup.** Maintain an explicit `(source_id, downstream_type) → downstream_id` index (regista custom field or sidecar table) so the existence check is O(1) instead of O(N).
 3. **Fairness.** Randomize `stage_topology` iteration order each poll cycle, or maintain a per-handoff `last_polled_at` and visit oldest-first.
 
 (1) is the correctness fix and must land before Phase 3 widens the channel pool. (2) and (3) are performance/operational.
@@ -37,13 +37,13 @@ Additionally, `_poll_handoffs` (same file, the handoff loop) iterates `config.st
 
 ## Resolution
 
-**Dedup lock (correctness fix).** Substrate's `acquire_claim` is tied to an existing work-item UUID and has no general advisory-lock primitive for arbitrary keys, so a per-(source_id, downstream_type) `threading.Lock` stored in a `WeakValueDictionary` was used instead. The registry meta-lock ensures atomic lock creation; the WeakValue dictionary prevents unbounded growth. The entire existence-check + create block now runs under this lock, closing the TOCTOU window. Limitation documented: guards within a single scheduler process only; multi-process deployments would need a Postgres advisory lock.
+**Dedup lock (correctness fix).** Regista's `acquire_claim` is tied to an existing work-item UUID and has no general advisory-lock primitive for arbitrary keys, so a per-(source_id, downstream_type) `threading.Lock` stored in a `WeakValueDictionary` was used instead. The registry meta-lock ensures atomic lock creation; the WeakValue dictionary prevents unbounded growth. The entire existence-check + create block now runs under this lock, closing the TOCTOU window. Limitation documented: guards within a single scheduler process only; multi-process deployments would need a Postgres advisory lock.
 
 **Indexed lookup (perf).** An in-memory `_existence_cache: dict[(source_id, downstream_type), bool]` is populated on first scan-hit and on create. Subsequent calls within the same process return immediately without touching `query_work_items`. A test verifies zero query calls on cache hit.
 
 **Fairness.** `_poll_handoffs` calls `random.shuffle` on a copy of `config.stage_topology` each cycle. A test patches `random.shuffle` with a recorder and asserts the order varies across 20 cycles.
 
-**Deferred.** No indexing was added to substrate itself (no sidecar table, no custom-field filter) — the in-memory cache is sufficient for Phase 2/3 single-scheduler deployments and requires no schema changes.
+**Deferred.** No indexing was added to regista itself (no sidecar table, no custom-field filter) — the in-memory cache is sufficient for Phase 2/3 single-scheduler deployments and requires no schema changes.
 
 **Files changed:**
 - `src/factory/scheduler.py` — dedup lock registry, existence cache, shuffle in `_poll_handoffs`, full `_ensure_downstream_item` rewrite

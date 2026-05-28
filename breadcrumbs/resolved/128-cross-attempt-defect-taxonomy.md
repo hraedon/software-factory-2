@@ -164,7 +164,7 @@ Phase 3 (current), high priority. The corpus only becomes useful with N ≥ 100 
 
 The ordering across this RFC + BC trio:
 
-1. **BC-128 first** (this one). Provides the measurement substrate everything else evaluates against.
+1. **BC-128 first** (this one). Provides the measurement regista everything else evaluates against.
 2. **BC-126 next** (work-item size). Cheap measurement; the analysis feeds threshold choice for BC-127.
 3. **BC-127 last** (spec lint). The cap from BC-126 plus the category history from BC-128 give the lint sharp, evidence-backed thresholds.
 

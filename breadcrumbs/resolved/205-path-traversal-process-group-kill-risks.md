@@ -14,7 +14,7 @@ related: ["111", "188", "096"]
 
 Multiple path-handling functions accepted unvalidated strings used in path construction, creating path traversal vectors:
 
-1. **workspace.py `attempt_dir()` and `find_resumable_artifact()`**: `work_item_id` (a free-form string from substrate) used directly in path construction. A crafted ID like `../../etc` would escape `work_root_path`.
+1. **workspace.py `attempt_dir()` and `find_resumable_artifact()`**: `work_item_id` (a free-form string from regista) used directly in path construction. A crafted ID like `../../etc` would escape `work_root_path`.
 
 2. **workspace.py `write_artifact()`**: `artifact_name` used directly in path construction without validation. Current callers generate safe names, but no defense-in-depth guard existed.
 

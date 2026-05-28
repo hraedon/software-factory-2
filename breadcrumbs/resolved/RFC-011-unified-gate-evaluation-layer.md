@@ -114,7 +114,7 @@ RFC-011 is the systemic-fix invariant that unblocks CLASS-005 and CLASS-008's in
 ## Out of scope
 
 - Tests' own subprocess usage (pytest spawns its own subprocesses; that is pytest's contract with the OS, not factory's)
-- Substrate-side subprocess work
+- Regista-side subprocess work
 - Model-channel-internal subprocess use (those are the channel's contract with the model binary, not factory's)
 - Subprocess calls outside `src/factory/` (e.g., in `scripts/`)
 

@@ -5,24 +5,6 @@ from dataclasses import dataclass
 
 from factory.failure_summary import FailureEntry
 
-_SUMMARIZER_SYSTEM_PROMPT = (
-    "You are a staff engineer reviewing repeated failures on the same work "
-    "item. Given the failure history below, output exactly 3-5 bullet-point "
-    "constraints for the next attempt. Each constraint must be a concrete, "
-    "verifiable fact derived from the evidence — not speculation, not "
-    "suggestions, not restatements of the same error. Start each bullet with "
-    '"1.", "2.", etc. Do not include any other text.'
-)
-
-_SUMMARIZER_USER_TEMPLATE = (
-    "## Work item failures (attempt {new_attempt})\n\n"
-    "{failure_text}\n\n"
-    "## Your task\n\n"
-    "Produce 3-5 constraint bullets for the next attempt. "
-    "Only include patterns you can verify from the evidence above. "
-    "Do not speculate."
-)
-
 
 @dataclass(frozen=True)
 class FailureSummary:
@@ -146,28 +128,3 @@ def _extract_constraints_locally(failure_text: str) -> list[str]:
         )
 
     return constraints[:5]
-
-
-def build_summarizer_prompt(
-    failures: list[FailureEntry],
-    new_attempt: int = 0,
-) -> tuple[str, str]:
-    if not new_attempt:
-        new_attempt = max((f.attempt_number for f in failures), default=0) + 1
-
-    failure_text = ""
-    for f in failures[-10:]:
-        parts = [
-            f"[attempt {f.attempt_number}]",
-            f"role={f.role}",
-            f"gate={f.gate_name}",
-        ]
-        if f.diagnostic:
-            parts.append(f.diagnostic[:300])
-        failure_text += " ".join(parts) + "\n"
-
-    user_prompt = _SUMMARIZER_USER_TEMPLATE.format(
-        new_attempt=new_attempt,
-        failure_text=failure_text.strip(),
-    )
-    return _SUMMARIZER_SYSTEM_PROMPT, user_prompt

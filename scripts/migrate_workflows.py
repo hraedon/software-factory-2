@@ -30,7 +30,7 @@ PHASE_FILES = [
 
 
 def verify_semantic() -> bool:
-    from substrate import parse_file
+    from regista import parse_file
 
     all_ok = True
     for fname in PHASE_FILES:

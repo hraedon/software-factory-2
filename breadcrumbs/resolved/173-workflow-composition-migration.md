@@ -6,7 +6,7 @@ status: implemented
 kind: improvement
 author: opencode
 date: "2026-05-16"
-tags: [workflows, substrate, rfc]
+tags: [workflows, regista, rfc]
 related: ["RFC-028"]
 ---
 
@@ -16,7 +16,7 @@ Phase 1-5 workflow YAMLs had ~58% structural duplication. Each phase file repeat
 
 ## Resolution
 
-Migrated phase2-5 YAMLs to use Substrate's `extends:` composition feature:
+Migrated phase2-5 YAMLs to use Regista's `extends:` composition feature:
 
 - `phase2.yaml` extends `./phase1.yaml`, adding test_author/implementer roles, test_suite/implementation work_item_types, 3 link types, and `allowed_roles__append` on 5 transitions.
 - `phase3.yaml` extends `./phase2.yaml` — just version bump (4 lines, down from 192).
@@ -28,9 +28,9 @@ Total: 1133 → 421 lines (62.8% reduction).
 
 Also updated:
 - `src/factory/pipeline_docs.py`: `_load_workflow_yaml()` uses `resolve_includes()` instead of `yaml.safe_load()`.
-- Substrate `InMemorySubstrate.register_workflow_file()` and `Substrate.register_workflow_file()`: resolve `extends:` before registration.
+- Regista `InMemorySubstrate.register_workflow_file()` and `Regista.register_workflow_file()`: resolve `extends:` before registration.
 - 5 test call sites changed from `register_workflow(raw_yaml)` to `register_workflow_file(path)`.
 
 ## Known limitation
 
-Substrate's keyed-list merge places child items before parent items. This changes list ordering (roles, work_item_types, link_types, transitions) from the monolithic order but is functionally equivalent. Content hashes differ; semantic identity verified via `scripts/migrate_workflows.py --verify`.
+Regista's keyed-list merge places child items before parent items. This changes list ordering (roles, work_item_types, link_types, transitions) from the monolithic order but is functionally equivalent. Content hashes differ; semantic identity verified via `scripts/migrate_workflows.py --verify`.

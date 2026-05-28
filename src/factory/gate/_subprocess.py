@@ -5,6 +5,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from factory.config import GateTimeouts
 from factory.constants import (
     ARTIFACT_FILENAME_INTERFACE,
     GATE_NAME_IMPLEMENTATION_LINT,
@@ -14,6 +15,7 @@ from factory.constants import (
     TEMPFILE_PREFIX_COLLECT,
     TEMPFILE_PREFIX_MYPY,
     TEMPFILE_PREFIX_PYTEST,
+    DiagnosticKind,
 )
 from factory.gate._base import GateResult
 from factory.pre_gate import copy_dependency_pyis
@@ -52,7 +54,7 @@ def _run_pytest_collect(
                     passed=False,
                     gate_name=GATE_NAME_TEST_SUITE_COLLECT,
                     diagnostics=[f"pytest --collect-only timed out after {timeout}s"],
-                    diagnostic_kind="test_collect",
+                    diagnostic_kind=DiagnosticKind.TEST_COLLECT,
                 )
             if result.returncode != 0:
                 if "No module named pytest" in result.stderr:
@@ -60,7 +62,7 @@ def _run_pytest_collect(
                         passed=False,
                         gate_name=GATE_NAME_TEST_SUITE_COLLECT,
                         diagnostics=["pytest not installed"],
-                        diagnostic_kind="tool_not_found",
+                        diagnostic_kind=DiagnosticKind.TOOL_NOT_FOUND,
                     )
                 lines = result.stdout.strip().splitlines() + result.stderr.strip().splitlines()
                 diagnostics = lines[:10] or ["pytest --collect-only failed"]
@@ -68,7 +70,7 @@ def _run_pytest_collect(
                     passed=False,
                     gate_name=GATE_NAME_TEST_SUITE_COLLECT,
                     diagnostics=diagnostics,
-                    diagnostic_kind="test_collect",
+                    diagnostic_kind=DiagnosticKind.TEST_COLLECT,
                 )
             no_tests = (
                 "no tests collected" in result.stdout.lower()
@@ -79,14 +81,14 @@ def _run_pytest_collect(
                     passed=False,
                     gate_name=GATE_NAME_TEST_SUITE_COLLECT,
                     diagnostics=["pytest --collect-only reported 0 tests"],
-                    diagnostic_kind="test_collect",
+                    diagnostic_kind=DiagnosticKind.TEST_COLLECT,
                 )
     except Exception as e:
         return GateResult(
             passed=False,
             gate_name=GATE_NAME_TEST_SUITE_COLLECT,
             diagnostics=[f"pytest --collect-only failed: {e}"],
-            diagnostic_kind="test_collect",
+            diagnostic_kind=DiagnosticKind.TEST_COLLECT,
         )
     return GateResult(passed=True, gate_name=GATE_NAME_TEST_SUITE_COLLECT)
 
@@ -105,7 +107,7 @@ def _run_mypy(
             passed=False,
             gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
             diagnostics=["missing interface .pyi, cannot type-check"],
-            diagnostic_kind="missing_artifact",
+            diagnostic_kind=DiagnosticKind.MISSING_ARTIFACT,
         )
     try:
         with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_MYPY) as tmpdir:
@@ -135,7 +137,7 @@ def _run_mypy(
                     passed=False,
                     gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
                     diagnostics=[f"mypy timed out after {timeout}s", "timed_out: True"],
-                    diagnostic_kind="impl_mypy",
+                    diagnostic_kind=DiagnosticKind.IMPL_MYPY,
                 )
             if result.returncode != 0:
                 if "No module named mypy" in result.stderr:
@@ -143,7 +145,7 @@ def _run_mypy(
                         passed=False,
                         gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
                         diagnostics=["mypy not installed"],
-                        diagnostic_kind="tool_not_found",
+                        diagnostic_kind=DiagnosticKind.TOOL_NOT_FOUND,
                     )
                 lines = result.stdout.strip().splitlines()
                 diagnostics = lines[:10] if lines else ["mypy reported errors"]
@@ -151,14 +153,14 @@ def _run_mypy(
                     passed=False,
                     gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
                     diagnostics=diagnostics,
-                    diagnostic_kind="impl_mypy",
+                    diagnostic_kind=DiagnosticKind.IMPL_MYPY,
                 )
     except Exception as e:
         return GateResult(
             passed=False,
             gate_name=GATE_NAME_IMPLEMENTATION_MYPY,
             diagnostics=[f"mypy invocation failed: {e}"],
-            diagnostic_kind="impl_mypy",
+            diagnostic_kind=DiagnosticKind.IMPL_MYPY,
         )
     return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_MYPY)
 
@@ -169,30 +171,36 @@ def _run_pytest(
     dependency_pyi_paths: list[tuple[str, Path]] | None = None,
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
-    timeout: int = 300,
+    timeout: int | None = None,
+    interface_pyi_path: Path | None = None,
+    implementation_name: str | None = None,
+    gate_name: str = GATE_NAME_IMPLEMENTATION_PYTEST,
 ) -> GateResult:
+    """Run pytest in an isolated tmpdir with dependency stubs.
+
+    Canonical implementation shared by gate, pre_gate, and mutation_gate.
+    Callers pass ``gate_name`` to control the GateResult label.
+    """
     exe = python_executable or sys.executable
+    if timeout is None:
+        timeout = GateTimeouts.pytest_timeout
     try:
         with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_PYTEST) as tmpdir:
             impl_content = artifact_path.read_text()
-            impl_copy = Path(tmpdir) / artifact_path.name
+            impl_name = implementation_name or artifact_path.name
+            impl_copy = Path(tmpdir) / impl_name
             impl_copy.write_text(impl_content)
             if artifact_path.stem != ARTIFACT_FILENAME_INTERFACE:
                 iface_copy = Path(tmpdir) / f"interface{artifact_path.suffix}"
                 iface_copy.write_text(impl_content)
+            if interface_pyi_path is not None and interface_pyi_path.exists():
+                stub_copy = Path(tmpdir) / "interface.pyi"
+                stub_copy.write_text(interface_pyi_path.read_text())
             test_copy = Path(tmpdir) / test_suite_path.name
             test_copy.write_text(test_suite_path.read_text())
             copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
             result = run_subprocess(
-                cmd=[
-                    exe,
-                    "-m",
-                    "pytest",
-                    str(test_copy),
-                    "-x",
-                    "--tb=short",
-                    "-q",
-                ],
+                cmd=[exe, "-m", "pytest", str(test_copy), "-x", "--tb=short", "-q"],
                 cwd=Path(tmpdir),
                 env=gate_subprocess_env(PYTHONPATH=tmpdir),
                 timeout_s=timeout,
@@ -200,35 +208,35 @@ def _run_pytest(
             if result.timed_out:
                 return GateResult(
                     passed=False,
-                    gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
+                    gate_name=gate_name,
                     diagnostics=[f"pytest timed out after {timeout}s", "timed_out: True"],
-                    diagnostic_kind="impl_pytest",
+                    diagnostic_kind=DiagnosticKind.IMPL_PYTEST,
                 )
             if result.returncode != 0:
                 if "No module named pytest" in result.stderr:
                     return GateResult(
                         passed=False,
-                        gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
+                        gate_name=gate_name,
                         diagnostics=["pytest not installed"],
-                        diagnostic_kind="tool_not_found",
+                        diagnostic_kind=DiagnosticKind.TOOL_NOT_FOUND,
                     )
                 lines = result.stdout.strip().splitlines()
                 err_lines = result.stderr.strip().splitlines()
-                diagnostics = (lines + err_lines)[:10] or ["pytest reported failures"]
+                diagnostics = (lines + err_lines)[-3:] or ["pytest reported failures"]
                 return GateResult(
                     passed=False,
-                    gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
+                    gate_name=gate_name,
                     diagnostics=diagnostics,
-                    diagnostic_kind="impl_pytest",
+                    diagnostic_kind=DiagnosticKind.IMPL_PYTEST,
                 )
     except Exception as e:
         return GateResult(
             passed=False,
-            gate_name=GATE_NAME_IMPLEMENTATION_PYTEST,
+            gate_name=gate_name,
             diagnostics=[f"pytest invocation failed: {e}"],
-            diagnostic_kind="impl_pytest",
+            diagnostic_kind=DiagnosticKind.IMPL_PYTEST,
         )
-    return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_PYTEST)
+    return GateResult(passed=True, gate_name=gate_name)
 
 
 def _run_ruff(
@@ -242,7 +250,7 @@ def _run_ruff(
             passed=False,
             gate_name=GATE_NAME_IMPLEMENTATION_LINT,
             diagnostics=["ruff not installed"],
-            diagnostic_kind="tool_not_found",
+            diagnostic_kind=DiagnosticKind.TOOL_NOT_FOUND,
         )
     try:
         with tempfile.TemporaryDirectory(prefix="sf2_ruff_") as tmpdir:
@@ -272,7 +280,7 @@ def _run_ruff(
                     passed=False,
                     gate_name=GATE_NAME_IMPLEMENTATION_LINT,
                     diagnostics=[f"ruff timed out after {timeout}s", "timed_out: True"],
-                    diagnostic_kind="impl_lint",
+                    diagnostic_kind=DiagnosticKind.IMPL_LINT,
                 )
             if result.returncode != 0:
                 lines = result.stdout.strip().splitlines()
@@ -281,13 +289,13 @@ def _run_ruff(
                     passed=False,
                     gate_name=GATE_NAME_IMPLEMENTATION_LINT,
                     diagnostics=diagnostics,
-                    diagnostic_kind="impl_lint",
+                    diagnostic_kind=DiagnosticKind.IMPL_LINT,
                 )
     except Exception as e:
         return GateResult(
             passed=False,
             gate_name=GATE_NAME_IMPLEMENTATION_LINT,
             diagnostics=[f"ruff invocation failed: {e}"],
-            diagnostic_kind="impl_lint",
+            diagnostic_kind=DiagnosticKind.IMPL_LINT,
         )
     return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_LINT)

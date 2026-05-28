@@ -12,7 +12,7 @@ related: ["145", "171"]
 
 ## Context
 
-After substrate BC-171 landed (plural `target_work_item_types`), sf2 could
+After regista BC-171 landed (plural `target_work_item_types`), sf2 could
 tighten `upstream_revision_of` from a no-target `work_item_ref` to
 `target_work_item_types: [review, jury]` — recovering the bounded-target
 validation the original GR-035 `string` workaround had abandoned.
@@ -26,7 +26,7 @@ work_item_types: ['jury', 'review']`.
 
 ## Path forward
 
-Substrate's `_workflow_compose._deep_merge` does support adding fields to
+Regista's `_workflow_compose._deep_merge` does support adding fields to
 an inherited work_item_type via `custom_fields__append:`. The clean shape
 is:
 
@@ -94,7 +94,7 @@ in the meantime.
 ## Related
 
 - BC-145 — original upstream-routing class of bugs.
-- BC-171 (substrate, resolved) — provides the `target_work_item_types`
+- BC-171 (regista, resolved) — provides the `target_work_item_types`
   feature this BC consumes.
 
 ## Resolution

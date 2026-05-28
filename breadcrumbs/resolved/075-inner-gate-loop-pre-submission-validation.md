@@ -20,7 +20,7 @@ This is the "v1 treadmill" pattern — adding prompt rules to prevent each failu
 
 Added pre-submission validation loop for the implementer role:
 
-1. **`pre_gate.py`** (extended): `pre_gate_implementation()` now runs mypy, ruff, **and pytest** in short-circuit order (mypy → ruff → pytest) before submitting to substrate. Returns `PreGateResult` with pass/fail status for each check and combined diagnostics. Pytest is only run when mypy and ruff both pass, so the model doesn't receive redundant diagnostics from type errors that would also cause pytest failures. Pytest diagnostics are truncated to the last 3 lines of output to avoid flooding `prior_failures`.
+1. **`pre_gate.py`** (extended): `pre_gate_implementation()` now runs mypy, ruff, **and pytest** in short-circuit order (mypy → ruff → pytest) before submitting to regista. Returns `PreGateResult` with pass/fail status for each check and combined diagnostics. Pytest is only run when mypy and ruff both pass, so the model doesn't receive redundant diagnostics from type errors that would also cause pytest failures. Pytest diagnostics are truncated to the last 3 lines of output to avoid flooding `prior_failures`.
 
 2. **`runner.py`**: `_inner_gate_loop()` resolves `test_suite_path` from `custom_fields` via `PreGateDeps` NamedTuple (replaces the previous 3-tuple). The inner loop short-circuits: if mypy fails, ruff and pytest are skipped; if ruff fails, pytest is skipped. The `gate_name` in `FailureEntry` is now `inner_mypy`, `inner_ruff`, or `inner_pytest` based on which check failed.
 

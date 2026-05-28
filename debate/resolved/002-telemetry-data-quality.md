@@ -16,7 +16,7 @@ Telemetry is the empirical foundation for Phase 3 fleet integration. The spec §
 
 The telemetry reporter pairs `submit` events with subsequent `gate_pass`/`gate_fail` events by `work_item_id`. The `gate_name` is derived from the gate event's `actor_metadata` or `payload`. When pairing succeeds but name extraction fails, it falls back to `"unknown"`. The 0% first-attempt rate suggests the pairing logic is not correctly correlating first attempts with their gate outcomes.
 
-The bug is latent — unit tests pass because they use synthetic event shapes that don't match real substrate event shapes from golden runs.
+The bug is latent — unit tests pass because they use synthetic event shapes that don't match real regista event shapes from golden runs.
 
 ## Position
 
@@ -30,7 +30,7 @@ Specifically:
 
 3. **Add a data-quality test that replays golden-run event subsets.** Extract a small fixture from GR004/005 event logs (anonymized) and assert zero `"unknown"` gate names and non-zero first-attempt pass rates. This test is the canary for future event-shape drift.
 
-4. **Add a `telemetry --verify` CLI mode.** Reads the live substrate and reports stats: unknown-rate, orphan submit events, unmatched gate events. Run this after every golden run as a sanity check.
+4. **Add a `telemetry --verify` CLI mode.** Reads the live regista and reports stats: unknown-rate, orphan submit events, unmatched gate events. Run this after every golden run as a sanity check.
 
 ## Why this blocks Phase 3
 

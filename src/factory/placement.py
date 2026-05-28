@@ -215,9 +215,9 @@ def _main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Software Factory v2 - Placement Proposer")
     parser.add_argument(
         "--history-from",
-        choices=["substrate"],
-        default="substrate",
-        help="Source of pass-rate history (only 'substrate' implemented)",
+        choices=["regista"],
+        default="regista",
+        help="Source of pass-rate history (only 'regista' implemented)",
     )
     parser.add_argument(
         "--policy",
@@ -251,7 +251,7 @@ def _main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    from substrate import Substrate
+    from regista import Regista
 
     from factory.config import load_config
     from factory.telemetry import (
@@ -261,7 +261,7 @@ def _main(argv: list[str] | None = None) -> None:
     )
 
     config = FactoryConfig() if args.config is None else load_config(args.config)
-    sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
+    sub = Regista(config.dsn, config.project_name, config.hmac_key_path)
     try:
         _work_items, events_by_id = _query_work_items_and_events(sub, config)
         attempts = collect_gate_attempts(sub, config, events_by_id=events_by_id)

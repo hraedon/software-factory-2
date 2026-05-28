@@ -32,7 +32,7 @@ Concrete symptoms from the existing corpus:
 
 - BC-064, BC-076, BC-092, BC-096-class were all "JSONB-safe validation reached one more entry point" — same shape, four breadcrumbs.
 - BC-072, BC-077, BC-084 are all "dependency module name resolution edge case" — same shape, three breadcrumbs (and BC-120 is a fourth in spirit).
-- BC-079, BC-080, BC-082, BC-083 (substrate, but the pattern is identical) are all "in-memory backend skipped a validation the postgres backend performed" — same shape.
+- BC-079, BC-080, BC-082, BC-083 (regista, but the pattern is identical) are all "in-memory backend skipped a validation the postgres backend performed" — same shape.
 
 Each defect was real and the fixes were correct. But the *retrieval cost* is now nonlinear: a reviewer scanning the open table cannot tell which BCs are instances of a known class vs. fresh-shape problems. The README index is becoming a flat log, not a taxonomy. v1 hit this around BC-200 and the response was "stop reading them" — which is how v1 ended up rebuilding the import manifest system three times.
 
@@ -45,7 +45,7 @@ Introduce **defect classes** as a first-class breadcrumb kind, sitting alongside
 A defect class is a file (`breadcrumbs/CLASS-NNN-<slug>.md`) that captures:
 
 1. The *shape* of the defect (one sentence, copy-pasteable).
-2. The *systemic cause* (one paragraph — what about the substrate/pipeline/prompt makes this defect class possible).
+2. The *systemic cause* (one paragraph — what about the regista/pipeline/prompt makes this defect class possible).
 3. The *systemic fix* (the design change that would eliminate the class, vs. patching instances).
 4. A table of *instances*: the individual BC numbers, what entry point they hit, when they were filed.
 5. A *trigger condition* for the systemic fix: how many instances or what severity pattern justifies promoting from "patch instances" to "fix the class."
@@ -56,7 +56,7 @@ A defect class is a file (`breadcrumbs/CLASS-NNN-<slug>.md`) that captures:
 breadcrumbs/
   CLASS-001-jsonb-validation-entry-point-drift.md      # NEW
   CLASS-002-dependency-module-name-resolution.md       # NEW
-  CLASS-003-inmemory-postgres-validation-divergence.md # NEW (substrate-side)
+  CLASS-003-inmemory-postgres-validation-divergence.md # NEW (regista-side)
   126-...
   RFC-016-defect-class-taxonomy.md
 ```
@@ -94,7 +94,7 @@ One-time backfill (≈ 2 hours of reading):
 
 1. Read every resolved BC from BC-001 through BC-125. Tag each with a candidate class label or "singleton."
 2. Any class label with ≥ 3 members becomes a CLASS-NNN file. Initial classes I expect to fall out:
-   - CLASS-001: JSONB / contract validation entry-point drift (substrate)
+   - CLASS-001: JSONB / contract validation entry-point drift (regista)
    - CLASS-002: Dependency module name resolution (sf2 BC-072/077/084/120)
    - CLASS-003: Gate vs project venv tool resolution (sf2 BC-115/121)
    - CLASS-004: Channel output extraction edge cases (sf2 various)
@@ -112,7 +112,7 @@ Estimated 5-8 CLASS files at backfill time. I'd be surprised if it's > 10.
 
 **Risk: forced classification.** Not every defect cleanly belongs to a class. The escape hatch is "singleton" — fine to leave a BC unclassified. The 3-instance threshold prevents pre-mature class creation.
 
-**Risk: classes drift from reality.** A CLASS file written in May 2026 may describe a substrate that no longer exists by August. Mitigation: when an RFC implementing a systemic fix lands, its CLASS file gains a "resolved" frontmatter status and moves to `breadcrumbs/resolved/`. Future instances of the same shape filed against the *new* substrate get a fresh CLASS file. Don't try to maintain one file across substrate generations.
+**Risk: classes drift from reality.** A CLASS file written in May 2026 may describe a regista that no longer exists by August. Mitigation: when an RFC implementing a systemic fix lands, its CLASS file gains a "resolved" frontmatter status and moves to `breadcrumbs/resolved/`. Future instances of the same shape filed against the *new* regista get a fresh CLASS file. Don't try to maintain one file across regista generations.
 
 ## What this is for
 
@@ -125,9 +125,9 @@ Two concrete things, both visible at session start:
 ## Out of scope
 
 - Auto-classification of historical BCs by tags or NLP. Manual judgment, period.
-- Cross-repo class files (sf2 and substrate stay separate). Each repo's CLASS files reference only that repo's BCs.
+- Cross-repo class files (sf2 and regista stay separate). Each repo's CLASS files reference only that repo's BCs.
 - Tooling for "find me all instances of class X." `grep` is fine. Build tooling only if `grep` becomes inadequate.
-- Versioned CLASS files. When the substrate generation changes, the old CLASS files resolve; new ones are created. Don't try to migrate.
+- Versioned CLASS files. When the regista generation changes, the old CLASS files resolve; new ones are created. Don't try to migrate.
 
 ## Validation criteria
 

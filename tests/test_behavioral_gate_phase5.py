@@ -59,5 +59,5 @@ def test_behavioral_stub_skips_when_no_scenarios() -> None:
 
 
 def test_behavioral_stub_raises_when_scenarios_present() -> None:
-    with pytest.raises(NotImplementedError, match="behavioral gate scheduled for Phase 5"):
+    with pytest.raises(NotImplementedError, match="behavioral gate scheduled for Phase 6"):
         evaluate_behavioral(Path("/dev/null"), scenarios=[{"name": "x"}])

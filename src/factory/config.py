@@ -85,7 +85,7 @@ class OpsConfig:
 class FactoryConfig:
     workflow_name: str = "software_factory"
     workflow_version: int = 1
-    dsn: str = "postgresql://substrate_test:substrate_test@localhost:5432/substrate_test"
+    dsn: str = "postgresql://regista_test:regista_test@localhost:5432/regista_test"
     hmac_key_path: str = "test_keys.json"
     project_name: str = "sf2"
     workspace_root: Path = _DEFAULT_WORKSPACE

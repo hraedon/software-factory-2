@@ -16,6 +16,6 @@ None.
 
 Given a JSONL log file or stdin stream, the system reads each line, parses it as JSON, and preserves the line order. Malformed lines are passed through unmodified with a warning emitted to stderr.
 
-## AC-LOG-03
+## AC-01: Malformed lines preserved with parse_error
 
 Given a JSONL file with 3 valid lines and 1 malformed line, read_log_lines yields 4 LogLine objects where the malformed line has parse_error set and raw_text preserved

@@ -41,16 +41,16 @@ class _FailingChannel:
 
 
 class TestRunnerInvokeFailure:
-    def test_timeout_records_channel_fail_event(self, mock_substrate, workspace_root):
-        wi, _ = mock_substrate.create_work_item(
+    def test_timeout_records_channel_fail_event(self, mock_regista, workspace_root):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Timeout test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -67,7 +67,7 @@ class TestRunnerInvokeFailure:
         )
         config = FactoryConfig(workspace_root=workspace_root)
         runtime = PipelineRuntime(
-            sub=mock_substrate, config=config, spec_content="Timeout test", channel=channel
+            sub=mock_regista, config=config, spec_content="Timeout test", channel=channel
         )
         process_work_item(
             runtime,
@@ -77,11 +77,11 @@ class TestRunnerInvokeFailure:
             "interface_architect",
         )
 
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "new"
         assert updated.claimed_by is None
 
-        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        all_events = mock_regista.read_events(work_item_id=wi.work_item_id)
         events = events_by_transition(all_events, "channel_fail")
         assert len(events) == 1
         payload = events[0].payload or {}
@@ -89,16 +89,16 @@ class TestRunnerInvokeFailure:
         assert diagnostics.get("error_message") == "Timeout after 600s"
         assert diagnostics.get("timed_out") is True
 
-    def test_generic_error_records_channel_fail(self, mock_substrate, workspace_root):
-        wi, _ = mock_substrate.create_work_item(
+    def test_generic_error_records_channel_fail(self, mock_regista, workspace_root):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Error test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -115,7 +115,7 @@ class TestRunnerInvokeFailure:
         )
         config = FactoryConfig(workspace_root=workspace_root)
         runtime = PipelineRuntime(
-            sub=mock_substrate, config=config, spec_content="Error test", channel=channel
+            sub=mock_regista, config=config, spec_content="Error test", channel=channel
         )
         process_work_item(
             runtime,
@@ -125,16 +125,16 @@ class TestRunnerInvokeFailure:
             "interface_architect",
         )
 
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "new"
-        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        all_events = mock_regista.read_events(work_item_id=wi.work_item_id)
         events = events_by_transition(all_events, "channel_fail")
         assert len(events) == 1
         payload = events[0].payload or {}
         diagnostics = payload.get("diagnostics", {})
         assert diagnostics.get("exit_code") == 1
 
-    def test_cannot_proceed_transition(self, mock_substrate, workspace_root):
+    def test_cannot_proceed_transition(self, mock_regista, workspace_root):
         class _CannotProceedChannel:
             def __init__(self):
                 self._name = "cp"
@@ -156,15 +156,15 @@ class TestRunnerInvokeFailure:
                     success=False, artifact_name=None, error_message="cannot_proceed"
                 )
 
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "CP test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -173,7 +173,7 @@ class TestRunnerInvokeFailure:
 
         config = FactoryConfig(workspace_root=workspace_root)
         runtime = PipelineRuntime(
-            sub=mock_substrate,
+            sub=mock_regista,
             config=config,
             spec_content="CP test",
             channel=_CannotProceedChannel(),
@@ -186,23 +186,23 @@ class TestRunnerInvokeFailure:
             "interface_architect",
         )
 
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "cannot_proceed"
         custom = updated.custom_fields or {}
         assert "diagnostics" in custom
 
 
 class TestRunnerResumePath:
-    def test_resume_from_prior_attempt(self, mock_substrate, workspace_root):
-        wi, _ = mock_substrate.create_work_item(
+    def test_resume_from_prior_attempt(self, mock_regista, workspace_root):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Resume test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -239,7 +239,7 @@ class TestRunnerResumePath:
 
         config = FactoryConfig(workspace_root=workspace_root)
         runtime = PipelineRuntime(
-            sub=mock_substrate, config=config, spec_content="Resume test", channel=_NoOpChannel()
+            sub=mock_regista, config=config, spec_content="Resume test", channel=_NoOpChannel()
         )
         process_work_item(
             runtime,
@@ -249,21 +249,21 @@ class TestRunnerResumePath:
             "interface_architect",
         )
 
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "gating"
         custom = updated.custom_fields or {}
         assert custom.get("artifact_hash") == sha
 
-    def test_resume_ignores_tampered_artifact(self, mock_substrate, workspace_root):
-        wi, _ = mock_substrate.create_work_item(
+    def test_resume_ignores_tampered_artifact(self, mock_regista, workspace_root):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Tamper test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -308,7 +308,7 @@ class TestRunnerResumePath:
 
         config = FactoryConfig(workspace_root=workspace_root)
         runtime = PipelineRuntime(
-            sub=mock_substrate, config=config, spec_content="Tamper test", channel=_FreshChannel()
+            sub=mock_regista, config=config, spec_content="Tamper test", channel=_FreshChannel()
         )
         process_work_item(
             runtime,
@@ -319,24 +319,24 @@ class TestRunnerResumePath:
         )
 
         assert invoked
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "gating"
 
 
 class TestProcessJuryWorkItemExceptionHandling:
-    def test_jury_exception_records_channel_fail(self, mock_substrate, workspace_root):
+    def test_jury_exception_records_channel_fail(self, mock_regista, workspace_root):
         from factory.constants import ROLE_FRONTIER_JUDGE
 
         phase4_path = str(Path(__file__).parent.parent / "workflows" / "phase4.yaml")
-        mock_substrate.register_workflow_file(phase4_path)
+        mock_regista.register_workflow_file(phase4_path)
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Jury crash test", "ac_ids": ["AC-01"]},
         )
-        ts, _ = mock_substrate.create_work_item(
+        ts, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="test_suite",
             actor_id="test-creator",
@@ -346,7 +346,7 @@ class TestProcessJuryWorkItemExceptionHandling:
                 "interface_ref": str(iface.work_item_id),
             },
         )
-        impl, _ = mock_substrate.create_work_item(
+        impl, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="implementation",
             actor_id="test-creator",
@@ -357,7 +357,7 @@ class TestProcessJuryWorkItemExceptionHandling:
                 "test_suite_ref": str(ts.work_item_id),
             },
         )
-        review_wi, _ = mock_substrate.create_work_item(
+        review_wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="review",
             actor_id="test-creator",
@@ -369,7 +369,7 @@ class TestProcessJuryWorkItemExceptionHandling:
                 "implementation_ref": str(impl.work_item_id),
             },
         )
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="jury",
             actor_id="test-creator",
@@ -377,9 +377,9 @@ class TestProcessJuryWorkItemExceptionHandling:
                 "review_ref": str(review_wi.work_item_id),
             },
         )
-        mock_substrate.register_actor_role("test-worker", "frontier_judge")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "frontier_judge")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -391,7 +391,7 @@ class TestProcessJuryWorkItemExceptionHandling:
             roles=(RoleConfig(role=ROLE_FRONTIER_JUDGE, channel="dummy"),),
         )
         runtime = PipelineRuntime(
-            sub=mock_substrate,
+            sub=mock_regista,
             config=config,
             spec_content="Jury crash test",
             channels={"dummy": _FailingChannel(InvocationResult(success=True, artifact_name="x"))},
@@ -427,7 +427,7 @@ class TestProcessJuryWorkItemExceptionHandling:
                 None,
             )
 
-        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        all_events = mock_regista.read_events(work_item_id=wi.work_item_id)
         channel_fail_events = events_by_transition(all_events, "channel_fail")
         assert len(channel_fail_events) == 1
         payload = channel_fail_events[0].payload or {}

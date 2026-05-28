@@ -259,7 +259,7 @@ class TestEnsureUpstreamRevision:
     def test_jury_source_review_also_lacks_refs_no_crash(self):
         """Edge case: jury → review exists but review also has no interface_ref /
         test_suite_ref.  The code must not crash — it emits whatever it can resolve
-        and lets substrate reject the payload in real use."""
+        and lets regista reject the payload in real use."""
         runtime, sub = _make_runtime()
 
         review_id = str(uuid.uuid4())

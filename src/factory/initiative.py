@@ -83,7 +83,7 @@ def cancel_initiative(
     workflow_name: str | None = None,
     workflow_version: int | None = None,
 ) -> int:
-    from substrate import SubstrateError
+    from regista import RegistaError
 
     kwargs: dict[str, Any] = {}
     if workflow_name is not None:
@@ -120,7 +120,7 @@ def cancel_initiative(
                     wi.work_item_id, "acquire_claim", 0, extra="cancel-initiative"
                 ),
             )
-        except SubstrateError:
+        except RegistaError:
             continue
 
         sub.transition(
@@ -150,7 +150,7 @@ def requeue_initiative(
     workflow_name: str | None = None,
     workflow_version: int | None = None,
 ) -> int:
-    from substrate import SubstrateError
+    from regista import RegistaError
 
     kwargs: dict[str, Any] = {}
     if workflow_name is not None:
@@ -183,7 +183,7 @@ def requeue_initiative(
                     wi.work_item_id, "acquire_claim", 0, extra="requeue-initiative"
                 ),
             )
-        except SubstrateError:
+        except RegistaError:
             continue
 
         sub.transition(

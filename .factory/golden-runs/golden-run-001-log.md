@@ -80,7 +80,7 @@ ruff: All checks passed!
 1. **Runner missing claim transition** — `acquire_claim` only creates a DB claim row; runner must explicitly call `sub.transition(wi, "claim", actor_id, actor_metadata=...)`. Fixed at runner.py:91.
 2. **Context derivation replaced work-item content with factory spec.md** — `derive_context()` had `section_content = spec_content if spec_content is not None else spec_section`, which loaded the factory's own spec.md when `spec_file` was set. Fixed to prefer work-item's `spec_section` custom field.
 3. **populate_work_items.py stale API** — `create_work_item()` no longer takes `workflow_version`; returns `tuple[WorkItem, Event]`. Updated.
-4. **Substrate import conflict** — PyPI `substrate` package vs local `/projects/substrate`; resolved by installing local editable via `uv pip install -e /projects/substrate`.
+4. **Regista import conflict** — PyPI `regista` package vs local `/projects/regista`; resolved by installing local editable via `uv pip install -e /projects/regista`.
 
 ### B5: Success Baseline
 - **State:** locked
@@ -285,7 +285,7 @@ All shapes passed at 100%:
 2. **Context derivation `spec_content` override** — `derive_context()` replaced work-item `spec_section` with factory-level `spec.md` when `spec_file` was set. Fixed to prefer work-item content.
 3. **Actor role idempotency** — `register_actor_role` fails if role already registered; wrapped in try/except.
 4. **populate_work_items.py API changes** — `create_work_item()` no longer takes `workflow_version`; returns tuple. Updated.
-5. **Substrate import conflict** — PyPI vs local substrate package; resolved via `uv pip install -e`.
+5. **Regista import conflict** — PyPI vs local regista package; resolved via `uv pip install -e`.
 6. **report.py adversarial check** — was checking any item in cannot_proceed, not specifically adversarial items.
 
 ### Phase 1 exit criteria verdict

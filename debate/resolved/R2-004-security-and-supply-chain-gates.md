@@ -13,7 +13,7 @@ The validation debates (001 and 005) focus heavily on functional correctness (Pl
 If an autonomous agent is writing code for 16 days, it *will* hallucinate a vulnerable dependency, or worse, hardcode an API key it used during a testing phase.
 
 ## Position
-**Mandate mechanical security gates at the Substrate level before code is ever merged.**
+**Mandate mechanical security gates at the Regista level before code is ever merged.**
 
 ### Proposed design
 1. Integrate `bandit`, `semgrep`, or `trufflehog` as standard mechanical gates in `evaluate_implementation()`.

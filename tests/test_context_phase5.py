@@ -12,8 +12,8 @@ from factory.context import (
 
 
 class TestDeriveIntegratorContext:
-    def test_includes_focal_artifact_from_review_chain(self, mock_substrate, tmp_path):
-        mock_substrate.register_workflow_file(
+    def test_includes_focal_artifact_from_review_chain(self, mock_regista, tmp_path):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase5.yaml")
         )
 
@@ -24,7 +24,7 @@ class TestDeriveIntegratorContext:
         impl_py = tmp_path / "impl.py"
         impl_py.write_text("def compute(x: int) -> str:\n    return str(x)\n")
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="arch",
@@ -34,7 +34,7 @@ class TestDeriveIntegratorContext:
                 "artifact_path": str(iface_pyi),
             },
         )
-        ts, _ = mock_substrate.create_work_item(
+        ts, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="test_suite",
             actor_id="tester",
@@ -45,7 +45,7 @@ class TestDeriveIntegratorContext:
                 "artifact_path": str(ts_pyi),
             },
         )
-        impl, _ = mock_substrate.create_work_item(
+        impl, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="implementation",
             actor_id="coder",
@@ -57,7 +57,7 @@ class TestDeriveIntegratorContext:
                 "artifact_path": str(impl_py),
             },
         )
-        review, _ = mock_substrate.create_work_item(
+        review, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="review",
             actor_id="reviewer",
@@ -69,7 +69,7 @@ class TestDeriveIntegratorContext:
                 "implementation_ref": str(impl.work_item_id),
             },
         )
-        jury, _ = mock_substrate.create_work_item(
+        jury, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="jury",
             actor_id="judge",
@@ -77,7 +77,7 @@ class TestDeriveIntegratorContext:
                 "review_ref": str(review.work_item_id),
             },
         )
-        integration, _ = mock_substrate.create_work_item(
+        integration, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="integration",
             actor_id="integrator",
@@ -88,18 +88,18 @@ class TestDeriveIntegratorContext:
             },
         )
 
-        ctx = derive_integrator_context(mock_substrate, str(integration.work_item_id))
+        ctx = derive_integrator_context(mock_regista, str(integration.work_item_id))
         assert ctx.role == "integrator"
         assert "focal_implementation" in ctx.extra_artifacts
         assert "focal_interface" in ctx.extra_artifacts
         assert "focal_test_suite" in ctx.extra_artifacts
         assert ctx.extra_artifacts["focal_implementation"] == impl_py.read_text()
 
-    def test_missing_refs_produces_empty_extras(self, mock_substrate):
-        mock_substrate.register_workflow_file(
+    def test_missing_refs_produces_empty_extras(self, mock_regista):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase5.yaml")
         )
-        integration, _ = mock_substrate.create_work_item(
+        integration, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="integration",
             actor_id="integrator",
@@ -108,14 +108,14 @@ class TestDeriveIntegratorContext:
                 "ac_ids": ["AC-02"],
             },
         )
-        ctx = derive_integrator_context(mock_substrate, str(integration.work_item_id))
+        ctx = derive_integrator_context(mock_regista, str(integration.work_item_id))
         assert ctx.role == "integrator"
         assert "focal_implementation" not in ctx.extra_artifacts
 
 
 class TestDeriveOutcomeVerifierContext:
-    def test_includes_assembled_modules(self, mock_substrate, tmp_path):
-        mock_substrate.register_workflow_file(
+    def test_includes_assembled_modules(self, mock_regista, tmp_path):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase5.yaml")
         )
 
@@ -137,7 +137,7 @@ class TestDeriveOutcomeVerifierContext:
             )
         )
 
-        integration, _ = mock_substrate.create_work_item(
+        integration, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="integration",
             actor_id="int",
@@ -147,7 +147,7 @@ class TestDeriveOutcomeVerifierContext:
                 "artifact_path": str(integration_json),
             },
         )
-        outcome, _ = mock_substrate.create_work_item(
+        outcome, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="outcome_verification",
             actor_id="verify",
@@ -158,19 +158,19 @@ class TestDeriveOutcomeVerifierContext:
             },
         )
 
-        ctx = derive_outcome_verifier_context(mock_substrate, str(outcome.work_item_id))
+        ctx = derive_outcome_verifier_context(mock_regista, str(outcome.work_item_id))
         assert ctx.role == "outcome_verifier"
         assert "assembled_module_module_a.py" in ctx.extra_artifacts
         assert "assembled_module_module_b.py" in ctx.extra_artifacts
         assert "integration_tests" in ctx.extra_artifacts
 
-    def test_missing_integration_ref_produces_empty_extras(self, mock_substrate, tmp_path):
-        mock_substrate.register_workflow_file(
+    def test_missing_integration_ref_produces_empty_extras(self, mock_regista, tmp_path):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase5.yaml")
         )
         # Create dummy integration so the integration_ref is valid and
         # outcome_verification custom_fields do not complain.
-        integration, _ = mock_substrate.create_work_item(
+        integration, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="integration",
             actor_id="int",
@@ -179,7 +179,7 @@ class TestDeriveOutcomeVerifierContext:
                 "ac_ids": ["AC-04"],
             },
         )
-        outcome, _ = mock_substrate.create_work_item(
+        outcome, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="outcome_verification",
             actor_id="verify",
@@ -189,19 +189,19 @@ class TestDeriveOutcomeVerifierContext:
                 "integration_ref": str(integration.work_item_id),
             },
         )
-        ctx = derive_outcome_verifier_context(mock_substrate, str(outcome.work_item_id))
+        ctx = derive_outcome_verifier_context(mock_regista, str(outcome.work_item_id))
         assert ctx.role == "outcome_verifier"
         assert not ctx.extra_artifacts
 
 
 class TestGatherOtherLockedArtifacts:
-    def _create_and_lock_impl(self, mock_substrate, tmp_path, mod_name, actor_id_suffix):
+    def _create_and_lock_impl(self, mock_regista, tmp_path, mod_name, actor_id_suffix):
         iface_pyi = tmp_path / f"{mod_name}_iface.pyi"
         iface_pyi.write_text(f"def {mod_name}() -> None: ...\n")
         impl_py = tmp_path / f"{mod_name}.py"
         impl_py.write_text(f"def {mod_name}(): pass\n")
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id=f"arch-{actor_id_suffix}",
@@ -212,19 +212,19 @@ class TestGatherOtherLockedArtifacts:
                 "artifact_path": str(iface_pyi),
             },
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             work_item_id=iface.work_item_id,
             transition_name="claim",
             actor_id="worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             work_item_id=iface.work_item_id,
             transition_name="submit",
             actor_id="worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             work_item_id=iface.work_item_id,
             transition_name="gate_pass",
             actor_id="gate",
@@ -233,7 +233,7 @@ class TestGatherOtherLockedArtifacts:
 
         ts_py = tmp_path / f"test_{mod_name}.py"
         ts_py.write_text(f"def test_{mod_name}(): pass\n")
-        ts, _ = mock_substrate.create_work_item(
+        ts, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="test_suite",
             actor_id=f"tester-{actor_id_suffix}",
@@ -244,26 +244,26 @@ class TestGatherOtherLockedArtifacts:
                 "artifact_path": str(ts_py),
             },
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             work_item_id=ts.work_item_id,
             transition_name="claim",
             actor_id="worker",
             actor_metadata={"role": "test_author"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             work_item_id=ts.work_item_id,
             transition_name="submit",
             actor_id="worker",
             actor_metadata={"role": "test_author"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             work_item_id=ts.work_item_id,
             transition_name="gate_pass",
             actor_id="gate",
             actor_metadata={"role": "mechanical_gate"},
         )
 
-        impl, _ = mock_substrate.create_work_item(
+        impl, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="implementation",
             actor_id=f"coder-{actor_id_suffix}",
@@ -276,19 +276,19 @@ class TestGatherOtherLockedArtifacts:
                 "artifact_path": str(impl_py),
             },
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             work_item_id=impl.work_item_id,
             transition_name="claim",
             actor_id="worker",
             actor_metadata={"role": "implementer"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             work_item_id=impl.work_item_id,
             transition_name="submit",
             actor_id="worker",
             actor_metadata={"role": "implementer"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             work_item_id=impl.work_item_id,
             transition_name="gate_pass",
             actor_id="gate",
@@ -296,24 +296,24 @@ class TestGatherOtherLockedArtifacts:
         )
         return impl, impl_py
 
-    def test_finds_other_locked_implementations(self, mock_substrate, tmp_path):
-        mock_substrate.register_workflow_file(
+    def test_finds_other_locked_implementations(self, mock_regista, tmp_path):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase5.yaml")
         )
-        _impl, impl_py = self._create_and_lock_impl(mock_substrate, tmp_path, "other_module", "10")
+        _impl, impl_py = self._create_and_lock_impl(mock_regista, tmp_path, "other_module", "10")
 
-        impls, _ifaces = _gather_other_locked_artifacts(mock_substrate, exclude_impl_id=None)
+        impls, _ifaces = _gather_other_locked_artifacts(mock_regista, exclude_impl_id=None)
         assert "other_module" in impls
         assert impls["other_module"] == impl_py.read_text()
 
-    def test_excludes_focal_implementation(self, mock_substrate, tmp_path):
-        mock_substrate.register_workflow_file(
+    def test_excludes_focal_implementation(self, mock_regista, tmp_path):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase5.yaml")
         )
-        impl, _ = self._create_and_lock_impl(mock_substrate, tmp_path, "focal", "20")
+        impl, _ = self._create_and_lock_impl(mock_regista, tmp_path, "focal", "20")
 
         impls, _ifaces = _gather_other_locked_artifacts(
-            mock_substrate, exclude_impl_id=str(impl.work_item_id)
+            mock_regista, exclude_impl_id=str(impl.work_item_id)
         )
         assert "focal" not in impls
 

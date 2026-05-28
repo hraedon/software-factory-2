@@ -76,7 +76,7 @@ class TestRoleForType:
 
 
 class TestCannotProceedWithoutJson:
-    def test_cannot_proceed_no_json_transitions_channel_fail(self, mock_substrate, workspace_root):
+    def test_cannot_proceed_no_json_transitions_channel_fail(self, mock_regista, workspace_root):
         class _CannotProceedNoJsonChannel:
             def __init__(self):
                 self._name = "cp-no-json"
@@ -95,15 +95,15 @@ class TestCannotProceedWithoutJson:
                     success=False, artifact_name=None, error_message="cannot_proceed"
                 )
 
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "No JSON", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -112,7 +112,7 @@ class TestCannotProceedWithoutJson:
 
         config = FactoryConfig(workspace_root=workspace_root)
         runtime = PipelineRuntime(
-            sub=mock_substrate,
+            sub=mock_regista,
             config=config,
             spec_content="No JSON",
             channel=_CannotProceedNoJsonChannel(),
@@ -125,6 +125,6 @@ class TestCannotProceedWithoutJson:
             "interface_architect",
         )
 
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "new"
         assert updated.claimed_by is None

@@ -1,7 +1,7 @@
 # query_work_items — ADT Validation
 
 ## Source
-substrate spec §5, FR-05b
+regista spec §5, FR-05b
 
 ## Spec excerpt
 

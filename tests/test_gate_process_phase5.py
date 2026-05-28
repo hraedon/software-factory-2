@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
-from substrate.testing import InMemorySubstrate
+from regista.testing import InMemoryRegista
 
 from factory.config import FactoryConfig
 from factory.gate_process import process_gate_item
@@ -42,7 +42,7 @@ def mock_config(tmp_path):
 
 @pytest.fixture()
 def phase5_sub():
-    sub = InMemorySubstrate()
+    sub = InMemoryRegista()
     sub.register_workflow_file(str(PHASE5_WORKFLOW))
     yield sub
     sub.close()
@@ -200,7 +200,7 @@ class TestGateProcessPhase5Mock:
 class TestGateProcessPhase5Integration:
     @pytest.mark.integration
     def test_gate_passes_integration_artifact(
-        self, phase5_substrate, tmp_path, phase5_factory_config
+        self, phase5_regista, tmp_path, phase5_factory_config
     ):
         artifact = tmp_path / "integration.json"
         artifact.write_text(
@@ -219,7 +219,7 @@ class TestGateProcessPhase5Integration:
                 }
             )
         )
-        wi, _ = phase5_substrate.create_work_item(
+        wi, _ = phase5_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="integration",
             actor_id="integrator",
@@ -228,14 +228,14 @@ class TestGateProcessPhase5Integration:
                 "ac_ids": ["AC-01"],
             },
         )
-        _claim_and_submit(phase5_substrate, wi, "integrator", artifact)
-        fresh, claim = _fresh_gate_claim(phase5_substrate, wi)
-        runtime = PipelineRuntime(sub=phase5_substrate, config=phase5_factory_config)
+        _claim_and_submit(phase5_regista, wi, "integrator", artifact)
+        fresh, claim = _fresh_gate_claim(phase5_regista, wi)
+        runtime = PipelineRuntime(sub=phase5_regista, config=phase5_factory_config)
         process_gate_item(runtime, fresh, "gate", claim)
-        assert phase5_substrate.get_work_item(wi.work_item_id).current_state == "locked"
+        assert phase5_regista.get_work_item(wi.work_item_id).current_state == "locked"
 
     @pytest.mark.integration
-    def test_gate_fails_integration_mypy(self, phase5_substrate, tmp_path, phase5_factory_config):
+    def test_gate_fails_integration_mypy(self, phase5_regista, tmp_path, phase5_factory_config):
         artifact = tmp_path / "integration.json"
         artifact.write_text(
             json.dumps(
@@ -251,7 +251,7 @@ class TestGateProcessPhase5Integration:
                 }
             )
         )
-        wi, _ = phase5_substrate.create_work_item(
+        wi, _ = phase5_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="integration",
             actor_id="integrator",
@@ -260,27 +260,27 @@ class TestGateProcessPhase5Integration:
                 "ac_ids": ["AC-01"],
             },
         )
-        _claim_and_submit(phase5_substrate, wi, "integrator", artifact)
-        fresh, claim = _fresh_gate_claim(phase5_substrate, wi)
-        runtime = PipelineRuntime(sub=phase5_substrate, config=phase5_factory_config)
+        _claim_and_submit(phase5_regista, wi, "integrator", artifact)
+        fresh, claim = _fresh_gate_claim(phase5_regista, wi)
+        runtime = PipelineRuntime(sub=phase5_regista, config=phase5_factory_config)
         process_gate_item(runtime, fresh, "gate", claim)
-        final = phase5_substrate.get_work_item(wi.work_item_id)
+        final = phase5_regista.get_work_item(wi.work_item_id)
         assert final.current_state == "new"
         assert "diagnostics" in (final.custom_fields or {})
 
     @pytest.mark.integration
     def test_gate_fails_outcome_verification_routing_hint(
-        self, phase5_substrate, tmp_path, phase5_factory_config
+        self, phase5_regista, tmp_path, phase5_factory_config
     ):
         int_artifact = tmp_path / "integration.json"
         int_artifact.write_text(json.dumps({"assembled_tree": {}}))
-        int_wi, _ = phase5_substrate.create_work_item(
+        int_wi, _ = phase5_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="integration",
             actor_id="int",
             custom_fields={"spec_section": "T", "ac_ids": []},
         )
-        _claim_and_submit(phase5_substrate, int_wi, "integrator", int_artifact)
+        _claim_and_submit(phase5_regista, int_wi, "integrator", int_artifact)
 
         artifact = tmp_path / "outcome.json"
         artifact.write_text(
@@ -295,7 +295,7 @@ class TestGateProcessPhase5Integration:
                 }
             )
         )
-        wi, _ = phase5_substrate.create_work_item(
+        wi, _ = phase5_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="outcome_verification",
             actor_id="verifier",
@@ -305,11 +305,11 @@ class TestGateProcessPhase5Integration:
                 "integration_ref": str(int_wi.work_item_id),
             },
         )
-        _claim_and_submit(phase5_substrate, wi, "outcome_verifier", artifact)
-        fresh, claim = _fresh_gate_claim(phase5_substrate, wi)
-        runtime = PipelineRuntime(sub=phase5_substrate, config=phase5_factory_config)
+        _claim_and_submit(phase5_regista, wi, "outcome_verifier", artifact)
+        fresh, claim = _fresh_gate_claim(phase5_regista, wi)
+        runtime = PipelineRuntime(sub=phase5_regista, config=phase5_factory_config)
         process_gate_item(runtime, fresh, "gate", claim)
-        final = phase5_substrate.get_work_item(wi.work_item_id)
+        final = phase5_regista.get_work_item(wi.work_item_id)
         assert final.current_state == "cannot_proceed"
         diagnostics = (final.custom_fields or {}).get("diagnostics", {})
         assert "routing_hint" in diagnostics

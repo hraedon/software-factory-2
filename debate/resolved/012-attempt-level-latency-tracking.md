@@ -42,7 +42,7 @@ Fleet placement without latency data optimizes for pass rate only. This produces
 
 ### Cost
 
-~30 lines of code. No new dependencies. No changes to substrate.
+~30 lines of code. No new dependencies. No changes to regista.
 
 ### Why this matters now
 

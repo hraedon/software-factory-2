@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
-from substrate.testing import InMemorySubstrate
+from regista.testing import InMemoryRegista
 
 from factory.config import FactoryConfig
 from factory.constants import (
@@ -33,7 +33,7 @@ from factory.telemetry import (
 )
 
 
-def _make_config(sub: InMemorySubstrate) -> FactoryConfig:
+def _make_config(sub: InMemoryRegista) -> FactoryConfig:
     return FactoryConfig(
         workflow_name="software_factory",
         workflow_version=1,
@@ -70,7 +70,7 @@ def _gate_md(
 
 
 def _seed_work_item(
-    sub: InMemorySubstrate,
+    sub: InMemoryRegista,
     work_item_type: str,
     worker_meta: dict | None = None,
     gate_events: list[tuple[str, dict, dict | None]] | None = None,
@@ -103,15 +103,15 @@ def _seed_work_item(
 
 
 class TestCollectGateAttempts:
-    def test_empty_substrate(self, mock_substrate):
-        config = _make_config(mock_substrate)
-        attempts = collect_gate_attempts(mock_substrate, config)
+    def test_empty_regista(self, mock_regista):
+        config = _make_config(mock_regista)
+        attempts = collect_gate_attempts(mock_regista, config)
         assert attempts == []
 
-    def test_collects_gate_pass_with_worker_role(self, mock_substrate):
-        config = _make_config(mock_substrate)
+    def test_collects_gate_pass_with_worker_role(self, mock_regista):
+        config = _make_config(mock_regista)
         _seed_work_item(
-            mock_substrate,
+            mock_regista,
             WORK_ITEM_TYPE_INTERFACE_SPEC,
             worker_meta=_worker_md(
                 role="interface_architect",
@@ -120,40 +120,40 @@ class TestCollectGateAttempts:
             ),
             gate_events=[_gate_md(passed=True)],
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
+        attempts = collect_gate_attempts(mock_regista, config)
         assert len(attempts) == 1
         assert attempts[0].passed is True
         assert attempts[0].role == "interface_architect"
         assert attempts[0].channel == "claude-code"
         assert attempts[0].family == "anthropic"
 
-    def test_collects_gate_fail(self, mock_substrate):
-        config = _make_config(mock_substrate)
+    def test_collects_gate_fail(self, mock_regista):
+        config = _make_config(mock_regista)
         _seed_work_item(
-            mock_substrate,
+            mock_regista,
             WORK_ITEM_TYPE_INTERFACE_SPEC,
             gate_events=[_gate_md(attempt_n=1, passed=False)],
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
+        attempts = collect_gate_attempts(mock_regista, config)
         assert len(attempts) == 1
         assert attempts[0].passed is False
 
-    def test_ignores_non_gate_events(self, mock_substrate):
-        config = _make_config(mock_substrate)
-        wi, _ = mock_substrate.create_work_item(
+    def test_ignores_non_gate_events(self, mock_regista):
+        config = _make_config(mock_regista)
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
             actor_id="test-actor",
             actor_kind="agent",
             custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             TRANSITION_CLAIM,
             "test-actor",
             actor_metadata={"role": "interface_architect"},
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
+        attempts = collect_gate_attempts(mock_regista, config)
         assert attempts == []
 
 
@@ -304,34 +304,34 @@ class TestFormatPassRateTable:
 
 
 class TestGateNameDataQuality:
-    def test_gate_name_from_actor_metadata_on_pass(self, mock_substrate):
-        config = _make_config(mock_substrate)
+    def test_gate_name_from_actor_metadata_on_pass(self, mock_regista):
+        config = _make_config(mock_regista)
         _seed_work_item(
-            mock_substrate,
+            mock_regista,
             WORK_ITEM_TYPE_INTERFACE_SPEC,
             worker_meta=_worker_md(),
             gate_events=[_gate_md(gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX, passed=True)],
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
+        attempts = collect_gate_attempts(mock_regista, config)
         assert len(attempts) == 1
         assert attempts[0].gate_name == GATE_NAME_INTERFACE_SPEC_SYNTAX
         assert attempts[0].passed is True
 
-    def test_gate_name_from_actor_metadata_on_fail(self, mock_substrate):
-        config = _make_config(mock_substrate)
+    def test_gate_name_from_actor_metadata_on_fail(self, mock_regista):
+        config = _make_config(mock_regista)
         _seed_work_item(
-            mock_substrate,
+            mock_regista,
             WORK_ITEM_TYPE_INTERFACE_SPEC,
             worker_meta=_worker_md(),
             gate_events=[_gate_md(gate_name="interface_spec_ac_refs", passed=False)],
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
+        attempts = collect_gate_attempts(mock_regista, config)
         assert len(attempts) == 1
         assert attempts[0].gate_name == "interface_spec_ac_refs"
         assert attempts[0].passed is False
 
-    def test_gate_name_from_payload_fallback_when_missing_from_metadata(self, mock_substrate):
-        config = _make_config(mock_substrate)
+    def test_gate_name_from_payload_fallback_when_missing_from_metadata(self, mock_regista):
+        config = _make_config(mock_regista)
         gate_actor_md = {"role": "mechanical_gate", "attempt_n": 1}
         payload = {
             "diagnostics": {
@@ -341,37 +341,37 @@ class TestGateNameDataQuality:
             }
         }
         _seed_work_item(
-            mock_substrate,
+            mock_regista,
             WORK_ITEM_TYPE_INTERFACE_SPEC,
             worker_meta=_worker_md(),
             gate_events=[(TRANSITION_GATE_FAIL, gate_actor_md, payload)],
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
+        attempts = collect_gate_attempts(mock_regista, config)
         assert len(attempts) == 1
         assert attempts[0].gate_name == GATE_NAME_IMPLEMENTATION_MYPY
 
-    def test_gate_pass_event_with_no_payload_resolves_from_metadata(self, mock_substrate):
-        config = _make_config(mock_substrate)
-        wi, _ = mock_substrate.create_work_item(
+    def test_gate_pass_event_with_no_payload_resolves_from_metadata(self, mock_regista):
+        config = _make_config(mock_regista)
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
             actor_id="test-actor",
             actor_kind="agent",
             custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             TRANSITION_CLAIM,
             "test-actor",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             TRANSITION_SUBMIT,
             "test-actor",
             actor_metadata=_worker_md(),
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             TRANSITION_GATE_PASS,
             "test-actor",
@@ -381,15 +381,15 @@ class TestGateNameDataQuality:
                 "attempt_n": 1,
             },
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
+        attempts = collect_gate_attempts(mock_regista, config)
         assert len(attempts) == 1
         assert attempts[0].gate_name == GATE_NAME_INTERFACE_SPEC_SYNTAX
         assert attempts[0].passed is True
 
-    def test_no_unknown_gate_names_in_realistic_event_stream(self, mock_substrate):
-        config = _make_config(mock_substrate)
+    def test_no_unknown_gate_names_in_realistic_event_stream(self, mock_regista):
+        config = _make_config(mock_regista)
         _seed_work_item(
-            mock_substrate,
+            mock_regista,
             WORK_ITEM_TYPE_INTERFACE_SPEC,
             worker_meta=_worker_md(
                 role="interface_architect",
@@ -401,7 +401,7 @@ class TestGateNameDataQuality:
             ],
         )
         _seed_work_item(
-            mock_substrate,
+            mock_regista,
             WORK_ITEM_TYPE_INTERFACE_SPEC,
             worker_meta=_worker_md(
                 role="interface_architect",
@@ -413,7 +413,7 @@ class TestGateNameDataQuality:
             ],
         )
         _seed_work_item(
-            mock_substrate,
+            mock_regista,
             WORK_ITEM_TYPE_INTERFACE_SPEC,
             worker_meta=_worker_md(
                 role="interface_architect",
@@ -424,7 +424,7 @@ class TestGateNameDataQuality:
                 _gate_md(gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX, passed=True),
             ],
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
+        attempts = collect_gate_attempts(mock_regista, config)
         assert len(attempts) == 3
         unknown = [a for a in attempts if a.gate_name == GATE_NAME_UNKNOWN]
         assert not unknown, (
@@ -433,21 +433,21 @@ class TestGateNameDataQuality:
         rows = compute_pass_rates(attempts)
         assert all(r.gate_name != GATE_NAME_UNKNOWN for r in rows)
 
-    def test_first_attempt_pass_rate_above_zero(self, mock_substrate):
-        config = _make_config(mock_substrate)
+    def test_first_attempt_pass_rate_above_zero(self, mock_regista):
+        config = _make_config(mock_regista)
         _seed_work_item(
-            mock_substrate,
+            mock_regista,
             WORK_ITEM_TYPE_INTERFACE_SPEC,
             worker_meta=_worker_md(),
             gate_events=[_gate_md(gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX, passed=True)],
         )
         _seed_work_item(
-            mock_substrate,
+            mock_regista,
             WORK_ITEM_TYPE_INTERFACE_SPEC,
             worker_meta=_worker_md(),
             gate_events=[_gate_md(gate_name=GATE_NAME_INTERFACE_SPEC_SYNTAX, passed=True)],
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
+        attempts = collect_gate_attempts(mock_regista, config)
         rows = compute_pass_rates(attempts)
         assert len(rows) == 1
         assert rows[0].first_attempt_passes > 0
@@ -515,14 +515,14 @@ class TestDeterministicGateParity:
 
 
 class TestComputeExitCriteria:
-    def test_first_gate_evaluation_counts_attempt_n_two(self, mock_substrate):
+    def test_first_gate_evaluation_counts_attempt_n_two(self, mock_regista):
         """Production gate claims happen at attempt_n>=2; first-gate-evaluation
         rate must still be computed correctly."""
         from factory.telemetry import compute_exit_criteria
 
-        config = _make_config(mock_substrate)
+        config = _make_config(mock_regista)
         _seed_work_item(
-            mock_substrate,
+            mock_regista,
             WORK_ITEM_TYPE_INTERFACE_SPEC,
             worker_meta=_worker_md(),
             gate_events=[
@@ -533,18 +533,18 @@ class TestComputeExitCriteria:
                 ),
             ],
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
-        metrics = compute_exit_criteria(mock_substrate, config, attempts)
+        attempts = collect_gate_attempts(mock_regista, config)
+        metrics = compute_exit_criteria(mock_regista, config, attempts)
         assert metrics.first_gate_evaluation_passes == 1
         assert metrics.first_gate_evaluation_evaluations == 1
         assert metrics.first_gate_evaluation_pass_rate == 1.0
 
-    def test_first_gate_evaluation_with_retry(self, mock_substrate):
+    def test_first_gate_evaluation_with_retry(self, mock_regista):
         """A work item that fails first gate then passes on retry."""
         from factory.telemetry import compute_exit_criteria
 
-        config = _make_config(mock_substrate)
-        wi, _ = mock_substrate.create_work_item(
+        config = _make_config(mock_regista)
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
             actor_id="test-actor",
@@ -565,19 +565,19 @@ class TestComputeExitCriteria:
             },
         }
         # First attempt: claim → submit → gate_fail
-        mock_substrate.transition(
+        mock_regista.transition(
             wid,
             TRANSITION_CLAIM,
             "test-actor",
             actor_metadata={"role": wm["role"]},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wid,
             TRANSITION_SUBMIT,
             "test-actor",
             actor_metadata=wm,
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wid,
             TRANSITION_GATE_FAIL,
             "test-actor",
@@ -585,37 +585,37 @@ class TestComputeExitCriteria:
             payload=fail_payload,
         )
         # Second attempt: claim → submit → gate_pass
-        mock_substrate.transition(
+        mock_regista.transition(
             wid,
             TRANSITION_CLAIM,
             "test-actor",
             actor_metadata={"role": wm["role"]},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wid,
             TRANSITION_SUBMIT,
             "test-actor",
             actor_metadata=wm,
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wid,
             TRANSITION_GATE_PASS,
             "test-actor",
             actor_metadata={**gate_md, "attempt_n": 3},
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
-        metrics = compute_exit_criteria(mock_substrate, config, attempts)
+        attempts = collect_gate_attempts(mock_regista, config)
+        metrics = compute_exit_criteria(mock_regista, config, attempts)
         assert metrics.first_gate_evaluation_passes == 0
         assert metrics.first_gate_evaluation_evaluations == 1
         assert metrics.first_gate_evaluation_pass_rate == 0.0
         assert metrics.lock_within_budget_rate == 1.0
 
-    def test_inner_gate_attempts_extracted_from_submit_payload(self, mock_substrate):
+    def test_inner_gate_attempts_extracted_from_submit_payload(self, mock_regista):
         from factory.telemetry import compute_exit_criteria
 
-        config = _make_config(mock_substrate)
+        config = _make_config(mock_regista)
         wm = _worker_md(role="interface_architect", channel="opencode", family="opencode")
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
             actor_id="test-actor",
@@ -623,13 +623,13 @@ class TestComputeExitCriteria:
             custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
         )
         wid = wi.work_item_id
-        mock_substrate.transition(
+        mock_regista.transition(
             wid,
             TRANSITION_CLAIM,
             "test-actor",
             actor_metadata={"role": wm["role"]},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wid,
             TRANSITION_SUBMIT,
             "test-actor",
@@ -652,7 +652,7 @@ class TestComputeExitCriteria:
                 ],
             },
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
+        attempts = collect_gate_attempts(mock_regista, config)
         inner = [a for a in attempts if a.gate_name.startswith("inner_")]
         assert len(inner) == 2
         assert inner[0].gate_name == "inner_pytest"
@@ -660,7 +660,7 @@ class TestComputeExitCriteria:
         assert inner[1].gate_name == "inner_pytest"
         assert inner[1].passed is True
 
-        metrics = compute_exit_criteria(mock_substrate, config, attempts)
+        metrics = compute_exit_criteria(mock_regista, config, attempts)
         assert metrics.inner_gate_evaluations == 1
         assert metrics.inner_gate_first_passes == 0
         assert metrics.inner_gate_first_pass_rate == 0.0
@@ -675,13 +675,13 @@ class TestComputeExitCriteria:
         assert len(metrics.inner_gate_item_attempts) == 1
         assert metrics.inner_gate_item_attempts[0][1] == 2  # 2 evals
 
-    def test_rfc029_attempt_0_pass_bucket(self, mock_substrate):
+    def test_rfc029_attempt_0_pass_bucket(self, mock_regista):
         """Item that passes inner gate on first evaluation → bucket_0."""
         from factory.telemetry import compute_exit_criteria
 
-        config = _make_config(mock_substrate)
+        config = _make_config(mock_regista)
         wm = _worker_md()
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
             actor_id="test-actor",
@@ -689,10 +689,10 @@ class TestComputeExitCriteria:
             custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
         )
         wid = wi.work_item_id
-        mock_substrate.transition(
+        mock_regista.transition(
             wid, TRANSITION_CLAIM, "test-actor", actor_metadata={"role": wm["role"]}
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wid,
             TRANSITION_SUBMIT,
             "test-actor",
@@ -703,20 +703,20 @@ class TestComputeExitCriteria:
                 ]
             },
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
-        metrics = compute_exit_criteria(mock_substrate, config, attempts)
+        attempts = collect_gate_attempts(mock_regista, config)
+        metrics = compute_exit_criteria(mock_regista, config, attempts)
         assert metrics.inner_gate_attempt_0_passes == 1
         assert metrics.inner_gate_attempt_1_total == 0
         assert metrics.inner_gate_attempt_2plus_total == 0
         assert metrics.inner_gate_exhausted_budget_total == 0
 
-    def test_rfc029_attempt_2plus_bucket(self, mock_substrate):
+    def test_rfc029_attempt_2plus_bucket(self, mock_regista):
         """Item needing retry 0 fail, retry 1 fail, retry 2 pass → bucket_2plus."""
         from factory.telemetry import compute_exit_criteria
 
-        config = _make_config(mock_substrate)
+        config = _make_config(mock_regista)
         wm = _worker_md()
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
             actor_id="test-actor",
@@ -724,10 +724,10 @@ class TestComputeExitCriteria:
             custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
         )
         wid = wi.work_item_id
-        mock_substrate.transition(
+        mock_regista.transition(
             wid, TRANSITION_CLAIM, "test-actor", actor_metadata={"role": wm["role"]}
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wid,
             TRANSITION_SUBMIT,
             "test-actor",
@@ -750,8 +750,8 @@ class TestComputeExitCriteria:
                 ]
             },
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
-        metrics = compute_exit_criteria(mock_substrate, config, attempts)
+        attempts = collect_gate_attempts(mock_regista, config)
+        metrics = compute_exit_criteria(mock_regista, config, attempts)
         assert metrics.inner_gate_attempt_2plus_count == 1
         assert metrics.inner_gate_attempt_2plus_total == 1
         assert metrics.inner_gate_attempt_2plus_rate == 1.0
@@ -761,13 +761,13 @@ class TestComputeExitCriteria:
         assert len(metrics.inner_gate_item_attempts) == 1
         assert metrics.inner_gate_item_attempts[0][1] == 3
 
-    def test_rfc029_exhausted_budget_bucket(self, mock_substrate):
+    def test_rfc029_exhausted_budget_bucket(self, mock_regista):
         """Item that never passes within retries → exhausted."""
         from factory.telemetry import compute_exit_criteria
 
-        config = _make_config(mock_substrate)
+        config = _make_config(mock_regista)
         wm = _worker_md()
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
             actor_id="test-actor",
@@ -775,10 +775,10 @@ class TestComputeExitCriteria:
             custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
         )
         wid = wi.work_item_id
-        mock_substrate.transition(
+        mock_regista.transition(
             wid, TRANSITION_CLAIM, "test-actor", actor_metadata={"role": wm["role"]}
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wid,
             TRANSITION_SUBMIT,
             "test-actor",
@@ -800,8 +800,8 @@ class TestComputeExitCriteria:
                 ]
             },
         )
-        attempts = collect_gate_attempts(mock_substrate, config)
-        metrics = compute_exit_criteria(mock_substrate, config, attempts)
+        attempts = collect_gate_attempts(mock_regista, config)
+        metrics = compute_exit_criteria(mock_regista, config, attempts)
         assert metrics.inner_gate_exhausted_budget_count == 2
         assert metrics.inner_gate_exhausted_budget_total == 2
         assert metrics.inner_gate_exhausted_budget_rate == 1.0
@@ -859,56 +859,56 @@ class TestComputeExitCriteria:
             _looks_like_contract_complaint("wrong parameter name") is False
         )  # pattern requires "parameter" prefix
 
-    def test_collects_contract_complaints(self, mock_substrate):
-        config = _make_config(mock_substrate)
-        wi, _ = mock_substrate.create_work_item(
+    def test_collects_contract_complaints(self, mock_regista):
+        config = _make_config(mock_regista)
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
             actor_id="test-actor",
             actor_kind="agent",
             custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             TRANSITION_CLAIM,
             "test-actor",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             TRANSITION_ROUTE_TO_CANNOT_PROCEED,
             "test-actor",
             actor_metadata={"role": "interface_architect", "attempt_n": 1},
             custom_fields={"diagnostics": {"rationale": "function signature is wrong"}},
         )
-        metrics = collect_contract_complaints(mock_substrate, config)
+        metrics = collect_contract_complaints(mock_regista, config)
         assert metrics.total_cannot_proceed == 1
         assert metrics.contract_shaped == 1
         assert len(metrics.samples) == 1
 
-    def test_no_contract_complaint_for_generic_failure(self, mock_substrate):
-        config = _make_config(mock_substrate)
-        wi, _ = mock_substrate.create_work_item(
+    def test_no_contract_complaint_for_generic_failure(self, mock_regista):
+        config = _make_config(mock_regista)
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type=WORK_ITEM_TYPE_INTERFACE_SPEC,
             actor_id="test-actor",
             actor_kind="agent",
             custom_fields={"spec_section": "test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             TRANSITION_CLAIM,
             "test-actor",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             TRANSITION_ROUTE_TO_CANNOT_PROCEED,
             "test-actor",
             actor_metadata={"role": "interface_architect", "attempt_n": 1},
             custom_fields={"diagnostics": {"rationale": "import error"}},
         )
-        metrics = collect_contract_complaints(mock_substrate, config)
+        metrics = collect_contract_complaints(mock_regista, config)
         assert metrics.total_cannot_proceed == 1
         assert metrics.contract_shaped == 0
 
@@ -942,7 +942,7 @@ class TestRoutingHintTelemetry:
         from pathlib import Path
 
         phase5_path = Path(__file__).parent.parent / "workflows" / "phase5.yaml"
-        sub = InMemorySubstrate()
+        sub = InMemoryRegista()
         sub.register_workflow_file(str(phase5_path))
         return sub
 
@@ -1058,36 +1058,36 @@ class TestRoutingHintTelemetry:
         assert metrics.samples == []
         sub.close()
 
-    def test_ignores_non_outcome_verification_items(self, mock_substrate):
-        config = _make_config(mock_substrate)
-        wi, _ = mock_substrate.create_work_item(
+    def test_ignores_non_outcome_verification_items(self, mock_regista):
+        config = _make_config(mock_regista)
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="arch",
             custom_fields={"spec_section": "Test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("gate", "mechanical_gate")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("gate", "mechanical_gate")
+        mock_regista.transition(
             wi.work_item_id,
             TRANSITION_CLAIM,
             "worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             TRANSITION_SUBMIT,
             "worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.acquire_claim(wi.work_item_id, "gate", ttl_seconds=300)
-        mock_substrate.transition(
+        mock_regista.acquire_claim(wi.work_item_id, "gate", ttl_seconds=300)
+        mock_regista.transition(
             wi.work_item_id,
             TRANSITION_GATE_FAIL,
             "gate",
             actor_metadata={"role": "mechanical_gate", "gate_name": "interface_spec_syntax"},
             payload={"diagnostics": {"routing_hint": {"work_item_type": "test_suite"}}},
         )
-        metrics = collect_routing_hints(mock_substrate, config)
+        metrics = collect_routing_hints(mock_regista, config)
         assert metrics.total_outcome_fail == 0
         assert metrics.routing_hint_present == 0
 

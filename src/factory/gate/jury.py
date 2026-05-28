@@ -5,6 +5,7 @@ from pathlib import Path
 from factory.constants import (
     GATE_NAME_JURY_DISAGREE,
     GATE_NAME_JURY_QUORUM,
+    DiagnosticKind,
 )
 from factory.gate._base import GateResult
 from factory.gate.review import _extract_json_vote
@@ -37,5 +38,5 @@ def evaluate_jury(artifact_path: Path) -> GateResult:
         passed=passed,
         gate_name=gate_name,
         diagnostics=diagnostics,
-        diagnostic_kind="jury" if not passed else "",
+        diagnostic_kind=DiagnosticKind.JURY if not passed else "",
     )

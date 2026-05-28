@@ -1,6 +1,6 @@
 ---
 number: "021"
-title: "Non-cannot_proceed channel failures produce no substrate event for telemetry"
+title: "Non-cannot_proceed channel failures produce no regista event for telemetry"
 severity: high
 status: implemented
 kind: design
@@ -13,7 +13,7 @@ resolution: added-channel_fail-event
 
 ## Background
 
-When a channel invocation fails with a non-cannot_proceed error (timeout, non-zero exit, empty output, extraction failure), `_handle_invoke_failure` at `runner.py:204-243` logs the error via structlog and calls `sub.release_claim()`. It does NOT write a substrate event.
+When a channel invocation fails with a non-cannot_proceed error (timeout, non-zero exit, empty output, extraction failure), `_handle_invoke_failure` at `runner.py:204-243` logs the error via structlog and calls `sub.release_claim()`. It does NOT write a regista event.
 
 This means:
 - No `event` entry records the failure for telemetry or retry budget tracking.

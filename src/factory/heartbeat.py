@@ -1,7 +1,7 @@
 """BC-194: Heartbeat claims while long-running work is in flight.
 
 A HeartbeatSession runs a daemon thread that periodically calls
-``substrate.heartbeat_claim`` to keep a claim alive while the worker is
+``regista.heartbeat_claim`` to keep a claim alive while the worker is
 executing potentially-minute-long subprocess invocations. If the claim is
 detected as stolen (``CLAIM_LOST``), the session's ``cancel_event`` is set,
 signaling cooperating subprocess wrappers and post-processing code to bail
@@ -24,10 +24,10 @@ import uuid
 from typing import TYPE_CHECKING
 
 import structlog
-from substrate import ErrorCode, SubstrateError
+from regista import ErrorCode, RegistaError
 
 if TYPE_CHECKING:
-    from substrate import Substrate
+    from regista import Regista
 
 log = structlog.get_logger()
 
@@ -37,7 +37,7 @@ _MIN_INTERVAL_SECONDS = 30
 class HeartbeatSession:
     def __init__(
         self,
-        sub: Substrate,
+        sub: Regista,
         work_item_id: uuid.UUID,
         actor_id: str,
         attempt_number: int,
@@ -63,7 +63,7 @@ class HeartbeatSession:
                     self._ttl,
                     expected_attempt_number=self._attempt,
                 )
-            except SubstrateError as exc:
+            except RegistaError as exc:
                 if exc.code == ErrorCode.CLAIM_LOST:
                     log.error(
                         "claim_lost",
@@ -74,7 +74,7 @@ class HeartbeatSession:
                     self.cancel_event.set()
                     return
                 log.warning(
-                    "heartbeat_substrate_error",
+                    "heartbeat_regista_error",
                     work_item_id=str(self._wi_id),
                     code=str(exc.code),
                     message=exc.message,

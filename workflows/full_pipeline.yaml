@@ -1,6 +1,6 @@
 name: software_factory
 version: 2
-substrate_version: "0.1.0"
+regista_version: "0.1.0"
 
 states:
   - name: new
@@ -126,6 +126,12 @@ work_item_types:
       - name: ac_ids
         type: json
         required: true
+        ui_visible: true
+      - name: module_name
+        type: string
+        ui_visible: true
+      - name: initiative_id
+        type: string
         ui_visible: true
       - name: artifact_path
         type: string

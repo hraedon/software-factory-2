@@ -20,4 +20,4 @@ def evaluate_behavioral(
             diagnostics=[],
             skipped=True,
         )
-    raise NotImplementedError("behavioral gate scheduled for Phase 5; see plans/behavioral-gate.md")
+    raise NotImplementedError("behavioral gate scheduled for Phase 6; see plans/behavioral-gate.md")

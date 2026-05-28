@@ -98,7 +98,7 @@ Update spec §5 to add a "Status" column whose values are required to match `CHA
 
 ## Defect-class shape
 
-This is filed as `kind: defect-class` because the same shape (declared-status vs. construction-site divergence) recurs across sf2, substrate, and v1 — RFC-037 catalogs four other instances. If RFC-037 is adopted, this BC becomes the worked example that drives the channel-registry tagging pass and the first audit site.
+This is filed as `kind: defect-class` because the same shape (declared-status vs. construction-site divergence) recurs across sf2, regista, and v1 — RFC-037 catalogs four other instances. If RFC-037 is adopted, this BC becomes the worked example that drives the channel-registry tagging pass and the first audit site.
 
 ## Links
 

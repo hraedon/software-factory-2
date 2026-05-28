@@ -10,7 +10,7 @@ Read in this order:
 
 ## What this project is
 
-A pipeline that consumes a Level-1+ spec (produced by socratic-specification) and produces working, tested software for line-of-business tooling. Substrate (`/projects/substrate`) is the coordination/state spine.
+A pipeline that consumes a Level-1+ spec (produced by socratic-specification) and produces working, tested software for line-of-business tooling. Regista (`/projects/regista`) is the coordination/state spine.
 
 The principal of this project is a **systems architect, not a developer**. Architectural decisions must respect that constraint: do not propose interventions that require code review, and do not assume the principal can debug subtle implementation bugs. Their value lands in spec quality, AC clarity, and outcome-level evaluation.
 
@@ -18,15 +18,15 @@ The principal of this project is a **systems architect, not a developer**. Archi
 
 ### Spec authority
 - `spec.md` is authoritative. Implementation drift requires a spec amendment with rationale, not silent divergence.
-- Spec amendments are made with a breadcrumb resolution note. Precedent: substrate BC-008.
+- Spec amendments are made with a breadcrumb resolution note. Precedent: regista BC-008.
 
 ### Breadcrumbs
 - One file per defect/design-question/improvement under `breadcrumbs/`.
 - Active bugs and improvements use numeric prefixes (`054`, `055`).
 - Design proposals awaiting future phases use `RFC-` prefixes (`RFC-001`, `RFC-002`). RFCs are NOT actionable yet — they are recorded design decisions for later stages.
 - Resolved items move to `breadcrumbs/resolved/` and the README index is updated.
-- Same schema as substrate's `breadcrumbs/`. Reuse that README's frontmatter format.
-- Use the `dep-substrate-*` tag for breadcrumbs that block on substrate work.
+- Same schema as regista's `breadcrumbs/`. Reuse that README's frontmatter format.
+- Use the `dep-regista-*` tag for breadcrumbs that block on regista work.
 - Use the `dep-v1-NNN` tag for breadcrumbs that block on lessons from v1 factory.
 - Defect classes (`CLASS-NNN-*.md`) group individual BCs with the same shape. Before filing a new BC, scan `CLASS-*.md` instances tables. If 3rd instance of an unclassified shape, file a CLASS file.
 
@@ -54,17 +54,17 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - 6 workflow YAMLs with `extends:` composition (phase1–5, full_pipeline)
 - Unified subprocess wrapper (RFC-011): all subprocess calls use `factory.subprocess.run`
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
-- **1150 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
+- **1107 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
 
-**Known issues:** 7 open bugs (2 high, 4 medium, 1 low) + 17 RFCs + 7 active defect classes + 2 stabilized (224 resolved). See `breadcrumbs/README.md`.
+**Known issues:** 5 open bugs (1 high, 3 medium, 1 low) + 17 RFCs + 7 active defect classes + 2 stabilized (228 resolved). See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing.
 
 ### Phase 6 gate items (priority order)
 
 1. **RFC-023 (decomposer)** — Phase A (deterministic) implemented: reads `spec.yaml` or `spec.md`, produces per-FR fixture `.md` files. **Phase B (model-driven):** implemented in Session 50 — new `decomposer.md` prompt with semantic naming rules, structured prompt builder (`_build_structured_prompt`), semantic naming gate (`fr\d+`, generic suffix, length, snake_case), prior-failure feedback, Phase A fallback. Snapshot tests for three workloads passing. Awaiting W3/W4 golden-run validation.
-2. **RFC-026 (principal review surface)** — implemented: `src/factory/review_surface.py` generates `REVIEW.md` + `review.json` from substrate state. Human-readable module summaries, cannot-proceed detail, artifact listings.
-3. **RFC-022 (initiative primitive)** — implemented: `src/factory/initiative.py` provides `generate_initiative_id()`, `query_initiatives()`, `cancel_initiative()`, `requeue_initiative()`. `populate_work_items.py` assigns initiative IDs at populate time. Substrate-dependent operations require `initiative_id` custom field in workflow YAML (integration tests).
+2. **RFC-026 (principal review surface)** — implemented: `src/factory/review_surface.py` generates `REVIEW.md` + `review.json` from regista state. Human-readable module summaries, cannot-proceed detail, artifact listings.
+3. **RFC-022 (initiative primitive)** — implemented: `src/factory/initiative.py` provides `generate_initiative_id()`, `query_initiatives()`, `cancel_initiative()`, `requeue_initiative()`. `populate_work_items.py` assigns initiative IDs at populate time. Regista-dependent operations require `initiative_id` custom field in workflow YAML (integration tests).
 4. **RFC-024 (coherence reviewer)** — removed per Option A; role deleted from all configuration. May be reintroduced in Phase 6 with concrete evidence of a structural-coherence gap.
 5. **RFC-027 (test efficacy)** — no mechanical verification that tests validate behavior.
 
@@ -81,14 +81,14 @@ If you find yourself wanting to skip ahead, file a breadcrumb explaining why and
 
 ## Pointers
 
-- Substrate repo: `/projects/substrate`
+- Regista repo: `/projects/regista`
 - Socratic-specification repo (Stage 0 source): `/projects/socratic-specification`
 - v1 software factory (reference for *what not to do*, not for code reuse): `/projects/software-factory`
 
 ## Testing
 
 ```bash
-make test        # 1150 tests, ~140s
+make test        # 1107 tests, ~130s
 make lint        # ruff check + format (no errors)
 make audit       # vulture dead-code check (no findings)
 make integration # @pytest.mark.integration only (requires Postgres)
@@ -101,7 +101,7 @@ The pipeline runs 3–4 concurrent processes (runner, gate, scheduler) against a
 
 ### Prerequisites
 
-- PostgreSQL running: `docker compose -f /projects/substrate/docker-compose.test.yml up -d`
+- PostgreSQL running: `docker compose -f /projects/regista/docker-compose.test.yml up -d`
 - Model channel available. For `opencode` channel: `opencode` CLI must be in PATH (installed at `~/.opencode/bin/opencode`). Auth is handled internally by opencode — no `FIREWORKS_API_KEY` env var needed. Verify with `opencode run --dangerously-skip-permissions --model <model> --help`.
 
 ### Execution
@@ -228,7 +228,7 @@ cp .factory/golden-runs/golden-run-031-config.yaml .factory/golden-runs/golden-r
 - Using `channel: gemini` instead of `channel: gemini-cli` → same crash
 - `workspace_root` inside repo directory → pre-flight abort
 - `attempt_threshold > 3` → pre-flight abort
-- `project_name` colliding with a prior run → substrate confusion
+- `project_name` colliding with a prior run → regista confusion
 
 #### Step 3: Run the golden run using the wrapper
 

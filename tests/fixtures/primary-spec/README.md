@@ -1,6 +1,6 @@
-# Curated Test Set — Primary (from substrate spec)
+# Curated Test Set — Primary (from regista spec)
 
-Source: `/projects/substrate/spec.md`
+Source: `/projects/regista/spec.md`
 Purpose: Phase 1 exit-criterion validation for SF2's `interface_architect` role.
 
 This directory contains a partitioned spec for the 10-item primary test set.
@@ -9,7 +9,7 @@ references and work-item shape classification.
 
 ## Work-item partition
 
-| Item | Shape | Substrate Function | ACs |
+| Item | Shape | Regista Function | ACs |
 |------|-------|--------------------|-----|
 | 01 | pure-interface | `acquire_claim` | AC-06 |
 | 02 | pure-interface | `register_workflow` | AC-17 |
@@ -29,5 +29,5 @@ Wave 6 exit criteria: ≥9/10 first-attempt pass with ≥2/3 in each category.
 
 Each section is a self-contained spec excerpt that the `interface_architect`
 role receives as `spec_section`. AC IDs reference acceptance criteria from the
-substrate spec where they exist; for new ACs specific to this test set, they
+regista spec where they exist; for new ACs specific to this test set, they
 use the format `TS-NN`.

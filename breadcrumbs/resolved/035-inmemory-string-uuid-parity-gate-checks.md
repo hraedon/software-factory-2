@@ -6,13 +6,13 @@ status: resolved
 kind: bug
 author: opencode
 date: "2026-05-08"
-tags: [gate, dep-substrate, failure-routing, testing]
+tags: [gate, dep-regista, failure-routing, testing]
 related: ["025"]
 ---
 
 ## Problem
 
-`gate_process.py:99` passes `interface_ref` (a string from `custom_fields`) directly to `sub.get_work_item(interface_ref)`. InMemorySubstrate's `get_work_item` expects a `uuid.UUID` object and silently returns `None` for string arguments. The real Postgres Substrate handles string→UUID coercion transparently.
+`gate_process.py:99` passes `interface_ref` (a string from `custom_fields`) directly to `sub.get_work_item(interface_ref)`. InMemorySubstrate's `get_work_item` expects a `uuid.UUID` object and silently returns `None` for string arguments. The real Postgres Regista handles string→UUID coercion transparently.
 
 **Consequence:** every InMemory test that drives the implementation or test_suite gate never resolves `interface_pyi_path` or `test_suite_path`, so `_check_impl_imports`, `_run_mypy`, and `_run_pytest` are all silently skipped. Only syntax + ruff checks actually execute. This means:
 
@@ -27,10 +27,10 @@ Pre-wave-7 escalation test initially asserted `impl_import` but got `impl_lint` 
 
 ## Fix options
 
-(a) InMemorySubstrate: accept `str | uuid.UUID` in `get_work_item`, converting strings to UUID. This is a substrate-side fix.
+(a) InMemorySubstrate: accept `str | uuid.UUID` in `get_work_item`, converting strings to UUID. This is a regista-side fix.
 (b) gate_process.py: explicitly convert ref strings to UUID before calling `get_work_item`. Factory-side fix, minimal risk.
 
-Option (b) is preferred — it's defensive and doesn't require a substrate release.
+Option (b) is preferred — it's defensive and doesn't require a regista release.
 
 ## Resolution
 
@@ -39,4 +39,4 @@ Applied option (b). Added `import uuid` and `_to_uuid` import from `factory.cont
 - Line 117: `sub.get_work_item(_to_uuid(interface_ref))` (implementation gate, interface ref)
 - Line 123: `sub.get_work_item(_to_uuid(test_suite_ref))` (implementation gate, test suite ref)
 
-This makes the gate behavior consistent across InMemorySubstrate and real Postgres Substrate, and restores test coverage for the three previously unreachable diagnostic kinds.
+This makes the gate behavior consistent across InMemorySubstrate and real Postgres Regista, and restores test coverage for the three previously unreachable diagnostic kinds.

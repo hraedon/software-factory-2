@@ -9,13 +9,13 @@ import time
 import uuid
 from pathlib import Path
 
-from substrate._errors import ErrorCode, SubstrateError
+from regista._errors import ErrorCode, RegistaError
 
 from factory.heartbeat import HeartbeatSession
 from factory.subprocess import run as run_subprocess
 
 
-class _StubSubstrate:
+class _StubRegista:
     def __init__(
         self, raise_on_call: int | None = None, raise_code: ErrorCode = ErrorCode.CLAIM_LOST
     ) -> None:
@@ -29,12 +29,12 @@ class _StubSubstrate:
             self.calls.append((work_item_id, actor_id, ttl_seconds, expected_attempt_number))
             n = len(self.calls)
         if self._raise_on_call is not None and n >= self._raise_on_call:
-            raise SubstrateError(self._raise_code, "claim lost", None)
+            raise RegistaError(self._raise_code, "claim lost", None)
         return None
 
 
 def test_heartbeat_session_periodic_beats():
-    sub = _StubSubstrate()
+    sub = _StubRegista()
     wi_id = uuid.uuid4()
     with HeartbeatSession(sub, wi_id, "actor-x", 1, ttl_seconds=300, interval_seconds=0.05):
         time.sleep(0.18)
@@ -44,7 +44,7 @@ def test_heartbeat_session_periodic_beats():
 
 
 def test_heartbeat_session_sets_cancel_on_claim_lost():
-    sub = _StubSubstrate(raise_on_call=1)
+    sub = _StubRegista(raise_on_call=1)
     wi_id = uuid.uuid4()
     with HeartbeatSession(sub, wi_id, "actor-x", 1, ttl_seconds=300, interval_seconds=0.05) as hb:
         for _ in range(20):
@@ -55,8 +55,8 @@ def test_heartbeat_session_sets_cancel_on_claim_lost():
 
 
 def test_heartbeat_session_tolerates_transient_errors():
-    """A non-CLAIM_LOST SubstrateError on heartbeat must not cancel work."""
-    sub = _StubSubstrate(raise_on_call=1, raise_code=ErrorCode.INVALID_ARGUMENT)
+    """A non-CLAIM_LOST RegistaError on heartbeat must not cancel work."""
+    sub = _StubRegista(raise_on_call=1, raise_code=ErrorCode.INVALID_ARGUMENT)
     wi_id = uuid.uuid4()
     with HeartbeatSession(sub, wi_id, "actor-x", 1, ttl_seconds=300, interval_seconds=0.05) as hb:
         time.sleep(0.15)

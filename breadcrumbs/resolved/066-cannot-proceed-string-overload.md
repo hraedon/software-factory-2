@@ -16,4 +16,4 @@ related: []
 
 ## Fix
 
-Renamed `TRANSITION_CANNOT_PROCEED` to `TRANSITION_ROUTE_TO_CANNOT_PROCEED` to describe what happens (routing to the terminal state). The string value remains `"cannot_proceed"` for substrate protocol compatibility.
+Renamed `TRANSITION_CANNOT_PROCEED` to `TRANSITION_ROUTE_TO_CANNOT_PROCEED` to describe what happens (routing to the terminal state). The string value remains `"cannot_proceed"` for regista protocol compatibility.

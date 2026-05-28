@@ -6,13 +6,13 @@ status: implemented
 kind: design
 author: opencode
 date: "2026-05-09"
-tags: [telemetry, substrate, dep-substrate]
+tags: [telemetry, regista, dep-regista]
 related: ["068"]
 ---
 
 ## Summary
 
-`Substrate.transition()` accepts a `custom_fields` keyword argument, and `gate_process.py` uses it to store diagnostics. The API surface suggests that custom_fields are per-event metadata, but the actual behavior is that `custom_fields` are **merged into the WorkItem** — they are not stored on the `Event` dataclass. The `Event` type has no `custom_fields` attribute.
+`Regista.transition()` accepts a `custom_fields` keyword argument, and `gate_process.py` uses it to store diagnostics. The API surface suggests that custom_fields are per-event metadata, but the actual behavior is that `custom_fields` are **merged into the WorkItem** — they are not stored on the `Event` dataclass. The `Event` type has no `custom_fields` attribute.
 
 This confused me during BC-068 implementation: I initially wrote a fallback in `telemetry.py` reading `ev.custom_fields`, assuming events carry the fields, before checking the `Event` dataclass and removing it.
 
@@ -23,4 +23,4 @@ This confused me during BC-068 implementation: I initially wrote a fallback in `
 
 ## Proposed improvement
 
-Option a: Add `custom_fields` as a read-only property on `Event` that returns the merged custom fields at that point in time (requires substrate schema change). Option b: Document the merge semantics prominently in the `transition()` docstring and add a `⚠ custom_fields are merged into the WorkItem, not stored per-event` note. Option c: Accept the current design and add an integration test that asserts `Event` has no `custom_fields` attribute, preventing future consumers from assuming one exists.
+Option a: Add `custom_fields` as a read-only property on `Event` that returns the merged custom fields at that point in time (requires regista schema change). Option b: Document the merge semantics prominently in the `transition()` docstring and add a `⚠ custom_fields are merged into the WorkItem, not stored per-event` note. Option c: Accept the current design and add an integration test that asserts `Event` has no `custom_fields` attribute, preventing future consumers from assuming one exists.

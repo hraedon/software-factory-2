@@ -69,8 +69,8 @@ class TestGoldenRunStructure:
 
 class TestAdversarialItemContract:
     @pytest.mark.integration
-    def test_adversarial_item_asserts_cannot_proceed(self, substrate):
-        page = substrate.query_work_items(
+    def test_adversarial_item_asserts_cannot_proceed(self, regista):
+        page = regista.query_work_items(
             workflow_name="software_factory",
             workflow_version=1,
             current_states=["cannot_proceed", "locked", "in_progress", "gating"],

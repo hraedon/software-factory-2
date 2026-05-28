@@ -6,18 +6,18 @@ status: proposed
 kind: design
 author: claude
 date: "2026-05-19"
-tags: [process, gates, contracts, meta-defense, v1-lesson, dep-substrate]
+tags: [process, gates, contracts, meta-defense, v1-lesson, dep-regista]
 related: ["RFC-030", "RFC-033", "RFC-032"]
 ---
 
 ## Motivation
 
-A cross-project survey of sf2, substrate, and software-factory v1 turned up the same shape in many places: a check or contract exists, signals correctly, and is ignored at the point of action.
+A cross-project survey of sf2, regista, and software-factory v1 turned up the same shape in many places: a check or contract exists, signals correctly, and is ignored at the point of action.
 
 Examples:
 
 - **sf2 channels**: AGENTS.md marks GLM-5.1, DeepSeek, Gemini as unvalidated, but `_create_channel` still constructs them and spec §5 still lists them in the capability table.
-- **substrate `allowed_roles`**: workflow YAML declares allowed roles per transition; both InMemory and Postgres backends accept `transition(..., actor_metadata={"role": "X"})` even when `register_actor_role("X")` was never called.
+- **regista `allowed_roles`**: workflow YAML declares allowed roles per transition; both InMemory and Postgres backends accept `transition(..., actor_metadata={"role": "X"})` even when `register_actor_role("X")` was never called.
 - **sf v1 gates**: Stage 7.5 reported orphan-services with `severity: high` for four consecutive cert-watch-7 phases; the pipeline completed regardless. BC-190 calls the pattern "systemic" but treats each instance as a separate gate bug.
 - **sf2 README vs files**: BC-126/127 listed as `implemented` in the index, `proposed` in the file (debate `adversarial-readiness-001`).
 - **sf v1 fixit layer**: skeleton stubs aren't runnable; a fixit pass exists to bandage the symptom rather than fix stub generation.
@@ -66,7 +66,7 @@ def _create_channel(name: str) -> Channel:
 
 Result: GLM/DeepSeek/Gemini cannot be silently used; the spec §5 table and the constructor are forced into sync by the next test run.
 
-**substrate `allowed_roles`:**
+**regista `allowed_roles`:**
 
 ```python
 # tier: detect (current)
@@ -95,7 +95,7 @@ This RFC does not invent a new system; it is a naming + locality discipline impo
 ## Operational cost
 
 - One-line tag per construct on first introduction.
-- One audit pass per repo to tag existing constructs (estimated: sf2 ~30 sites, substrate ~15, v1 ~50, dominated by gates and channel-like registries). The audit can be incremental — touch a site, tag it.
+- One audit pass per repo to tag existing constructs (estimated: sf2 ~30 sites, regista ~15, v1 ~50, dominated by gates and channel-like registries). The audit can be incremental — touch a site, tag it.
 - One CI rule (optional, deferred): a lint that fails if a new gate/check definition is added without a `# tier:` comment within N lines.
 
 ## Acceptance criteria
@@ -103,10 +103,10 @@ This RFC does not invent a new system; it is a naming + locality discipline impo
 - **AC-1**: This RFC filed.
 - **AC-2**: A short "Tiering" subsection added to `AGENTS.md` under the existing process section, with a pointer here and the three-line vocabulary (detect / enforce / retire).
 - **AC-3**: The sf2 channel registry (`_create_channel`) tagged per the worked example above, and the GLM/DeepSeek/Gemini code paths reconciled with the AGENTS.md status table (either raise on construction or carry the warn-and-document path). Filed as a separate BC under this RFC.
-- **AC-4**: One cross-repo note: substrate's `allowed_roles` enforcement gap (currently `tier: detect` implicitly) is filed as a substrate BC referencing this RFC, so consumers like watchpost have a tracked path to the eventual promotion.
+- **AC-4**: One cross-repo note: regista's `allowed_roles` enforcement gap (currently `tier: detect` implicitly) is filed as a regista BC referencing this RFC, so consumers like watchpost have a tracked path to the eventual promotion.
 
 ## Out of scope
 
-- Substrate state-machine invariants (claim TTL, schema isolation): these are not heuristic checks; they are hard semantic constraints. They are always `tier: enforce` by construction and do not need a declaration.
+- Regista state-machine invariants (claim TTL, schema isolation): these are not heuristic checks; they are hard semantic constraints. They are always `tier: enforce` by construction and do not need a declaration.
 - Test-only assertions: tiering is for production constructs that affect operational state, not for in-test invariants.
 - Retroactive tagging of *all* existing constructs in one pass: AC-3/4 cover the highest-leverage examples; the rest can be tagged incrementally as files are touched.

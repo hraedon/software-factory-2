@@ -2,7 +2,7 @@
 number: "207"
 title: Broad except Exception blocks silently swallow errors in 16 locations
 severity: medium
-status: in_progress
+status: resolved
 kind: improvement
 author: adversarial-review
 date: "2026-05-25"
@@ -23,15 +23,20 @@ related: ["201"]
 
 Many of these log a generic message and continue, losing the traceback and original exception type. This makes debugging failures significantly harder.
 
-## Partial fix (Session 53)
+## Fix
 
-Added structured logging to the most critical silent-swallowing locations:
+Added structured logging to all silent-swallowing locations:
 
+**Session 53 (partial):**
 1. `scheduler.py:314` — `_downstream_has_field()`: bare `except Exception: pass` → now logs warning with exc_info
 2. `pre_gate.py:667` — `ast.unparse()` fallback → now logs debug with exc_info
 3. `pre_gate.py:888` — artifact read for feedback → now logs debug with exc_info
 4. `context.py:578` — integration artifact JSON parse → now logs warning with exc_info
 5. `gate/review.py:22` — review artifact file read → now logs debug with exc_info
+
+**Session 54 (remaining):**
+6. `gate/integration.py:117` — artifact read failure → now logs debug with exc_info
+7. `gate/integration.py:169` — artifact write failure → now logs debug with exc_info
 
 The following locations already logged properly and needed no change:
 - `scheduler.py:118,127` (log.exception), `scheduler.py:299` (log.warning with exc_info=True)
@@ -41,6 +46,7 @@ The following locations already logged properly and needed no change:
 - `context.py:351` (logging.warning)
 - `jury.py:150` (log.exception)
 
-## Remaining
-
-~8 locations in `state_reporter.py` (dead module), `gate/integration.py`, and `gate/_subprocess.py` still use broad exception handling. The gate subprocess locations are acceptable (they return GateResult with the error message). The state_reporter locations are in dead code (BC-206).
+The remaining locations are acceptable:
+- `gate/_subprocess.py` (4 instances): all return `GateResult` with error message — correct pattern for gate subprocesses
+- `gate/integration.py:54`: unshare feature-detection probe — broad catch is appropriate for feature detection
+- `state_reporter.py` (2 instances): dead module (BC-206), no production callers

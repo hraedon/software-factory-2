@@ -6,8 +6,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from substrate import ActorMetadata
-from substrate.testing import InMemorySubstrate
+from regista import ActorMetadata
+from regista.testing import InMemoryRegista
 
 from factory.config import FactoryConfig
 from factory.constants import (
@@ -31,7 +31,7 @@ REVIEW_FINDINGS_JSON = (
 
 @pytest.fixture()
 def phase5_sub():
-    sub = InMemorySubstrate()
+    sub = InMemoryRegista()
     sub.register_workflow_file(str(PHASE5_WORKFLOW))
     yield sub
     sub.close()

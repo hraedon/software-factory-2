@@ -1,6 +1,6 @@
 ---
 number: "RFC-018"
-title: "Live state reporter — substrate-derived project snapshot"
+title: "Live state reporter — regista-derived project snapshot"
 severity: medium
 status: implemented
 kind: design
@@ -15,13 +15,13 @@ phase_needed: "Phase 4 or Phase 5"
 
 v1 had `audit/state_report.py`, which produced a `STATE.yaml` snapshot: work item counts by stage, recent breadcrumb status, test counts, git history, and module docstrings — all in ~500 tokens designed for a new session to read in under a minute.
 
-v2 has end-of-run telemetry (`telemetry.py`) but no equivalent "what's the project state *right now*?" command. The principal currently answers this question manually by running substrate queries or reading log tail. This is fine for golden runs but brittle for a long-running Phase 5 workload where the principal needs to know whether the pipeline is stuck, progressing, or finished without scrolling through log files.
+v2 has end-of-run telemetry (`telemetry.py`) but no equivalent "what's the project state *right now*?" command. The principal currently answers this question manually by running regista queries or reading log tail. This is fine for golden runs but brittle for a long-running Phase 5 workload where the principal needs to know whether the pipeline is stuck, progressing, or finished without scrolling through log files.
 
 ## Scope
 
 ### In scope
 
-A new command `factory state --config <yaml>` that prints a structured, human-readable snapshot derived entirely from substrate state (no new persistence):
+A new command `factory state --config <yaml>` that prints a structured, human-readable snapshot derived entirely from regista state (no new persistence):
 
 **Section 1: Pipeline progress**
 - Total work items by type (interface_spec, test_suite, implementation).
@@ -78,7 +78,7 @@ class ProgressSummary:
     mean_time_in_progress_minutes: float | None
 
 class StateReporter:
-    def __init__(self, sub: Substrate, config: FactoryConfig): ...
+    def __init__(self, sub: Regista, config: FactoryConfig): ...
     def snapshot(self) -> PipelineSnapshot: ...
     def render_markdown(self, snap: PipelineSnapshot) -> str: ...
 ```
@@ -87,12 +87,12 @@ class StateReporter:
 
 - **CLI entry point:** `python -m factory.state_reporter --config <yaml> [--json] [--brief] [--watch N]`
 - **`--watch N`**: poll every N seconds and print brief line (for `tmux` window / terminal monitor).
-- **Telemetry reuse:** `StateReporter` uses the same substrate queries as `telemetry.py` but aggregates differently (live counts vs. end-of-run metrics).
-- **No substrate changes:** All data comes from existing `query_work_items`, `read_events`, and `read_events_composite` APIs.
+- **Telemetry reuse:** `StateReporter` uses the same regista queries as `telemetry.py` but aggregates differently (live counts vs. end-of-run metrics).
+- **No regista changes:** All data comes from existing `query_work_items`, `read_events`, and `read_events_composite` APIs.
 
 ### Performance
 
-- Target: <2 seconds for a 100-work-item project on warm substrate connection.
+- Target: <2 seconds for a 100-work-item project on warm regista connection.
 - Query strategy: one `query_work_items` call (already paginated) + one `read_events` call with `event_type=gate_fail` and limit=50.
 - If `--watch` is used, the reporter should cache the work-item list and only re-query events.
 
@@ -105,9 +105,9 @@ Phase 4 (jury and race) or Phase 5. It is not a Phase 5 blocker — the principa
 1. `factory state --config golden-run-021-config.yaml --brief` prints a one-line summary.
 2. `factory state --config golden-run-021-config.yaml --json` produces valid JSON with all `PipelineSnapshot` fields.
 3. On a completed golden run, `completion_percent` equals the telemetry lock rate (±1 work item tolerance for pagination edge cases).
-4. No new substrate API surface needed; all data from existing queries.
+4. No new regista API surface needed; all data from existing queries.
 
 ## Precedent
 
 - v1 `factory/audit/state_report.py` — `STATE.yaml` generation with git history, test counts, breadcrumb status.
-- v2 telemetry.py — substrate query patterns and aggregation logic are reusable.
+- v2 telemetry.py — regista query patterns and aggregation logic are reusable.

@@ -1,7 +1,7 @@
 # create_link — Pure Interface
 
 ## Source
-substrate spec §5, FR-22
+regista spec §5, FR-22
 
 ## Spec excerpt
 

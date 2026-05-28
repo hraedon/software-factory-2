@@ -2,7 +2,7 @@
 
 Defects, design questions, and improvements for software-factory-2. One file per item, numbered for reference. Numbers do not imply priority — see `severity` in each file's frontmatter.
 
-Schema follows substrate's breadcrumbs convention; see `/projects/substrate/breadcrumbs/README.md` for the canonical reference.
+Schema follows regista's breadcrumbs convention; see `/projects/regista/breadcrumbs/README.md` for the canonical reference.
 
 ## Schema
 
@@ -17,7 +17,7 @@ status: proposed | in_progress | implemented | obsolete | active
 kind: bug | design | improvement | defect-class
 author: who-raised-it
 date: "YYYY-MM-DD"
-tags: [topic, stage-N, dep-substrate-NNN]
+tags: [topic, stage-N, dep-regista-NNN]
 related: ["002", "003"]
 ---
 ```
@@ -45,7 +45,7 @@ See RFC-031 for rationale and a worked example.
 
 Reusable tags:
 - `stage-0` through `stage-10` — pipeline stage from spec §4
-- `dep-substrate-NNN` — blocks on substrate breadcrumb NNN
+- `dep-regista-NNN` — blocks on regista breadcrumb NNN
 - `channel-claude`, `channel-k2`, `channel-glm`, `channel-deepseek`, `channel-gemini`, `channel-opencode`
 - `tier-a`, `tier-b`, `tier-c` — capability tier (spec §5)
 - `runner`, `telemetry`, `gate`, `jury`, `race`, `failure-routing`
@@ -99,14 +99,12 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 
 | # | Title | Severity | Status |
 |---|---|---|---|---|
-| 216 | Spec review stage — model-mediated architectural review before decomposition | high | implemented |
+| 218 | Remaining medium-severity quality issues from adversarial review | medium | resolved |
+| 217 | Adversarial review: 3 critical bugs + 8 high-severity issues found and fixed | critical | resolved |
 | 215 | Scheduler dedup lock is single-process only — no HA support | low | proposed |
 | 211 | No Prometheus metrics endpoint despite spec §7 claiming one | medium | proposed |
 | 210 | No streaming/incremental telemetry — operators have no visibility during long runs | medium | proposed |
 | 209 | No real workload validation — all 39 golden runs use synthetic cert-watch fixtures | high | proposed |
-| 208 | mutation_gate.py _run_pytest duplicates pre_gate and gate pytest logic | high | in_progress |
-| 207 | Broad except Exception blocks silently swallow errors in 16 locations | medium | in_progress |
-| 206 | Dead production modules with zero callers (~1300 lines) | medium | in_progress |
 
 ### RFCs (awaiting upstream phases)
 
@@ -137,26 +135,30 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Resolution |
 |---|---|---|---|
+| 217 | Adversarial review: 3 critical bugs + 8 high-severity issues found and fixed | critical | 3 critical (telemetry NameError, inner_gate JSONDecodeError, dead decomposer branch), 8 high (subprocess env leak, venv CalledProcessError args, 6 string-constant-gravity fixes, review_surface wrong key, wrong timeout, jury unbound var, dead telemetry branch), 9 medium fixes; all 1107 tests pass |
 | 216 | Spec review stage — model-mediated architectural review before decomposition | high | `spec_review.py` module + `prompts/spec_review.md` + 28 tests; model-mediated review with confidence-scored findings; Phase B.5 mechanical orphaned-module gate in `decomposer_model.py`; wired into `populate_work_items.py --spec-review`; socratic-spec process.md updated (composition checks blocking, cross-model requirement removed) |
+| 208 | mutation_gate.py _run_pytest duplicates pre_gate and gate pytest logic | high | Unified three-way pytest duplication into single canonical `_run_pytest` in `gate/_subprocess.py` with `gate_name` parameter; mutation_gate delegates via import, pre_gate uses lazy-import wrapper; ~110 lines of duplication eliminated |
+| 207 | Broad except Exception blocks silently swallow errors in 16 locations | medium | Added structured logging (exc_info=True) to all silent-swallowing locations in scheduler, pre_gate, context, review, integration; remaining locations return GateResult with error message or are in dead modules (BC-206) |
+| 206 | Dead production modules with zero callers (~1300 lines) | medium | Removed 5 dead modules (state_reporter, bundler, spec_hash, prompt_audit, ops/) + dead `build_summarizer_prompt()` function; ~1300 lines production + 72 test cases removed; RFCs remain as design proposals |
 | 214 | __import__('re') in subprocess_channel.py — code smell | low | Replaced with normal `import re` at top of file |
-| 213 | Substrate private API imports in production code | medium | Replaced `from substrate._errors import` with `from substrate import` in runner.py, heartbeat.py, gate_process.py |
+| 213 | Regista private API imports in production code | medium | Replaced `from regista._errors import` with `from regista import` in runner.py, heartbeat.py, gate_process.py |
 | 212 | No config schema validation — invalid configs accepted without error | high | Added `FactoryConfig.validate()` checking attempt_threshold, inner_gate_retries, poll_interval_seconds, claim_ttl_seconds, jury_quorum, query_page_size, role-to-type consistency; `from_yaml()` raises ValueError on invalid configs |
 | 200 | subprocess_channel.py leaks full os.environ to model subprocesses | high | Replaced `**os.environ` with `**strip_sensitive_env(os.environ)` in `subprocess_channel.py`, `venv.py`, and `credentials.py`; all model, gate-tool, and venv-management subprocesses now scrub `DATABASE_URL`, `*_API_KEY`, tokens, and password/credential/secret env vars; added 3 regression tests |
 | 196 | Telemetry reads all events for all work items — O(n*m) scaling | medium | Added `_query_work_items_and_events()` cache; updated all four telemetry consumers to accept caches; 4×N → 1×N reduction |
-| 195 | No idempotency keys on substrate mutations — crash-retry creates duplicates | medium | Created `factory.idempotency.make_event_id()`; wired `event_id` into all substrate mutation call sites; added thread-safe cache for UUID stability |
+| 195 | No idempotency keys on regista mutations — crash-retry creates duplicates | medium | Created `factory.idempotency.make_event_id()`; wired `event_id` into all regista mutation call sites; added thread-safe cache for UUID stability |
 | 202 | inner_gate _should_failover triggers on any non-zero exit code — too aggressive | medium | Narrowed to retryable failures only: timeout, empty output, exit codes 126/127, transport keywords ("connection", "timeout", "not found in path"); exit code 1/2 and generic errors no longer trigger failover |
 | 201 | Scheduler swallows database exceptions as 'not locked' | medium | Replaced bare `except Exception: return False` in `_all_dep_specs_locked()` with structured logging of the unexpected error; preserves the `return False` behavior but with visibility |
 | 199 | Unscoped query_work_items() leaks cross-project data in initiative.py and review_surface.py | medium | Added optional `workflow_name`/`workflow_version` kwargs to `query_initiatives()`, `cancel_initiative()`, `requeue_initiative()`; `review_surface.generate_review_report()` now passes scoping filters to `query_work_items()` |
 | 198 | Initiative requeue uses state name as transition name — no valid transition from cannot_proceed | high | Added `requeue` transition from `cannot_proceed` → `new` to all workflow YAMLs; `initiative.py` now uses `TRANSITION_REQUEUE` constant; `cancel_initiative()` validates current state and uses `TRANSITION_ROUTE_TO_CANNOT_PROCEED`; both functions log skip warnings for unexpected states |
 | 194 | No heartbeat on long-running model claims — claim theft risk | high | `HeartbeatSession` context manager wraps claims in runner/gate; daemon thread calls `heartbeat_claim` periodically; `cancel_event` kills subprocess on `CLAIM_LOST`; `subprocess.run` refactored to Popen+poll for cancellation |
-| 197 | Dead code with broken substrate API: store_spec_hash and load_spec_hash | low | Removed `store_spec_hash` and `load_spec_hash` (never called from production or tests); removed unused `CUSTOM_FIELD_SPEC_HASH` constant |
+| 197 | Dead code with broken regista API: store_spec_hash and load_spec_hash | low | Removed `store_spec_hash` and `load_spec_hash` (never called from production or tests); removed unused `CUSTOM_FIELD_SPEC_HASH` constant |
 | 203 | gemini_channel.py hardcodes Node v24.15.0 path — not in FactoryConfig | medium | Added `gemini_node_bin: Path | None` to `FactoryConfig`; channel reads from config with hardcoded fallback |
 | 204 | context.py hardcodes page_size=200 with no pagination | low | Parameterized `page_size` in `_gather_other_locked_artifacts` and `derive_integrator_context`; default 200 preserved for integrator's full-scan |
 | 205 | workspace.py and dep_resolution.py accept unvalidated paths — path traversal and process group kill risks | critical | Added `_validate_path_component()` rejecting `/`, `\`, `..` in workspace paths; `_safe_artifact_path()` now rejects absolute paths; `_resolve_ref_artifact()` uses shared validation; `_terminate()` validates pgid==pid before killpg; `_safe_rmtree()` with /tmp prefix guard in agent_golden_run.py; FR-ID regex widened to `FR-(?:[A-Z]+-)?\d+`; removed duplicate yaml import and `__import__("time")`; 14 path-traversal tests |
 | 193 | spec_section and import_feedback rendered unfenced in prompt — heading injection risk from fixture specs | low | Both fields fenced in triple-backtick code blocks in `render_prompt`; `custom_fields_update` added to SubmitPayload known-fields |
 | 195 | Integration gate subprocess namespace isolation — unshare --user --map-root-user --net | medium | `evaluate_integration` runs all subprocesses (import, mypy, pytest) under `unshare --user --map-root-user --net` when available; graceful degradation with structlog warning; PYTHONDONTWRITEBYTECODE set; validated in GR-039 |
 | RFC-011 | Unified subprocess execution layer — typed wrapper eliminating gate/runner subprocess footguns | critical | `factory.subprocess.run` with keyword-only `cmd`/`cwd`/`env`/`timeout_s`; all 29 call sites in `src/factory/` migrated; CLASS-005 + CLASS-008 stabilized; validated in GR-039 |
-| RFC-036 | Eliminate substrate private-API imports; split gate.py into a gate/ package | medium | gate.py (1415 lines) split into gate/ package with 9 submodules; gate/__init__.py re-exports all public names for backward compat; runner.py split: inner_gate.py + jury_orchestrator.py; phase defaults extracted to phase_defaults.py; _PHASE2_DISPATCH → _KIND_DISPATCH |
+| RFC-036 | Eliminate regista private-API imports; split gate.py into a gate/ package | medium | gate.py (1415 lines) split into gate/ package with 9 submodules; gate/__init__.py re-exports all public names for backward compat; runner.py split: inner_gate.py + jury_orchestrator.py; phase defaults extracted to phase_defaults.py; _PHASE2_DISPATCH → _KIND_DISPATCH |
 | RFC-024 | Coherence reviewer — declared role with zero design or implementation | high | Role removed from all dead-configuration sites (constants.py, spec.md, full_pipeline.yaml) per RFC-024 Option A. May be reintroduced in Phase 6 with concrete evidence of a structural-coherence gap. See resolved/RFC-024-coherence-reviewer.md. |
 | 194 | Channel status declaration vs. constructor divergence — GLM/DeepSeek/Gemini constructible despite "disabled"/"unvalidated" status | high | _CHANNEL_STATUS table adjacent to _register_channel with tier:enforce annotation; _create_channels raises ChannelDisabledError for disabled channels and warns for unvalidated; gemini-cli first enforced case; 2 regression tests (AC-2, AC-3) |
 | 190 | Scheduler downstream dedup is racey and O(N); handoff iteration unfair | high | Per-(source_id, downstream_type) `threading.Lock` in WeakValueDictionary closes TOCTOU window; in-memory existence cache skips O(N) scan on repeat calls; `random.shuffle` per poll cycle for fairness; 5 tests |
@@ -174,7 +176,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | 181 | gate_process has no attempt budget guardrail — crash-looping items cycle indefinitely | high | gate_loop now checks `claim.attempt_number >= attempt_threshold` at top of page loop and releases the claim with `gate_near_budget` warning, mirroring runner's BC-139 pattern |
 | 180 | gate_process writes review_findings to review work item type — CUSTOM_FIELD_VIOLATION crash-loop | critical | Resolved structurally by BC-185 (separate transition_fields/routing_fields bags); evaluate_review now puts `review_findings` in routing_fields so it never reaches the review WI transition payload |
 | 174 | Integration gate import resolution runs in wrong Python environment — fails on project dependencies | high | evaluate_integration() now runs import resolution as subprocess under gate venv python (same as mypy/pytest); in-process sys.path mutation removed; CLASS-008 instance #11 |
-| 173 | Workflow composition migration complete — extends: adopted for phase2-5 | low | phase2-5 use extends: inheritance; 1133→421 lines (63% reduction); pipeline_docs uses resolve_includes(); substrate register_workflow_file resolves extends; semantic verification via scripts/migrate_workflows.py --verify |
+| 173 | Workflow composition migration complete — extends: adopted for phase2-5 | low | phase2-5 use extends: inheritance; 1133→421 lines (63% reduction); pipeline_docs uses resolve_includes(); regista register_workflow_file resolves extends; semantic verification via scripts/migrate_workflows.py --verify |
 | 172 | Pre-commit hook does not enforce `make check` — lint errors and broken tests landed in main | medium | Created .githooks/pre-commit running make check; git config core.hooksPath .githooks |
 | 171 | Integrator role prompt lacks worked example — assembled_tree import/mypy failures at outer gate | medium | Added worked example to integrator.md with cert-watch-style 2-module assembly demonstrating flat keys, cross-module imports, entry_point, integration_tests |
 | 170 | Pre-gate ruff mutates integrator JSON artifact — quote normalization corrupts .py-wrapped JSON | high | Fixed: _artifact_extension_for_role returns .json for integrator/outcome_verifier; dedicated pre_gate_integrator/pre_gate_outcome_verifier skip ruff/mypy/pytest (CLASS-021 #5) |
@@ -183,11 +185,11 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-014 | Staff engineer summarizer — compress outer-path failure history into actionable constraints | medium | failure_summarizer.py with local constraint extraction (import refs, type mismatches, missing symbols, recurring errors); integrated into render_prompt for >=2 prior failures |
 | RFC-004 | Auto-generated pipeline documentation — v1 docs froze while pipeline grew | medium | pipeline_docs.py generates documentation from workflow YAML, router dispatch table, and prompt templates; format_full_doc() produces complete pipeline reference |
 | RFC-001 | Prompt conflict detection — v1 BC-383 shows silent failure when role prompts contradict | high | prompt_audit.py with typing-style conflict detection, directive gap analysis, orphaned artifact reference checks, worked-example style drift scanning |
-| RFC-018 | Live state reporter — substrate-derived project snapshot | medium | state_reporter.py with StateReporter, PipelineSnapshot, ProgressSummary; CLI with --json/--brief/--watch; markdown/JSON/brief render modes; 13 tests |
+| RFC-018 | Live state reporter — regista-derived project snapshot | medium | state_reporter.py with StateReporter, PipelineSnapshot, ProgressSummary; CLI with --json/--brief/--watch; markdown/JSON/brief render modes; 13 tests |
 | RFC-008 | Pipeline checkpoint and surgical resume system | medium | checkpoint.py with write_checkpoint/load_checkpoint/compare_checkpoints/can_resume_from_checkpoint; per-stage state snapshots; config hash validation; latest.json symlink; 14 tests |
 | RFC-005 | Composable failure/escalation architecture | medium | Router refactored to RouteHandler pipeline: RoutingHintHandler → EscalationHandler → DispatchHandler; new handlers add via _HANDLERS list without modifying dispatch table; 6 handler tests |
 | RFC-025 | Stateful upstream routing — route() and scheduler need role-targeted work-item creation | high | Route extended with upstream fields; REVIEW_FOUND_DEFECT creates implementation revisions via scheduler.ensure_upstream_revision(); idempotency via upstream_revision_of custom field |
-| RFC-021 | Spec mutation and invalidation policy | high | spec_hash.py module with SHA-256 tracking, store/load via substrate custom fields, compare_spec_hashes for change detection |
+| RFC-021 | Spec mutation and invalidation policy | high | spec_hash.py module with SHA-256 tracking, store/load via regista custom fields, compare_spec_hashes for change detection |
 | RFC-020 | Project archetype catalog for Phase 5 cold-start | high | catalog/ with 3 archetypes (cli-tool, web-service, library-module); catalog.py loader with skeleton application and validation |
 | RFC-019 | Artifact bundling and output delivery | high | bundler.py with tar.gz/zip/dir output, MANIFEST.json, SHA-256 integrity verification; 13 tests |
 | RFC-017 | Operational survivability — resource limits, disk monitoring, log rotation, workspace lifecycle | high | factory/ops/ package: cleanup.py, log_rotation.py, disk_monitor.py, resource_limits.py; OpsConfig in FactoryConfig; 22 tests |
@@ -226,15 +228,15 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | 136 | Channel failover — automatic backup channel on empty output, API errors, and timeouts | high | `RoleConfig` extended with `fallback_channel`/`fallback_model`; `_should_failover()` triggers on empty output, timeout, non-zero exit, missing binary; runner primary→fallback immediate retry; inner gate retries use fallback; jury juror fallback with `_fb` channel key; telemetry records fallback in `ChannelFailPayload.diagnostics`; 13 tests; 650 pass, 0 lint errors |
 | 135 | glm-5.1 (z.ai) returns empty output for implementer role — model reliability issue | medium | Root cause: transient z.ai provider issue (13/16 failures during GR-024, 0/16 in post-hoc test). Mitigations: empty-output retry (configurable, default 1 retry / 3s delay); stderr capture in error message + `raw_stderr.txt`; 13 new tests |
 | 134 | run_jury observability gap — disagreement_rationale empty on all-error/all-timeout | medium | `jury.py` always populates `disagreement_rationale` when quorum not met; `[all_against]` tag distinguishes all-failure from split; `evaluate_jury()` produces tagged diagnostics; 3 new evaluate_jury tests |
-| 133 | Telemetry two-source-of-truth — inner-gate signal lives only in runner logs | high | `SubmitPayload.inner_gate_attempts` carries inner gate history in substrate events; `telemetry.py` reads inner gate attempts from submit payloads; separate inner gate first-pass rate in exit criteria; report label "Phase 3" → "Pipeline" |
+| 133 | Telemetry two-source-of-truth — inner-gate signal lives only in runner logs | high | `SubmitPayload.inner_gate_attempts` carries inner gate history in regista events; `telemetry.py` reads inner gate attempts from submit payloads; separate inner gate first-pass rate in exit criteria; report label "Phase 3" → "Pipeline" |
 | 132 | Phase 4 jury and race architecture skeleton | medium | `jury.py`, `review.py`, prompt templates, `evaluate_review()`, `evaluate_jury()`, `process_jury_work_item()`, `phase4.yaml`, `FactoryConfig.phase4()`; 10 new tests; lint/test clean |
 | 131 | Runtime import resolution feedback quality — dotted submodule and module-not-found errors | high | `_parse_import_failure()` in pre_gate.py classifies import failures as dotted_submodule/wrong_module_name/other_traceback; `import_feedback` field in PreGateResult and PromptContext injects actionable retry context; structlog `import_feedback_kind` dimension; GR-021 validated: 5/5 wrong_module_name failures recovered on retry=1; inner gate first-attempt rate 74% (20/27) |
 | 108 | GeminiCLIChannel disabled — unvalidated in golden runs, removed from runner registration | medium | GeminiCLIChannel removed from `_register_channel()` calls; Phase 3 default config uses kimi-k2p6-turbo for all roles; unvalidated channels no longer in default bindings |
 | 126 | Work-item granularity correlation — measure AC count vs first-attempt pass rate, then cap | high | Phase A measurement complete. 96 rows across 5 GRs. No relationship between AC count/spec words/dep lines and first-attempt failure. Curve is flat; no knee. No spec-lint size cap warranted. See `.factory/analysis/2026-05-13-work-item-granularity.md` |
 | 130 | spec_lint only handled bulleted AC format — heading-per-AC specs were all ERROR | medium | Refactored `_extract_acs()` to handle both `## AC-NN:` heading format and `## Acceptance Criteria` bullet format; 7 new tests; all cert-watch specs lint cleanly |
 | 127 | Spec linting — pre-flight pass over work-item specs before model invocation | high | `spec_lint.py` module with 7 checks; wired into `populate_work_items.py` with `--skip-lint`/`--strict-lint` flags; handles both AC formats; deterministic output verified |
-| 129 | Substrate actor_metadata API change breaks 10 integration tests — dict vs attribute access | high | Fixed on substrate side; all 18 tests pass; make check clean |
-| 128 | Cross-attempt defect taxonomy — classify model-attempt failures across GRs | high | Corpus builder (`build_failure_corpus.py`), report generator (`failure_corpus_report.py`), classification rules, 16 tests; substrate syntax error blocking import fixed |
+| 129 | Regista actor_metadata API change breaks 10 integration tests — dict vs attribute access | high | Fixed on regista side; all 18 tests pass; make check clean |
+| 128 | Cross-attempt defect taxonomy — classify model-attempt failures across GRs | high | Corpus builder (`build_failure_corpus.py`), report generator (`failure_corpus_report.py`), classification rules, 16 tests; regista syntax error blocking import fixed |
 | 063 | InMemorySubstrate drift history — integration test surface is 10x smaller than unit test surface | medium | `make integration` target added; 8 new integration tests covering test_suite lifecycle, implementation lifecycle, scheduler DAG, channel failure retry, crash recovery on real Postgres |
 | 125 | populate_work_items.py --config doesn't infer --workflow from config YAML | medium | --workflow defaults to None; inferred from config.workflow_version when --config provided; summary line prints resolved project name |
 | 124 | Selective ruff rule set for model output — relax non-critical rules | medium | Inner gate uses `--select E,F,I,N,W,UP,RUF --ignore E501` matching pyproject.toml; GR-019 validated: zero ruff failures |
@@ -299,7 +301,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | 069 | Gate names are bare string literals scattered across gate.py — no constants or closed set | medium | Added 23 GATE_NAME_* constants to constants.py; replaced all bare string literals in gate.py, gate_process.py, telemetry.py, failure_summary.py; updated 6 test files; 299 tests pass |
 | 068 | Telemetry reporter matches gate events with "unknown" gate name and 0% first-attempt pass rate | high | Added gate_name to ActorMetadata; gate_process emits it; telemetry reads from actor_metadata first with fallback to payload; failure_summary reads from actor_metadata first; logging on unknown; 5 data-quality tests; 298+293 tests pass |
 | 067 | No FactoryConfig.phase2() constructor — requires manual setattr bypass | low | Added `FactoryConfig.phase2(**overrides)` classmethod returning pre-populated Phase 2 config |
-| 066 | cannot_proceed string overloaded as both state name and transition name | low | Renamed `TRANSITION_CANNOT_PROCEED` to `TRANSITION_ROUTE_TO_CANNOT_PROCEED`; string value unchanged for substrate compatibility |
+| 066 | cannot_proceed string overloaded as both state name and transition name | low | Renamed `TRANSITION_CANNOT_PROCEED` to `TRANSITION_ROUTE_TO_CANNOT_PROCEED`; string value unchanged for regista compatibility |
 | 064 | No automated channel adapter integration tests — regression detection requires full golden run | medium | Added `test_channel_integration.py` with CLI smoke tests (skipif) and golden-file extraction tests against golden-run-001 fixtures; 11 new tests |
 | 065 | Scattered hardcoded page_size values — not derived from FactoryConfig | medium | Added `query_page_size` and `telemetry_event_limit` to `FactoryConfig`; all 5 hardcoded values replaced with config references |
 | 062 | Resume-on-gate-fail still wastes Claude budget — BC-046 not fully resolved | high | `_has_prior_gate_fail()` guard now checked in `process_work_item` before resuming; skips resume with log message when prior gate/channel fail exists |
@@ -311,7 +313,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | 045 | report.py hardcodes workflow_version=1 — cannot report on Phase 2 runs | medium | report.py now reads workflow_name and workflow_version from FactoryConfig; remaining reporting improvements deferred to BC-033 |
 | 054 | No PipelineRuntime namespace — live objects mix with serializable state (v1 BC-361 pattern) | high | Introduced PipelineRuntime frozen dataclass; refactored runner.py, gate_process.py, scheduler.py to use it; 256 tests pass |
 | 055 | Stage contracts must be blocking from day one, not warn-and-continue (v1 BC-358 pattern) | high | Gate now fails on missing/absent required refs (missing_dependency, missing_artifact); added DiagnosticKind routing; 8 contract tests; 264 total pass |
-| 051 | spec.md still cites BC-021 as Phase 1 blocker — substrate hooks appear to work | medium | Updated spec.md §8 to reflect that BC-021 is historical; added cross-ref to BC-051 |
+| 051 | spec.md still cites BC-021 as Phase 1 blocker — regista hooks appear to work | medium | Updated spec.md §8 to reflect that BC-021 is historical; added cross-ref to BC-051 |
 | 050 | interface_architect.md worked example uses deprecated typing — contradicts implementer rules and lint gate | medium | Replaced `Union[Range, Error]` with `Range | Error` and removed `from typing import Union` in worked example |
 | 049 | _resume_and_submit has stale default role_name='interface_architect' | low | Removed default; made role_name a required parameter |
 | 048 | _check_pyi_stub SyntaxError handler is dead code | low | Removed unreachable `try/except SyntaxError: pass`; `_check_syntax` already catches syntax errors before `_check_pyi_stub` |
@@ -326,25 +328,25 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | 039 | Implementation lint gate should auto-format before checking and prompt should teach modern typing | medium | Added ruff check --fix + ruff format before lint gate; updated implementer.md with modern typing conventions; added gate-fail resume guard in runner.py |
 | 038 | test_suite gate doesn't verify pytest collectability — test-theater gap | medium | Added _run_pytest_collect() to evaluate_test_suite(); fails on 0 collected tests |
 | 037 | Escalation routing is a no-op for non-interface_spec work item types | high | Added gate_escalation transition (gating → cannot_proceed); escalation now terminates item instead of cycling |
-| 030 | Real Substrate read_events should support composite filters (work_item_id + transition) | medium | Substrate shipped read_events_composite with AND-composable SQL filters; InMemorySubstrate also supports multi-dimension filters |
-| 029 | Test suite coverage gap closure — runner unit, IO failure, config malformed, prompt rendering, substrate coupling | medium | Added 22 tests across 4 new files + 5 modified; extracted shared helper; added pytest-cov dep |
-| 036 | InMemorySubstrate claim attempt_number resets after transition — escalation path untestable | high | Resolved by substrate BC-054: persistent attempt_number on work_items_current in both Postgres and InMemory backends |
+| 030 | Real Regista read_events should support composite filters (work_item_id + transition) | medium | Regista shipped read_events_composite with AND-composable SQL filters; InMemorySubstrate also supports multi-dimension filters |
+| 029 | Test suite coverage gap closure — runner unit, IO failure, config malformed, prompt rendering, regista coupling | medium | Added 22 tests across 4 new files + 5 modified; extracted shared helper; added pytest-cov dep |
+| 036 | InMemorySubstrate claim attempt_number resets after transition — escalation path untestable | high | Resolved by regista BC-054: persistent attempt_number on work_items_current in both Postgres and InMemory backends |
 | 035 | InMemorySubstrate get_work_item rejects string UUIDs | high | Added `_to_uuid()` coercion in gate_process.py for all ref string lookups (test_suite + implementation gates) |
 | 034 | Cannot_proceed without diagnostics file causes double-release | high | Changed else branch to channel_fail transition instead of bare release_claim |
 | 028 | Dead MockSubstrate file — tests/_mock_substrate.py | low | Deleted after InMemorySubstrate migration confirmed stable |
 | 027 | Wave 5 — cross-stage escalation routing | high | Escalation in router with attempt_threshold; CANNOT_PROCEED_SEAM kind |
 | 026 | Scheduler idempotency — global has_link_type query skips unrelated sources | medium | Per-source custom_fields ref check in _ensure_downstream_item |
 | 025 | evaluate_implementation missing subprocess gates | high | Added import/mypy/pytest/ruff gates with correct DiagnosticKind |
-| 021 | Non-cannot_proceed channel failures produce no substrate event for telemetry | high | Added sub.append_event(transition="channel_fail") in _handle_invoke_failure; updated MockSubstrate + tests |
+| 021 | Non-cannot_proceed channel failures produce no regista event for telemetry | high | Added sub.append_event(transition="channel_fail") in _handle_invoke_failure; updated MockSubstrate + tests |
 | 024 | _resume_and_submit hardcodes role to interface_architect | high | Parameterized role_name in runner.py; added test |
 | 023 | Structural semantics gate rejected module-level AC docstrings | high | Extended _check_structural_semantics to honor module docstrings |
-| 022 | Integration tests access substrate private API — _mgr._dsn and _project | medium | Introduced factory_config fixture using public substrate.project |
+| 022 | Integration tests access regista private API — _mgr._dsn and _project | medium | Introduced factory_config fixture using public regista.project |
 | 020 | Config YAML loading untested — from_yaml, from_yaml_or_default | low | Added 6 tests in test_config.py |
 | 019 | Channel failure modes untested — timeout, non-zero exit, extraction failure | high | Added 5 tests in test_channel_failures.py |
-| 018 | MockSubstrate diverges from real substrate — workflow_version filtering, event payload | medium | Fixed query_work_items filtering; removed state_map fallback; verified read_events signature |
+| 018 | MockSubstrate diverges from real regista — workflow_version filtering, event payload | medium | Fixed query_work_items filtering; removed state_map fallback; verified read_events signature |
 | 017 | Router is dead code — route() never called by gate_process | medium | Wired route() into process_gate_item; diagnostics via routing table |
 | 016 | AC reference check uses substring search — false positives likely | medium | Removed _check_ac_references; module docstring support added |
-| 015 | Integration test private substrate API coupling | medium | Public API workaround via factory_config fixture; substrate-level request for Substrate.dsn remains open |
+| 015 | Integration test private regista API coupling | medium | Public API workaround via factory_config fixture; regista-level request for Regista.dsn remains open |
 | 014 | Resume path (_resume_and_submit) untested at integration level | high | Added 3 tests in test_runner_resume.py; fixed hardcoded role |
 | 008 | Fixture AC-15 mislabel in 04-verify_event_errors.md | high | Fixed AC-15 text to describe verify_event rejection behavior |
 | 009 | context_hash → artifact non-determinism; replay tests must assert structure | high | Added structural_signature() + structurally_equivalent_pyi() in gate.py with 10 tests |
@@ -358,4 +360,4 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | 004 | cannot_proceed routing has no workflow path | high | Added cannot_proceed terminal state + transition to both YAMLs; runner bypasses gate |
 | 002 | Runner skeleton complexity risk | medium | Implemented: 7-module decomposition built per BC-002 spec |
 | 003 | Runner idempotency on restart | high | Implemented: §9.12 spec amendment applied, workspace + tests done |
-| 001 | Dead error codes: defined but never raised | low | Moved to substrate/breadcrumbs/026 — not a factory issue |
+| 001 | Dead error codes: defined but never raised | low | Moved to regista/breadcrumbs/026 — not a factory issue |

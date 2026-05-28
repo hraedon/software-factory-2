@@ -2,7 +2,7 @@
 number: "208"
 title: "mutation_gate.py _run_pytest duplicates pre_gate and gate pytest logic"
 severity: high
-status: in_progress
+status: resolved
 kind: improvement
 author: adversarial-review
 date: "2026-05-25"
@@ -39,6 +39,24 @@ Additionally, `mutation_gate.evaluate_mutation_spot_check` had a hardcoded `time
 6. **Unused imports removed**: `GATE_NAME_IMPLEMENTATION_PYTEST` and `GATE_NAME_INNER_PYTEST` no longer imported.
 7. **Gate name filter bug fixed**: `evaluate_mutation_spot_check` had a gate name check that included `GATE_NAME_MUTATION_SPOT_CHECK`, which caused ALL pytest results to be filtered as ineligible (the check was meant to filter inner-gate failures only). Fixed to check only `GATE_NAME_INNER_MYPY`.
 
-## Remaining
+## Fix
 
-The three-way duplication still exists. Full unification would extract a shared pytest runner in `gate/_subprocess.py` that all callers delegate to. The mutation_gate variant is intentionally different (uses real interface .pyi, not dummy), so full unification requires the shared function to accept an optional `interface_pyi_path` parameter.
+Unified three-way pytest duplication into a single canonical `_run_pytest` in `gate/_subprocess.py`:
+
+1. **`gate/_subprocess.py:_run_pytest`** extended with superset parameters:
+   - `interface_pyi_path: Path | None = None` — real .pyi stub for mutation testing
+   - `implementation_name: str | None = None` — custom filename for impl copy
+   - `gate_name: str = GATE_NAME_IMPLEMENTATION_PYTEST` — caller-controlled GateResult label
+   - `timeout` default changed from hardcoded `300` to `GateTimeouts.pytest_timeout`
+   - Diagnostic truncation changed from `[:10]` to `[-3:]` (show tail, not head)
+   - Interface handling: always creates `interface.py` from impl (for importability), then overlays `interface.pyi` if real stub provided
+
+2. **`mutation_gate.py`**: removed 70-line local `_run_pytest`; now imports from `gate._subprocess` and passes `gate_name=GATE_NAME_MUTATION_SPOT_CHECK`. Removed unused `tempfile`, `sandbox`, `subprocess` imports.
+
+3. **`pre_gate.py:_run_pytest_fast`**: replaced 57-line implementation with 18-line wrapper calling `gate._subprocess._run_pytest` (lazy import to avoid circular dependency with `copy_dependency_pyis`). Returns dict for backward compatibility. Removed unused `TEMPFILE_PREFIX_PYTEST`, `ARTIFACT_FILENAME_INTERFACE` imports.
+
+**Net reduction**: ~110 lines of duplicated code eliminated.
+
+### Why this isn't the previous fix recurring
+
+Sessions 52–53 fixed individual symptoms (telemetry corruption, missing checks, truncation alignment) without addressing the root cause: three near-identical implementations that must stay synchronized. This fix establishes the invariant: **one canonical `_run_pytest` with a `gate_name` parameter; no caller reimplements pytest subprocess logic**. The `gate_name` parameter makes the function caller-configurable without requiring copy-paste.

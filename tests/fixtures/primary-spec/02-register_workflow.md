@@ -1,7 +1,7 @@
 # register_workflow — Pure Interface
 
 ## Source
-substrate spec §5, FR-17
+regista spec §5, FR-17
 
 ## Spec excerpt
 

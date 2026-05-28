@@ -12,7 +12,7 @@ related: ["003"]
 
 ## Background
 
-`populate_work_items.py --reset` calls `drop_project_schema` to destroy the substrate project database schema, then creates a fresh project. But it does not clean `workspace_root`.
+`populate_work_items.py --reset` calls `drop_project_schema` to destroy the regista project database schema, then creates a fresh project. But it does not clean `workspace_root`.
 
 This means when the user does:
 

@@ -1,6 +1,6 @@
 ---
 number: "009"
-title: "Event schema evolution — how do substrate and consumers agree on payload shape?"
+title: "Event schema evolution — how do regista and consumers agree on payload shape?"
 author: opencode
 date: "2026-05-09"
 related: ["BC-068", "RFC-002", "BC-060"]
@@ -8,7 +8,7 @@ related: ["BC-068", "RFC-002", "BC-060"]
 
 ## Context
 
-Substrate events carry `payload: dict` and `actor_metadata: dict` as free-form JSONB. The substrate library does not validate the internal shape of these fields — it stores and replays them faithfully. Consumers (v2 factory, and potentially other projects) define their own conventions for what goes inside.
+Regista events carry `payload: dict` and `actor_metadata: dict` as free-form JSONB. The regista library does not validate the internal shape of these fields — it stores and replays them faithfully. Consumers (v2 factory, and potentially other projects) define their own conventions for what goes inside.
 
 v2's telemetry bug (BC-068) illustrates the failure mode: the factory started putting gate evaluation results into `payload.diagnostics` and `custom_fields.diagnostics`, but the telemetry collector expected `gate_name` in a different location. Both the producer (`gate_process.py`) and the consumer (`telemetry.py`) changed shape independently. There was no versioning, no schema check, and no failure when the shapes diverged — only silent data degradation.
 
@@ -23,7 +23,7 @@ Without a schema contract, the producer and consumer will drift again. The next 
 
 ## Position
 
-**Add optional, versioned payload schemas to substrate that consumers can register per transition name. The schema is validated at `append_event` time (soft validation: warn, don't reject) and at replay time.**
+**Add optional, versioned payload schemas to regista that consumers can register per transition name. The schema is validated at `append_event` time (soft validation: warn, don't reject) and at replay time.**
 
 ### Proposed design
 
@@ -44,18 +44,18 @@ Without a schema contract, the producer and consumer will drift again. The next 
 
 3. **Versioning:** Each schema has an integer version. Events can optionally carry `_schema_version` in payload. Consumers can query "give me all `gate_pass` events with schema version >= 2."
 
-4. **Rejection policy:** Substrate never rejects an event for payload schema violation — that would break the append-only guarantee. It logs a warning and stores a `payload_schema_warning` flag on the event.
+4. **Rejection policy:** Regista never rejects an event for payload schema violation — that would break the append-only guarantee. It logs a warning and stores a `payload_schema_warning` flag on the event.
 
-### Why substrate and not the consumer
+### Why regista and not the consumer
 
 v2 could implement this in `gate_process.py` and `telemetry.py` independently. But:
 - Other consumers (future projects, audit tools, the principal's dashboard) need the same guarantee
-- Substrate is the shared spine; schema enforcement belongs at the spine
+- Regista is the shared spine; schema enforcement belongs at the spine
 - If every consumer implements its own validation, they will drift from each other
 
 ### Minimal alternative
 
-If adding schema registry to substrate is too large, the immediate fix is a **consumer-level schema contract**:
+If adding schema registry to regista is too large, the immediate fix is a **consumer-level schema contract**:
 - v2 defines `factory/event_schemas.py` with dataclasses for each event type it produces
 - `gate_process.py` uses these dataclasses to construct payloads
 - `telemetry.py` uses the same dataclasses to read payloads
@@ -67,7 +67,7 @@ This is weaker (only helps v2, not other consumers) but can be implemented in on
 
 | Risk | Mitigation |
 |---|---|
-| Schema registry adds complexity to substrate | Make it optional; consumers opt-in per transition |
+| Schema registry adds complexity to regista | Make it optional; consumers opt-in per transition |
 | Schema evolution requires migration | Versioned schemas; old events keep old versions; consumers declare minimum version |
 | Principal cannot review JSON schemas | Schema definitions are simple type declarations (str, bool, list), not JSON Schema drafts |
 
@@ -79,5 +79,5 @@ Phase 3 (fleet integration). Not strictly blocking, but every phase added withou
 
 1. Implement consumer-level schema in v2 (`factory/event_schemas.py`) as pilot
 2. Run for 2 golden runs; measure how many schema warnings are emitted
-3. If the pilot works, propose substrate-level registry as a substrate RFC
+3. If the pilot works, propose regista-level registry as a regista RFC
 4. Close BC-068 and RFC-002 with schema-related resolution notes

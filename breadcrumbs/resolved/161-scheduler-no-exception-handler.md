@@ -12,7 +12,7 @@ related: ["148"]
 
 ## Summary
 
-`scheduler_loop()` in `scheduler.py:32-63` has no top-level `try/except` around the poll loop. If `_ensure_downstream_item()` raises an unhandled exception (e.g., substrate API error, type mismatch in Phase 5 handoff logic, malformed link type), the entire scheduler process exits without logging the error.
+`scheduler_loop()` in `scheduler.py:32-63` has no top-level `try/except` around the poll loop. If `_ensure_downstream_item()` raises an unhandled exception (e.g., regista API error, type mismatch in Phase 5 handoff logic, malformed link type), the entire scheduler process exits without logging the error.
 
 ```python
 # scheduler.py:48-63 — no exception handling

@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
-from substrate import Substrate
+from regista import Regista
 
 from factory.config import FactoryConfig, load_config
 from factory.constants import (
@@ -145,7 +145,7 @@ def extract_from_config(
     rules: list[tuple[re.Pattern, str]],
     existing_keys: set[tuple[str, str, int, str]],
 ) -> list[CorpusRow]:
-    sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
+    sub = Regista(config.dsn, config.project_name, config.hmac_key_path)
     try:
         page = sub.query_work_items(
             workflow_name=config.workflow_name,

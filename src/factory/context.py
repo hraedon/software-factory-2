@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from substrate import Substrate
+from regista import Regista
 
 from factory.constants import (
     CUSTOM_FIELD_AC_IDS,
@@ -63,7 +63,7 @@ def _to_uuid(value: str | uuid.UUID) -> uuid.UUID:
 
 
 def derive_context(
-    substrate: Substrate,
+    regista: Regista,
     work_item_id: str,
     role: str,
     spec_content: str | None = None,
@@ -73,14 +73,14 @@ def derive_context(
     export_map: dict[str, set[str]] | None = None,
 ) -> PromptContext:
     wi_id = _to_uuid(work_item_id)
-    wi = substrate.get_work_item(wi_id)
+    wi = regista.get_work_item(wi_id)
     if wi is None:
         raise ValueError(f"Work item {work_item_id} not found")
     custom = wi.custom_fields or {}
     spec_section = custom.get(CUSTOM_FIELD_SPEC_SECTION, "")
     ac_ids_raw = custom.get(CUSTOM_FIELD_AC_IDS, [])
     ac_ids = ac_ids_raw if isinstance(ac_ids_raw, list) else [ac_ids_raw]
-    failures = derive_failures(substrate, work_item_id)
+    failures = derive_failures(regista, work_item_id)
     prompt_path = PROMPTS_DIR / f"{role}.md"
     if not prompt_path.exists():
         raise FileNotFoundError(f"Prompt template not found: {prompt_path}")
@@ -118,7 +118,7 @@ def derive_context(
 
 
 def _resolve_dependency_contents(
-    substrate: Substrate,
+    regista: Regista,
     custom: dict,
 ) -> tuple[dict[str, str], list[str]]:
     dep_refs_raw = custom.get(CUSTOM_FIELD_DEPENDENCY_REFS) or []
@@ -126,17 +126,17 @@ def _resolve_dependency_contents(
         dep_refs_raw = [dep_refs_raw]
     if not dep_refs_raw:
         return {}, []
-    return resolve_dep_refs_for_context(substrate, dep_refs_raw)
+    return resolve_dep_refs_for_context(regista, dep_refs_raw)
 
 
 def derive_test_author_context(
-    substrate: Substrate,
+    regista: Regista,
     work_item_id: str,
     spec_content: str | None = None,
     spec_glossary: dict[str, str] | None = None,
 ) -> PromptContext:
     wi_id = _to_uuid(work_item_id)
-    wi = substrate.get_work_item(wi_id)
+    wi = regista.get_work_item(wi_id)
     if wi is None:
         raise ValueError(f"Work item {work_item_id} not found")
     custom = wi.custom_fields or {}
@@ -144,7 +144,7 @@ def derive_test_author_context(
     interface_ref = custom.get(CUSTOM_FIELD_INTERFACE_REF)
     locked_interface = ""
     if interface_ref:
-        ref_wi = substrate.get_work_item(_to_uuid(interface_ref))
+        ref_wi = regista.get_work_item(_to_uuid(interface_ref))
         if ref_wi and ref_wi.custom_fields:
             ref_path = ref_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
             if ref_path:
@@ -155,12 +155,12 @@ def derive_test_author_context(
     extra_artifacts = {}
     if locked_interface:
         extra_artifacts["locked_interface"] = locked_interface
-    dep_contents, stub_only = _resolve_dependency_contents(substrate, custom)
+    dep_contents, stub_only = _resolve_dependency_contents(regista, custom)
     extra_artifacts.update(dep_contents)
     export_map = _build_export_map_from_contents(dep_contents)
 
     return derive_context(
-        substrate,
+        regista,
         work_item_id,
         role=ROLE_TEST_AUTHOR,
         spec_content=spec_content,
@@ -172,13 +172,13 @@ def derive_test_author_context(
 
 
 def derive_implementer_context(
-    substrate: Substrate,
+    regista: Regista,
     work_item_id: str,
     spec_content: str | None = None,
     spec_glossary: dict[str, str] | None = None,
 ) -> PromptContext:
     wi_id = _to_uuid(work_item_id)
-    wi = substrate.get_work_item(wi_id)
+    wi = regista.get_work_item(wi_id)
     if wi is None:
         raise ValueError(f"Work item {work_item_id} not found")
     custom = wi.custom_fields or {}
@@ -190,7 +190,7 @@ def derive_implementer_context(
     test_suite = ""
 
     if interface_ref:
-        ref_wi = substrate.get_work_item(_to_uuid(interface_ref))
+        ref_wi = regista.get_work_item(_to_uuid(interface_ref))
         if ref_wi and ref_wi.custom_fields:
             ref_path = ref_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
             if ref_path:
@@ -199,7 +199,7 @@ def derive_implementer_context(
                     locked_interface = p.read_text()
 
     if test_suite_ref:
-        ref_wi = substrate.get_work_item(_to_uuid(test_suite_ref))
+        ref_wi = regista.get_work_item(_to_uuid(test_suite_ref))
         if ref_wi and ref_wi.custom_fields:
             ref_path = ref_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
             if ref_path:
@@ -212,7 +212,7 @@ def derive_implementer_context(
         extra_artifacts["locked_interface"] = locked_interface
     if test_suite:
         extra_artifacts["test_suite"] = test_suite
-    dep_contents, stub_only = _resolve_dependency_contents(substrate, custom)
+    dep_contents, stub_only = _resolve_dependency_contents(regista, custom)
     extra_artifacts.update(dep_contents)
     export_map = _build_export_map_from_contents(dep_contents)
 
@@ -221,7 +221,7 @@ def derive_implementer_context(
         extra_artifacts["review_feedback"] = _format_review_feedback(review_feedback)
 
     return derive_context(
-        substrate,
+        regista,
         work_item_id,
         role=ROLE_IMPLEMENTER,
         spec_content=spec_content,
@@ -232,10 +232,10 @@ def derive_implementer_context(
     )
 
 
-def _resolve_ref_artifact(substrate: Substrate, ref: str | None) -> str:
+def _resolve_ref_artifact(regista: Regista, ref: str | None) -> str:
     if not ref:
         return ""
-    ref_wi = substrate.get_work_item(_to_uuid(ref))
+    ref_wi = regista.get_work_item(_to_uuid(ref))
     if ref_wi and ref_wi.custom_fields:
         ref_path = ref_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
         if ref_path:
@@ -246,20 +246,20 @@ def _resolve_ref_artifact(substrate: Substrate, ref: str | None) -> str:
 
 
 def derive_review_context(
-    substrate: Substrate,
+    regista: Regista,
     work_item_id: str,
     spec_content: str | None = None,
     spec_glossary: dict[str, str] | None = None,
 ) -> PromptContext:
     wi_id = _to_uuid(work_item_id)
-    wi = substrate.get_work_item(wi_id)
+    wi = regista.get_work_item(wi_id)
     if wi is None:
         raise ValueError(f"Work item {work_item_id} not found")
     custom = wi.custom_fields or {}
 
-    locked_interface = _resolve_ref_artifact(substrate, custom.get(CUSTOM_FIELD_INTERFACE_REF))
-    test_suite = _resolve_ref_artifact(substrate, custom.get(CUSTOM_FIELD_TEST_SUITE_REF))
-    implementation = _resolve_ref_artifact(substrate, custom.get(CUSTOM_FIELD_IMPLEMENTATION_REF))
+    locked_interface = _resolve_ref_artifact(regista, custom.get(CUSTOM_FIELD_INTERFACE_REF))
+    test_suite = _resolve_ref_artifact(regista, custom.get(CUSTOM_FIELD_TEST_SUITE_REF))
+    implementation = _resolve_ref_artifact(regista, custom.get(CUSTOM_FIELD_IMPLEMENTATION_REF))
 
     extra_artifacts: dict[str, str] = {}
     if locked_interface:
@@ -269,12 +269,12 @@ def derive_review_context(
     if implementation:
         extra_artifacts["implementation"] = implementation
 
-    dep_contents, stub_only = _resolve_dependency_contents(substrate, custom)
+    dep_contents, stub_only = _resolve_dependency_contents(regista, custom)
     extra_artifacts.update(dep_contents)
     export_map = _build_export_map_from_contents(dep_contents)
 
     return derive_context(
-        substrate,
+        regista,
         work_item_id,
         role=ROLE_CROSS_FAMILY_REVIEWER,
         spec_content=spec_content,
@@ -286,13 +286,13 @@ def derive_review_context(
 
 
 def derive_jury_context(
-    substrate: Substrate,
+    regista: Regista,
     work_item_id: str,
     spec_content: str | None = None,
     spec_glossary: dict[str, str] | None = None,
 ) -> PromptContext:
     wi_id = _to_uuid(work_item_id)
-    wi = substrate.get_work_item(wi_id)
+    wi = regista.get_work_item(wi_id)
     if wi is None:
         raise ValueError(f"Work item {work_item_id} not found")
     custom = wi.custom_fields or {}
@@ -302,15 +302,15 @@ def derive_jury_context(
     test_suite = ""
     implementation = ""
     if review_ref:
-        review_wi = substrate.get_work_item(_to_uuid(review_ref))
+        review_wi = regista.get_work_item(_to_uuid(review_ref))
         if review_wi and review_wi.custom_fields:
             review_custom = review_wi.custom_fields
             iface_ref = review_custom.get(CUSTOM_FIELD_INTERFACE_REF)
             ts_ref = review_custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
             impl_ref = review_custom.get(CUSTOM_FIELD_IMPLEMENTATION_REF)
-            locked_interface = _resolve_ref_artifact(substrate, iface_ref)
-            test_suite = _resolve_ref_artifact(substrate, ts_ref)
-            implementation = _resolve_ref_artifact(substrate, impl_ref)
+            locked_interface = _resolve_ref_artifact(regista, iface_ref)
+            test_suite = _resolve_ref_artifact(regista, ts_ref)
+            implementation = _resolve_ref_artifact(regista, impl_ref)
 
     extra_artifacts: dict[str, str] = {}
     if locked_interface:
@@ -320,12 +320,12 @@ def derive_jury_context(
     if implementation:
         extra_artifacts["implementation"] = implementation
 
-    dep_contents, stub_only = _resolve_dependency_contents(substrate, custom)
+    dep_contents, stub_only = _resolve_dependency_contents(regista, custom)
     extra_artifacts.update(dep_contents)
     export_map = _build_export_map_from_contents(dep_contents)
 
     return derive_context(
-        substrate,
+        regista,
         work_item_id,
         role=ROLE_FRONTIER_JUDGE,
         spec_content=spec_content,
@@ -392,7 +392,7 @@ def _serialize_bundle(
 
 
 def derive_integrator_context(
-    substrate: Substrate,
+    regista: Regista,
     work_item_id: str,
     spec_content: str | None = None,
     spec_glossary: dict[str, str] | None = None,
@@ -406,7 +406,7 @@ def derive_integrator_context(
     integrator can assemble the full module tree.
     """
     wi_id = _to_uuid(work_item_id)
-    wi = substrate.get_work_item(wi_id)
+    wi = regista.get_work_item(wi_id)
     if wi is None:
         raise ValueError(f"Work item {work_item_id} not found")
     custom = wi.custom_fields or {}
@@ -419,21 +419,21 @@ def derive_integrator_context(
 
     integration_ref = custom.get(CUSTOM_FIELD_INTEGRATION_REF)
     if integration_ref:
-        jury_wi = substrate.get_work_item(_to_uuid(integration_ref))
+        jury_wi = regista.get_work_item(_to_uuid(integration_ref))
         if jury_wi and jury_wi.custom_fields:
             review_ref = jury_wi.custom_fields.get(CUSTOM_FIELD_REVIEW_REF)
             if review_ref:
-                review_wi = substrate.get_work_item(_to_uuid(review_ref))
+                review_wi = regista.get_work_item(_to_uuid(review_ref))
                 if review_wi and review_wi.custom_fields:
                     review_custom = review_wi.custom_fields
                     focal_impl = _resolve_ref_artifact(
-                        substrate, review_custom.get(CUSTOM_FIELD_IMPLEMENTATION_REF)
+                        regista, review_custom.get(CUSTOM_FIELD_IMPLEMENTATION_REF)
                     )
                     focal_iface = _resolve_ref_artifact(
-                        substrate, review_custom.get(CUSTOM_FIELD_INTERFACE_REF)
+                        regista, review_custom.get(CUSTOM_FIELD_INTERFACE_REF)
                     )
                     focal_tests = _resolve_ref_artifact(
-                        substrate, review_custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
+                        regista, review_custom.get(CUSTOM_FIELD_TEST_SUITE_REF)
                     )
                     if focal_impl:
                         extra_artifacts["focal_implementation"] = focal_impl
@@ -445,16 +445,16 @@ def derive_integrator_context(
                     impl_ref = review_custom.get(CUSTOM_FIELD_IMPLEMENTATION_REF)
                     if impl_ref:
                         focal_impl_id = str(impl_ref)
-                        impl_wi = substrate.get_work_item(_to_uuid(impl_ref))
+                        impl_wi = regista.get_work_item(_to_uuid(impl_ref))
                         if impl_wi and impl_wi.custom_fields:
                             dep_contents, stub_only = _resolve_dependency_contents(
-                                substrate, impl_wi.custom_fields
+                                regista, impl_wi.custom_fields
                             )
                             extra_artifacts.update(dep_contents)
                             export_map = _build_export_map_from_contents(dep_contents)
 
     other_impls, other_ifaces = _gather_other_locked_artifacts(
-        substrate,
+        regista,
         focal_impl_id,
         page_size=page_size,
     )
@@ -468,7 +468,7 @@ def derive_integrator_context(
             extra_artifacts[key] = source
 
     return derive_context(
-        substrate,
+        regista,
         work_item_id,
         role=ROLE_INTEGRATOR,
         spec_content=spec_content,
@@ -480,7 +480,7 @@ def derive_integrator_context(
 
 
 def _gather_other_locked_artifacts(
-    substrate: Substrate,
+    regista: Regista,
     exclude_impl_id: str | None = None,
     page_size: int = 200,
 ) -> tuple[dict[str, str], dict[str, str]]:
@@ -492,7 +492,7 @@ def _gather_other_locked_artifacts(
     impls: dict[str, str] = {}
     ifaces: dict[str, str] = {}
 
-    page = substrate.query_work_items(
+    page = regista.query_work_items(
         work_item_types=[WORK_ITEM_TYPE_IMPLEMENTATION],
         current_states=[STATE_LOCKED],
         page_size=page_size,
@@ -511,7 +511,7 @@ def _gather_other_locked_artifacts(
             if p.exists():
                 impls[mod_name] = p.read_text()
 
-    page = substrate.query_work_items(
+    page = regista.query_work_items(
         work_item_types=[WORK_ITEM_TYPE_INTERFACE_SPEC],
         current_states=[STATE_LOCKED],
         page_size=page_size,
@@ -548,7 +548,7 @@ def _infer_module_name_from_artifact_path(artifact_path: str | None) -> str:
 
 
 def derive_outcome_verifier_context(
-    substrate: Substrate,
+    regista: Regista,
     work_item_id: str,
     spec_content: str | None = None,
     spec_glossary: dict[str, str] | None = None,
@@ -559,7 +559,7 @@ def derive_outcome_verifier_context(
     the assembled module tree and integration tests into the prompt.
     """
     wi_id = _to_uuid(work_item_id)
-    wi = substrate.get_work_item(wi_id)
+    wi = regista.get_work_item(wi_id)
     if wi is None:
         raise ValueError(f"Work item {work_item_id} not found")
     custom = wi.custom_fields or {}
@@ -567,7 +567,7 @@ def derive_outcome_verifier_context(
     extra_artifacts: dict[str, str] = {}
     integration_ref = custom.get(CUSTOM_FIELD_INTEGRATION_REF)
     if integration_ref:
-        integration_wi = substrate.get_work_item(_to_uuid(integration_ref))
+        integration_wi = regista.get_work_item(_to_uuid(integration_ref))
         if integration_wi and integration_wi.custom_fields:
             artifact_path = integration_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
             if artifact_path:
@@ -577,7 +577,8 @@ def derive_outcome_verifier_context(
                         data = json.loads(p.read_text())
                     except Exception:
                         logging.getLogger("factory.context").warning(
-                            "integration_artifact_parse_failed path=%s", artifact_path,
+                            "integration_artifact_parse_failed path=%s",
+                            artifact_path,
                             exc_info=True,
                         )
                         data = {}
@@ -589,7 +590,7 @@ def derive_outcome_verifier_context(
                         extra_artifacts["integration_tests"] = str(integration_tests)
 
     return derive_context(
-        substrate,
+        regista,
         work_item_id,
         role=ROLE_OUTCOME_VERIFIER,
         spec_content=spec_content,

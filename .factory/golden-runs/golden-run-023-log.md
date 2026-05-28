@@ -26,7 +26,7 @@ Validate Phase 4 pipeline (all 5 stages) on the synthetic `broken-impl` fixture 
 
 ## Key validations
 
-1. **Inner gate telemetry:** `telemetry.py` correctly extracted inner gate attempts from `SubmitPayload.inner_gate_attempts` in substrate submit events. Inner gate first-pass rate line appeared in the exit-criteria report.
+1. **Inner gate telemetry:** `telemetry.py` correctly extracted inner gate attempts from `SubmitPayload.inner_gate_attempts` in regista submit events. Inner gate first-pass rate line appeared in the exit-criteria report.
 2. **All 5 roles exercised:** interface_architect → test_author → implementer → cross_family_reviewer → frontier_judge.
 3. **Review and jury gates:** `evaluate_review()` and `evaluate_jury()` both passed on the first attempt.
 
@@ -42,7 +42,7 @@ Validate Phase 4 pipeline (all 5 stages) on the synthetic `broken-impl` fixture 
 
 ## Issues and observations
 
-- Inner gate data was present in substrate events and correctly parsed by telemetry. The two-source-of-truth problem (BC-133) is resolved.
+- Inner gate data was present in regista events and correctly parsed by telemetry. The two-source-of-truth problem (BC-133) is resolved.
 
 ## Next steps
 

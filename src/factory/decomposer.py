@@ -49,6 +49,8 @@ def decompose_from_spec_yaml(spec_yaml_path: Path) -> DecompositionResult:
     raw = spec_yaml_path.read_text()
     source_hash = hashlib.sha256(raw.encode()).hexdigest()[:16]
     data = yaml.safe_load(raw)
+    if not isinstance(data, dict):
+        raise ValueError(f"spec.yaml must be a mapping, got {type(data).__name__}")
 
     fr_map: dict[str, dict] = {}
     for fr in data.get("functional_requirements", []):

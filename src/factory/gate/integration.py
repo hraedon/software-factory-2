@@ -14,6 +14,7 @@ from factory.constants import (
     GATE_NAME_INTEGRATION_IMPORT,
     GATE_NAME_INTEGRATION_MYPY,
     GATE_NAME_INTEGRATION_PYTEST,
+    DiagnosticKind,
 )
 from factory.gate._base import GateResult, _guard_artifact_size
 from factory.sandbox import gate_subprocess_env
@@ -112,14 +113,15 @@ def evaluate_integration(
             passed=False,
             gate_name=GATE_NAME_INTEGRATION_IMPORT,
             diagnostics=[f"Integration artifact is not valid JSON: {exc}"],
-            diagnostic_kind="integration_import",
+            diagnostic_kind=DiagnosticKind.INTEGRATION_IMPORT,
         )
     except Exception as exc:
+        _log.debug("integration_artifact_read_failed", exc_info=True, error=str(exc))
         return GateResult(
             passed=False,
             gate_name=GATE_NAME_INTEGRATION_IMPORT,
             diagnostics=[f"Failed to read integration artifact: {exc}"],
-            diagnostic_kind="integration_import",
+            diagnostic_kind=DiagnosticKind.INTEGRATION_IMPORT,
         )
 
     assembled_tree = data.get("assembled_tree")
@@ -128,7 +130,7 @@ def evaluate_integration(
             passed=False,
             gate_name=GATE_NAME_INTEGRATION_IMPORT,
             diagnostics=["Integration artifact missing 'assembled_tree' field or empty"],
-            diagnostic_kind="integration_import",
+            diagnostic_kind=DiagnosticKind.INTEGRATION_IMPORT,
         )
 
     with tempfile.TemporaryDirectory(prefix="sf2_integration_") as tmpdir:
@@ -139,21 +141,21 @@ def evaluate_integration(
                     passed=False,
                     gate_name=GATE_NAME_INTEGRATION_IMPORT,
                     diagnostics=[f"assembled_tree key {filename!r} is not a string"],
-                    diagnostic_kind="integration_unsafe_path",
+                    diagnostic_kind=DiagnosticKind.INTEGRATION_UNSAFE_PATH,
                 )
             if Path(filename).is_absolute():
                 return GateResult(
                     passed=False,
                     gate_name=GATE_NAME_INTEGRATION_IMPORT,
                     diagnostics=[f"assembled_tree key {filename!r} is absolute"],
-                    diagnostic_kind="integration_unsafe_path",
+                    diagnostic_kind=DiagnosticKind.INTEGRATION_UNSAFE_PATH,
                 )
             if ".." in Path(filename).parts:
                 return GateResult(
                     passed=False,
                     gate_name=GATE_NAME_INTEGRATION_IMPORT,
                     diagnostics=[f"assembled_tree key {filename!r} contains '..' segment"],
-                    diagnostic_kind="integration_unsafe_path",
+                    diagnostic_kind=DiagnosticKind.INTEGRATION_UNSAFE_PATH,
                 )
             dest = tmp_path / filename
             if not dest.resolve().is_relative_to(tmp_path):
@@ -161,17 +163,18 @@ def evaluate_integration(
                     passed=False,
                     gate_name=GATE_NAME_INTEGRATION_IMPORT,
                     diagnostics=[f"assembled_tree key {filename!r} escapes sandbox"],
-                    diagnostic_kind="integration_unsafe_path",
+                    diagnostic_kind=DiagnosticKind.INTEGRATION_UNSAFE_PATH,
                 )
             dest.parent.mkdir(parents=True, exist_ok=True)
             try:
                 dest.write_text(str(source))
             except Exception as exc:
+                _log.debug("integration_artifact_write_failed", filename=filename, exc_info=True)
                 return GateResult(
                     passed=False,
                     gate_name=GATE_NAME_INTEGRATION_IMPORT,
                     diagnostics=[f"Failed to write {filename}: {exc}"],
-                    diagnostic_kind="integration_import",
+                    diagnostic_kind=DiagnosticKind.INTEGRATION_IMPORT,
                 )
 
         # Mechanical promotion: if the tree contains a top-level __init__.py
@@ -244,7 +247,7 @@ def evaluate_integration(
                 passed=False,
                 gate_name=GATE_NAME_INTEGRATION_IMPORT,
                 diagnostics=["Import-check subprocess timed out", "timed_out: True"],
-                diagnostic_kind="integration_import",
+                diagnostic_kind=DiagnosticKind.INTEGRATION_IMPORT,
             )
         if import_result.returncode != 0:
             stderr = import_result.stderr.strip()
@@ -255,7 +258,7 @@ def evaluate_integration(
                     "Import-check subprocess crashed",
                     stderr[:500] if stderr else "(no stderr)",
                 ],
-                diagnostic_kind="integration_import",
+                diagnostic_kind=DiagnosticKind.INTEGRATION_IMPORT,
             )
         try:
             import_errors = json.loads(import_result.stdout)
@@ -267,7 +270,7 @@ def evaluate_integration(
                     f"Import-check output is not valid JSON: {exc}",
                     import_result.stdout[:500],
                 ],
-                diagnostic_kind="integration_import",
+                diagnostic_kind=DiagnosticKind.INTEGRATION_IMPORT,
             )
         if import_errors:
             return GateResult(
@@ -277,7 +280,7 @@ def evaluate_integration(
                     f"Import resolution failed for {len(import_errors)} module(s)",
                     *import_errors[:5],
                 ],
-                diagnostic_kind="integration_import",
+                diagnostic_kind=DiagnosticKind.INTEGRATION_IMPORT,
             )
 
         # Gate 2: mypy on assembled tree
@@ -314,14 +317,14 @@ def evaluate_integration(
                         f"mypy timed out after {t.mypy_timeout}s",
                         "timed_out: True",
                     ],
-                    diagnostic_kind="integration_mypy",
+                    diagnostic_kind=DiagnosticKind.INTEGRATION_MYPY,
                 )
             if "No module named mypy" in mypy_result.stderr:
                 return GateResult(
                     passed=False,
                     gate_name=GATE_NAME_INTEGRATION_MYPY,
                     diagnostics=["mypy not installed"],
-                    diagnostic_kind="tool_not_found",
+                    diagnostic_kind=DiagnosticKind.TOOL_NOT_FOUND,
                 )
             if mypy_result.returncode != 0:
                 lines = mypy_result.stdout.strip().splitlines()
@@ -330,7 +333,7 @@ def evaluate_integration(
                     passed=False,
                     gate_name=GATE_NAME_INTEGRATION_MYPY,
                     diagnostics=diagnostics,
-                    diagnostic_kind="integration_mypy",
+                    diagnostic_kind=DiagnosticKind.INTEGRATION_MYPY,
                 )
 
         # Gate 3: integration pytest
@@ -359,7 +362,7 @@ def evaluate_integration(
                 ),
                 cwd=tmp_path,
                 env=_integration_env(PYTHONPATH=str(tmp_path)),
-                timeout_s=t.pytest_timeout,
+                timeout_s=t.import_timeout,
             )
             if pytest_result.timed_out:
                 return GateResult(
@@ -369,14 +372,14 @@ def evaluate_integration(
                         f"integration pytest timed out after {t.pytest_timeout}s",
                         "timed_out: True",
                     ],
-                    diagnostic_kind="integration_pytest",
+                    diagnostic_kind=DiagnosticKind.INTEGRATION_PYTEST,
                 )
             if "No module named pytest" in pytest_result.stderr:
                 return GateResult(
                     passed=False,
                     gate_name=GATE_NAME_INTEGRATION_PYTEST,
                     diagnostics=["pytest not installed"],
-                    diagnostic_kind="tool_not_found",
+                    diagnostic_kind=DiagnosticKind.TOOL_NOT_FOUND,
                 )
             if pytest_result.returncode != 0:
                 lines = pytest_result.stdout.strip().splitlines()
@@ -386,7 +389,7 @@ def evaluate_integration(
                     passed=False,
                     gate_name=GATE_NAME_INTEGRATION_PYTEST,
                     diagnostics=diagnostics,
-                    diagnostic_kind="integration_pytest",
+                    diagnostic_kind=DiagnosticKind.INTEGRATION_PYTEST,
                 )
 
     return GateResult(

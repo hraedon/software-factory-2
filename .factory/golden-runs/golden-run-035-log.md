@@ -52,7 +52,7 @@ Validate whether the 95% lock rate and 100% integration lock from GR-034 (cert-w
 ### Attempt 4 (10:54 – 11:42, 48 min)
 - Both prior bugs fixed. Fresh project created with updated workflow.
 - Runner progressed to 24/32 locked (75%).
-- **Third bug discovered:** `upstream_revision_of` declared as `work_item_ref` with `target_work_item_type: implementation`. Substrate validated that the referenced work item must be of type `implementation`. But `upstream_revision_of` stores the SOURCE work item ID (which is `review` or `jury`), causing `CUSTOM_FIELD_VIOLATION: Field 'upstream_revision_of' references work item of type 'review', expected 'implementation'`.
+- **Third bug discovered:** `upstream_revision_of` declared as `work_item_ref` with `target_work_item_type: implementation`. Regista validated that the referenced work item must be of type `implementation`. But `upstream_revision_of` stores the SOURCE work item ID (which is `review` or `jury`), causing `CUSTOM_FIELD_VIOLATION: Field 'upstream_revision_of' references work item of type 'review', expected 'implementation'`.
 - This caused the gate process to crash-loop on failed reviews: claim, crash, release, reclaim (attempts 92–237 observed).
 - Wrapper tripped `claim_near_budget ≥ 5` guardrail and killed the run.
 
@@ -86,7 +86,7 @@ Validate whether the 95% lock rate and 100% integration lock from GR-034 (cert-w
 ## Failure Analysis
 
 ### 1. `test_suite_ref` missing in upstream revision (Attempt 1)
-**Root cause:** `ensure_upstream_revision` in `scheduler.py` copied `interface_ref` and `dependency_refs` from the source work item, but not `test_suite_ref`. The workflow requires `test_suite_ref` on `implementation` work items. Substrate rejected the `create_work_item` call.
+**Root cause:** `ensure_upstream_revision` in `scheduler.py` copied `interface_ref` and `dependency_refs` from the source work item, but not `test_suite_ref`. The workflow requires `test_suite_ref` on `implementation` work items. Regista rejected the `create_work_item` call.
 **Fix:** Added `test_suite_ref` propagation in `scheduler.py`. Committed as `41ba1fa`.
 
 ### 2. `upstream_revision_of` / `review_findings` not declared in workflow (Attempt 3)
@@ -94,7 +94,7 @@ Validate whether the 95% lock rate and 100% integration lock from GR-034 (cert-w
 **Fix:** Added both fields to `implementation` type in `phase2.yaml`. Committed as `f0bb66a`.
 
 ### 3. `upstream_revision_of` type mismatch (Attempt 4)
-**Root cause:** Declared `upstream_revision_of` as `work_item_ref` with `target_work_item_type: implementation`. Substrate validates that the referenced work item matches the target type. But `upstream_revision_of` stores the ID of the SOURCE work item (review/jury), not the upstream type.
+**Root cause:** Declared `upstream_revision_of` as `work_item_ref` with `target_work_item_type: implementation`. Regista validates that the referenced work item matches the target type. But `upstream_revision_of` stores the ID of the SOURCE work item (review/jury), not the upstream type.
 **Fix:** Changed `upstream_revision_of` from `work_item_ref` to `string` in `phase2.yaml`. Committed as `555f85d`.
 
 ### 4. `fastapi` import-not-found in implementation mypy

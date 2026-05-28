@@ -11,12 +11,12 @@ Each file `NNN.md` corresponds to `debate/NNN-*.md`.
 | 001 | Behavioral / Playwright gate | Defer to Phase 5; spec amendment + stub only | Low (now), High (Phase 5) |
 | 002 | Telemetry data quality (BC-068) | **Hard-block Phase 3** | Immediate |
 | 003 | Channel adapter dedup | Accept principle; prefer composition over inheritance | High (pre-Phase 3) |
-| 004 | Pipeline checkpoints | Defer; substrate state is already the checkpoint | Low |
+| 004 | Pipeline checkpoints | Defer; regista state is already the checkpoint | Low |
 | 005 | Mutation testing | Accept timing; assertion-counting gate first, mutation in Phase 4 | Medium (Phase 3→4) |
 | 006 | Per-project venv | Accept, narrow to 50-line helper; defer to pre-Phase 5 | Medium (pre-Phase 5) |
 | 007 | Credential management | Accept schema; reject rotation/audit for Phase 3 | Medium (pre-Phase 3) |
 | 008 | Adversarial fixture | Accept; 3-of-5 characteristics before Phase 2 close | Immediate |
-| 009 | Event schema evolution | Accept consumer-level pilot; defer substrate registry | Medium |
+| 009 | Event schema evolution | Accept consumer-level pilot; defer regista registry | Medium |
 | 010 | Event log retention | Defer; instrument with metrics, auto-breadcrumb at thresholds | Low |
 
 ## Round 2 (Gemini R2 items)
@@ -27,7 +27,7 @@ Each file `NNN.md` corresponds to `debate/NNN-*.md`.
 | R2-002 | Bidirectional spec mutability | Defer formal mechanism; add `spec_impossibility` fast-path now | Low (now), High (Phase 5) |
 | R2-003 | Database migration strategy | Accept as mechanical gate; Alembic gate pre-Phase 5 | Medium (pre-Phase 5) |
 | R2-004 | Security / supply-chain gates | Accept `bandit` now, `pip-audit` pre-Phase 5; reject trufflehog/semgrep | Medium (pre-Phase 5) |
-| R2-005 | Operator UX / async interrupts | Accept webhook-only, factory-side; reject substrate-side / dashboard | Medium (pre-Phase 3) |
+| R2-005 | Operator UX / async interrupts | Accept webhook-only, factory-side; reject regista-side / dashboard | Medium (pre-Phase 3) |
 | R2-006 | Dead code / refactoring lifecycle | Accept as trivial runbook extension; reject consolidation agent | Low |
 
 ## New items raised by glm-5.1

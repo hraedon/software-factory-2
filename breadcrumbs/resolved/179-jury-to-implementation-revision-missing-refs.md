@@ -13,7 +13,7 @@ related: ["145", "171"]
 ## Symptom
 
 When a `jury` work item fails and routes to an implementation revision via
-`ensure_upstream_revision`, substrate rejects the `create_work_item` call
+`ensure_upstream_revision`, regista rejects the `create_work_item` call
 with:
 
 ```
@@ -47,7 +47,7 @@ the `review` work_item_type. It fails for `jury` sources because
 
 `interface_ref` and `test_suite_ref` are not in jury's schema, so
 `source_custom.get(CUSTOM_FIELD_INTERFACE_REF)` returns `None`, the field
-is omitted from the payload, and substrate rejects the
+is omitted from the payload, and regista rejects the
 `create_work_item` because `implementation` requires both refs.
 
 ## Fix direction
@@ -108,7 +108,7 @@ fixed. Same blast radius as the original three BC-145 bugs.
 ## Related
 
 - BC-145 — sibling routing bugs; this is the fourth in the family.
-- BC-171 — substrate plural target support; orthogonal but tightening to
+- BC-171 — regista plural target support; orthogonal but tightening to
   `target_work_item_types: [review, jury]` would have surfaced this bug
   faster (via type-rejection) had the constraint been live.
 
@@ -124,7 +124,7 @@ Implemented in the BC-179 session (2026-05-16).
    if either is absent and the source type is `WORK_ITEM_TYPE_JURY`, the code fetches
    the linked review via `sub.get_work_item(uuid.UUID(review_ref))` and fills in
    whatever the review carries. No new error handling added — missing `review_ref`
-   or a substrate failure surfaces through the existing gate-process error path.
+   or a regista failure surfaces through the existing gate-process error path.
    Added imports: `uuid`, `CUSTOM_FIELD_REVIEW_REF`, `WORK_ITEM_TYPE_JURY`.
 
 2. `tests/test_upstream_routing.py` — two new mocked unit tests added:

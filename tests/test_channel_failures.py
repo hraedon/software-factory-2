@@ -34,17 +34,17 @@ class _FailingChannel:
 
 
 class TestChannelFailureModes:
-    def test_timeout_releases_claim_and_records_event(self, mock_substrate, workspace_root):
+    def test_timeout_releases_claim_and_records_event(self, mock_regista, workspace_root):
         """BC-019/BC-021: Timeout must release claim and write a channel_fail event."""
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Timeout test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -61,7 +61,7 @@ class TestChannelFailureModes:
         )
         config = FactoryConfig(workspace_root=workspace_root)
         runtime = PipelineRuntime(
-            sub=mock_substrate, config=config, spec_content="Timeout test", channel=channel
+            sub=mock_regista, config=config, spec_content="Timeout test", channel=channel
         )
         process_work_item(
             runtime,
@@ -71,12 +71,12 @@ class TestChannelFailureModes:
             "interface_architect",
         )
 
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "new"
         assert updated.claimed_by is None
         assert channel.was_invoked
 
-        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        all_events = mock_regista.read_events(work_item_id=wi.work_item_id)
         events = events_by_transition(all_events, "channel_fail")
         assert len(events) == 1
         payload = events[0].payload or {}
@@ -86,17 +86,17 @@ class TestChannelFailureModes:
         meta = events[0].actor_metadata or {}
         assert meta.get("role") == "interface_architect"
 
-    def test_non_zero_exit_releases_claim_and_records_event(self, mock_substrate, workspace_root):
+    def test_non_zero_exit_releases_claim_and_records_event(self, mock_regista, workspace_root):
         """BC-019/BC-021: Non-zero exit must release claim and write a channel_fail event."""
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Exit code test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -113,7 +113,7 @@ class TestChannelFailureModes:
         )
         config = FactoryConfig(workspace_root=workspace_root)
         runtime = PipelineRuntime(
-            sub=mock_substrate, config=config, spec_content="Exit code test", channel=channel
+            sub=mock_regista, config=config, spec_content="Exit code test", channel=channel
         )
         process_work_item(
             runtime,
@@ -123,11 +123,11 @@ class TestChannelFailureModes:
             "interface_architect",
         )
 
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "new"
         assert updated.claimed_by is None
 
-        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        all_events = mock_regista.read_events(work_item_id=wi.work_item_id)
         events = events_by_transition(all_events, "channel_fail")
         assert len(events) == 1
         payload = events[0].payload or {}
@@ -135,17 +135,17 @@ class TestChannelFailureModes:
         assert diagnostics.get("error_message") == "claude returned non-zero exit"
         assert diagnostics.get("exit_code") == 1
 
-    def test_empty_output_releases_claim_and_records_event(self, mock_substrate, workspace_root):
+    def test_empty_output_releases_claim_and_records_event(self, mock_regista, workspace_root):
         """BC-019/BC-021: Empty output must release claim and write a channel_fail event."""
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Empty output test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -162,7 +162,7 @@ class TestChannelFailureModes:
         )
         config = FactoryConfig(workspace_root=workspace_root)
         runtime = PipelineRuntime(
-            sub=mock_substrate, config=config, spec_content="Empty output test", channel=channel
+            sub=mock_regista, config=config, spec_content="Empty output test", channel=channel
         )
         process_work_item(
             runtime,
@@ -172,28 +172,28 @@ class TestChannelFailureModes:
             "interface_architect",
         )
 
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "new"
         assert updated.claimed_by is None
 
-        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        all_events = mock_regista.read_events(work_item_id=wi.work_item_id)
         events = events_by_transition(all_events, "channel_fail")
         assert len(events) == 1
 
     def test_extraction_failure_releases_claim_and_records_event(
-        self, mock_substrate, workspace_root
+        self, mock_regista, workspace_root
     ):
         """BC-019/BC-021: Artifact extraction failure must release claim and write
         a channel_fail event."""
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Extraction test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -210,7 +210,7 @@ class TestChannelFailureModes:
         )
         config = FactoryConfig(workspace_root=workspace_root)
         runtime = PipelineRuntime(
-            sub=mock_substrate, config=config, spec_content="Extraction test", channel=channel
+            sub=mock_regista, config=config, spec_content="Extraction test", channel=channel
         )
         process_work_item(
             runtime,
@@ -220,15 +220,15 @@ class TestChannelFailureModes:
             "interface_architect",
         )
 
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "new"
         assert updated.claimed_by is None
 
-        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        all_events = mock_regista.read_events(work_item_id=wi.work_item_id)
         events = events_by_transition(all_events, "channel_fail")
         assert len(events) == 1
 
-    def test_cannot_proceed_does_not_return_to_new(self, mock_substrate, workspace_root):
+    def test_cannot_proceed_does_not_return_to_new(self, mock_regista, workspace_root):
         """BC-019: cannot_proceed transitions to terminal state, not back to 'new'."""
         import json
 
@@ -253,15 +253,15 @@ class TestChannelFailureModes:
                     success=False, artifact_name=None, error_message="cannot_proceed"
                 )
 
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "CP test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -270,7 +270,7 @@ class TestChannelFailureModes:
 
         config = FactoryConfig(workspace_root=workspace_root)
         runtime = PipelineRuntime(
-            sub=mock_substrate,
+            sub=mock_regista,
             config=config,
             spec_content="CP test",
             channel=_CannotProceedChannel(),
@@ -283,5 +283,5 @@ class TestChannelFailureModes:
             "interface_architect",
         )
 
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "cannot_proceed"

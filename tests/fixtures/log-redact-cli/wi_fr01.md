@@ -16,10 +16,10 @@ None.
 
 Given a YAML rules file path, the system loads, validates, and orders redaction rules. Invalid rules files produce a structured error before any log processing begins.
 
-## AC-LOG-01
+## AC-01: Valid rules load as ordered Rule objects
 
 Given a valid rules YAML with two rules, load_rules returns an ordered list of Rule objects with correct scopes and replacement types
 
-## AC-LOG-02
+## AC-02: Missing rules key raises error
 
 Given a rules YAML missing the 'rules' top-level key, load_rules raises RulesFileError with message containing 'missing top-level key: rules'

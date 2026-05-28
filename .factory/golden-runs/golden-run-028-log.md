@@ -51,7 +51,7 @@ All 3 locked. 3/3 first-attempt gate pass. Inner gate: 3/3 first-pass.
 
 1. **populate_work_items.py workflow version mapping** — `workflow_version=5` was not mapped to `phase5.yaml`, causing populate to register `phase2.yaml` instead. Fixed: added `{5: "phase5"}` mapping.
 2. **Integration gate import resolution** — `__init__.py` with relative imports failed because `importlib` loaded it as bare module `"__init__"` with no parent package. Fixed: compute dotted module names from relative path; skip top-level `__init__.py` without parent; promote flat tree into package directory when `from .` detected; remove no-op `__init__.py` when it shadows sibling modules.
-3. **phase5.yaml link_types** — `derived_from` was used for both `jury → integration` and `integration → outcome_verification`, but substrate enforces unique link_type names. Fixed: added `integrates` and `verified_by` link types with corresponding `LINK_TYPE_INTEGRATES` / `LINK_TYPE_VERIFIED_BY` constants.
+3. **phase5.yaml link_types** — `derived_from` was used for both `jury → integration` and `integration → outcome_verification`, but regista enforces unique link_type names. Fixed: added `integrates` and `verified_by` link types with corresponding `LINK_TYPE_INTEGRATES` / `LINK_TYPE_VERIFIED_BY` constants.
 4. **Scheduler dependency_refs propagation** — downstream `jury` / `integration` / `outcome_verification` items do not declare `dependency_refs` in phase5.yaml, but the scheduler blindly propagated it from upstream `implementation` items, causing `CUSTOM_FIELD_VIOLATION`. Fixed: added `_downstream_has_field()` guard before propagating `dependency_refs`.
 
 ## Telemetry

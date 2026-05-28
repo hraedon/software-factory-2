@@ -29,7 +29,7 @@ The factory's value proposition is "consumes a specification and produces workin
 3. **No design exists for model-driven decomposition.** The design questions are unanswered:
    - How does the decomposer decide granularity? What heuristic prevents over-splitting (too many fine-grained items) or under-splitting (one monolithic implementation)?
    - How does it handle cross-cutting concerns (logging, error handling, config) that don't map to a single work unit?
-   - What does "decomposition produce a DAG" mean in practice — does it create substrate work items directly, or produce a YAML manifest that `populate_work_items.py` consumes?
+   - What does "decomposition produce a DAG" mean in practice — does it create regista work items directly, or produce a YAML manifest that `populate_work_items.py` consumes?
    - How does the decomposer interact with the spec linting system (BC-127) and AC extraction (BC-130)?
    - What is the retry/failure path when the decomposer produces a bad decomposition?
 
@@ -70,12 +70,12 @@ Phase 6 (generalization). Phase 5 is synthetic-fixture validation with hand-craf
   - `_invoke_decomposer_channel(...)` — invokes any Channel adapter
   - `_extract_decomposition_json(...)` — robust JSON extraction from fenced blocks or raw text
   - `_validate_decomposition(...)` — 5 mechanical gates (schema shape, required fields, unique module names, acyclic dependency graph, module size soft caps)
-- `src/factory/context.py` — `render_decomposer_prompt(spec_text, ...)` usable without substrate context
+- `src/factory/context.py` — `render_decomposer_prompt(spec_text, ...)` usable without regista context
 - `populate_work_items.py` — `--decomposer-channel` (`opencode`/`claude-code`/`gemini-cli`) and `--decomposer-model` flags; calls `decompose_from_model()` when configured
 - `tests/test_decomposer_model.py` — 18 unit tests covering extraction, validation, and model invocation paths
 - `src/factory/constants.py` — added `ROLE_DECOMPOSER` constant
 
 **Remaining open (deferred to real workload validation):**
 - Spec-lint integration — decomposed modules are linted individually downstream, but no dedicated pre-decomposition lint gate exists.
-- Failure-to-decompose escalation path — currently raises `DecomposeError` to CLI stderr; substrate work-item not created.
+- Failure-to-decompose escalation path — currently raises `DecomposeError` to CLI stderr; regista work-item not created.
 - Glossary extraction from model output — currently empty in model-driven mode (deterministic path preserves glossary forwarding).

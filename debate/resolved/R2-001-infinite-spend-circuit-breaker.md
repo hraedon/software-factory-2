@@ -7,7 +7,7 @@ related: []
 ---
 
 ## Context
-In an event-driven system like Substrate with automatic retries, cross-family reviews, and behavioral gates, a logical bug can trap agents in a retry loop. V1 had a "Global Budget Breaker."
+In an event-driven system like Regista with automatic retries, cross-family reviews, and behavioral gates, a logical bug can trap agents in a retry loop. V1 had a "Global Budget Breaker."
 
 ## Problem
 If v2 operates for days (as the transcript suggests), a stuck multi-agent loop on K2 or Claude Opus could burn hundreds of dollars over a weekend. There is no debate addressing global token or financial budget constraints.

@@ -19,7 +19,7 @@ related: ["032", "026"]
 
 1. Query with a composite filter that includes the ref_field value, or
 2. Paginate through all pages (loop while page.has_more), or
-3. Add a substrate-level `has_work_item_with_custom_field` API.
+3. Add a regista-level `has_work_item_with_custom_field` API.
 
 ## Affected file
 

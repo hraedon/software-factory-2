@@ -22,7 +22,7 @@ Operators cannot detect stalled pipelines, budget exhaustion, or model degradati
 
 ## Proposed fix
 
-A lightweight substrate event subscriber that prints a one-line status update every N events (e.g., "12/34 items locked, 2 cannot_proceed, 3 in_progress, 17 new"). This could be:
+A lightweight regista event subscriber that prints a one-line status update every N events (e.g., "12/34 items locked, 2 cannot_proceed, 3 in_progress, 17 new"). This could be:
 1. A `--watch` mode on the existing telemetry CLI
-2. A separate `factory.monitor` module that subscribes to substrate events
+2. A separate `factory.monitor` module that subscribes to regista events
 3. Integration with the state_reporter module (un-dead-code it)

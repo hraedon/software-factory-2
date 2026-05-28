@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 
 import pytest
-from substrate._testing import drop_project_schema
+from regista._testing import drop_project_schema
 
 from factory.channel import InvocationResult
 from factory.config import FactoryConfig, StageHandoff
@@ -30,7 +30,7 @@ from factory.workspace import (
 )
 
 TESTS_DIR = Path(__file__).parent
-DSN = "postgresql://substrate_test:substrate_test@localhost:5432/substrate_test"
+DSN = "postgresql://regista_test:regista_test@localhost:5432/regista_test"
 KEY_PATH = str(TESTS_DIR / "test_keys.json")
 PHASE2_PATH = str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
 
@@ -96,10 +96,10 @@ class _StubChannel:
 
 @pytest.fixture(scope="module")
 def real_sub():
-    from substrate import Substrate
+    from regista import Regista
 
     project = f"sf2_integ_{uuid.uuid4().hex[:8]}"
-    sub = Substrate.create_project(DSN, project, KEY_PATH)
+    sub = Regista.create_project(DSN, project, KEY_PATH)
     sub.register_workflow_file(PHASE2_PATH)
     yield sub
     sub.close()
@@ -162,7 +162,7 @@ def _write_resumable(workspace_root, work_item_id, attempt, artifact_name, conte
 
 @pytest.mark.integration
 class TestTestSuiteLifecycle:
-    def test_test_suite_claim_submit_gate_pass_on_real_substrate(self, real_sub, tmp_path):
+    def test_test_suite_claim_submit_gate_pass_on_real_regista(self, real_sub, tmp_path):
         _register_roles(real_sub)
         config = FactoryConfig.phase2(workspace_root=tmp_path / "work")
         channel = _StubChannel(tmp_path / "work")
@@ -198,7 +198,7 @@ class TestTestSuiteLifecycle:
         ts_result = _run_gate(runtime, ts_result)
         assert ts_result.current_state == "locked"
 
-    def test_test_suite_gate_fail_returns_to_new_on_real_substrate(self, real_sub, tmp_path):
+    def test_test_suite_gate_fail_returns_to_new_on_real_regista(self, real_sub, tmp_path):
         _register_roles(real_sub)
         config = FactoryConfig.phase2(workspace_root=tmp_path / "work2")
         runtime = PipelineRuntime(sub=real_sub, config=config)
@@ -231,7 +231,7 @@ class TestTestSuiteLifecycle:
 
 @pytest.mark.integration
 class TestImplementationLifecycle:
-    def test_implementation_full_chain_on_real_substrate(self, real_sub, tmp_path):
+    def test_implementation_full_chain_on_real_regista(self, real_sub, tmp_path):
         _register_roles(real_sub)
         config = FactoryConfig.phase2(workspace_root=tmp_path / "work3")
         channel = _StubChannel(tmp_path / "work3")
@@ -453,7 +453,7 @@ class TestChannelFailureRetry:
 
 @pytest.mark.integration
 class TestCrashRecoveryResume:
-    def test_resume_interface_spec_after_crash_on_real_substrate(self, real_sub, tmp_path):
+    def test_resume_interface_spec_after_crash_on_real_regista(self, real_sub, tmp_path):
         _register_roles(real_sub)
         config = FactoryConfig.phase2(workspace_root=tmp_path / "work6")
         channel = _StubChannel(tmp_path / "work6")

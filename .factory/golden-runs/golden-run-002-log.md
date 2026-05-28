@@ -60,7 +60,7 @@ Evidence from the run: items with escalation diagnostics (`cannot_proceed_seam`,
 **Required fix:** Escalation for non-interface_spec work items must either:
 (a) Transition the item to `cannot_proceed` (terminal state), preserving the escalation diagnostics for the principal.
 (b) Create a new `interface_spec` work item linked to the failing implementation, with the escalation context as its spec section.
-(c) Change the work item's type (not supported by current substrate API).
+(c) Change the work item's type (not supported by current regista API).
 
 Option (a) is simplest and sufficient for Phase 2. The principal sees dead-lettered implementations with full failure context.
 

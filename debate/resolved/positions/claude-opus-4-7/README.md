@@ -16,7 +16,7 @@ Each file `NNN.md` corresponds to `debate/NNN-*.md`.
 | 006 | Per-project venv | Accept, narrow: 50-line shim, no `VenvManager` class | Medium (pre-Phase 5) |
 | 007 | Credential management | Accept schema; reject rotation/audit machinery | Medium (pre-Phase 3) |
 | 008 | Adversarial fixture (cert-watch GR006a) | Accept; run before Phase 2 close | Immediate |
-| 009 | Event schema evolution | Accept consumer-level pilot; reject substrate registry | Medium |
+| 009 | Event schema evolution | Accept consumer-level pilot; reject regista registry | Medium |
 | 010 | Event log retention | Defer; instrument with metrics + auto-breadcrumb threshold | Low |
 
 ## Act-now / build-small / defer-with-stub

@@ -2,7 +2,7 @@
 
 **Author:** claude-opus-4-7
 **Date:** 2026-05-09
-**Inputs:** positions from claude-opus-4-7, gemini-cli, glm-5.1, deepseek-v4-pro on debates 001–010, plus deepseek's substrate items 011–012 and gemini's six new R2 items.
+**Inputs:** positions from claude-opus-4-7, gemini-cli, glm-5.1, deepseek-v4-pro on debates 001–010, plus deepseek's regista items 011–012 and gemini's six new R2 items.
 
 This is a recommendation, not a decision. Final calls remain principal-led.
 
@@ -21,12 +21,12 @@ Three reviewer postures emerged consistently:
 | 001 | Behavioral gate | spec stub | strong-agree (build) | spec + stub | **spec + 1 concrete failing test** | **Spec + stub + one failing Playwright test** (deepseek's framing) |
 | 002 | Telemetry BC-068 | hard-block | blocker | hard-block | fix + replay test | **UNANIMOUS — hard-block Phase 3, fix this week** |
 | 003 | Channel adapter dedup | conservative base | refactor before 3rd | **composition not inheritance** | refactor + equivalency test first | **Composition (glm) + equivalency test before extraction (deepseek)** |
-| 004 | Pipeline checkpoints | defer | build MVP | defer | defer | **Defer 3-of-4** — substrate state already is the checkpoint |
+| 004 | Pipeline checkpoints | defer | build MVP | defer | defer | **Defer 3-of-4** — regista state already is the checkpoint |
 | 005 | Mutation testing | Phase 3→4 | shadow mode | **assertion gate first, mutation later** | calibration fixture first, 5 ops | **Two-stage: ship glm's assertion gate now; mutation Phase 3→4 with deepseek's calibration fixture** |
 | 006 | Per-project venv | 50-line shim | strong-agree (full class) | 50-line helper | narrow + test | **3-of-4 → 50-line helper, no `VenvManager` class** |
 | 007 | Credential mgmt | schema only | blocker (full schema) | schema only | schema + test | **UNANIMOUS schema; 3-of-4 reject rotation/audit machinery** |
 | 008 | Cert-watch GR006a | accept (3-outcome table) | agree | accept (3-outcome table) | **accept + machine-enforced criteria in `tests/test_gr006a_criteria.py`** | **Accept + deepseek's test-as-criteria** |
-| 009 | Event schema | consumer pilot | agree (consumer pilot) | consumer pilot | consumer + test | **UNANIMOUS — consumer-level pilot, defer substrate registry** |
+| 009 | Event schema | consumer pilot | agree (consumer pilot) | consumer pilot | consumer + test | **UNANIMOUS — consumer-level pilot, defer regista registry** |
 | 010 | Event log retention | instrument | agree (instrument now, build later) | instrument + thresholds | defer (insufficient data) | **UNANIMOUS — defer build, ship metrics + auto-breadcrumb thresholds** |
 
 **Strong consensus (4-of-4 or 3-of-4 with the 4th not strongly opposed): 002, 004, 006, 007, 008, 009, 010.**
@@ -107,7 +107,7 @@ Phase 3 → Phase 4:
 Deferred-with-trigger:
 
 11. Pipeline checkpoints (Debate 004) — when a single GR exceeds 2h or a real mid-run crash loses meaningful work.
-12. Substrate-side schema registry (Debate 009 part 2) — when a second substrate consumer exists.
+12. Regista-side schema registry (Debate 009 part 2) — when a second regista consumer exists.
 13. Event-log retention build (Debate 010 part 2) — when auto-breadcrumb threshold fires.
 
 ---
@@ -133,9 +133,9 @@ R2-001 + R2-005 are both ~50-line additions. They should land together before Ph
 
 ---
 
-## 6. Substrate items (deepseek 011 + 012)
+## 6. Regista items (deepseek 011 + 012)
 
-I haven't read the substrate debates directly; deferring detailed positions to a substrate-context review. Based on deepseek's framing:
+I haven't read the regista debates directly; deferring detailed positions to a regista-context review. Based on deepseek's framing:
 
 - **sub-001 (backend contract SSOT):** Deepseek's "measure before prescribing" approach is correct. Add `hypothesis`-based property tests for 1 month, then decide based on divergence rate. Don't build a 3rd source of truth on speculation.
 - **sub-002 (workflow composition):** Deepseek's "lint at threshold, build composition when threshold breaks" matches the same pattern as my Debate 010 position (instrument first, build when threshold fires).

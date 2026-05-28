@@ -26,7 +26,7 @@ class FakeEvent:
         self.custom_fields = custom_fields
 
 
-class FakeSubstrate:
+class FakeRegista:
     def __init__(self):
         self.events: list[FakeEvent] = []
         self._work_items: dict = {}
@@ -55,7 +55,7 @@ class FakeSubstrate:
 
 def test_submit_event_carries_prompt_template_hash() -> None:
     """Submit event ActorMetadata must include prompt_template_hash."""
-    sub = FakeSubstrate()
+    sub = FakeRegista()
     wi_id = uuid.uuid4()
     wi = type(
         "WI",
@@ -118,7 +118,7 @@ def test_prompt_template_hash_computed_in_context() -> None:
 
     from factory.context import derive_context
 
-    class MockSubstrate:
+    class MockRegista:
         def get_work_item(self, work_item_id):
             return type(
                 "WI",
@@ -135,7 +135,7 @@ def test_prompt_template_hash_computed_in_context() -> None:
         def read_events(self, work_item_id, limit=1000):
             return []
 
-    sub = MockSubstrate()
+    sub = MockRegista()
     ctx = derive_context(sub, "550e8400-e29b-41d4-a716-446655440000", ROLE_INTERFACE_ARCHITECT)
     assert ctx.prompt_template_hash
     expected = hashlib.sha256(ctx.prompt_template.encode()).hexdigest()

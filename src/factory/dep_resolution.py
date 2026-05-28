@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import re
 import uuid as _uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from substrate import Substrate
+from regista import Regista
 
 from factory.constants import (
     CUSTOM_FIELD_ARTIFACT_PATH,
@@ -24,8 +25,6 @@ def _to_uuid(value: str | _uuid.UUID) -> _uuid.UUID:
 
 
 def _extract_module_name_from_spec(spec_section: str) -> str | None:
-    import re
-
     m = re.search(r"^#\s*Interface Specification:\s*(.+)$", spec_section, re.MULTILINE)
     if m:
         title = m.group(1).strip()
@@ -61,14 +60,14 @@ def _validate_readable_path(p: Path) -> bool:
 
 
 def resolve_dep_artifacts(
-    substrate: Substrate,
+    regista: Regista,
     dep_refs: list[str],
     page_size: int = 200,
 ) -> list[DepArtifact]:
     result: list[DepArtifact] = []
     for ref in dep_refs:
         ref_uuid = _to_uuid(ref)
-        dep_wi = substrate.get_work_item(ref_uuid)
+        dep_wi = regista.get_work_item(ref_uuid)
         if not dep_wi or not dep_wi.custom_fields:
             continue
         module_name = dep_wi.custom_fields.get(CUSTOM_FIELD_MODULE_NAME) or None
@@ -85,7 +84,7 @@ def resolve_dep_artifacts(
         is_stub_only = True
 
         if dep_wi.work_item_type == WORK_ITEM_TYPE_INTERFACE_SPEC:
-            impl_wi = _find_locked_impl(substrate, str(ref_uuid), page_size=page_size)
+            impl_wi = _find_locked_impl(regista, str(ref_uuid), page_size=page_size)
             if impl_wi and impl_wi.custom_fields:
                 raw_impl = impl_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH)
                 impl_path = _safe_artifact_path(raw_impl)
@@ -106,8 +105,8 @@ def resolve_dep_artifacts(
     return result
 
 
-def _find_locked_impl(substrate: Substrate, spec_id: str, page_size: int = 200) -> object | None:
-    impls = substrate.query_work_items(
+def _find_locked_impl(regista: Regista, spec_id: str, page_size: int = 200) -> object | None:
+    impls = regista.query_work_items(
         work_item_types=[WORK_ITEM_TYPE_IMPLEMENTATION],
         current_states=[STATE_LOCKED],
         page_size=page_size,
@@ -121,10 +120,10 @@ def _find_locked_impl(substrate: Substrate, spec_id: str, page_size: int = 200) 
 
 
 def resolve_dep_refs_for_gate(
-    substrate: Substrate,
+    regista: Regista,
     dep_refs: list[str],
 ) -> list[tuple[str, Path]]:
-    dep_artifacts = resolve_dep_artifacts(substrate, dep_refs)
+    dep_artifacts = resolve_dep_artifacts(regista, dep_refs)
     pairs: list[tuple[str, Path]] = []
     for dep in dep_artifacts:
         path = dep.impl_path if dep.impl_path else dep.spec_path
@@ -133,10 +132,10 @@ def resolve_dep_refs_for_gate(
 
 
 def resolve_dep_refs_for_gate_rich(
-    substrate: Substrate,
+    regista: Regista,
     dep_refs: list[str],
 ) -> list[tuple[str, Path, Path | None]]:
-    dep_artifacts = resolve_dep_artifacts(substrate, dep_refs)
+    dep_artifacts = resolve_dep_artifacts(regista, dep_refs)
     triples: list[tuple[str, Path, Path | None]] = []
     for dep in dep_artifacts:
         impl_path = dep.impl_path
@@ -152,10 +151,10 @@ def resolve_dep_refs_for_gate_rich(
 
 
 def resolve_dep_refs_for_context(
-    substrate: Substrate,
+    regista: Regista,
     dep_refs: list[str],
 ) -> tuple[dict[str, str], list[str]]:
-    dep_artifacts = resolve_dep_artifacts(substrate, dep_refs)
+    dep_artifacts = resolve_dep_artifacts(regista, dep_refs)
     contents: dict[str, str] = {}
     stub_only: list[str] = []
     for dep in dep_artifacts:

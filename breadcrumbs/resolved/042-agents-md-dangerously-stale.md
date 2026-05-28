@@ -14,7 +14,7 @@ related: []
 
 `AGENTS.md` §Status says:
 
-> **Phase 0 (current).** Design only. No runner code, no substrate workflow YAML, no channel adapters. The spec is the only artifact.
+> **Phase 0 (current).** Design only. No runner code, no regista workflow YAML, no channel adapters. The spec is the only artifact.
 
 The repo is deep in Phase 2 with:
 - 259 passing tests

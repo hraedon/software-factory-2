@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from factory.constants import GATE_NAME_OUTCOME_E2E, UNKNOWN_FALLBACK
+from factory.constants import GATE_NAME_OUTCOME_E2E, UNKNOWN_FALLBACK, DiagnosticKind
 from factory.gate._base import GateResult
 from factory.gate.review import _extract_json_vote
 
@@ -28,7 +28,7 @@ def evaluate_outcome_verification(artifact_path: Path) -> GateResult:
             diagnostics=[
                 f"Outcome verifier returned cannot_proceed: {rationale or 'no rationale'}"
             ],
-            diagnostic_kind="outcome_e2e",
+            diagnostic_kind=DiagnosticKind.OUTCOME_E2E,
         )
     routing_hint: dict | None = None
     if not passed:
@@ -43,6 +43,6 @@ def evaluate_outcome_verification(artifact_path: Path) -> GateResult:
         passed=passed,
         gate_name=GATE_NAME_OUTCOME_E2E,
         diagnostics=diagnostics,
-        diagnostic_kind="outcome_e2e" if not passed else "",
+        diagnostic_kind=DiagnosticKind.OUTCOME_E2E if not passed else "",
         routing_hint=routing_hint,
     )

@@ -2,7 +2,7 @@
 
 ## Overview
 
-A CLI tool that reads a substrate event log for a given project, builds a dependency graph of work items, and emits a DOT file for Graphviz rendering.
+A CLI tool that reads a regista event log for a given project, builds a dependency graph of work items, and emits a DOT file for Graphviz rendering.
 
 ## Functional Requirements
 

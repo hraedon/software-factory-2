@@ -133,7 +133,7 @@ def _extract_decomposition_json(raw_text: str) -> dict:
                 obj, end = decoder.raw_decode(text, idx)
                 if isinstance(obj, dict):
                     return obj
-                idx += end
+                idx = end
                 continue
             except json.JSONDecodeError:
                 pass

@@ -2,7 +2,7 @@
 number: "206"
 title: Dead production modules with zero callers (~1300 lines)
 severity: medium
-status: in_progress
+status: resolved
 kind: improvement
 author: adversarial-review
 date: "2026-05-25"
@@ -32,10 +32,17 @@ Additionally, two functions are dead:
 
 These modules were built for planned Phase 6+ features. They have test coverage but no production integration. The `render_decomposer_prompt` function was removed in the current session's adversarial review.
 
-## Partial fix (Session 53)
+## Fix
 
-Added Phase 6 feature-flag docstrings to all five modules (`state_reporter.py`, `bundler.py`, `spec_hash.py`, `prompt_audit.py`, `ops/__init__.py`) documenting RFC number, integration trigger, and BC tracking. This makes the dead-code status discoverable without removing the code.
+Removed all 5 dead modules and their test files:
+- `src/factory/state_reporter.py` + `tests/test_state_reporter.py`
+- `src/factory/bundler.py` + `tests/test_bundler.py`
+- `src/factory/spec_hash.py` + `tests/test_spec_hash.py`
+- `src/factory/prompt_audit.py` + `tests/test_prompt_audit.py`
+- `src/factory/ops/` (entire package) + `tests/test_ops.py`
 
-## Remaining
+Also removed dead `build_summarizer_prompt()` function from `failure_summarizer.py` + its tests in `tests/test_failure_summarizer.py`.
 
-Either integrate these modules into production paths (per their RFCs) or remove them. The docstring markers are a stopgap — they don't reduce maintenance burden, only make it visible.
+**Net reduction**: ~1,300 lines of production code + ~72 test cases removed.
+
+The modules can be re-added when their RFCs are prioritized and have production integration points. The RFCs (RFC-001, RFC-017, RFC-018, RFC-019, RFC-021) remain in the breadcrumbs as design proposals.

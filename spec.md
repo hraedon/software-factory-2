@@ -21,16 +21,16 @@ The principal of this factory is a systems architect, not a developer. The archi
 
 ## 3. Principles
 
-1. **Substrate is the spine.** All state, audit, coordination, validation, and hooks flow through substrate. No ad-hoc event recorders, hook systems, or imperative workflow encoders inside the factory.
+1. **Regista is the spine.** All state, audit, coordination, validation, and hooks flow through regista. No ad-hoc event recorders, hook systems, or imperative workflow encoders inside the factory.
 2. **Sequential by default.** Parallelism is a later optimization once the sequential pipeline is reliable. The cost of debugging concurrent agent failures at this scale is paid up front, before throughput is measured.
 3. **Autonomy via model-as-expert.** The principal cannot review code; therefore the architecture must not require it. Frontier-model judges replace human gates at phase boundaries.
 4. **AC-driven tests are the contract.** Tests are produced from acceptance criteria *before* implementation, by a frontier-class model. They serve as both the implementer's target and the gate's verifier. The principal can review ACs (in their domain); they cannot review code.
-5. **Mechanical gates over LLM gates wherever possible.** Type checkers, schema validators, test runners, lint, and substrate-level integrity checks run before any model-judge does. LLMs as primary verifiers compound errors; deterministic gates do not.
+5. **Mechanical gates over LLM gates wherever possible.** Type checkers, schema validators, test runners, lint, and regista-level integrity checks run before any model-judge does. LLMs as primary verifiers compound errors; deterministic gates do not.
 6. **Filling-in roles, not architectural roles.** Workers run with explicit constraints: do not introduce new modules, do not add abstractions, do not invent new types. The only latitude is filling in against a locked contract.
 7. **Smaller-scoped roles than v1.** A role's scope is bounded such that drift between adjacent roles is structurally limited. "Skeleton for the whole feature" is too broad; v2 targets "skeleton for this single function with this signature."
 8. **Errors loop back to contract revision, not worker retry.** When two roles' artifacts don't fit at the seam, the most likely cause is an ambiguous contract, not a bad worker. Failures route back to the contract (interface-architect role) with structured context. Only after multiple revisions does the spec surface to the principal.
 9. **Jury-and-race for load-bearing gates.** With multiple Tier-A model channels available at marginal-cost-zero, frontier judgment is composed across model families. Single-model judgment is reserved for non-load-bearing checks.
-10. **Per-(role, channel, model) telemetry drives model placement.** Substrate's event log produces empirical pass-rate data for every (role, channel, model, gate, prompt-template-hash) tuple. The resolved model string is captured at invocation time (RFC-034) so that a channel whose underlying model snapshot changes (e.g. `kimi-k2.6-turbo` → `kimi-k2.7-turbo`) does not silently merge into one confounded bucket. Role-to-channel binding is configurable and updated based on data, not vibes. No silent promotion of cheaper models into load-bearing roles.
+10. **Per-(role, channel, model) telemetry drives model placement.** Regista's event log produces empirical pass-rate data for every (role, channel, model, gate, prompt-template-hash) tuple. The resolved model string is captured at invocation time (RFC-034) so that a channel whose underlying model snapshot changes (e.g. `kimi-k2.6-turbo` → `kimi-k2.7-turbo`) does not silently merge into one confounded bucket. Role-to-channel binding is configurable and updated based on data, not vibes. No silent promotion of cheaper models into load-bearing roles.
 11. **Subscription-flat-rate cost model rewards aggressive gating.** All channels are flat-rate; the budget is wall-clock time and rate limits, not tokens. v2 should look paranoid by API-cost-economics standards: every artifact runs the full battery of gates.
 
 ## 4. Pipeline
@@ -106,14 +106,14 @@ Stage 8: Outcome verification  [work_item_type: outcome_verification]
 - **Stage 1 interface revisions exhausted** (≥ `attempt_threshold`) → escalate to `cannot_proceed`. This is the primary way a work item surfaces to the principal mid-pipeline.
 - **Stage 8 outcome verification fail** → `cannot_proceed` with `routing_hint` (work_item_type to route back to); principal can inspect the rationale and decide how to proceed.
 
-### Substrate workflow shape
+### Regista workflow shape
 
-Pipeline is a substrate workflow YAML with:
+Pipeline is a regista workflow YAML with:
 
 - **Work-item types (implemented):** `interface_spec`, `test_suite`, `implementation`, `review`, `jury`, `integration`, `outcome_verification`
 - **Link types (implemented):** `derived_from`, `implements`, `tested_by`, `reviews`, `judges`, `integrates`, `verified_by`
 - **Roles (implemented):** `interface_architect`, `test_author`, `implementer`, `mechanical_gate`, `cross_family_reviewer`, `frontier_judge`, `integrator`, `outcome_verifier`
-- **Custom fields per work-item type** enforce required artifact paths and schemas (substrate validates pre-transition).
+- **Custom fields per work-item type** enforce required artifact paths and schemas (regista validates pre-transition).
 - **Validators** enforce artifact schema conformance before each transition.
 - **Hooks** trigger downstream stages on transition via scheduler (e.g., `interface_spec` locked → `test_suite` creation; `test_suite` locked → `implementation` creation).
 
@@ -182,13 +182,13 @@ Three adapters are implemented: `ClaudeCodeChannel`, `OpenCodeChannel`, `GeminiC
 - **Hard retry budget per transition.** N=3 by default; tunable per role. After N failures, escalation event.
 - **Errors loop back to contract revision** (§4 failure routing).
 - **Structured failure outputs are first-class.** Every role can return `{"status": "cannot_proceed", "reason": ..., "gaps": [...]}` as a valid terminal artifact. The next stage knows how to handle this.
-- **Dead-letter for unrecoverable.** Substrate's dead-letter mechanism captures items that exceeded their escalation budget at every level. These surface to the principal as a list, with full event trail.
+- **Dead-letter for unrecoverable.** Regista's dead-letter mechanism captures items that exceeded their escalation budget at every level. These surface to the principal as a list, with full event trail.
 
 ## 7. Observability
 
-- **Substrate event log** is authoritative. All actor metadata (role, channel, model, family, attempt #) is captured per event.
+- **Regista event log** is authoritative. All actor metadata (role, channel, model, family, attempt #) is captured per event.
 - **Per-(role, channel, model) pass-rate reporter** runs nightly (or on-demand), producing the table that drives role-binding decisions. Format: `(role, channel, model, gate, prompt_template_hash) → first-attempt pass rate, mean attempts to pass, mean wall-clock, gate-failure breakdown`. The formatter warns when a comparison group contains multiple prompt hashes OR multiple models — both are confounds for placement decisions (RFC-034).
-- **Outcome dashboard** for the principal: per-spec status, per-stage timing, escalations, dead-letters. Built on substrate's event store + Prometheus metrics. Exposes the *outcome*-level view, not code-level review.
+- **Outcome dashboard** for the principal: per-spec status, per-stage timing, escalations, dead-letters. Built on regista's event store + Prometheus metrics. Exposes the *outcome*-level view, not code-level review.
 - **Fleet health** monitor: per-channel uptime, rate-limit hits, average latency. Drives fallback decisions.
 
 ## 8. Open questions and known risks
@@ -196,7 +196,7 @@ Three adapters are implemented: `ClaudeCodeChannel`, `OpenCodeChannel`, `GeminiC
 1. **K2 tier assignment confirmed (resolved).** K2p6-turbo handles interface-architect and test-author roles at Tier A quality (≥80% first-attempt pass rate across GR-021 through GR-038). No further upgrade analysis needed for current workloads; update tier assignment only when telemetry changes.
 2. **Long-context degradation.** Gemini and DeepSeek both nominally accept 1M context but quality drops sharply past ~200–300K tokens. Any long-context use must be benchmarked at varying context sizes; if degradation is severe, restrict to smaller windows or eliminate the role.
 3. **Gemini-cli inconsistency.** Probationary placement; disabled in phase defaults. GR-037 measured 6% review pass rate for gemini-2.5-pro (strict mode). GR-032 validated the adapter. Re-enable only with a targeted capability probe showing ≥50% pass rate on a defined role. Gemini-cli's flakiness is largely harness-shaped — pure-text review tasks are more reliable than write-and-edit tasks.
-4. **Substrate dependencies.** v2 depends on substrate's API surface (events, work items, claims, transitions). The factory has validated 38 golden runs against current substrate. See BC-051 for the historical BC-021 note. The most active risk area is hooks/validators, dead-letter requeue, and replay correctness on long event histories.
+4. **Regista dependencies.** v2 depends on regista's API surface (events, work items, claims, transitions). The factory has validated 38 golden runs against current regista. See BC-051 for the historical BC-021 note. The most active risk area is hooks/validators, dead-letter requeue, and replay correctness on long event histories.
 5. **Runner complexity.** The channel-adapter + telemetry + failure-routing layer is a real engineering investment. At Phase 5 it is substantially complete (runner, gate_process, scheduler, router, pre_gate, jury, workspace modules). The primary remaining risk is integration-stage complexity for real (non-synthetic) workloads.
 6. **Semantic AC ambiguity.** No structural defense; pushes responsibility to spec quality. The factory's job is to make ambiguity surface fast via `cannot_proceed` escalation. The principal's expertise *is* spec quality.
 7. **Fleet management overhead.** With three active channel adapters and configurable models, time spent tuning model placement risks exceeding time spent producing software. Set a fleet-tuning budget cap (e.g., 10% of factory engineering time); if exceeded, freeze configuration.
@@ -207,19 +207,19 @@ Three adapters are implemented: `ClaudeCodeChannel`, `OpenCodeChannel`, `GeminiC
 
 ## 9. Memory and context
 
-Memory in agent pipelines tends to fail because models cannot reliably maintain it as a separate invariant — graph stores, scratchpads, and "agent experience" surfaces accumulate inconsistencies that propagate silently through downstream roles. v2 avoids that failure mode by structural choice: substrate's event log is the only authoritative state, and all "memory" is a deterministic derivation from it.
+Memory in agent pipelines tends to fail because models cannot reliably maintain it as a separate invariant — graph stores, scratchpads, and "agent experience" surfaces accumulate inconsistencies that propagate silently through downstream roles. v2 avoids that failure mode by structural choice: regista's event log is the only authoritative state, and all "memory" is a deterministic derivation from it.
 
-### 9.1 Substrate is the memory
+### 9.1 Regista is the memory
 
-Per-work-item event log, custom_fields, links, workflow registry. Anything worth remembering about how a work-item got to its current state is captured at the byte level in substrate — replayable, auditable, signed. v2 does not introduce a parallel knowledge store.
+Per-work-item event log, custom_fields, links, workflow registry. Anything worth remembering about how a work-item got to its current state is captured at the byte level in regista — replayable, auditable, signed. v2 does not introduce a parallel knowledge store.
 
 ### 9.2 Context derivation as a deterministic function
 
-The runner provides a `derive_context(work_item_id, role) -> PromptContext` library that builds the prompt input bundle from substrate state. Per-role specifications declare what each role consumes (e.g., implementer: locked interface + tests + prior attempts + diagnostics; frontier_judge: spec section + AC + interface + tests + implementation; integrator: all locked implementations in the DAG). Versioned, tested, deterministic. Two invocations of `derive_context` on the same substrate state produce byte-identical context bundles.
+The runner provides a `derive_context(work_item_id, role) -> PromptContext` library that builds the prompt input bundle from regista state. Per-role specifications declare what each role consumes (e.g., implementer: locked interface + tests + prior attempts + diagnostics; frontier_judge: spec section + AC + interface + tests + implementation; integrator: all locked implementations in the DAG). Versioned, tested, deterministic. Two invocations of `derive_context` on the same regista state produce byte-identical context bundles.
 
 ### 9.3 Caching as memoization, not as state
 
-Expensive derivations (failure summaries, large context bundles) are cached, keyed on the underlying `event_seq` they were computed from. Cache invalidates automatically when substrate moves. The cache never produces output not derivable from current substrate state — it is a performance layer, not a parallel source of truth.
+Expensive derivations (failure summaries, large context bundles) are cached, keyed on the underlying `event_seq` they were computed from. Cache invalidates automatically when regista moves. The cache never produces output not derivable from current regista state — it is a performance layer, not a parallel source of truth.
 
 ### 9.4 Failure summaries as first-class derived artifacts
 
@@ -237,21 +237,21 @@ Conventions like snake_case, no comments, frozen dataclasses, allowed import pat
 
 Anything that would otherwise live in a graph database, vector store, or shared scratchpad must instead be one of:
 - A `custom_field` on a work-item (structured, schema-validated, transactionally consistent).
-- A typed link between work-items (relational, with an optional payload if substrate gains link payloads).
-- A derived artifact regenerated from substrate state on demand.
+- A typed link between work-items (relational, with an optional payload if regista gains link payloads).
+- A derived artifact regenerated from regista state on demand.
 
 Never free-floating mutable knowledge that workers can read and write. This is the v1 `memory_graph` trap; v2 closes it by construction.
 
 ### 9.8 No persistent role identity
 
-Roles are stateless functions of their input bundle. The "implementer" does not accumulate experience across invocations. Substrate's `actor_id` is for audit and per-attempt-channel telemetry, not identity-with-memory. Two invocations of the same role with the same input bundle should produce statistically equivalent outputs (modulo sampling); any divergence beyond that is a failure mode to investigate, not a feature.
+Roles are stateless functions of their input bundle. The "implementer" does not accumulate experience across invocations. Regista's `actor_id` is for audit and per-attempt-channel telemetry, not identity-with-memory. Two invocations of the same role with the same input bundle should produce statistically equivalent outputs (modulo sampling); any divergence beyond that is a failure mode to investigate, not a feature.
 
 ### 9.9 No cross-project memory
 
 Each project starts fresh. Cross-project lessons surface as:
 - Principles added to this spec.
 - Factory-level conventions added to AGENTS.md.
-- Substrate-level breadcrumbs that improve the coordination plane.
+- Regista-level breadcrumbs that improve the coordination plane.
 
 Never as runtime-queryable knowledge that the factory consults during a build. Cross-project pattern recognition is a research problem disguised as engineering, and v2 does not attempt it.
 
@@ -261,25 +261,25 @@ The principal's spec is the long-term memory. Lessons accumulate there, by the p
 
 ### 9.11 Artifact addressing
 
-Workspace artifacts are referenced from substrate events by path. The runner uses a content-addressed convention for workspace paths (e.g., `.factory/work/<work_item_id>/<attempt_id>/<artifact_name>` with a per-attempt manifest containing sha256s). Substrate events reference artifacts by path; replay can detect tampering by re-checking manifest hashes. Missing or tampered artifacts on a given attempt are recoverable by re-invoking the worker for that attempt — idempotent under substrate's `event_id` dedup. This keeps substrate's contract narrow (coordination state, not artifact bytes) while preserving auditability of artifact integrity.
+Workspace artifacts are referenced from regista events by path. The runner uses a content-addressed convention for workspace paths (e.g., `.factory/work/<work_item_id>/<attempt_id>/<artifact_name>` with a per-attempt manifest containing sha256s). Regista events reference artifacts by path; replay can detect tampering by re-checking manifest hashes. Missing or tampered artifacts on a given attempt are recoverable by re-invoking the worker for that attempt — idempotent under regista's `event_id` dedup. This keeps regista's contract narrow (coordination state, not artifact bytes) while preserving auditability of artifact integrity.
 
 ### 9.12 Runner idempotency on restart
 
-The runner must be safe to restart at any point. On re-claiming a work-item, the runner scans all prior attempt directories for a valid manifest. If a valid manifest is found (SHA-256 matches artifact on disk), the runner resumes from the highest-numbered valid attempt without re-invoking the channel. The `submit` event carries the original attempt's actor metadata (`channel`, `model`, `family`) from the manifest. If no valid manifest is found, all prior attempt directories are quarantined (renamed to `.corrupt/attempt-NNNN-YYYYmmdd-HHMMSS/`) and the runner invokes the channel fresh. The runner never overwrites an existing attempt directory. Each attempt directory maps to the substrate attempt that produced it; later attempts may resume from earlier directories.
+The runner must be safe to restart at any point. On re-claiming a work-item, the runner scans all prior attempt directories for a valid manifest. If a valid manifest is found (SHA-256 matches artifact on disk), the runner resumes from the highest-numbered valid attempt without re-invoking the channel. The `submit` event carries the original attempt's actor metadata (`channel`, `model`, `family`) from the manifest. If no valid manifest is found, all prior attempt directories are quarantined (renamed to `.corrupt/attempt-NNNN-YYYYmmdd-HHMMSS/`) and the runner invokes the channel fresh. The runner never overwrites an existing attempt directory. Each attempt directory maps to the regista attempt that produced it; later attempts may resume from earlier directories.
 
-If the work-item is still in `in_progress` because the prior claim's TTL has not expired, the runner must wait for substrate's `sweep_expired_claims` to return it to `new`, or an operator must force-expire the claim. The runner does not force-expire claims automatically.
+If the work-item is still in `in_progress` because the prior claim's TTL has not expired, the runner must wait for regista's `sweep_expired_claims` to return it to `new`, or an operator must force-expire the claim. The runner does not force-expire claims automatically.
 
 ## 10. Phasing
 
-**Phase 0 — Substrate completion. ✓ COMPLETE**
-- Substrate stable enough to depend on. Hook-based stage triggering works for current pipeline shape.
+**Phase 0 — Regista completion. ✓ COMPLETE**
+- Regista stable enough to depend on. Hook-based stage triggering works for current pipeline shape.
 - Telemetry plumbing for actor metadata in events confirmed working (golden run 001).
-- Historical note: BC-021 (hook consumer reconnect) was cited as blocker but the factory operates in production mode without it. Substrate has advanced well past that breadcrumb. See factory BC-051.
+- Historical note: BC-021 (hook consumer reconnect) was cited as blocker but the factory operates in production mode without it. Regista has advanced well past that breadcrumb. See factory BC-051.
 
 **Phase 1 — Single-role end-to-end. ✓ COMPLETE**
 - Runner skeleton built: runner, workspace, config, gate, gate_process, router modules.
 - Channel adapter for Claude CC headless operational.
-- Substrate workflow with one role (interface_architect) validated.
+- Regista workflow with one role (interface_architect) validated.
 - Exit criteria met: 12/15 interface_specs locked (>90% first-attempt pass rate on curated set).
 
 **Phase 2 — Sequential single-channel pipeline. ✓ COMPLETE**

@@ -1,7 +1,7 @@
 # create_work_item with custom_fields — ADT Validation
 
 ## Source
-substrate spec §5, FR-01, FR-02
+regista spec §5, FR-01, FR-02
 
 ## Spec excerpt
 

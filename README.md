@@ -21,7 +21,7 @@ This is a personal research project exploring the architecture of autonomous sof
 
 ## Architecture
 
-[Substrate](https://github.com/hraedon/substrate) is the spine: durable claims, event-sourced state, validated transitions, replay, workflow composition via `extends:`. The factory is a substrate workflow plus a runner that invokes model channels (OpenCode with K2/GLM/DeepSeek model selection, Claude Code headless) as workers.
+[Regista](https://github.com/hraedon/regista) is the spine: durable claims, event-sourced state, validated transitions, replay, workflow composition via `extends:`. The factory is a regista workflow plus a runner that invokes model channels (OpenCode with K2/GLM/DeepSeek model selection, Claude Code headless) as workers.
 
 **Pipeline stages** (spec §4):
 1. **Interface architect** — produces locked typed interface (.pyi)
@@ -51,7 +51,7 @@ Errors loop back to contract revision, not worker retry. Gates are mechanical-fi
 
 ## Dependencies
 
-- **[substrate](https://github.com/hraedon/substrate)** — coordination and state plane. Event-sourced workflow engine with composition, replay, and validated transitions.
+- **[regista](https://github.com/hraedon/regista)** — coordination and state plane. Event-sourced workflow engine with composition, replay, and validated transitions.
 - **socratic-specification** — Stage 0 spec elaboration pipeline.
 - **Model channels** — OpenCode (primary, multi-model), Claude Code (stable). K2 is the validated Tier-A model; GLM-5.1 and DeepSeek are validated for review/jury roles.
 
@@ -65,7 +65,7 @@ make audit          # vulture dead-code check
 make golden-run     # CONFIG=.factory/golden-runs/golden-run-NNN-config.yaml FIXTURES=tests/fixtures/cert-watch-mini
 ```
 
-Golden runs require PostgreSQL (`docker compose -f /projects/substrate/docker-compose.test.yml up -d`) and a model channel.
+Golden runs require PostgreSQL (`docker compose -f /projects/regista/docker-compose.test.yml up -d`) and a model channel.
 
 ## License
 

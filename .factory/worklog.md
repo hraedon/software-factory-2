@@ -77,7 +77,7 @@
 1. **W1.2 — Spec authoring**
    - Authored Level-2+ `spec.yaml` and `spec.md` for two new workloads under `tests/fixtures/`:
      - `log-redact-cli/` — structured-log redaction CLI (5 FRs: rule_loader, ingestion, redaction, output, audit).
-     - `dep-graph-viewer/` — substrate event-log to DOT graph viewer (4 FRs: reader, builder, filter, emitter).
+     - `dep-graph-viewer/` — regista event-log to DOT graph viewer (4 FRs: reader, builder, filter, emitter).
    - Both include complete YAML schemas (meta, glossary, scope, MVP, FRs, ACs, business rules, failure modes, NFRs, dependency hints).
 
 2. **W1.3 — Phase A baseline validation**
@@ -148,7 +148,7 @@ All 211 BCs are now resolved. Zero open bugs remain in the `breadcrumbs/README.m
    - `cancel_initiative()` now validates item is in `{STATE_IN_PROGRESS, STATE_NEW}` before transitioning to ` TRANSITION_ROUTE_TO_CANNOT_PROCEED`, logs skips for unexpected states.
 
 2. **BC-199 resolved** — `query_work_items()` scoping added to `initiative.py` and `review_surface.py`.
-   - `query_initiatives()`, `cancel_initiative()`, `requeue_initiative()` accept optional `workflow_name` / `workflow_version` keyword args and forward them to substrate.
+   - `query_initiatives()`, `cancel_initiative()`, `requeue_initiative()` accept optional `workflow_name` / `workflow_version` keyword args and forward them to regista.
    - `generate_review_report()` passes `workflow_name=config.workflow_name, workflow_version=config.workflow_version` to `query_work_items()`.
 
 3. **BC-201 resolved** — Scheduler exception transparency improved in `_all_dep_specs_locked()`.
@@ -248,7 +248,7 @@ In GR-033 (retries=2), the retry-1 artifact bypassed inner gate and wasted an ou
 
 **Invocation:** GLM-5.1
 
-**Focus:** Execute the migration plan in `workflows/MIGRATION_PLAN.md` — adopt substrate `extends:` composition for phase2-5 workflow YAMLs, eliminating structural duplication.
+**Focus:** Execute the migration plan in `workflows/MIGRATION_PLAN.md` — adopt regista `extends:` composition for phase2-5 workflow YAMLs, eliminating structural duplication.
 
 ### Migration completed (Steps 1-6 of MIGRATION_PLAN.md)
 
@@ -261,19 +261,19 @@ In GR-033 (retries=2), the retry-1 artifact bypassed inner gate and wasted an ou
    - `full_pipeline.yaml`: Unchanged (too divergent per plan)
    - **Total: 1133 → 421 lines (62.8% reduction)**
 
-2. **`pipeline_docs.py`** — Updated `_load_workflow_yaml()` to use `resolve_includes()` from substrate instead of `yaml.safe_load()`, so composed YAMLs render correctly in documentation.
+2. **`pipeline_docs.py`** — Updated `_load_workflow_yaml()` to use `resolve_includes()` from regista instead of `yaml.safe_load()`, so composed YAMLs render correctly in documentation.
 
-3. **Substrate `InMemorySubstrate.register_workflow_file()`** — Added `extends:` composition support: reads raw YAML, checks for `extends:`, resolves includes via `resolve_includes()`, then dumps composed dict back to YAML for registration.
+3. **Regista `InMemorySubstrate.register_workflow_file()`** — Added `extends:` composition support: reads raw YAML, checks for `extends:`, resolves includes via `resolve_includes()`, then dumps composed dict back to YAML for registration.
 
-4. **Substrate `Substrate.register_workflow_file()`** — Same `extends:` composition support for the real (Postgres-backed) substrate.
+4. **Regista `Regista.register_workflow_file()`** — Same `extends:` composition support for the real (Postgres-backed) regista.
 
 5. **Test call sites** — 5 files changed from `register_workflow(path.read_text())` to `register_workflow_file(str(path))` to ensure composed YAMLs resolve `extends:` correctly.
 
-6. **`scripts/migrate_workflows.py`** — Migration verification script with `--verify`, `--restore`, and `--status` flags. Semantic comparison (sets of roles, work_item_types, link_types, transitions) confirms functional equivalence. Content hashes differ because substrate's keyed-list merge places child items before parent items, changing list ordering.
+6. **`scripts/migrate_workflows.py`** — Migration verification script with `--verify`, `--restore`, and `--status` flags. Semantic comparison (sets of roles, work_item_types, link_types, transitions) confirms functional equivalence. Content hashes differ because regista's keyed-list merge places child items before parent items, changing list ordering.
 
 ### Known limitation
 
-Substrate's `_deep_merge` places child items first in keyed lists (roles, work_item_types, link_types, transitions). This changes list ordering from the monolithic originals but is functionally equivalent. All 947 factory tests and 529 substrate tests pass.
+Regista's `_deep_merge` places child items first in keyed lists (roles, work_item_types, link_types, transitions). This changes list ordering from the monolithic originals but is functionally equivalent. All 947 factory tests and 529 regista tests pass.
 
 ### Code changes
 
@@ -283,8 +283,8 @@ Substrate's `_deep_merge` places child items first in keyed lists (roles, work_i
 - `workflows/phase5.yaml`: rewritten with `extends: ./phase4.yaml`
 - `workflows/.pre_migration_backup/`: original monolithic files preserved
 - `src/factory/pipeline_docs.py`: replaced `yaml.safe_load` with `resolve_includes`
-- `/projects/substrate/src/substrate/_in_memory.py`: `register_workflow_file` resolves `extends:`
-- `/projects/substrate/src/substrate/__init__.py`: `register_workflow_file` resolves `extends:`, added imports
+- `/projects/regista/src/regista/_in_memory.py`: `register_workflow_file` resolves `extends:`
+- `/projects/regista/src/regista/__init__.py`: `register_workflow_file` resolves `extends:`, added imports
 - `tests/conftest.py`: `mock_substrate` and `mock_phase5_substrate` use `register_workflow_file`
 - `tests/test_gate_process_contract.py`: `mock_sub` uses `register_workflow_file`
 - `tests/test_gate_process_phase5.py`: `phase5_sub` uses `register_workflow_file`
@@ -294,7 +294,7 @@ Substrate's `_deep_merge` places child items first in keyed lists (roles, work_i
 
 ### Test results
 
-947 passed, 13 skipped, 0 lint errors, 0 vulture findings. Substrate: 529 passed, 10 deselected.
+947 passed, 13 skipped, 0 lint errors, 0 vulture findings. Regista: 529 passed, 10 deselected.
 
 ## 2026-05-15 — Session 39: Implement RFC-001/004/014/016 + integrator multi-module context
 
@@ -361,7 +361,7 @@ Substrate's `_deep_merge` places child items first in keyed lists (roles, work_i
 
 ### RFCs implemented (3)
 
-1. **RFC-018 (medium, implemented): Live state reporter.** New module `factory/state_reporter.py` with `StateReporter`, `PipelineSnapshot`, `ProgressSummary`, `FailureSummary`, `ChannelHealth`, `DiskPressure`. CLI with `--config`, `--json`, `--brief`, `--watch N`. Queries substrate for work items, events, disk usage. Renders markdown/JSON/brief. 13 tests.
+1. **RFC-018 (medium, implemented): Live state reporter.** New module `factory/state_reporter.py` with `StateReporter`, `PipelineSnapshot`, `ProgressSummary`, `FailureSummary`, `ChannelHealth`, `DiskPressure`. CLI with `--config`, `--json`, `--brief`, `--watch N`. Queries regista for work items, events, disk usage. Renders markdown/JSON/brief. 13 tests.
 
 2. **RFC-005 (medium, implemented): Composable failure/escalation architecture.** Refactored router.py from monolithic `route()` function to composable `RouteHandler` pipeline. Three handlers: `RoutingHintHandler` (OUTCOME_E2E with routing_hint), `EscalationHandler` (escalatable kinds at threshold), `DispatchHandler` (default kind→route mapping). New handlers add via `_HANDLERS` list. All 22 existing router tests pass unchanged. 6 new handler composition tests.
 
@@ -448,10 +448,10 @@ Substrate's `_deep_merge` places child items first in keyed lists (roles, work_i
 
 - **`tests/conftest.py`**: added `WORKFLOW_V5_PATH`, `phase5_substrate` (live PostgreSQL, module scope), `phase5_factory_config` (live config wired to `phase5_substrate`), and `mock_phase5_substrate` (`InMemorySubstrate` with `phase5.yaml`) fixtures.
 - **`tests/test_gate_process_phase5.py`**: replaced skipped integration tests with real gated assertions:
-  - `test_gate_passes_integration_artifact` — validates assembled mathlib passes import+mypy+pytest gates via real substrate.
+  - `test_gate_passes_integration_artifact` — validates assembled mathlib passes import+mypy+pytest gates via real regista.
   - `test_gate_fails_integration_mypy` — validates mypy strict failure on `typed.greet(123)` (wrong type).
   - `test_gate_fails_outcome_verification_routing_hint` — asserts `routing_hint` preserved in gate diagnostics.
-- **`src/factory/gate.py`**: `evaluate_outcome_verification()` now extracts `routing_hint` from the verdict JSON and stores it in `GateResult.routing_hint` (new optional field), separate from `custom_fields` to avoid substrate custom-field validation errors.
+- **`src/factory/gate.py`**: `evaluate_outcome_verification()` now extracts `routing_hint` from the verdict JSON and stores it in `GateResult.routing_hint` (new optional field), separate from `custom_fields` to avoid regista custom-field validation errors.
 - **`src/factory/gate_process.py`**: on outcome-verification gate fail, injects `routing_hint` into the payload diagnostics dictionary so telemetry can read it from events.
 - **`src/factory/telemetry.py`**:
   - Added `RoutingHintMetrics` dataclass and `collect_routing_hints()` / `format_routing_hint_summary()` functions.
@@ -463,7 +463,7 @@ Substrate's `_deep_merge` places child items first in keyed lists (roles, work_i
 ### Test results
 
 - `make check`: 734 passed, 13 skipped, 0 lint errors, 0 vulture findings.
-- Phase 5 integration tests verified on mock substrate + InMemorySubstrate fixtures.
+- Phase 5 integration tests verified on mock regista + InMemorySubstrate fixtures.
 
 ---
 
@@ -487,7 +487,7 @@ TBD (not yet committed at end-of-session).
 
 ### Scheduler integration trigger (Step 3)
 
-- **`phase5.yaml`** fixed: three duplicate `derived_from` link_type entries removed (substrate validates uniqueness). Added `integration_ref` field to `integration` work_item_type so the scheduler can reference upstream jury items.
+- **`phase5.yaml`** fixed: three duplicate `derived_from` link_type entries removed (regista validates uniqueness). Added `integration_ref` field to `integration` work_item_type so the scheduler can reference upstream jury items.
 - `FactoryConfig.PHASE5_STAGE_TOPOLOGY` already contained the two new handoffs (`jury → integration`, `integration → outcome_verification`). Scheduler idempotency checks (`ref_field` pagination loop) work transparently for these new types.
 
 ### Router update
@@ -507,7 +507,7 @@ TBD (not yet committed at end-of-session).
 - **`derive_outcome_verifier_context()`**: reads `integration_ref` artifact JSON and injects:
   - `assembled_module_<filename>` for every file in `assembled_tree`
   - `integration_tests` string
-- **Bug fix**: `derive_context()` now coerces `work_item_id` with `_to_uuid()` before `substrate.get_work_item()`. Previously a string UUID lookup silently returned `None` in some substrate backends, breaking downstream context construction.
+- **Bug fix**: `derive_context()` now coerces `work_item_id` with `_to_uuid()` before `regista.get_work_item()`. Previously a string UUID lookup silently returned `None` in some regista backends, breaking downstream context construction.
 
 ### Prompt updates
 
@@ -519,7 +519,7 @@ TBD (not yet committed at end-of-session).
 |---|---|---|
 | `tests/test_integration_gates.py` | 11 | All three gates on assembled trees, import errors, deep paths (pkg/sub.py), mypy type error, mypy clean pass, pytest failure, pytest skip/no-tests/empty-tests, pytest success |
 | `tests/test_context_phase5.py` | 4 | Derive integrator context with full chain, missing-ref graceful empty; derive outcome verifier with assembled modules and missing integration ref |
-| `tests/test_gate_process_phase5.py` | 7 | Gate_process routing for integration pass, integration mypy fail, outcome pass, outcome fail. 3 integration-level tests skipped because the live-substrate fixture still registers phase1.yaml (phase5 workflow registration requires a conftest change deferred to GR-028). |
+| `tests/test_gate_process_phase5.py` | 7 | Gate_process routing for integration pass, integration mypy fail, outcome pass, outcome fail. 3 integration-level tests skipped because the live-regista fixture still registers phase1.yaml (phase5 workflow registration requires a conftest change deferred to GR-028). |
 
 ### Test results
 
@@ -538,7 +538,7 @@ TBD (not yet committed at end-of-session).
 
 1. ~~Integration mechanical gates~~ ✅
 2. ~~Scheduler integration trigger + context derivation~~ ✅
-3. GR-028: first synthetic Phase 5 validation run (deferred — needs live substrate fixture registered with phase5.yaml; config ready)
+3. GR-028: first synthetic Phase 5 validation run (deferred — needs live regista fixture registered with phase5.yaml; config ready)
 
 ---
 
@@ -1045,7 +1045,7 @@ BC-081, 096–116: arbitrary directory deletion guard, credential redaction fix,
 
 ### Breadcrumbs opened (3)
 
-- BC-117: Scheduler pagination has no integration test (needs mocked paginated substrate)
+- BC-117: Scheduler pagination has no integration test (needs mocked paginated regista)
 - BC-118: golden_run_nanny.py lacks timeout and progress reporting
 - BC-119: Venv gate tool hash won't detect version changes
 
@@ -1215,7 +1215,7 @@ Wall clock: 26.3 min.
 
 1. **New module `src/factory/dep_resolution.py`** — Centralized dependency resolution:
    - `DepArtifact` dataclass with `module_name`, `impl_path`, `spec_path`, `is_stub_only`
-   - `resolve_dep_artifacts()` — resolves each dep ref, finding locked implementations via `_find_locked_impl()` (queries substrate for locked implementations matching the spec's `interface_ref`)
+   - `resolve_dep_artifacts()` — resolves each dep ref, finding locked implementations via `_find_locked_impl()` (queries regista for locked implementations matching the spec's `interface_ref`)
    - `resolve_dep_refs_for_gate()` — returns `list[tuple[str, Path]]` of primary artifact paths (impl .py preferred over spec .pyi)
    - `resolve_dep_refs_for_gate_rich()` — returns `list[tuple[str, Path, Path | None]]` with both impl and spec paths
    - `resolve_dep_refs_for_context()` — returns `(contents_dict, stub_only_list)` for prompt injection
@@ -1585,7 +1585,7 @@ When the router escalates an implementation item after exceeding `attempt_thresh
 
 **Invocation:** OpenCode (glm-5.1)
 
-**Focus:** Run first golden run with real Claude CC headless against 15 curated specs, validate end-to-end pipeline with real substrate and real model.
+**Focus:** Run first golden run with real Claude CC headless against 15 curated specs, validate end-to-end pipeline with real regista and real model.
 
 **Result: 12/15 interface_specs locked, 3 escalated. 235/235 unit tests pass.**
 
@@ -1715,7 +1715,7 @@ When the router escalates an implementation item after exceeding `attempt_thresh
 - BC-011: Test gap — claim transition not asserted
 - BC-019: Channel failure modes untested
 - BC-020: Config YAML loading untested
-- BC-021: Non-cannot_proceed channel failures produce no substrate event
+- BC-021: Non-cannot_proceed channel failures produce no regista event
 - BC-024: _resume_and_submit hardcodes role
 
 ---
@@ -1757,11 +1757,11 @@ When the router escalates an implementation item after exceeding `attempt_thresh
 - BC-009: context_hash → artifact non-determinism
 - BC-010: populate_work_items.py --reset does not clean workspace
 - BC-013: Gate is syntactic-only
-- BC-015: Integration test private substrate API coupling
+- BC-015: Integration test private regista API coupling
 - BC-016: AC reference check uses substring search
 - BC-017: Router is dead code
-- BC-018: MockSubstrate diverges from real substrate
-- BC-022: Integration tests access substrate private API
+- BC-018: MockSubstrate diverges from real regista
+- BC-022: Integration tests access regista private API
 - BC-023: Structural semantics gate rejected module-level AC docstrings
 
 ---
@@ -1776,7 +1776,7 @@ When the router escalates an implementation item after exceeding `attempt_thresh
 
 - Phase 0 design repo; no runner code yet.
 - spec.md is authoritative.
-- substrate dependency is real; Phase 1 blocked on BC-021.
+- regista dependency is real; Phase 1 blocked on BC-021.
 - breadcrumbs directory exists with 12 open items (BC-001 through BC-012).
 
 **No code changes.**

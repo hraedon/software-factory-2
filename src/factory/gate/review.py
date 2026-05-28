@@ -5,6 +5,7 @@ from pathlib import Path
 from factory.constants import (
     CUSTOM_FIELD_REVIEW_FINDINGS,
     GATE_NAME_CROSS_FAMILY_REVIEW,
+    DiagnosticKind,
 )
 from factory.gate._base import GateResult
 from factory.output_extraction import extract_json_from_output
@@ -55,7 +56,7 @@ def evaluate_review(artifact_path: Path) -> GateResult:
             passed=False,
             gate_name=GATE_NAME_CROSS_FAMILY_REVIEW,
             diagnostics=["Reviewer produced no parseable JSON output"],
-            diagnostic_kind="review_malformed",
+            diagnostic_kind=DiagnosticKind.REVIEW_MALFORMED,
         )
     passed = bool(vote.get("passed"))
     raw_findings = vote.get("findings", [])
@@ -86,7 +87,9 @@ def evaluate_review(artifact_path: Path) -> GateResult:
     malformed = not passed and not has_structured_findings and not rationale
     diagnostic_kind = ""
     if not passed:
-        diagnostic_kind = "review_malformed" if malformed else "review_found_defect"
+        diagnostic_kind = (
+            DiagnosticKind.REVIEW_MALFORMED if malformed else DiagnosticKind.REVIEW_FOUND_DEFECT
+        )
     routing_fields: dict = {}
     if structured_findings:
         routing_fields[CUSTOM_FIELD_REVIEW_FINDINGS] = structured_findings

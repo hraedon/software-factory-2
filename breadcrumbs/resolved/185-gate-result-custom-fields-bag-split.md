@@ -79,7 +79,7 @@ log a warning. Remove after one cycle.
 - AC-3: `gate_process.py` no longer needs the BC-180 `_wi_type_has_field`
   filter for *destination correctness* (it may remain as a sanity check or
   be removed entirely — implementer's call).
-- AC-4: No existing test regresses; substrate accepts review transitions
+- AC-4: No existing test regresses; regista accepts review transitions
   with `transition_fields` payloads.
 - AC-5: One end-to-end test driving a review-found-defect path confirms
   `review_findings` is present on the new implementation revision and
@@ -154,6 +154,6 @@ the BC-180/145 context is fresh.
 
 ## Out of scope
 
-- Changing the workflow schema or substrate's custom_field validation —
+- Changing the workflow schema or regista's custom_field validation —
   this is purely an internal-API split in sf2's gate-result data model.
 - Adding new fields beyond what producers emit today.

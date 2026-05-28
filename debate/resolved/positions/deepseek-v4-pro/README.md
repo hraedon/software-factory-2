@@ -2,7 +2,7 @@
 
 Independent positions on `debate/NNN-*.md` items, authored 2026-05-09 by deepseek-v4-pro. Kept in this subfolder to avoid contaminating the original debate items before parallel review.
 
-Also covers substrate debates at `/projects/substrate/debate/`.
+Also covers regista debates at `/projects/regista/debate/`.
 
 Each file `NNN.md` corresponds to `debate/NNN-*.md`.
 
@@ -40,7 +40,7 @@ Each file `NNN.md` corresponds to `debate/NNN-*.md`.
 | NEW-002 | Channel protocol cleanup (BC-060) | Fix dead `inputs_dir` parameter before any 3rd adapter | High (pre-Phase 3) |
 | NEW-003 | Golden run automation (`make golden-run`) | Build after GR006a; manual runs don't scale to Phase 3 fleet | Low-now, Medium-Phase-3 |
 
-## At-a-glance — Substrate
+## At-a-glance — Regista
 
 | # | Item | Position | Urgency |
 |---|---|---|---|
@@ -52,5 +52,5 @@ Each file `NNN.md` corresponds to `debate/NNN-*.md`.
 - **Act now:** 002, 003, 008, R2-001, NEW-001, NEW-002
 - **Build small, soon:** 005, 006, 007, R2-003, R2-004
 - **Defer with test/stub:** 001 (spec + concrete test), 004, 009-pilot, 010-instrument, R2-005 (notification + approval path)
-- **Defer substrate:** sub-001, sub-002
+- **Defer regista:** sub-001, sub-002
 - **Defer after Phase 3:** NEW-003

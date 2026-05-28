@@ -29,5 +29,5 @@ related: []
    - `compute_exit_criteria(sub, config, attempts, work_items=...)`
    - `collect_contract_complaints(sub, config, work_items=..., events_by_id=...)`
    - `collect_routing_hints(sub, config, work_items=..., events_by_id=...)`
-3. `run_telemetry_report()` and `run_telemetry_verify()` now build the cache once and pass it to each collector, reducing substrate event reads from 4×N to 1×N per run.
-4. No substrate API changes required — fix is entirely client-side.
+3. `run_telemetry_report()` and `run_telemetry_verify()` now build the cache once and pass it to each collector, reducing regista event reads from 4×N to 1×N per run.
+4. No regista API changes required — fix is entirely client-side.

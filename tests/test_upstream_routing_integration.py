@@ -1,10 +1,10 @@
-"""Integration tests for ensure_upstream_revision against a real substrate backend.
+"""Integration tests for ensure_upstream_revision against a real regista backend.
 
-Backend choice: InMemorySubstrate — it enforces the same JSON-schema validation
+Backend choice: InMemoryRegista — it enforces the same JSON-schema validation
 as Postgres (same Python code path) without requiring a live DB.  The three
 BC-145 bugs (missing test_suite_ref propagation, undeclared upstream_revision_of /
 review_findings fields, upstream_revision_of type mismatch) would all have been
-caught by these tests because InMemorySubstrate rejects schema-invalid payloads
+caught by these tests because InMemoryRegista rejects schema-invalid payloads
 at create_work_item time, exactly as the real backend does.
 
 The existing mocked tests in test_upstream_routing.py are NOT replaced — they
@@ -14,7 +14,7 @@ remain cheap branch-coverage for the Python logic.
 from __future__ import annotations
 
 import pytest
-from substrate.testing import InMemorySubstrate
+from regista.testing import InMemoryRegista
 
 from factory.config import FactoryConfig
 from factory.constants import (
@@ -53,8 +53,8 @@ WORKFLOW_V5_PATH = str(
 
 @pytest.fixture()
 def p5_sub():
-    """Fresh InMemorySubstrate registered with phase5 workflow."""
-    sub = InMemorySubstrate()
+    """Fresh InMemoryRegista registered with phase5 workflow."""
+    sub = InMemoryRegista()
     sub.register_workflow_file(WORKFLOW_V5_PATH)
     # Register all roles that create_work_item will use
     sub.register_actor_role(ACTOR_ID_SCHEDULER, ROLE_IMPLEMENTER)
@@ -176,10 +176,10 @@ def _create_jury_wi(sub, review_wi) -> object:
 
 @pytest.mark.integration
 class TestEnsureUpstreamRevisionIntegration:
-    """Drive ensure_upstream_revision against InMemorySubstrate so schema
+    """Drive ensure_upstream_revision against InMemoryRegista so schema
     mismatches surface as test failures, not golden-run failures."""
 
-    def test_review_to_implementation_revision_passes_substrate_validation(self, runtime, p5_sub):
+    def test_review_to_implementation_revision_passes_regista_validation(self, runtime, p5_sub):
         """review → implementation revision must pass schema validation end-to-end."""
         iface = _create_interface_spec(p5_sub)
         ts = _create_test_suite(p5_sub, iface)
@@ -193,10 +193,10 @@ class TestEnsureUpstreamRevisionIntegration:
             diagnostics=["Edge case: empty input not handled"],
         )
 
-        # Should not raise — if substrate rejects the payload, it will raise here
+        # Should not raise — if regista rejects the payload, it will raise here
         ensure_upstream_revision(runtime, review_wi, route)
 
-        # Verify the new implementation exists in substrate
+        # Verify the new implementation exists in regista
         results = p5_sub.query_work_items(
             workflow_name="software_factory",
             work_item_types=[WORK_ITEM_TYPE_IMPLEMENTATION],
@@ -217,7 +217,7 @@ class TestEnsureUpstreamRevisionIntegration:
         assert CUSTOM_FIELD_TEST_SUITE_REF in cf
         assert CUSTOM_FIELD_REVIEW_FINDINGS in cf
 
-    def test_jury_to_implementation_revision_passes_substrate_validation(self, runtime, p5_sub):
+    def test_jury_to_implementation_revision_passes_regista_validation(self, runtime, p5_sub):
         """jury → implementation revision must pass schema validation end-to-end.
 
         Regression test for BC-179: jury custom_fields lack interface_ref/test_suite_ref
@@ -289,7 +289,7 @@ class TestEnsureUpstreamRevisionIntegration:
 
         # Second call: the guard checks if source_wi.custom_fields has upstream_revision_of.
         # The source here is the *review*, which does NOT have upstream_revision_of.
-        # The idempotency guard in ensure_upstream_revision checks the *source* wi, not substrate.
+        # The idempotency guard in ensure_upstream_revision checks the *source* wi, not regista.
         # So a second identical call would create a second item unless the source carries the flag.
         # This matches the mocked test: the guard is on the source work item's custom_fields.
         # To test the real no-duplicate path, simulate a source that already has the marker.
@@ -304,7 +304,7 @@ class TestEnsureUpstreamRevisionIntegration:
         )
         ensure_upstream_revision(runtime, marked_review, route2)
 
-        # Substrate should still have exactly one revision
+        # Regista should still have exactly one revision
         results_after = p5_sub.query_work_items(
             workflow_name="software_factory",
             work_item_types=[WORK_ITEM_TYPE_IMPLEMENTATION],
@@ -320,7 +320,7 @@ class TestEnsureUpstreamRevisionIntegration:
         )
 
     def test_schema_drift_canary(self, p5_sub):
-        """Directly call substrate.create_work_item with the exact custom_fields
+        """Directly call regista.create_work_item with the exact custom_fields
         dict that ensure_upstream_revision constructs.  If anyone adds a required
         field to the 'implementation' work_item_type without updating the scheduler,
         this test will fail loudly rather than waiting for a golden run.

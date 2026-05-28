@@ -11,6 +11,7 @@ from factory.constants import (
     GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
     GATE_NAME_TEST_SUITE_NOT_EMPTY,
     GATE_NAME_TEST_SUITE_SYNTAX,
+    DiagnosticKind,
 )
 from factory.gate._base import GateResult, _guard_artifact_size
 from factory.gate._subprocess import _run_pytest_collect
@@ -37,7 +38,7 @@ def evaluate_test_suite(
             gate_name=GATE_NAME_TEST_SUITE_FILE_EXISTS,
             diagnostics=[f"Artifact not found: {artifact_path}"],
             artifact_valid=False,
-            diagnostic_kind="file_exists",
+            diagnostic_kind=DiagnosticKind.FILE_EXISTS,
         )
 
     content = artifact_path.read_text()
@@ -47,7 +48,7 @@ def evaluate_test_suite(
             gate_name=GATE_NAME_TEST_SUITE_NOT_EMPTY,
             diagnostics=["Artifact is empty"],
             artifact_valid=False,
-            diagnostic_kind="not_empty",
+            diagnostic_kind=DiagnosticKind.NOT_EMPTY,
         )
 
     syntax_result = _check_syntax(content)
@@ -57,7 +58,7 @@ def evaluate_test_suite(
             gate_name=GATE_NAME_TEST_SUITE_SYNTAX,
             diagnostics=syntax_result.diagnostics,
             artifact_valid=False,
-            diagnostic_kind="syntax",
+            diagnostic_kind=DiagnosticKind.SYNTAX,
         )
 
     if interface_ref_pyi_path is not None:
@@ -69,7 +70,7 @@ def evaluate_test_suite(
                 gate_name=GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
                 diagnostics=[f"SyntaxError at line {e.lineno}: {e.msg}"],
                 artifact_valid=False,
-                diagnostic_kind="syntax",
+                diagnostic_kind=DiagnosticKind.SYNTAX,
             )
         for node in ast.walk(tree):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -83,7 +84,7 @@ def evaluate_test_suite(
                             f"the locked interface"
                         ],
                         artifact_valid=False,
-                        diagnostic_kind="test_import_forbidden",
+                        diagnostic_kind=DiagnosticKind.TEST_IMPORT_FORBIDDEN,
                     )
 
     collect_result = _run_pytest_collect(
@@ -118,7 +119,7 @@ def _check_assertion_count(artifact_path: Path) -> GateResult:
             gate_name=GATE_NAME_TEST_SUITE_ASSERTIONS,
             diagnostics=[f"SyntaxError at line {e.lineno}: {e.msg}"],
             artifact_valid=False,
-            diagnostic_kind="syntax",
+            diagnostic_kind=DiagnosticKind.SYNTAX,
         )
 
     test_functions: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
@@ -143,7 +144,7 @@ def _check_assertion_count(artifact_path: Path) -> GateResult:
             passed=False,
             gate_name=GATE_NAME_TEST_SUITE_ASSERTIONS,
             diagnostics=[f"Test function(s) with zero assertions: {', '.join(zero_assert_funcs)}"],
-            diagnostic_kind="test_no_assertions",
+            diagnostic_kind=DiagnosticKind.TEST_NO_ASSERTIONS,
         )
 
     if total_assertions < len(test_functions):
@@ -153,7 +154,7 @@ def _check_assertion_count(artifact_path: Path) -> GateResult:
             diagnostics=[
                 f"Total assertions ({total_assertions}) < test functions ({len(test_functions)})"
             ],
-            diagnostic_kind="test_no_assertions",
+            diagnostic_kind=DiagnosticKind.TEST_NO_ASSERTIONS,
         )
 
     return GateResult(passed=True, gate_name=GATE_NAME_TEST_SUITE_ASSERTIONS)

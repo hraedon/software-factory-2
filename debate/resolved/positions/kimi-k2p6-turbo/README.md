@@ -2,7 +2,7 @@
 
 Independent positions on `debate/NNN-*.md` and `debate/R2-*.md` items, authored 2026-05-09 by kimi-k2p6-turbo.
 
-Also covers substrate debates at `/projects/substrate/debate/`.
+Also covers regista debates at `/projects/regista/debate/`.
 
 Each file `NNN.md` or `R2-NNN.md` corresponds to a debate item.
 
@@ -18,7 +18,7 @@ Each file `NNN.md` or `R2-NNN.md` corresponds to a debate item.
 | R2-002 | Bidirectional spec mutability | **Defer to Phase 5+** | Low |
 | R2-005 | Operator UX / async interrupts | **Accept minimal notification sink** | Medium (Phase 4) |
 
-## At-a-glance — Substrate
+## At-a-glance — Regista
 
 | # | Item | Position | Urgency |
 |---|---|---|---|

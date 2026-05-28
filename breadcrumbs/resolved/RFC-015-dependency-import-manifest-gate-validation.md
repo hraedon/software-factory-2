@@ -67,7 +67,7 @@ The v1 manifest system was built on top of the skeleton plan system (BC-294), wh
 
 ### Where v2 differs (and where it doesn't)
 
-**Simpler substrate:** V2's dependencies are locked `.pyi` stubs, not a full skeleton plan. The export map is a flat `module → {symbols}` dict, not a nested plan YAML with file-level entries. This is significantly simpler.
+**Simpler regista:** V2's dependencies are locked `.pyi` stubs, not a full skeleton plan. The export map is a flat `module → {symbols}` dict, not a nested plan YAML with file-level entries. This is significantly simpler.
 
 **Mechanical gate:** The proposed gate is `ast.walk` + `set` membership. V1's contract challenge gate also resolved submodule imports and cross-file type references — complexity that grew over time.
 
@@ -147,7 +147,7 @@ The out-of-scope list on lines 87-93 is the most important section of this RFC. 
 
 ### One meta-note:
 
-The v1 precedent table on lines 52-60 is the strongest section of the RFC. It converts "this feels like a good idea" into "v1 tried this, here's where it broke, here's why v2's substrate is simpler." This pattern (explicit v1 breadcrumb cross-reference with failure analysis) should be mandatory for all future RFCs. Consider promoting it to the RFC template in `breadcrumbs/README.md`.
+The v1 precedent table on lines 52-60 is the strongest section of the RFC. It converts "this feels like a good idea" into "v1 tried this, here's where it broke, here's why v2's regista is simpler." This pattern (explicit v1 breadcrumb cross-reference with failure analysis) should be mandatory for all future RFCs. Consider promoting it to the RFC template in `breadcrumbs/README.md`.
 
 ---
 

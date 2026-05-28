@@ -4,7 +4,7 @@ title: No circuit breaker or backoff for failing channels
 description: >
   If a channel is consistently returning non-zero exit codes (rate-limited, auth
   expired, binary missing), the runner retries every poll_interval_seconds (5s by
-  default), claiming work items and immediately failing them. This wastes substrate
+  default), claiming work items and immediately failing them. This wastes regista
   claims and pollutes the event log with identical channel_fail transitions.
 severity: medium
 status: implemented

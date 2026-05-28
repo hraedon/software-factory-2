@@ -1,9 +1,9 @@
-"""Deterministic idempotency-key generation for substrate mutations.
+"""Deterministic idempotency-key generation for regista mutations.
 
 BC-195: All at-least-once mutation paths that can crash-and-retry must carry a
-stable event_id so that duplicate substrate events are not created on retry.
+stable event_id so that duplicate regista events are not created on retry.
 
-Substrate enforces UUIDv4 for event_id keys (not v5, v3, etc.).  Because v4 is
+Regista enforces UUIDv4 for event_id keys (not v5, v3, etc.).  Because v4 is
 random, we achieve determinism via a thread-safe in-process cache: the first
 call for a given logical operation key generates a UUIDv4 and stores it;
 subsequent calls with the same key return the *same* v4.  This covers the
@@ -26,6 +26,7 @@ _event_id_cache: dict[tuple[str, str, int, str], uuid.UUID] = {}
 _event_id_lock = threading.Lock()
 
 _MAX_KEY_LEN = 512  # sanity cap for key strings
+_MAX_CACHE_SIZE = 8192  # bound memory for long-running processes
 
 
 def make_event_id(
@@ -58,6 +59,8 @@ def make_event_id(
     )
     with _event_id_lock:
         if key not in _event_id_cache:
+            if len(_event_id_cache) >= _MAX_CACHE_SIZE:
+                _event_id_cache.pop(next(iter(_event_id_cache)), None)
             _event_id_cache[key] = uuid.uuid4()
         return _event_id_cache[key]
 

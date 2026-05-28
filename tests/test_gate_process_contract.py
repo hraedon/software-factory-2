@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from substrate.testing import InMemorySubstrate
+from regista.testing import InMemoryRegista
 
 from factory.config import FactoryConfig
 from factory.gate_process import process_gate_item
@@ -13,7 +13,7 @@ PHASE2_WORKFLOW = Path(__file__).parent.parent / "workflows" / "phase2.yaml"
 
 
 def _claim_and_submit(
-    sub: InMemorySubstrate,
+    sub: InMemoryRegista,
     wi,
     role: str,
     artifact_path: str,
@@ -39,7 +39,7 @@ def _claim_and_submit(
 
 @pytest.fixture()
 def mock_sub():
-    sub = InMemorySubstrate()
+    sub = InMemoryRegista()
     sub.register_workflow_file(str(PHASE2_WORKFLOW))
     yield sub
     sub.close()
@@ -56,7 +56,7 @@ def mock_config(tmp_path):
 
 
 def _make_and_submit(
-    sub: InMemorySubstrate,
+    sub: InMemoryRegista,
     work_item_type: str,
     custom_fields: dict,
     artifact_path: Path | None = None,
@@ -90,7 +90,7 @@ def _make_and_submit(
     return wi, fresh, claim
 
 
-def _create_interface_spec(sub: InMemorySubstrate, artifact_path: str):
+def _create_interface_spec(sub: InMemoryRegista, artifact_path: str):
     iface_wi, _ = sub.create_work_item(
         workflow_name="software_factory",
         work_item_type="interface_spec",
@@ -105,7 +105,7 @@ def _create_interface_spec(sub: InMemorySubstrate, artifact_path: str):
 
 
 def _create_test_suite(
-    sub: InMemorySubstrate,
+    sub: InMemoryRegista,
     iface_wi,
     artifact_path: str,
     iface_ref: str | None = None,

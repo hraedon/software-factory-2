@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 import structlog
-from substrate import ActorMetadata, ErrorCode, Substrate, SubstrateError
+from regista import ActorMetadata, ErrorCode, Regista, RegistaError
 
 from factory.channel import Channel, ChannelDisabledError
 from factory.config import FactoryConfig, load_config
@@ -112,7 +112,7 @@ def run_worker(
     channel: Channel | None = None,
     channels: dict[str, Channel] | None = None,
 ) -> None:
-    sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
+    sub = Regista(config.dsn, config.project_name, config.hmac_key_path)
     spec_content = _load_spec(config)
     runtime = PipelineRuntime(
         sub=sub,
@@ -288,7 +288,7 @@ def worker_loop(runtime: PipelineRuntime) -> None:
                             wi.work_item_id, "release_claim", claim.attempt_number, extra="error"
                         ),
                     )
-                except SubstrateError as exc:
+                except RegistaError as exc:
                     if exc.code == ErrorCode.CLAIM_LOST:
                         log.warning(
                             "release_after_claim_lost",
@@ -317,7 +317,7 @@ def worker_loop(runtime: PipelineRuntime) -> None:
     log.info("worker_loop_exiting")
 
 
-def _has_prior_gate_fail(sub: Substrate, work_item_id: str) -> bool:
+def _has_prior_gate_fail(sub: Regista, work_item_id: str) -> bool:
     events = sub.read_events(work_item_id=work_item_id)
     return any(e.transition in (TRANSITION_GATE_FAIL, TRANSITION_CHANNEL_FAIL) for e in events)
 
@@ -577,7 +577,7 @@ def process_work_item(
 
 
 def _resume_and_submit(
-    sub: Substrate,
+    sub: Regista,
     wi,
     resumable_attempt: int,
     manifest: ArtifactManifest,

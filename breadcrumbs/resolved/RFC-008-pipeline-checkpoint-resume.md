@@ -49,7 +49,7 @@ v1's checkpoint system (BC-122) supports `--continue`, `--retry-failed=FR-04`, a
 - **Granularity:** Checkpoint per-work-item (fine-grained, large files) or per-stage (coarse-grained, simple)?
 - **Retention:** How many checkpoints to keep? Rotate by count or age?
 - **Cross-machine resume:** Checkpoints reference local filesystem paths. If the factory runs on different hosts, paths may not match.
-- **Integration with substrate:** Should checkpoint state also be stored as a substrate work-item or event, or kept purely in local files?
+- **Integration with regista:** Should checkpoint state also be stored as a regista work-item or event, or kept purely in local files?
 
 ## Phase needed
 

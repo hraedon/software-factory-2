@@ -13,7 +13,7 @@ from factory.constants import (
 from factory.telemetry import run_telemetry_verify
 
 
-class FakeSubstrate:
+class FakeRegista:
     def __init__(self):
         self._events: dict[str, list] = {}
         self._work_items: dict = {}
@@ -70,7 +70,7 @@ class FakeConfig:
 
 
 def test_verify_clean_passes() -> None:
-    sub = FakeSubstrate()
+    sub = FakeRegista()
     wi = uuid.uuid4()
     sub.add_work_item(wi, STATE_LOCKED)
     sub.add_event(
@@ -84,15 +84,15 @@ def test_verify_clean_passes() -> None:
     )
     sub.add_event(wi, TRANSITION_GATE_PASS, actor_metadata={"gate_name": "interface_spec"})
 
-    # Monkey-patch Substrate creation inside run_telemetry_verify
+    # Monkey-patch Regista creation inside run_telemetry_verify
     import factory.telemetry as telemetry_mod
 
-    original_substrate = telemetry_mod.Substrate
-    telemetry_mod.Substrate = lambda *a, **k: sub
+    original_regista = telemetry_mod.Regista
+    telemetry_mod.Regista = lambda *a, **k: sub
     try:
         result = run_telemetry_verify(FakeConfig())
     finally:
-        telemetry_mod.Substrate = original_substrate
+        telemetry_mod.Regista = original_regista
 
     assert result.passed is True
     assert result.unknown_gate_name_count == 0
@@ -102,7 +102,7 @@ def test_verify_clean_passes() -> None:
 
 
 def test_verify_unknown_gate_name_fails() -> None:
-    sub = FakeSubstrate()
+    sub = FakeRegista()
     wi = uuid.uuid4()
     sub.add_work_item(wi, STATE_LOCKED)
     sub.add_event(
@@ -118,19 +118,19 @@ def test_verify_unknown_gate_name_fails() -> None:
 
     import factory.telemetry as telemetry_mod
 
-    original_substrate = telemetry_mod.Substrate
-    telemetry_mod.Substrate = lambda *a, **k: sub
+    original_regista = telemetry_mod.Regista
+    telemetry_mod.Regista = lambda *a, **k: sub
     try:
         result = run_telemetry_verify(FakeConfig())
     finally:
-        telemetry_mod.Substrate = original_substrate
+        telemetry_mod.Regista = original_regista
 
     assert result.passed is False
     assert result.unknown_gate_name_count == 1
 
 
 def test_verify_orphan_submit_fails() -> None:
-    sub = FakeSubstrate()
+    sub = FakeRegista()
     wi = uuid.uuid4()
     sub.add_work_item(wi, STATE_NEW)  # not in_progress
     sub.add_event(
@@ -145,19 +145,19 @@ def test_verify_orphan_submit_fails() -> None:
 
     import factory.telemetry as telemetry_mod
 
-    original_substrate = telemetry_mod.Substrate
-    telemetry_mod.Substrate = lambda *a, **k: sub
+    original_regista = telemetry_mod.Regista
+    telemetry_mod.Regista = lambda *a, **k: sub
     try:
         result = run_telemetry_verify(FakeConfig())
     finally:
-        telemetry_mod.Substrate = original_substrate
+        telemetry_mod.Regista = original_regista
 
     assert result.passed is False
     assert result.orphan_submit_count == 1
 
 
 def test_verify_in_progress_not_orphan() -> None:
-    sub = FakeSubstrate()
+    sub = FakeRegista()
     wi = uuid.uuid4()
     sub.add_work_item(wi, STATE_IN_PROGRESS)
     sub.add_event(
@@ -172,31 +172,31 @@ def test_verify_in_progress_not_orphan() -> None:
 
     import factory.telemetry as telemetry_mod
 
-    original_substrate = telemetry_mod.Substrate
-    telemetry_mod.Substrate = lambda *a, **k: sub
+    original_regista = telemetry_mod.Regista
+    telemetry_mod.Regista = lambda *a, **k: sub
     try:
         result = run_telemetry_verify(FakeConfig())
     finally:
-        telemetry_mod.Substrate = original_substrate
+        telemetry_mod.Regista = original_regista
 
     assert result.orphan_submit_count == 0
     assert result.passed is True
 
 
 def test_verify_unmatched_gate_fails() -> None:
-    sub = FakeSubstrate()
+    sub = FakeRegista()
     wi = uuid.uuid4()
     sub.add_work_item(wi, STATE_LOCKED)
     sub.add_event(wi, TRANSITION_GATE_PASS, actor_metadata={"gate_name": "interface_spec"})
 
     import factory.telemetry as telemetry_mod
 
-    original_substrate = telemetry_mod.Substrate
-    telemetry_mod.Substrate = lambda *a, **k: sub
+    original_regista = telemetry_mod.Regista
+    telemetry_mod.Regista = lambda *a, **k: sub
     try:
         result = run_telemetry_verify(FakeConfig())
     finally:
-        telemetry_mod.Substrate = original_substrate
+        telemetry_mod.Regista = original_regista
 
     assert result.passed is False
     assert result.unmatched_gate_count == 1

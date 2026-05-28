@@ -1,6 +1,6 @@
-# Plan: Adopting Substrate Workflow Composition
+# Plan: Adopting Regista Workflow Composition
 
-**Goal:** Refactor the workflow definition files in `software-factory-2/workflows` to eliminate the ~58% structural duplication by utilizing Substrate's new `extends:` composition feature.
+**Goal:** Refactor the workflow definition files in `software-factory-2/workflows` to eliminate the ~58% structural duplication by utilizing Regista's new `extends:` composition feature.
 
 ## 1. Analysis of Current Duplication
 The `phase1.yaml` through `phase5.yaml` files represent a strictly linear progression where each phase builds upon the previous one. 
@@ -58,7 +58,7 @@ Refactored to extend the previous phase, utilizing `allowed_roles__append` for n
 
 ## 3. Fixing the Silent Reader (Code Change)
 Currently, `src/factory/pipeline_docs.py:16` reads raw workflow YAML using `yaml.safe_load()`. If it loads a refactored `phase5.yaml`, it will only see the delta and render an incomplete markdown document.
-**Action:** Update `pipeline_docs.py` to use Substrate's composition entry point. Specifically, call `substrate._workflow_compose.resolve_includes(path)[0]` (which returns the composed dict from the `(dict, SourceMap)` tuple). Do not use `parse_file`, as it returns a `WorkflowDefinition` object and wraps validation/registration semantics that are unnecessary for documentation rendering.
+**Action:** Update `pipeline_docs.py` to use Regista's composition entry point. Specifically, call `regista._workflow_compose.resolve_includes(path)[0]` (which returns the composed dict from the `(dict, SourceMap)` tuple). Do not use `parse_file`, as it returns a `WorkflowDefinition` object and wraps validation/registration semantics that are unnecessary for documentation rendering.
 
 ## 4. Migration Execution
 
@@ -67,7 +67,7 @@ To avoid manual errors across multiple YAML files, we will generate the new file
 1. **Timing:** Execute this migration strictly between golden runs (after GR-031), not during active pipeline validation.
 2. **Generate:** Write a script (`scripts/migrate_workflows.py`) that reads the monolithic files, computes the delta `extends:` files, and writes them to disk.
     - *Safety Check:* The migration script must detect any non-additive delta in named lists (e.g., modifying an inherited `link_type` or `work_item_type`) and fail loud. It should only silently emit pure additions or explicit appends to ensure we don't accidentally trample inherited properties.
-3. **Verify via Hash:** The script MUST verify the migration by calling Substrate's `parse_file()` on both the old (monolithic) and new (composed) workflows, then comparing their `WorkflowDefinition.content_hash`. The hash is computed over canonical JSON, making it order-insensitive for sets, and guarantees strict functional equivalence.
+3. **Verify via Hash:** The script MUST verify the migration by calling Regista's `parse_file()` on both the old (monolithic) and new (composed) workflows, then comparing their `WorkflowDefinition.content_hash`. The hash is computed over canonical JSON, making it order-insensitive for sets, and guarantees strict functional equivalence.
 4. **Unit Tests:** Run `pytest tests/` before attempting a pipeline run. Tests like `test_context_phase5.py` and `test_pipeline_idempotency.py` call `register_workflow_file` on the migrated YAMLs and will exercise the composer transparently. This is the cheapest and most vital first check.
 5. **Run Pipeline:** Execute a full pipeline run against the migrated workflows to ensure no subtle behavioral anomalies were introduced.
 6. **Commits:** Commit the changes incrementally (one commit per phase file) rather than a single mega-commit. This allows future bisects to isolate any regressions to a specific phase.

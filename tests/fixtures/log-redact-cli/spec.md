@@ -30,15 +30,15 @@ Emit an audit JSONL stream describing every redaction: line number, rule id, fie
 
 ## Acceptance Criteria
 
-- **AC-LOG-01** [FR-01]: Valid rules YAML loads as ordered Rule objects.
-- **AC-LOG-02** [FR-01]: Missing 'rules' key raises `RulesFileError`.
-- **AC-LOG-03** [FR-02]: 3 valid + 1 malformed line yields 4 LogLine objects; malformed has `parse_error`.
-- **AC-LOG-04** [FR-03]: `email` field with `mask` replacement becomes `[REDACTED]`.
-- **AC-LOG-05** [FR-03]: `ssn` field with `hash` replacement becomes SHA-256 hex.
-- **AC-LOG-06** [FR-03]: Two rules matching same field apply only the first.
-- **AC-LOG-07** [FR-04]: Redacted output is valid JSON Lines in original order.
-- **AC-LOG-08** [FR-05]: Audit stream has one line per redaction action.
-- **AC-LOG-09** [FR-05]: Zero redactions produces a `run_start` header only.
+- AC-01: Valid rules YAML loads as ordered Rule objects.
+- AC-02: Missing 'rules' key raises `RulesFileError`.
+- AC-03: 3 valid + 1 malformed line yields 4 LogLine objects; malformed has `parse_error`.
+- AC-04: `email` field with `mask` replacement becomes `[REDACTED]`.
+- AC-05: `ssn` field with `hash` replacement becomes SHA-256 hex.
+- AC-06: Two rules matching same field apply only the first.
+- AC-07: Redacted output is valid JSON Lines in original order.
+- AC-08: Audit stream has one line per redaction action.
+- AC-09: Zero redactions produces a `run_start` header only.
 
 ## Business Rules
 

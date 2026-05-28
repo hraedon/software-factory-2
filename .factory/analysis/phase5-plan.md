@@ -73,10 +73,10 @@ cross_family_review fail with "upstream_defect" diagnostic
 **Decisions to make (not open questions):**
 
 - **`DiagnosticKind` taxonomy:** Two kinds suffice — `review_malformed` (reviewer output invalid / refused / JSON-broken) routes to review-retry; `review_found_defect` routes upstream. The reviewer's structured output must declare which. Add a third only with evidence.
-- **Findings carrier:** Use a substrate custom field on the *upstream* work item (`review_feedback: list[ReviewFinding]`, append-on-rerun). Not `extra_artifacts` — findings are routing payload, not artifacts. Schema: `{ac_id: str, kind: "impl"|"test", severity: "block"|"advise", body: str, source_review_wi: uuid}`.
+- **Findings carrier:** Use a regista custom field on the *upstream* work item (`review_feedback: list[ReviewFinding]`, append-on-rerun). Not `extra_artifacts` — findings are routing payload, not artifacts. Schema: `{ac_id: str, kind: "impl"|"test", severity: "block"|"advise", body: str, source_review_wi: uuid}`.
 - **Routing target selection:** Mechanical, from the finding kind. If any block-severity finding has `kind == "test"`, route to test_author; else to implementer. Mixed test+impl findings produce two new attempts (test_author first, then implementer on the rebuilt tests). No model-mediated routing in Phase 5.
 - **Attempt budget:** A review-routed revision counts against the upstream work item's normal `attempt_threshold`. The review work item is not re-attempted until the upstream artifact changes. This prevents budget double-counting.
-- **Invalidation via supersession (not state mutation):** Substrate's event store is append-only and `locked` is terminal — there is no "stale" state primitive, and there shouldn't be. When a downstream revision lands and an upstream integration needs redo, **create a new `integration` work item** with refreshed `derived_from` links and a `supersedes` link to the old one. The old integration stays in its terminal state as honest history. Scheduler convention: when resolving "the current integration for feature group X," walk the supersedes chain to the head. Substrate doesn't need to know about supersedes semantics — it's a factory-level convention over a generic link type. No substrate work required.
+- **Invalidation via supersession (not state mutation):** Regista's event store is append-only and `locked` is terminal — there is no "stale" state primitive, and there shouldn't be. When a downstream revision lands and an upstream integration needs redo, **create a new `integration` work item** with refreshed `derived_from` links and a `supersedes` link to the old one. The old integration stays in its terminal state as honest history. Scheduler convention: when resolving "the current integration for feature group X," walk the supersedes chain to the head. Regista doesn't need to know about supersedes semantics — it's a factory-level convention over a generic link type. No regista work required.
 
 ### 5. Gate budget
 
@@ -97,7 +97,7 @@ Decision: **one integration work item per feature group** (where "feature group"
 
 Diamond-dependency note: when multiple FR integrations depend on the same shared module (`certificate_model`), the shared module must be locked before any dependent FR integration is created. Scheduler trigger: integration created when all its `derived_from` implementations are locked *and* all transitively-imported modules are locked.
 
-**Substrate link semantics:** `derived_from` is just a typed link with no cardinality constraint; n-to-1 linking (one integration → N implementations) works natively. Phase 5 workflow YAML adds two declarations: `derived_from: integration → implementation` (n-to-1) and `supersedes: integration → integration` (for §4 invalidation pattern). Nothing else in substrate needs to change.
+**Regista link semantics:** `derived_from` is just a typed link with no cardinality constraint; n-to-1 linking (one integration → N implementations) works natively. Phase 5 workflow YAML adds two declarations: `derived_from: integration → implementation` (n-to-1) and `supersedes: integration → integration` (for §4 invalidation pattern). Nothing else in regista needs to change.
 
 ### 7. Outcome-verification failure routing
 
@@ -121,7 +121,7 @@ Decision rule for `routing_hint`: outcome_verifier's structured output must poin
 
 1. **Implement BC-145 routing** — `DiagnosticKind` taxonomy split (`review_malformed` vs `review_found_defect`), `ReviewFinding` schema on upstream work-item custom field, mechanical routing-target selection from finding kind. Tests for both retry and upstream-routing paths. **Land this first** — it's the smallest, most-isolated change and unblocks the Phase 4 cleanup, and Stage 8/9 will benefit from the same routing pattern.
 2. **Capability probe `outcome_verifier`** — run BC-137 probe on candidate Tier-A models for the new role. Decide which channel before writing the role prompt; the prompt shape depends on the model's instruction-following profile.
-3. **Implement `integration` work item type** — scheduler trigger (shared-module-locked precondition per §6), workflow YAML v5 with two new link-type declarations (`derived_from: integration → implementation` and `supersedes: integration → integration`), role prompt template. Substrate supports both natively; no substrate-side changes.
+3. **Implement `integration` work item type** — scheduler trigger (shared-module-locked precondition per §6), workflow YAML v5 with two new link-type declarations (`derived_from: integration → implementation` and `supersedes: integration → integration`), role prompt template. Regista supports both natively; no regista-side changes.
 4. **Implement integration mechanical gates** — `integration_import`, `integration_mypy`, `integration_pytest` in `gate.py`. Reuse Phase 2 patterns from per-WI gates over the assembled tree.
 5. **Implement `outcome_verifier` role** — role prompt, work item type, scheduler trigger on integration lock, structured-output schema with `routing_hint` per §7.
 6. **Validate on synthetic fixture — GR-028.** cert-watch full DAG with integration enabled, per-FR granularity (5 integrations), dual-family jury preserved from GR-027, BC-145 routing live. Config file: `golden-run-028-config.yaml`. Wall clock budget: ≤120 min (more stages = more model calls).
@@ -134,14 +134,14 @@ Decision rule for `routing_hint`: outcome_verifier's structured output must poin
 
 1. ~~**Integration gate over budget**~~ — resolved: outcome_e2e is an LLM gate, not mechanical (see §5). Spec §10 needs one-line clarification.
 2. **Cross-module import complexity** — cert-watch has diamond dependencies on shared modules. Mitigation: scheduler precondition that shared modules are locked before any dependent integration is created (§6).
-3. **BC-145 interacts with integration invalidation** — a module revision after integration requires re-integration. Decision in §4: create a new integration work item with a `supersedes` link to the old one. Substrate supports this natively (no substrate work; append-only event store + typed links). Scheduler must traverse the supersedes chain when resolving "current" integration.
+3. **BC-145 interacts with integration invalidation** — a module revision after integration requires re-integration. Decision in §4: create a new integration work item with a `supersedes` link to the old one. Regista supports this natively (no regista work; append-only event store + typed links). Scheduler must traverse the supersedes chain when resolving "current" integration.
 4. **Outcome verifier is a new model role** — capability probe is step 2 in execution order; no pipeline use before probe passes.
 5. **BC-146 regression risk** — the assertion-counter fix changes gate output for test files using `pytest.raises`. The 16ee8dac escalation in GR-027 would no longer occur. Confirm in GR-028 that the same fixture passes the test_suite_assertions gate cleanly.
 6. **Routing-hint accuracy** — outcome_verifier's `routing_hint` may target the wrong upstream work item. Fallback: if the hinted WI passes its existing gates unchanged after the routed revision attempt, treat the outcome failure as terminal (don't burn another round). Need telemetry on routing-hint hit rate.
 
 ## Dependencies
 
-- Substrate: no known blockers; current API supports work items, links, custom fields.
+- Regista: no known blockers; current API supports work items, links, custom fields.
 - RFC-017: operational survivability — nice to have, not blocking skeleton.
 - RFC-019: artifact bundling — required before principal delivery, not before validation.
 - RFC-020: project archetype catalog — helps cold-start, not blocking.

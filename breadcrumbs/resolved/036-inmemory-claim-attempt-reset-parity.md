@@ -6,7 +6,7 @@ status: blocked
 kind: bug
 author: opencode
 date: "2026-05-08"
-tags: [runner, gate, dep-substrate-036, failure-routing, testing]
+tags: [runner, gate, dep-regista-036, failure-routing, testing]
 related: ["027", "035", "054"]
 ---
 
@@ -14,7 +14,7 @@ related: ["027", "035", "054"]
 
 InMemorySubstrate.transition() calls `self._claims.pop(work_item_id)`, removing the claim entry entirely. The next `acquire_claim` has `existing = None` and starts at `attempt_number = 1`. This means the escalation path in `router.route()` (`attempt_number >= attempt_threshold`) can never fire through normal pipeline flow with InMemorySubstrate.
 
-The real Postgres Substrate likely preserves attempt counts across claim-release cycles (tracked in a separate column or derived from event history).
+The real Postgres Regista likely preserves attempt counts across claim-release cycles (tracked in a separate column or derived from event history).
 
 ## Evidence
 
@@ -26,10 +26,10 @@ The real Postgres Substrate likely preserves attempt counts across claim-release
 (b) Derive attempt_number from event history (count claim_acquired/claim_stolen events) instead of tracking it in the claim.
 (c) Accept the parity gap and document it; rely on the real-Postgres test for escalation coverage once BC-035 is fixed and the full 3-stage pipeline can run against Postgres.
 
-Option (a) is the most straightforward fix. Requires a substrate change.
+Option (a) is the most straightforward fix. Requires a regista change.
 
 ## Current status
 
-Blocked on substrate fix. Factory tests use `SimpleNamespace(attempt_number=N)` injection to test the escalation routing logic in isolation (see `test_e2e_escalation_through_three_gate_failures`). The routing logic itself is fully unit-tested in `test_router_phase2.py`. The gap is only in end-to-end InMemorySubstrate pipeline coverage of the escalation path.
+Blocked on regista fix. Factory tests use `SimpleNamespace(attempt_number=N)` injection to test the escalation routing logic in isolation (see `test_e2e_escalation_through_three_gate_failures`). The routing logic itself is fully unit-tested in `test_router_phase2.py`. The gap is only in end-to-end InMemorySubstrate pipeline coverage of the escalation path.
 
-Tag: `dep-substrate-036` — this is a substrate-side parity issue, not a factory bug.
+Tag: `dep-regista-036` — this is a regista-side parity issue, not a factory bug.

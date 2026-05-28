@@ -84,4 +84,4 @@ Small. Tagging a guardrail takes one two-line comment block. Reviewing when a pr
 
 ## Out of Scope
 
-Substrate-side guardrails such as `claim_ttl` enforcement — those are state-machine invariants (hard semantic constraints), not heuristic thresholds calibrated to empirical failure rates, and they do not drift the same way. This RFC covers only the heuristic-threshold category.
+Regista-side guardrails such as `claim_ttl` enforcement — those are state-machine invariants (hard semantic constraints), not heuristic thresholds calibrated to empirical failure rates, and they do not drift the same way. This RFC covers only the heuristic-threshold category.

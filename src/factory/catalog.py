@@ -39,6 +39,8 @@ def load_archetype(name: str, catalog_dir: Path | None = None) -> Archetype:
         raise FileNotFoundError(f"archetype.yaml not found in {arch_dir}")
 
     meta = yaml.safe_load(meta_path.read_text())
+    if not isinstance(meta, dict):
+        raise ValueError(f"archetype.yaml must be a mapping, got {type(meta).__name__}")
     addendum_path = arch_dir / "prompt_addendum.md"
     prompt_addendum = addendum_path.read_text() if addendum_path.exists() else ""
 

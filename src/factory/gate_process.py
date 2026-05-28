@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 import structlog
-from substrate import ActorMetadata, ErrorCode, Substrate, SubstrateError
+from regista import ActorMetadata, ErrorCode, Regista, RegistaError
 
 from factory.config import FactoryConfig, load_config
 from factory.constants import (
@@ -59,7 +59,7 @@ log = structlog.get_logger()
 
 
 def run_gate(config: FactoryConfig) -> None:
-    sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
+    sub = Regista(config.dsn, config.project_name, config.hmac_key_path)
     runtime = PipelineRuntime(sub=sub, config=config)
     try:
         gate_loop(runtime)
@@ -212,7 +212,7 @@ def gate_loop(runtime: PipelineRuntime) -> None:
                                 extra="crash",
                             ),
                         )
-                    except SubstrateError as exc:
+                    except RegistaError as exc:
                         if exc.code == ErrorCode.CLAIM_LOST:
                             log.warning(
                                 "release_after_claim_lost",
@@ -225,7 +225,7 @@ def gate_loop(runtime: PipelineRuntime) -> None:
     log.info("gate_loop_exiting")
 
 
-def _resolve_ref_artifact(sub: Substrate, ref: str) -> Path | None:
+def _resolve_ref_artifact(sub: Regista, ref: str) -> Path | None:
     ref_path = None
     wi = sub.get_work_item(_to_uuid(ref))
     if wi and wi.custom_fields:
@@ -236,7 +236,7 @@ def _resolve_ref_artifact(sub: Substrate, ref: str) -> Path | None:
 
 
 def _resolve_dependency_refs(
-    sub: Substrate,
+    sub: Regista,
     custom: dict,
     page_size: int = 200,
 ) -> tuple[list[tuple[str, Path]], list[tuple[str, Path]] | None]:

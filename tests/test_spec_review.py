@@ -2,6 +2,7 @@
 
 No real model invocation — uses FakeChannel to return structured JSON.
 """
+
 from __future__ import annotations
 
 import json
@@ -133,22 +134,34 @@ class TestFindingFromDict:
 class TestSpecReviewFinding:
     def test_auto_resolved_high_confidence(self):
         f = SpecReviewFinding(
-            pattern="test", module="m", symbol="s", detail="d",
-            inferred_answer="answer", confidence=0.9,
+            pattern="test",
+            module="m",
+            symbol="s",
+            detail="d",
+            inferred_answer="answer",
+            confidence=0.9,
         )
         assert f.is_auto_resolved is True
 
     def test_not_auto_resolved_low_confidence(self):
         f = SpecReviewFinding(
-            pattern="test", module="m", symbol="s", detail="d",
-            inferred_answer="answer", confidence=0.3,
+            pattern="test",
+            module="m",
+            symbol="s",
+            detail="d",
+            inferred_answer="answer",
+            confidence=0.3,
         )
         assert f.is_auto_resolved is False
 
     def test_not_auto_resolved_no_inference(self):
         f = SpecReviewFinding(
-            pattern="test", module="m", symbol="s", detail="d",
-            inferred_answer=None, confidence=0.9,
+            pattern="test",
+            module="m",
+            symbol="s",
+            detail="d",
+            inferred_answer=None,
+            confidence=0.9,
         )
         assert f.is_auto_resolved is False
 
@@ -161,8 +174,12 @@ class TestSpecReviewResult:
     def test_passed_when_all_auto_resolved(self):
         findings = [
             SpecReviewFinding(
-                pattern="test", module="m", symbol="s", detail="d",
-                inferred_answer="a", confidence=0.9,
+                pattern="test",
+                module="m",
+                symbol="s",
+                detail="d",
+                inferred_answer="a",
+                confidence=0.9,
             ),
         ]
         r = SpecReviewResult(findings=findings, confidence_threshold=0.7)
@@ -173,8 +190,12 @@ class TestSpecReviewResult:
     def test_not_passed_when_surfaced(self):
         findings = [
             SpecReviewFinding(
-                pattern="test", module="m", symbol="s", detail="d",
-                inferred_answer=None, confidence=0.2,
+                pattern="test",
+                module="m",
+                symbol="s",
+                detail="d",
+                inferred_answer=None,
+                confidence=0.2,
             ),
         ]
         r = SpecReviewResult(findings=findings, confidence_threshold=0.7)
@@ -184,12 +205,20 @@ class TestSpecReviewResult:
     def test_mixed_findings(self):
         findings = [
             SpecReviewFinding(
-                pattern="a", module="m", symbol="s", detail="d",
-                inferred_answer="x", confidence=0.9,
+                pattern="a",
+                module="m",
+                symbol="s",
+                detail="d",
+                inferred_answer="x",
+                confidence=0.9,
             ),
             SpecReviewFinding(
-                pattern="b", module="m", symbol="s", detail="d",
-                inferred_answer=None, confidence=0.2,
+                pattern="b",
+                module="m",
+                symbol="s",
+                detail="d",
+                inferred_answer=None,
+                confidence=0.2,
             ),
         ]
         r = SpecReviewResult(findings=findings, confidence_threshold=0.7)
@@ -204,12 +233,20 @@ class TestSpecReviewResult:
     def test_summary_mixed(self):
         findings = [
             SpecReviewFinding(
-                pattern="a", module="m", symbol="s", detail="d",
-                inferred_answer="x", confidence=0.9,
+                pattern="a",
+                module="m",
+                symbol="s",
+                detail="d",
+                inferred_answer="x",
+                confidence=0.9,
             ),
             SpecReviewFinding(
-                pattern="b", module="m", symbol="s", detail="d",
-                inferred_answer=None, confidence=0.2,
+                pattern="b",
+                module="m",
+                symbol="s",
+                detail="d",
+                inferred_answer=None,
+                confidence=0.2,
             ),
         ]
         r = SpecReviewResult(findings=findings, confidence_threshold=0.7)
@@ -304,14 +341,20 @@ class TestFormatReviewOutput:
     def test_with_findings(self):
         findings = [
             SpecReviewFinding(
-                pattern="orphaned_definition", module="scheduler",
-                symbol="start_scheduler()", detail="No lifecycle AC.",
-                inferred_answer="Called at startup.", confidence=0.2,
+                pattern="orphaned_definition",
+                module="scheduler",
+                symbol="start_scheduler()",
+                detail="No lifecycle AC.",
+                inferred_answer="Called at startup.",
+                confidence=0.2,
             ),
             SpecReviewFinding(
-                pattern="missing_runtime_context", module="alerts",
-                symbol="AlertConfig", detail="No config source.",
-                inferred_answer="Env vars.", confidence=0.9,
+                pattern="missing_runtime_context",
+                module="alerts",
+                symbol="AlertConfig",
+                detail="No config source.",
+                inferred_answer="Env vars.",
+                confidence=0.9,
             ),
         ]
         r = SpecReviewResult(findings=findings, confidence_threshold=0.7)

@@ -56,7 +56,7 @@ The `cross_family_reviewer.md` and `frontier_judge.md` prompt templates produced
 
 1. **`populate_work_items.py` Phase 4 inference:** Added `phase4` to `--workflow` choices and version 4 mapping.
 2. **`FactoryConfig.from_yaml()` stage_topology parsing:** Added YAML parsing for `StageHandoff` objects (was silently dropping the key, causing default Phase 2 topology).
-3. **`workflows/phase4.yaml` custom fields:** Added `dependency_refs`, `ac_ids`, `spec_section`, `module_name` to `review` and `jury` work item types (substrate rejected unknown fields).
+3. **`workflows/phase4.yaml` custom fields:** Added `dependency_refs`, `ac_ids`, `spec_section`, `module_name` to `review` and `jury` work item types (regista rejected unknown fields).
 
 ## What was NOT validated
 

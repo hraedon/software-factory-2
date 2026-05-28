@@ -4,7 +4,7 @@
 **Domain:** line-of-business utility library
 **Purpose:** parse human-written date-range expressions into structured `(start, end)` tuples for downstream filtering.
 
-This spec is the secondary test set for SF2 Phase 1 (per `plans/phase1-implementation.md` Wave 6). It is intentionally domain-disjoint from substrate and unambiguously LoB-flavored — exactly the kind of small utility a non-developer might describe in a Slack message.
+This spec is the secondary test set for SF2 Phase 1 (per `plans/phase1-implementation.md` Wave 6). It is intentionally domain-disjoint from regista and unambiguously LoB-flavored — exactly the kind of small utility a non-developer might describe in a Slack message.
 
 ---
 

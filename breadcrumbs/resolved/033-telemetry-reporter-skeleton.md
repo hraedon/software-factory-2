@@ -12,13 +12,13 @@ related: []
 
 ## Proposal
 
-Extend `report.py` to produce per-(role, channel, gate) first-attempt pass-rate tables from substrate event data. This establishes the baseline that Phase 3's channel additions will be measured against.
+Extend `report.py` to produce per-(role, channel, gate) first-attempt pass-rate tables from regista event data. This establishes the baseline that Phase 3's channel additions will be measured against.
 
 Spec §7: "Per-role per-channel telemetry drives model placement; no silent promotion."
 
 ## Implementation sketch
 
-- `report.py` reads substrate events via `read_events(actor_id=...)` grouped by role
+- `report.py` reads regista events via `read_events(actor_id=...)` grouped by role
 - Computes first-attempt pass rate: items where the first `gate_pass` event has `attempt_n=1`
 - Outputs markdown table to stdout
 - CLI entry point: `factory-report`

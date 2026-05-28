@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -9,6 +11,8 @@ from pathlib import Path
 
 from factory.sandbox import strip_sensitive_env
 from factory.subprocess import run as run_subprocess
+
+log = logging.getLogger(__name__)
 
 
 def _which(cmd: str) -> str | None:
@@ -55,8 +59,6 @@ def ensure_project_venv(project_dir: Path) -> Path:
     python = sys.executable
 
     if venv_dir.exists():
-        import shutil
-
         shutil.rmtree(venv_dir)
 
     _env = strip_sensitive_env(os.environ)
@@ -76,7 +78,7 @@ def ensure_project_venv(project_dir: Path) -> Path:
             timeout_s=300,
         )
     if result.returncode != 0:
-        raise subprocess.CalledProcessError(result.returncode, result.stderr)
+        raise subprocess.CalledProcessError(result.returncode, "venv", stderr=result.stderr)
 
     venv_python = venv_dir / "bin" / "python"
 
@@ -96,7 +98,7 @@ def ensure_project_venv(project_dir: Path) -> Path:
                 timeout_s=300,
             )
         if result.returncode != 0:
-            raise subprocess.CalledProcessError(result.returncode, result.stderr)
+            raise subprocess.CalledProcessError(result.returncode, "venv", stderr=result.stderr)
 
     deps_hash_path.write_text(current_hash)
     ensure_gate_venv(project_dir)
@@ -104,6 +106,37 @@ def ensure_project_venv(project_dir: Path) -> Path:
 
 
 _GATE_TOOLS = ["pytest", "mypy", "ruff"]
+
+# Packages where the type stub name doesn't follow types-{name} convention.
+_STUB_NAME_OVERRIDES: dict[str, str] = {
+    "Pillow": "types-Pillow",
+    "pywin32": "types-pywin32",
+}
+
+
+def _type_stub_packages(requirements_path: Path) -> list[str]:
+    """Return type-stub package names for packages listed in requirements.txt.
+
+    Heuristic: for each package ``foo``, try ``types-foo``.  Not all packages
+    have stubs; callers should ignore installation failures.
+    """
+    stubs: list[str] = []
+    try:
+        text = requirements_path.read_text()
+    except OSError:
+        return stubs
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or line.startswith("-"):
+            continue
+        # Strip version specifiers, extras, comments.
+        # e.g. "PyYAML>=6.0 ; python_version>='3.8'" → "PyYAML"
+        name = re.split(r"[><=!\[;@\s]", line, maxsplit=1)[0].strip()
+        if not name:
+            continue
+        stub_name = _STUB_NAME_OVERRIDES.get(name, f"types-{name}")
+        stubs.append(stub_name)
+    return stubs
 
 
 def _installed_versions_string(gate_python: Path) -> str:
@@ -185,7 +218,7 @@ def ensure_gate_venv(project_dir: Path) -> Path:
             timeout_s=300,
         )
     if result.returncode != 0:
-        raise subprocess.CalledProcessError(result.returncode, result.stderr)
+        raise subprocess.CalledProcessError(result.returncode, "venv", stderr=result.stderr)
 
     gate_python = gate_venv_dir / "bin" / "python"
     packages = list(_GATE_TOOLS)
@@ -207,7 +240,28 @@ def ensure_gate_venv(project_dir: Path) -> Path:
             timeout_s=300,
         )
     if result.returncode != 0:
-        raise subprocess.CalledProcessError(result.returncode, result.stderr)
+        raise subprocess.CalledProcessError(result.returncode, "venv", stderr=result.stderr)
+
+    # Install type stubs for project dependencies so mypy doesn't fire
+    # [import-untyped] on packages listed in requirements.txt.
+    if requirements.exists() and requirements.stat().st_size > 0:
+        stubs = _type_stub_packages(requirements)
+        if stubs:
+            if has_uv:
+                run_subprocess(
+                    cmd=["uv", "pip", "install", "--python", str(gate_python), *stubs],
+                    cwd=project_dir,
+                    env=strip_sensitive_env(os.environ),
+                    timeout_s=120,
+                )
+            else:
+                run_subprocess(
+                    cmd=[str(gate_python), "-m", "pip", "install", *stubs],
+                    cwd=project_dir,
+                    env=strip_sensitive_env(os.environ),
+                    timeout_s=120,
+                )
+            log.debug("type_stubs_attempted", stubs=stubs)
 
     post_install_hash = _gate_tools_hash(gate_python) + "\n" + req_hash
     gate_hash_path.write_text(post_install_hash)

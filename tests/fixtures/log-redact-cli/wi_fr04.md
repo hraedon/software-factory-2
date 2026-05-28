@@ -16,6 +16,6 @@
 
 Given redacted log lines, the system emits JSON Lines to stdout or an optional output file path, preserving line order and valid JSON for every successfully parsed input line.
 
-## AC-LOG-07
+## AC-01: Redacted output preserves order and count
 
 Given redacted lines, emit_redacted writes valid JSON Lines preserving the original line order and count

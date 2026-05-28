@@ -6,7 +6,7 @@ status: implemented
 kind: improvement
 author: glm-5-1
 date: "2026-05-11"
-tags: [scheduler, pagination, testing, dep-substrate-030]
+tags: [scheduler, pagination, testing, dep-regista-030]
 related: ["102"]
 ---
 
@@ -14,7 +14,7 @@ related: ["102"]
 
 The BC-102 pagination fix adds a `while` loop with `has_more`/`cursor` to `_ensure_downstream_item`. However, no test exercises multi-page behavior because no fixture creates >100 work items of the same type. The `page_size` default is 50, so the existing pagination code path is completely untested.
 
-If substrate changes the `QueryPage` API (renames `has_more` or `cursor`), the scheduler will silently stop paginating and fall back to single-page behavior — the exact bug BC-102 fixed.
+If regista changes the `QueryPage` API (renames `has_more` or `cursor`), the scheduler will silently stop paginating and fall back to single-page behavior — the exact bug BC-102 fixed.
 
 ## Affected files
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from enum import StrEnum
+
 WORK_ITEM_TYPE_INTERFACE_SPEC = "interface_spec"
 WORK_ITEM_TYPE_TEST_SUITE = "test_suite"
 WORK_ITEM_TYPE_IMPLEMENTATION = "implementation"
@@ -173,3 +175,48 @@ SPEC_WORD_COUNT_SOFT_CAP = 800
 
 TELEMETRY_UNKNOWN_RATE_THRESHOLD = 0.01
 UNKNOWN_FALLBACK = "unknown"
+
+CHANNEL_JURY_AGGREGATE = "jury_aggregate"
+FAMILY_MULTI = "multi"
+
+CANNOT_PROCEED_SIGNAL = "cannot_proceed"
+
+
+class DiagnosticKind(StrEnum):
+    """Canonical diagnostic kind strings used across gate modules and router.
+
+    Moved from router.py to constants.py (BC-218) so gate modules can reference
+    enum values without importing from router (which imports from gate).
+    """
+
+    SYNTAX = "syntax"
+    STUB = "stub"
+    STRUCTURAL_SEMANTICS = "structural_semantics"
+    FILE_EXISTS = "file_exists"
+    NOT_EMPTY = "not_empty"
+    CHANNEL_FAIL = "channel_fail"
+    CANNOT_PROCEED = "cannot_proceed"
+    UNKNOWN_TYPE = "unknown_type"
+    GENERIC = "generic"
+    TEST_AC_BINDING = "test_ac_binding"
+    TEST_COLLECT = "test_collect"
+    TEST_IMPORT_FORBIDDEN = "test_import_forbidden"
+    TEST_NO_ASSERTIONS = "test_no_assertions"
+    IMPL_MYPY = "impl_mypy"
+    IMPL_PYTEST = "impl_pytest"
+    IMPL_LINT = "impl_lint"
+    IMPL_IMPORT = "impl_import"
+    CANNOT_PROCEED_SEAM = "cannot_proceed_seam"
+    MISSING_DEPENDENCY = "missing_dependency"
+    MISSING_ARTIFACT = "missing_artifact"
+    TOOL_NOT_FOUND = "tool_not_found"
+    CROSS_FAMILY_REVIEW = "cross_family_review"
+    JURY = "jury"
+    REVIEW_MALFORMED = "review_malformed"
+    REVIEW_FOUND_DEFECT = "review_found_defect"
+    INTEGRATION_IMPORT = "integration_import"
+    INTEGRATION_UNSAFE_PATH = "integration_unsafe_path"
+    INTEGRATION_MYPY = "integration_mypy"
+    INTEGRATION_PYTEST = "integration_pytest"
+    OUTCOME_E2E = "outcome_e2e"
+    ARTIFACT_OVERSIZED = "artifact_oversized"

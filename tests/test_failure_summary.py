@@ -104,36 +104,36 @@ class TestFailuresToJson:
 
 
 class TestDeriveFailures:
-    def test_no_failures_returns_empty(self, mock_substrate):
-        wi, _ = mock_substrate.create_work_item(
+    def test_no_failures_returns_empty(self, mock_regista):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
-        result = derive_failures(mock_substrate, wi.work_item_id)
+        result = derive_failures(mock_regista, wi.work_item_id)
         assert result == []
 
-    def test_single_gate_fail(self, mock_substrate):
-        wi, _ = mock_substrate.create_work_item(
+    def test_single_gate_fail(self, mock_regista):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "submit",
             "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "gate_fail",
             "test-gate",
@@ -152,7 +152,7 @@ class TestDeriveFailures:
                 }
             },
         )
-        failures = derive_failures(mock_substrate, wi.work_item_id)
+        failures = derive_failures(mock_regista, wi.work_item_id)
         assert len(failures) == 1
         assert failures[0].attempt_number == 1
         assert failures[0].role == "mechanical_gate"
@@ -161,20 +161,20 @@ class TestDeriveFailures:
         assert failures[0].gate_name == GATE_NAME_INTERFACE_SPEC_SYNTAX
         assert failures[0].diagnostic == "SyntaxError at line 5"
 
-    def test_single_channel_fail(self, mock_substrate):
-        wi, _ = mock_substrate.create_work_item(
+    def test_single_channel_fail(self, mock_regista):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "channel_fail",
             "test-worker",
@@ -191,7 +191,7 @@ class TestDeriveFailures:
                 }
             },
         )
-        failures = derive_failures(mock_substrate, wi.work_item_id)
+        failures = derive_failures(mock_regista, wi.work_item_id)
         assert len(failures) == 1
         assert failures[0].attempt_number == 1
         assert failures[0].role == "interface_architect"
@@ -201,20 +201,20 @@ class TestDeriveFailures:
         assert failures[0].timed_out is True
         assert failures[0].exit_code == -1
 
-    def test_mixed_gate_and_channel_fails(self, mock_substrate):
-        wi, _ = mock_substrate.create_work_item(
+    def test_mixed_gate_and_channel_fails(self, mock_regista):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "channel_fail",
             "test-worker",
@@ -231,19 +231,19 @@ class TestDeriveFailures:
                 }
             },
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker2",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "submit",
             "test-worker2",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "gate_fail",
             "test-gate",
@@ -262,33 +262,33 @@ class TestDeriveFailures:
                 }
             },
         )
-        failures = derive_failures(mock_substrate, wi.work_item_id)
+        failures = derive_failures(mock_regista, wi.work_item_id)
         assert len(failures) == 2
         assert failures[0].failure_type == "channel_fail"
         assert failures[0].attempt_number == 1
         assert failures[1].failure_type == "gate_fail"
         assert failures[1].attempt_number == 2
 
-    def test_multiple_gate_fails(self, mock_substrate):
-        wi, _ = mock_substrate.create_work_item(
+    def test_multiple_gate_fails(self, mock_regista):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "submit",
             "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "gate_fail",
             "test-gate",
@@ -307,19 +307,19 @@ class TestDeriveFailures:
                 }
             },
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "submit",
             "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "gate_fail",
             "test-gate",
@@ -338,33 +338,33 @@ class TestDeriveFailures:
                 }
             },
         )
-        failures = derive_failures(mock_substrate, wi.work_item_id)
+        failures = derive_failures(mock_regista, wi.work_item_id)
         assert len(failures) == 2
         assert failures[0].attempt_number == 1
         assert failures[0].gate_name == GATE_NAME_INTERFACE_SPEC_SYNTAX
         assert failures[1].attempt_number == 2
         assert failures[1].gate_name == GATE_NAME_INTERFACE_SPEC_STUB
 
-    def test_non_failure_events_ignored(self, mock_substrate):
-        wi, _ = mock_substrate.create_work_item(
+    def test_non_failure_events_ignored(self, mock_regista):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "submit",
             "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "gate_fail",
             "test-gate",
@@ -383,35 +383,35 @@ class TestDeriveFailures:
                 }
             },
         )
-        failures = derive_failures(mock_substrate, wi.work_item_id)
+        failures = derive_failures(mock_regista, wi.work_item_id)
         assert len(failures) == 1
 
-    def test_missing_diagnostics_defaults(self, mock_substrate):
-        wi, _ = mock_substrate.create_work_item(
+    def test_missing_diagnostics_defaults(self, mock_regista):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={"spec_section": "x", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "submit",
             "test-worker",
             actor_metadata={"role": "interface_architect"},
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "gate_fail",
             "test-gate",
             actor_metadata={"role": "mechanical_gate", "channel": "code", "attempt_n": 1},
         )
-        failures = derive_failures(mock_substrate, wi.work_item_id)
+        failures = derive_failures(mock_regista, wi.work_item_id)
         assert len(failures) == 1
         assert failures[0].gate_name == GATE_NAME_UNKNOWN
         assert failures[0].diagnostic == ""

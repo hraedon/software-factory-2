@@ -45,18 +45,18 @@ class _FakeChannel:
 
 
 class TestResumeAndSubmit:
-    def test_resumes_without_invoking_channel(self, mock_substrate, workspace_root):
+    def test_resumes_without_invoking_channel(self, mock_regista, workspace_root):
         """BC-014: If a valid resumable artifact exists, the channel must NOT be invoked."""
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Resume test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
+        mock_regista.register_actor_role("test-worker", "interface_architect")
 
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -82,7 +82,7 @@ class TestResumeAndSubmit:
         config = FactoryConfig(workspace_root=workspace_root)
         channel = _FakeChannel(ac_ids=["AC-01"])
         runtime = PipelineRuntime(
-            sub=mock_substrate, config=config, spec_content="Resume test", channel=channel
+            sub=mock_regista, config=config, spec_content="Resume test", channel=channel
         )
         process_work_item(
             runtime,
@@ -98,7 +98,7 @@ class TestResumeAndSubmit:
         )
 
         # Work-item must be in gating
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "gating"
 
         # artifact_path in custom_fields must be a full absolute path
@@ -107,18 +107,18 @@ class TestResumeAndSubmit:
         assert artifact_path.endswith("artifact.pyi")
 
     def test_gate_finds_resumed_artifact_and_transitions_to_locked(
-        self, mock_substrate, workspace_root
+        self, mock_regista, workspace_root
     ):
         """BC-014: Gate must find the artifact at the resumed path and lock the item."""
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Gate resume test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -143,7 +143,7 @@ class TestResumeAndSubmit:
         config = FactoryConfig(workspace_root=workspace_root)
         channel = _FakeChannel(ac_ids=["AC-01"])
         runtime = PipelineRuntime(
-            sub=mock_substrate, config=config, spec_content="Gate resume test", channel=channel
+            sub=mock_regista, config=config, spec_content="Gate resume test", channel=channel
         )
         process_work_item(
             runtime,
@@ -153,29 +153,29 @@ class TestResumeAndSubmit:
             "interface_architect",
         )
 
-        submitted = mock_substrate.get_work_item(wi.work_item_id)
+        submitted = mock_regista.get_work_item(wi.work_item_id)
         assert submitted.current_state == "gating"
 
-        mock_substrate.register_actor_role("test-gate", "mechanical_gate")
-        gate_claim = mock_substrate.acquire_claim(wi.work_item_id, "test-gate")
-        fresh = mock_substrate.get_work_item(wi.work_item_id)
-        gate_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        mock_regista.register_actor_role("test-gate", "mechanical_gate")
+        gate_claim = mock_regista.acquire_claim(wi.work_item_id, "test-gate")
+        fresh = mock_regista.get_work_item(wi.work_item_id)
+        gate_runtime = PipelineRuntime(sub=mock_regista, config=config)
         process_gate_item(gate_runtime, fresh, "test-gate", gate_claim)
 
-        final = mock_substrate.get_work_item(wi.work_item_id)
+        final = mock_regista.get_work_item(wi.work_item_id)
         assert final.current_state == "locked"
 
-    def test_resume_preserves_actor_metadata(self, mock_substrate, workspace_root):
+    def test_resume_preserves_actor_metadata(self, mock_regista, workspace_root):
         """BC-014: Resumed artifact's original actor metadata is preserved in submit transition."""
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
             custom_fields={"spec_section": "Metadata test", "ac_ids": ["AC-01"]},
         )
-        mock_substrate.register_actor_role("test-worker", "interface_architect")
-        claim = mock_substrate.acquire_claim(wi.work_item_id, "test-worker")
-        mock_substrate.transition(
+        mock_regista.register_actor_role("test-worker", "interface_architect")
+        claim = mock_regista.acquire_claim(wi.work_item_id, "test-worker")
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -200,7 +200,7 @@ class TestResumeAndSubmit:
         config = FactoryConfig(workspace_root=workspace_root)
         channel = _FakeChannel()
         runtime = PipelineRuntime(
-            sub=mock_substrate, config=config, spec_content="Metadata test", channel=channel
+            sub=mock_regista, config=config, spec_content="Metadata test", channel=channel
         )
         process_work_item(
             runtime,
@@ -210,7 +210,7 @@ class TestResumeAndSubmit:
             "interface_architect",
         )
 
-        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        all_events = mock_regista.read_events(work_item_id=wi.work_item_id)
         events = events_by_transition(all_events, "submit")
         assert len(events) == 1
         meta = events[0].actor_metadata or {}

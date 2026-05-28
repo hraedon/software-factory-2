@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from factory.failure_summarizer import (
     FailureSummary,
-    build_summarizer_prompt,
     summarize_failures,
 )
 from factory.failure_summary import FailureEntry
@@ -92,20 +91,3 @@ class TestFailureSummaryFormat:
         formatted = summary.format_for_prompt()
         assert "- Use pathlib instead of os" in formatted
         assert "- Match the .pyi return type" in formatted
-
-
-class TestBuildSummarizerPrompt:
-    def test_builds_system_and_user(self):
-        failures = [
-            _make_failure(1, diagnostic="mypy error on line 5"),
-            _make_failure(2, diagnostic="pytest failed: assert False"),
-        ]
-        system, user = build_summarizer_prompt(failures)
-        assert "staff engineer" in system.lower()
-        assert "attempt" in user
-        assert "mypy" in user
-
-    def test_custom_new_attempt(self):
-        failures = [_make_failure(1), _make_failure(2)]
-        _system, user = build_summarizer_prompt(failures, new_attempt=5)
-        assert "attempt 5" in user

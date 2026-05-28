@@ -6,17 +6,17 @@ status: resolved
 kind: design
 author: adversarial-reviewer
 date: "2026-05-08"
-tags: [dep-substrate-*, runner, gate]
+tags: [dep-regista-*, runner, gate]
 related: ["018", "030", "035", "036"]
 ---
 
 ## Summary
 
-~270 unit tests use `InMemorySubstrate`. ~10 integration tests hit real Postgres Substrate. The in-memory backend has a documented history of behavioral divergence (BC-040, BC-048, BC-050, BC-051, BC-054 on the substrate side; BC-018, BC-030, BC-035, BC-036 on the factory side).
+~270 unit tests use `InMemorySubstrate`. ~10 integration tests hit real Postgres Regista. The in-memory backend has a documented history of behavioral divergence (BC-040, BC-048, BC-050, BC-051, BC-054 on the regista side; BC-018, BC-030, BC-035, BC-036 on the factory side).
 
 Golden-run-002 found two bugs that all 200+ unit tests missed:
 - Cross-work-item module resolution (tests used same-directory import patterns)
-- Escalation routing no-op (tests didn't exercise the full state machine with real Substrate)
+- Escalation routing no-op (tests didn't exercise the full state machine with real Regista)
 
 ## Resolution
 
@@ -30,6 +30,6 @@ Golden-run-002 found two bugs that all 200+ unit tests missed:
    - Scheduler idempotency on repeated calls
    - Channel failure → new → re-claim cycle
    - Channel failure event ordering
-   - Crash recovery resume on real substrate
+   - Crash recovery resume on real regista
 
 3. **`make replay`** deferred — not needed for Phase 3; golden-run artifact replay is low-priority versus forward-looking integration coverage.

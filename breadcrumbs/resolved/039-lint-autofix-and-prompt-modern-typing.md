@@ -48,7 +48,7 @@ This reduces the number of auto-fix passes needed and teaches the model the proj
 
 ### 3. Resume-on-gate-fail fix (collateral)
 
-`runner.py:process_work_item` should not use `find_resumable_artifact` when the item has prior `gate_fail` events. The resumable artifact logic is for crash recovery only. When the gate has already rejected an artifact, re-submitting it is always wrong. Check substrate for `gate_fail` events before deciding to resume.
+`runner.py:process_work_item` should not use `find_resumable_artifact` when the item has prior `gate_fail` events. The resumable artifact logic is for crash recovery only. When the gate has already rejected an artifact, re-submitting it is always wrong. Check regista for `gate_fail` events before deciding to resume.
 
 ## Location
 

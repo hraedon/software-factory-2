@@ -78,7 +78,7 @@ class TestFromYaml:
         config = FactoryConfig.from_yaml_or_default(tmp_path / "does_not_exist.yaml")
         assert config.workflow_name == "software_factory"
         assert (
-            config.dsn == "postgresql://substrate_test:substrate_test@localhost:5432/substrate_test"
+            config.dsn == "postgresql://regista_test:regista_test@localhost:5432/regista_test"
         )
         assert config.workspace_root == Path(".factory/work")
 

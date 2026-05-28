@@ -6,7 +6,7 @@ status: implemented
 kind: bug
 author: claude
 date: "2026-05-17"
-tags: [gate, gate_loop, budget, BC-181, churn, substrate-load, phase5]
+tags: [gate, gate_loop, budget, BC-181, churn, regista-load, phase5]
 related: ["181", "182", "139"]
 ---
 
@@ -22,7 +22,7 @@ In GR-037, implementation `cc11078f-78ea-4820-8f24-fc212a16ea79` hit a 600s
 opencode channel timeout in the runner, was submitted to gating with a
 failure diagnostic at attempt=3, and then cycled for ~3 hours, reaching
 `attempt_number=1175` with 1172 logged `gate_near_budget` events and 1172
-pairs of substrate `acquire_claim`/`release_claim` transitions, before being
+pairs of regista `acquire_claim`/`release_claim` transitions, before being
 manually escalated.
 
 ## Root cause
@@ -52,7 +52,7 @@ BC-181's own writeup acknowledged this:
 
 GR-037 is that future BC. "Prevents unbounded cycling" was true only in the
 narrow sense that no model credits burn and no gate work happens — but
-substrate transitions, log volume, and `attempt_number` all grow without
+regista transitions, log volume, and `attempt_number` all grow without
 bound, and the gate-process's effective polling capacity for legitimate
 items is reduced (each stuck item costs one acquire/release per poll).
 
@@ -66,7 +66,7 @@ In GR-037: any item that fails in the runner (channel timeout in this case)
 and is submitted to gating while `attempt_number >= attempt_threshold` will
 exhibit the cycle. cc11078f reached attempt=1175.
 
-A focused test case: insert a work item into substrate with state=`gating`
+A focused test case: insert a work item into regista with state=`gating`
 and `attempt_number=3`, start gate_process, observe `gate_near_budget`
 fire every 5s with `attempt_number` climbing on each cycle.
 
@@ -127,7 +127,7 @@ in `tests/test_gate_process_budget_and_field_validation.py`. It burns `attempt_n
 Medium. The current behavior:
 - Does not crash; verify_passed=True in GR-037.
 - Does not burn model credits.
-- Does generate ~720 substrate transitions per hour per stuck item, which
+- Does generate ~720 regista transitions per hour per stuck item, which
   is observable (1172 events in one item across ~3 hours in GR-037) and
   could become problematic at higher fixture sizes or with multiple
   channel timeouts in one run.

@@ -14,7 +14,7 @@ related: ["194"]
 
 `requeue_initiative()` at `initiative.py:117` calls `sub.transition(wi.work_item_id, "new", ...)`. This is intended to move a `cannot_proceed` item back to `new` state. However:
 
-1. `"new"` is a **state name**, not a **transition name**. Substrate's `transition()` takes a transition name that must be defined in the workflow YAML.
+1. `"new"` is a **state name**, not a **transition name**. Regista's `transition()` takes a transition name that must be defined in the workflow YAML.
 2. No workflow YAML defines a transition from `cannot_proceed` state. There is no `from: cannot_proceed` in any workflow file.
 
 This would raise a `SubstrateError(NO_SUCH_TRANSITION)` at runtime.

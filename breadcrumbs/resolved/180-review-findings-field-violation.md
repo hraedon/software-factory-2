@@ -15,7 +15,7 @@ related: ["145", "179"]
 When a review work item fails the cross-family review gate, `gate_process.py`
 writes `review_findings` into the `custom_fields` payload of the `sub.transition()`
 call. The `review` work item type does not declare `review_findings` in its
-custom_fields schema — only `implementation` does. Substrate rejects the
+custom_fields schema — only `implementation` does. Regista rejects the
 transition with `[CUSTOM_FIELD_VIOLATION] Unknown field 'review_findings'`,
 the gate process catches the exception, releases the claim, and reclaims the
 same item on the next polling cycle. This creates an infinite crash-loop
@@ -38,7 +38,7 @@ if gate_result.custom_fields:
 ```
 
 When the work item being transitioned is a `review` type, `review_findings`
-is not a valid field, and substrate rejects the entire transition.
+is not a valid field, and regista rejects the entire transition.
 
 This is the **fifth** bug in the BC-145 family (review/jury verdict routing).
 Predecessors: missing `test_suite_ref` propagation, missing workflow field

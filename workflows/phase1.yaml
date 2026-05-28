@@ -1,6 +1,6 @@
 name: software_factory
 version: 1
-substrate_version: "0.1.0"
+regista_version: "0.1.0"
 
 states:
   - name: new
@@ -74,6 +74,10 @@ work_item_types:
         required: true
         ui_visible: true
       - name: module_name
+        type: string
+        required: false
+        ui_visible: true
+      - name: initiative_id
         type: string
         required: false
         ui_visible: true

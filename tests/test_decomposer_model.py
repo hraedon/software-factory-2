@@ -401,7 +401,7 @@ class TestDecomposeFromModelSnapshotDepGraphViewer:
                 {
                     "module_name": "event_reader",
                     "fr_id": "FR-01",
-                    "fr_text": "Read substrate event log from PostgreSQL",
+                    "fr_text": "Read regista event log from PostgreSQL",
                     "ac_ids": ["AC-DGV-01", "AC-DGV-02"],
                     "dependency_fr_ids": [],
                 },

@@ -450,13 +450,13 @@ class TestCrossModuleImportInImplementation:
 
 
 class TestSchedulerDependencyPropagation:
-    def test_dependency_refs_propagated_to_test_suite(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
+    def test_dependency_refs_propagated_to_test_suite(self, mock_regista, workspace_root):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
         config = FactoryConfig.phase2(workspace_root=workspace_root)
 
-        dep_a, _ = mock_substrate.create_work_item(
+        dep_a, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
@@ -465,7 +465,7 @@ class TestSchedulerDependencyPropagation:
                 "ac_ids": ["AC-01"],
             },
         )
-        dep_b, _ = mock_substrate.create_work_item(
+        dep_b, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
@@ -474,10 +474,10 @@ class TestSchedulerDependencyPropagation:
                 "ac_ids": ["AC-02"],
             },
         )
-        _lock_spec(mock_substrate, dep_a)
-        _lock_spec(mock_substrate, dep_b)
+        _lock_spec(mock_regista, dep_a)
+        _lock_spec(mock_regista, dep_b)
 
-        source, _ = mock_substrate.create_work_item(
+        source, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
@@ -499,10 +499,10 @@ class TestSchedulerDependencyPropagation:
             ref_field=CUSTOM_FIELD_INTERFACE_REF,
         )
 
-        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        sched_runtime = PipelineRuntime(sub=mock_regista, config=config)
         _ensure_downstream_item(sched_runtime, source, handoff)
 
-        ts_page = mock_substrate.query_work_items(
+        ts_page = mock_regista.query_work_items(
             work_item_types=["test_suite"],
             page_size=10,
         )
@@ -513,13 +513,13 @@ class TestSchedulerDependencyPropagation:
             str(dep_b.work_item_id),
         ]
 
-    def test_dependency_refs_propagated_to_implementation(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
+    def test_dependency_refs_propagated_to_implementation(self, mock_regista, workspace_root):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
         config = FactoryConfig.phase2(workspace_root=workspace_root)
 
-        dep_a, _ = mock_substrate.create_work_item(
+        dep_a, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
@@ -528,9 +528,9 @@ class TestSchedulerDependencyPropagation:
                 "ac_ids": ["AC-01"],
             },
         )
-        _lock_spec(mock_substrate, dep_a)
+        _lock_spec(mock_regista, dep_a)
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
@@ -541,7 +541,7 @@ class TestSchedulerDependencyPropagation:
         )
         iface_id = str(iface.work_item_id)
 
-        ts, _ = mock_substrate.create_work_item(
+        ts, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="test_suite",
             actor_id="test",
@@ -562,10 +562,10 @@ class TestSchedulerDependencyPropagation:
             ref_field=CUSTOM_FIELD_TEST_SUITE_REF,
             propagate_fields=(CUSTOM_FIELD_INTERFACE_REF,),
         )
-        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        sched_runtime = PipelineRuntime(sub=mock_regista, config=config)
         _ensure_downstream_item(sched_runtime, ts, impl_handoff)
 
-        impl_page = mock_substrate.query_work_items(
+        impl_page = mock_regista.query_work_items(
             work_item_types=["implementation"],
             page_size=10,
         )
@@ -574,13 +574,13 @@ class TestSchedulerDependencyPropagation:
         deps = impl.custom_fields.get(CUSTOM_FIELD_DEPENDENCY_REFS)
         assert deps == [str(dep_a.work_item_id)]
 
-    def test_no_dependency_refs_propagated_when_empty(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
+    def test_no_dependency_refs_propagated_when_empty(self, mock_regista, workspace_root):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
         config = FactoryConfig.phase2(workspace_root=workspace_root)
 
-        source, _ = mock_substrate.create_work_item(
+        source, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
@@ -598,10 +598,10 @@ class TestSchedulerDependencyPropagation:
             ref_field=CUSTOM_FIELD_INTERFACE_REF,
         )
 
-        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        sched_runtime = PipelineRuntime(sub=mock_regista, config=config)
         _ensure_downstream_item(sched_runtime, source, handoff)
 
-        ts_page = mock_substrate.query_work_items(
+        ts_page = mock_regista.query_work_items(
             work_item_types=["test_suite"],
             page_size=10,
         )

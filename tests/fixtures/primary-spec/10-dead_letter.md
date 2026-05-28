@@ -1,11 +1,11 @@
 # DeadLetterEntry + requeue_dead_lettered_hook — ADT Validation
 
 ## Source
-substrate spec §5, FR-13, FR-14
+regista spec §5, FR-13, FR-14
 
 ## Spec excerpt
 
-**FR-13:** Two distinct side-effect primitives on transitions. Hook (async, durable): written to a durable `hook_queue` table on commit. Consumer woken via Postgres LISTEN/NOTIFY (latency optimization). NOTIFY payload is wakeup-only (an `event_id` reference); it is never a data channel. Polling sweep runs always at fixed default 30s interval (correctness mechanism, independent of NOTIFY). At-least-once delivery; retry-with-backoff (substrate-defined defaults). After max retries, row moves to `hook_dead_letter` table and a `hook_dead_lettered` event is emitted.
+**FR-13:** Two distinct side-effect primitives on transitions. Hook (async, durable): written to a durable `hook_queue` table on commit. Consumer woken via Postgres LISTEN/NOTIFY (latency optimization). NOTIFY payload is wakeup-only (an `event_id` reference); it is never a data channel. Polling sweep runs always at fixed default 30s interval (correctness mechanism, independent of NOTIFY). At-least-once delivery; retry-with-backoff (regista-defined defaults). After max retries, row moves to `hook_dead_letter` table and a `hook_dead_lettered` event is emitted.
 
 **FR-14:** Replay dead-lettered hooks via `requeue_dead_lettered_hook(id)` — resets retry counter; re-enters queue; re-failure follows same policy.
 

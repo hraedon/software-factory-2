@@ -1,7 +1,7 @@
 # acquire_claim — Pure Interface
 
 ## Source
-substrate spec §5, FR-06
+regista spec §5, FR-06
 
 ## Spec excerpt
 

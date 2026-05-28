@@ -24,7 +24,7 @@ During GR-029 (Phase 5, cert-watch full DAG, 8 work items), the scheduler proces
 ## Hypotheses
 
 1. **Unhandled exception in `_ensure_downstream_item()`** — The Phase 5 scheduler logic added `integration` and `outcome_verification` handoffs. A bug in the new `_downstream_has_field()` guard or link_type resolution could raise an unhandled exception.
-2. **Substrate connection failure** — The scheduler polls substrate every N seconds; a transient disconnect that isn't caught could kill the loop.
+2. **Regista connection failure** — The scheduler polls regista every N seconds; a transient disconnect that isn't caught could kill the loop.
 3. **Logging / stdout pipe break** — The scheduler writes to `/tmp/gr029-scheduler.log`. If the file descriptor closed unexpectedly, a write could raise.
 
 ## Reproduction

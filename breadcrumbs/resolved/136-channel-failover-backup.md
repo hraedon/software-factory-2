@@ -46,7 +46,7 @@ On `InvocationResult(success=False)`, invoke the fallback if any of:
 
 ### Failover semantics
 
-- Failover is invoked immediately on the same work item attempt (no substrate round-trip).
+- Failover is invoked immediately on the same work item attempt (no regista round-trip).
 - If the fallback also fails, the combined failure is recorded as a single `channel_fail` event.
 - Telemetry records both the primary and fallback channel in the event payload.
 - Inner gate retries use the fallback channel for subsequent attempts within the same inner gate loop.

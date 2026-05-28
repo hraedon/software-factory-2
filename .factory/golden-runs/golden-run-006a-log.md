@@ -50,7 +50,7 @@ This is a known gap: the gate temp directory setup handles the single `interface
 
 ## Telemetry Observations
 
-- `event_schema_unknown_fields` warning on `custom_fields_update`: substrate automatically merges `custom_fields` into event payload. This is cosmetic and doesn't affect telemetry correctness.
+- `event_schema_unknown_fields` warning on `custom_fields_update`: regista automatically merges `custom_fields` into event payload. This is cosmetic and doesn't affect telemetry correctness.
 - Mean duration for test_author: 10.5s (certificate_model), 17.9s (failed collects for FR-02/FR-03)
 - Mean duration for interface_architect: 8.2s
 - Mean duration for implementer: 4.2s

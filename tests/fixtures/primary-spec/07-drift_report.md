@@ -1,16 +1,16 @@
 # DriftReport — ADT Validation
 
 ## Source
-substrate spec §5, FR-16, §6
+regista spec §5, FR-16, §6
 
 ## Spec excerpt
 
-**FR-16:** Replay — rebuild a `work_items_current_replay_<timestamp>` projection from the event log on demand. Each historical transition validates against the workflow version recorded on its event. Output is a fresh table; substrate does NOT mutate live `work_items_current` in place. Operator decides whether to atomically swap (rename) or diff for verification.
+**FR-16:** Replay — rebuild a `work_items_current_replay_<timestamp>` projection from the event log on demand. Each historical transition validates against the workflow version recorded on its event. Output is a fresh table; regista does NOT mutate live `work_items_current` in place. Operator decides whether to atomically swap (rename) or diff for verification.
 
-Substrate also produces a companion `replay_report_<timestamp>` table categorizing each work-item:
+Regista also produces a companion `replay_report_<timestamp>` table categorizing each work-item:
 
 - `replayed_ok` — replayed final state matches live `work_items_current`.
-- `replayed_drift` — replayed final state differs from live. This is the actionable signal. Possible causes: bug in projection update logic, direct edit to `work_items_current` outside the substrate API (forbidden by §18), missed event (corruption — usually accompanied by `event_seq` gap).
+- `replayed_drift` — replayed final state differs from live. This is the actionable signal. Possible causes: bug in projection update logic, direct edit to `work_items_current` outside the regista API (forbidden by §18), missed event (corruption — usually accompanied by `event_seq` gap).
 - `halted` — replay could not complete on this work-item; halt reason recorded (`revoked_key`, `missing_workflow_version`, `unrecognized_transition`, `signature_verification_failed`, etc.).
 - `warnings` — count of events skipped during signature verification (when `continue_on_revoked=True`); informational, not a defect signal.
 

@@ -61,7 +61,7 @@ def _get_dedup_lock(source_id: str, downstream_type: str) -> threading.Lock:
 
 
 # ---------------------------------------------------------------------------
-# Existence cache (BC-190 — indexed lookup)
+# Existence cache — avoids repeated O(N) regista scans for downstream items.
 #
 # Maps (source_id, downstream_type) → True once a downstream item is known to
 # exist.  A hit means we can skip the O(N) paginated scan entirely.  Misses
@@ -72,6 +72,7 @@ def _get_dedup_lock(source_id: str, downstream_type: str) -> threading.Lock:
 # after finding the item in the scan.  False-positives are impossible; a
 # stale False just means we pay the scan cost once more.
 # ---------------------------------------------------------------------------
+_EXISTENCE_CACHE_MAXSIZE = 4096
 _existence_cache: dict[tuple, bool] = {}
 _existence_cache_lock = threading.Lock()
 
@@ -83,13 +84,15 @@ def _cache_exists(source_id: str, downstream_type: str) -> bool:
 
 def _cache_mark_exists(source_id: str, downstream_type: str) -> None:
     with _existence_cache_lock:
+        if len(_existence_cache) >= _EXISTENCE_CACHE_MAXSIZE:
+            _existence_cache.pop(next(iter(_existence_cache)), None)
         _existence_cache[(source_id, downstream_type)] = True
 
 
 def run_scheduler(config: FactoryConfig) -> None:
-    from substrate import Substrate
+    from regista import Regista
 
-    sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
+    sub = Regista(config.dsn, config.project_name, config.hmac_key_path)
     runtime = PipelineRuntime(sub=sub, config=config)
     try:
         scheduler_loop(runtime)

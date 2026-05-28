@@ -117,11 +117,11 @@ The implementer is the cheapest party to detect a broken contract and the most e
 | Interactive debugging inner loop | RFC-009 | Deferred; evidence threshold is 3+ GRs with pytest-in-inner-loop still failing |
 | Per-project venv isolation | RFC-006 | Deferred; current gate uses shared `.venv-gate` |
 
-The reflection from Session 26 notes: *"Substrate `__init__` indentation bug — I fixed it in this session but it's in the substrate repo, not the factory repo. If the substrate gets a revert... this will break `build_failure_corpus.py` again silently."* This is a dependency-management failure mode that is not tracked in any breadcrumb.
+The reflection from Session 26 notes: *"Regista `__init__` indentation bug — I fixed it in this session but it's in the regista repo, not the factory repo. If the regista gets a revert... this will break `build_failure_corpus.py` again silently."* This is a dependency-management failure mode that is not tracked in any breadcrumb.
 
 **Remediation:**
 - For each deferred RFC, add an **evidence threshold** that triggers re-evaluation. Example: RFC-009 triggers when `pytest-in-inner-loop` failures exceed 20% of total gate failures across 3 consecutive GRs.
-- Add a breadcrumb: "Substrate direct-connection constructor drift" — track the risk that substrate changes break factory tools.
+- Add a breadcrumb: "Regista direct-connection constructor drift" — track the risk that regista changes break factory tools.
 
 ### 7. The cert-watch fixture is not representative of the target domain
 
@@ -149,5 +149,5 @@ This debate can resolve in three ways:
 
 - spec.md §1 (Purpose), §3 (Principles), §5 (Fleet), §8 (Known risks)
 - AGENTS.md (Status, Phase 3 exit criteria TBD)
-- Session 26 reflection (substrate `__init__` bug, integration test fragility)
+- Session 26 reflection (regista `__init__` bug, integration test fragility)
 - Golden run logs: GR-015, GR-017, GR-018, GR-019

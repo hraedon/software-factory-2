@@ -1,18 +1,18 @@
 ---
 number: "030"
-title: "Real Substrate read_events should support composite filters (work_item_id + transition)"
+title: "Real Regista read_events should support composite filters (work_item_id + transition)"
 severity: medium
 status: resolved
 kind: design
 author: opencode
 date: "2026-05-07"
-tags: [dep-substrate-040, api-contract, conformance]
+tags: [dep-regista-040, api-contract, conformance]
 related: ["040"]
 ---
 
 ## Problem
 
-`Substrate.read_events` documents and enforces "exactly one filter dimension" — providing `work_item_id` silently ignores `transition`, `actor_id`, etc. `InMemorySubstrate` was changed to match this behavior in BC-040, but the restriction is unnecessarily limiting: SF2 tests need `read_events(work_item_id=X, transition="channel_fail")` to verify specific events, and the current workaround (query by `work_item_id` then filter in Python) is wasteful for large event logs.
+`Regista.read_events` documents and enforces "exactly one filter dimension" — providing `work_item_id` silently ignores `transition`, `actor_id`, etc. `InMemorySubstrate` was changed to match this behavior in BC-040, but the restriction is unnecessarily limiting: SF2 tests need `read_events(work_item_id=X, transition="channel_fail")` to verify specific events, and the current workaround (query by `work_item_id` then filter in Python) is wasteful for large event logs.
 
 ## Proposal
 

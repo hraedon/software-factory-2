@@ -102,7 +102,7 @@ Telemetry headline (after manual termination at 17:17):
 failure is entirely explained by gemini-2.5-pro rejecting 36/37 reviews — see
 Per-stage Detail.
 
-### Substrate state at termination
+### Regista state at termination
 
 Total work items: **100**
 
@@ -186,7 +186,7 @@ returns before `process_gate_item()` runs, so no exception is ever caught
 and no crash-count is incremented.
 
 **Severity:** Medium. No model credits burned (the gate releases immediately),
-but substrate sees a ~5s acquire/release churn cycle per stuck item
+but regista sees a ~5s acquire/release churn cycle per stuck item
 indefinitely (~720 transitions per hour per stuck item). cc11078f generated
 1172 `gate_near_budget` events.
 
@@ -262,7 +262,7 @@ schema split rollout, not a correctness problem.
 1. **New BC** — gate_loop's BC-181 soft-stop never hard-transitions, allowing
    indefinite acquire/release churn on items stuck in `gating` state when they
    first arrive at attempt_threshold. See cc11078f exemplar (attempt=1175 over
-   3h, 1172 substrate transitions, zero terminal progress).
+   3h, 1172 regista transitions, zero terminal progress).
 2. **Wrapper hardening** — add `start_new_session=True` to subprocess.Popen
    calls in `_launch_pipeline` so SIGTERM to the wrapper can't accidentally
    take down healthy children.
@@ -282,7 +282,7 @@ schema split rollout, not a correctness problem.
 2. **The supervisor wrapper's guardrails decayed faster than the pipeline.**
    Both the false-idle threshold and the gate_fail count threshold predated
    fixes that made the original failure mode impossible. Wrapper safety
-   protocol needs to evolve in lockstep with the substrate it monitors.
+   protocol needs to evolve in lockstep with the regista it monitors.
 3. **BC-181 has a real gap for runner-side timeouts.** Any item that fails
    in the runner (channel timeout, empty output) and lands in gating at
    attempt_threshold cycles indefinitely. The soft-stop design point assumed

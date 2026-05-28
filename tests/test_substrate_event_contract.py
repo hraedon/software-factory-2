@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from substrate import Event
+from regista import Event
 
 
 def test_event_has_no_custom_fields_attribute() -> None:
     assert not hasattr(Event, "custom_fields"), (
         "Event should not have custom_fields attribute. "
-        "Substrate merges custom_fields into WorkItem, not per-event. "
+        "Regista merges custom_fields into WorkItem, not per-event. "
         "See BC-071."
     )
 

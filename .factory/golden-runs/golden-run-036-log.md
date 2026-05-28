@@ -14,7 +14,7 @@
 ## Purpose
 
 Re-run full cert-watch DAG after three BC-145 fixes discovered in GR-035:
-1. `evaluate_review()` used bare `"findings"` instead of `CUSTOM_FIELD_REVIEW_FINDINGS` — substrate rejected the field.
+1. `evaluate_review()` used bare `"findings"` instead of `CUSTOM_FIELD_REVIEW_FINDINGS` — regista rejected the field.
 2. `ensure_upstream_revision` was called BEFORE the gate transition — when the transition crashed, the revision was already created, causing exponential blowup (182 reviews in GR-035).
 3. `ensure_upstream_revision` had no idempotency guard — each gate cycle created a duplicate upstream revision.
 
@@ -29,7 +29,7 @@ Validate whether the fixes prevent exponential blowup and allow the full DAG to 
 2. `gate_process.py:352-355`: Moved `ensure_upstream_revision` call AFTER the gate transition (preventing creation on crash).
 3. `scheduler.py:246-253`: Added `query_work_items` check for existing revisions with same `upstream_revision_of` before creating duplicates.
 
-**Result:** The `findings` → `review_findings` fix was correct in principle but introduced a new issue: `review_findings` is declared on the `implementation` work item type (phase2.yaml) but NOT on the `review` type (phase4.yaml). The gate process writes this field to the REVIEW item during the gate_fail transition, so substrate rejected it with `CUSTOM_FIELD_VIOLATION: Unknown field 'review_findings'`. This was the same class of error as GR-035 attempt 1, but with the corrected field name hitting a different missing declaration.
+**Result:** The `findings` → `review_findings` fix was correct in principle but introduced a new issue: `review_findings` is declared on the `implementation` work item type (phase2.yaml) but NOT on the `review` type (phase4.yaml). The gate process writes this field to the REVIEW item during the gate_fail transition, so regista rejected it with `CUSTOM_FIELD_VIOLATION: Unknown field 'review_findings'`. This was the same class of error as GR-035 attempt 1, but with the corrected field name hitting a different missing declaration.
 
 The ordering fix (#2) and idempotency guard (#3) worked correctly: zero upstream revisions were created, and the scheduler handoff counts were normal (8/8/5/3/3/2 instead of GR-035's 8/7/182/7/4/4). No exponential blowup.
 
@@ -93,7 +93,7 @@ Collected after killing remaining scheduler process.
 
 ### 1. `review_findings` not declared on `review` work item type (Attempt 1 stuck items)
 
-**Root cause:** `evaluate_review()` in `gate.py` returns `GateResult(custom_fields={CUSTOM_FIELD_REVIEW_FINDINGS: ...})`. The gate process writes this to the REVIEW item's custom_fields during the `gate_fail` transition. But `phase4.yaml` declares `review_findings` only on the `implementation` type, not the `review` type. Substrate rejects with `CUSTOM_FIELD_VIOLATION`.
+**Root cause:** `evaluate_review()` in `gate.py` returns `GateResult(custom_fields={CUSTOM_FIELD_REVIEW_FINDINGS: ...})`. The gate process writes this to the REVIEW item's custom_fields during the `gate_fail` transition. But `phase4.yaml` declares `review_findings` only on the `implementation` type, not the `review` type. Regista rejects with `CUSTOM_FIELD_VIOLATION`.
 
 **Why this wasn't caught:** The BC-145 fix from GR-035 added `review_findings` to the `implementation` type (because the scheduler writes it when creating upstream implementation revisions), but the gate process writes it to the `review` item (the item being gated). These are different types, and the field was only declared on one.
 

@@ -8,7 +8,7 @@ related: ["RFC-008", "BC-003"]
 
 ## Context
 
-Substrate's event log is append-only and immutable. Every claim, transition, heartbeat, hook, link, and custom_field update appends an event. There is no deletion, no truncation, and no retention policy defined in the spec.
+Regista's event log is append-only and immutable. Every claim, transition, heartbeat, hook, link, and custom_field update appends an event. There is no deletion, no truncation, and no retention policy defined in the spec.
 
 Factory's talk (Luke) mentions missions running for 16 days, with a goal of 30. At the v2 factory's current event rate:
 - 15 interface_specs × 3 attempts average = ~45 submit events

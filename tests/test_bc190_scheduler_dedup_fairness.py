@@ -36,10 +36,10 @@ def clear_existence_cache():
 
 
 @pytest.fixture()
-def mock_substrate():
-    from substrate.testing import InMemorySubstrate
+def mock_regista():
+    from regista.testing import InMemoryRegista
 
-    sub = InMemorySubstrate()
+    sub = InMemoryRegista()
     sub.register_workflow_file(str(Path(__file__).parent.parent / "workflows" / "phase2.yaml"))
     yield sub
     sub.close()
@@ -68,18 +68,18 @@ def handoff():
 
 class TestDedupLock:
     def test_concurrent_calls_produce_exactly_one_downstream(
-        self, mock_substrate, workspace_root, handoff
+        self, mock_regista, workspace_root, handoff
     ):
         """Two threads calling _ensure_downstream_item for the same source
         concurrently must result in exactly one downstream item created."""
         config = FactoryConfig.phase2(workspace_root=workspace_root)
-        source, _ = mock_substrate.create_work_item(
+        source, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={"spec_section": "S1", "ac_ids": ["AC-01"]},
         )
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
 
         barrier = threading.Barrier(2)
         errors: list[Exception] = []
@@ -100,7 +100,7 @@ class TestDedupLock:
 
         assert not errors, f"Thread errors: {errors}"
 
-        page = mock_substrate.query_work_items(
+        page = mock_regista.query_work_items(
             work_item_types=["test_suite"],
             page_size=100,
         )
@@ -108,23 +108,23 @@ class TestDedupLock:
         assert page.items[0].custom_fields["interface_ref"] == str(source.work_item_id)
 
     def test_sequential_duplicate_calls_still_idempotent(
-        self, mock_substrate, workspace_root, handoff
+        self, mock_regista, workspace_root, handoff
     ):
         """Existing behaviour preserved: sequential duplicates are idempotent."""
         config = FactoryConfig.phase2(workspace_root=workspace_root)
-        source, _ = mock_substrate.create_work_item(
+        source, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={"spec_section": "S2", "ac_ids": ["AC-02"]},
         )
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
 
         _ensure_downstream_item(runtime, source, handoff)
         _ensure_downstream_item(runtime, source, handoff)
         _ensure_downstream_item(runtime, source, handoff)
 
-        page = mock_substrate.query_work_items(
+        page = mock_regista.query_work_items(
             work_item_types=["test_suite"],
             page_size=100,
         )
@@ -137,17 +137,17 @@ class TestDedupLock:
 
 
 class TestExistenceCache:
-    def test_cache_hit_skips_scan(self, mock_substrate, workspace_root, handoff):
+    def test_cache_hit_skips_scan(self, mock_regista, workspace_root, handoff):
         """After the first successful create the cache is populated; a second
         call must return without touching query_work_items."""
         config = FactoryConfig.phase2(workspace_root=workspace_root)
-        source, _ = mock_substrate.create_work_item(
+        source, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={"spec_section": "S3", "ac_ids": ["AC-03"]},
         )
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
 
         _ensure_downstream_item(runtime, source, handoff)
 
@@ -157,7 +157,7 @@ class TestExistenceCache:
         assert _cache_exists(str(source.work_item_id), WORK_ITEM_TYPE_TEST_SUITE)
 
         # Second call: patch query_work_items to track invocations
-        original_query = mock_substrate.query_work_items
+        original_query = mock_regista.query_work_items
         query_call_count = 0
 
         def counting_query(**kwargs):
@@ -165,28 +165,28 @@ class TestExistenceCache:
             query_call_count += 1
             return original_query(**kwargs)
 
-        mock_substrate.query_work_items = counting_query
+        mock_regista.query_work_items = counting_query
         _ensure_downstream_item(runtime, source, handoff)
-        mock_substrate.query_work_items = original_query
+        mock_regista.query_work_items = original_query
 
         assert query_call_count == 0, (
             f"Expected 0 query_work_items calls on cache hit, got {query_call_count}"
         )
 
-    def test_cache_miss_still_creates(self, mock_substrate, workspace_root, handoff):
+    def test_cache_miss_still_creates(self, mock_regista, workspace_root, handoff):
         """A source with no cache entry falls through to create exactly one item."""
         config = FactoryConfig.phase2(workspace_root=workspace_root)
-        source, _ = mock_substrate.create_work_item(
+        source, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test",
             custom_fields={"spec_section": "S4", "ac_ids": ["AC-04"]},
         )
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
 
         _ensure_downstream_item(runtime, source, handoff)
 
-        page = mock_substrate.query_work_items(
+        page = mock_regista.query_work_items(
             work_item_types=["test_suite"],
             page_size=100,
         )
@@ -199,10 +199,10 @@ class TestExistenceCache:
 
 
 class TestHandoffFairness:
-    def test_poll_order_varies(self, mock_substrate, workspace_root):
+    def test_poll_order_varies(self, mock_regista, workspace_root):
         """_poll_handoffs must not always visit handoffs in declaration order."""
         config = FactoryConfig.phase2(workspace_root=workspace_root)
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
 
         # Intercept at _poll_handoffs level by patching random.shuffle with a
         # recorder that still does the shuffle, then sampling the order via the

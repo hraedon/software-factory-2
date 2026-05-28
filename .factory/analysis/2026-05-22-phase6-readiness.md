@@ -27,7 +27,7 @@ done and what remains before a real workload can be attempted.
 |---|---|---|---|---|
 | RFC-023 | Decomposer role | **proposed** | "Single largest architectural gap." Stage 1 has zero implementation. Pipeline currently consumes pre-authored fixture YAMLs via `populate_work_items.py`. Without this, pipeline cannot consume arbitrary specs. | High |
 | RFC-026 | Principal review surface | **proposed** | No artifact summary format, no feedback intake mechanism. `report.py` hardcodes workflow_version=1 (BC-045). Telemetry produces per-role tables but no per-work-item artifact summary. | Medium |
-| RFC-022 | Initiative primitive | **proposed** | Per-item monitoring is viable for cert-watch-mini (5 items) but noisy for real workloads (20+ items). No bundling or operational grouping exists. Phase A is factory-only (zero substrate work). | Low |
+| RFC-022 | Initiative primitive | **proposed** | Per-item monitoring is viable for cert-watch-mini (5 items) but noisy for real workloads (20+ items). No bundling or operational grouping exists. Phase A is factory-only (zero regista work). | Low |
 
 ### Should-have for first real workload
 

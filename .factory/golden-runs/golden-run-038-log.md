@@ -50,7 +50,7 @@ retirement.
 **Overall: ALL PASS** — the first ALL-PASS Overall on this branch under the
 informational-lock-rate criteria. Every structural correctness gate green.
 
-### Substrate state at termination
+### Regista state at termination
 
 Total work items: **55** (vs 100 in GR-037 — far less upstream-revision
 amplification because Sonnet passes more reviews)
@@ -224,7 +224,7 @@ Landed during GR-038 wrap-up:
 2. **Late-stage coverage is now adequate for GR-039+ to focus on other
    experiments.** With N=4 on jury/integration/outcome_verification in a
    single run, we have enough data to characterize their behavior. A future
-   *dedicated* late-stage fixture (synthetic-seeded substrate items at
+   *dedicated* late-stage fixture (synthetic-seeded regista items at
    `locked` state for impl/review) would still be valuable for fast
    iteration, but it's no longer the top priority.
 

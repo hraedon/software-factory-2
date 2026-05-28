@@ -8,7 +8,7 @@ Exposes three tools:
 
 Repos are hardcoded to the known constellation:
   /projects/software-factory-2   (sf2)
-  /projects/substrate             (substrate)
+  /projects/regista               (regista)
   /projects/software-factory      (v1)
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ from pathlib import Path
 
 REPOS = {
     "sf2": "/projects/software-factory-2",
-    "substrate": "/projects/substrate",
+    "regista": "/projects/regista",
     "v1": "/projects/software-factory",
 }
 
@@ -179,7 +179,7 @@ TOOLS = [
         "name": "repo_status",
         "description": (
             "Show the current state of all repos in the sf2 constellation "
-            "(sf2, substrate, v1): branch name, ahead/behind remote, last commit, "
+            "(sf2, regista, v1): branch name, ahead/behind remote, last commit, "
             "and uncommitted file count. Use at session start to orient quickly."
         ),
         "inputSchema": {"type": "object", "properties": {}, "required": []},
@@ -187,9 +187,9 @@ TOOLS = [
     {
         "name": "recent_commits",
         "description": (
-            "List commits across all repos (sf2, substrate, v1) from the last N days, "
+            "List commits across all repos (sf2, regista, v1) from the last N days, "
             "sorted newest-first. Useful for noticing cross-repo changes that might "
-            "affect sf2 (e.g., a substrate API change)."
+            "affect sf2 (e.g., a regista API change)."
         ),
         "inputSchema": {
             "type": "object",

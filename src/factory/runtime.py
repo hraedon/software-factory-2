@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from substrate import Substrate
+from regista import Regista
 
 from factory.config import FactoryConfig
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class PipelineRuntime:
-    sub: Substrate
+    sub: Regista
     config: FactoryConfig
     spec_content: str | None = None
     channel: Channel | None = None

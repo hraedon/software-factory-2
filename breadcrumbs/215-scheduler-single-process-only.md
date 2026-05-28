@@ -24,4 +24,4 @@ Currently acceptable — Phase 5 runs a single scheduler. If the factory is depl
 
 When multi-scheduler mode is needed:
 1. Use Postgres advisory locks (`pg_try_advisory_lock`) keyed on `(source_id, downstream_type)`
-2. Or use substrate's existing claim mechanism as a distributed mutex
+2. Or use regista's existing claim mechanism as a distributed mutex

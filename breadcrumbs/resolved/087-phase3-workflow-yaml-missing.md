@@ -19,7 +19,7 @@ related: []
 3. `full_pipeline.yaml` is version 2, not 3
 4. All 13 golden run configs use `workflow_version: 2`
 
-The runner, scheduler, and gate_process query substrate work items filtered by `config.workflow_version`. If `phase3()` config is used, they'd query for version 3 while all work items are registered at version 2 — finding zero items. The pipeline would silently do nothing.
+The runner, scheduler, and gate_process query regista work items filtered by `config.workflow_version`. If `phase3()` config is used, they'd query for version 3 while all work items are registered at version 2 — finding zero items. The pipeline would silently do nothing.
 
 ## Proposed fix
 

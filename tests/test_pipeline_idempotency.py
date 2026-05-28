@@ -214,15 +214,15 @@ def _resume_and_gate(
 
 
 class TestPipelineIdempotencyInterfaceArchitect:
-    def test_resume_after_worker_crash_before_submit(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
+    def test_resume_after_worker_crash_before_submit(self, mock_regista, workspace_root):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
         config = _make_phase2_config(workspace_root)
         channel = _IdempotencyChannel(workspace_root)
-        _register_roles(mock_substrate)
+        _register_roles(mock_regista)
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -236,7 +236,7 @@ class TestPipelineIdempotencyInterfaceArchitect:
             "    ...\n"
         )
         wi = _resume_and_gate(
-            mock_substrate,
+            mock_regista,
             config,
             channel,
             iface,
@@ -247,20 +247,20 @@ class TestPipelineIdempotencyInterfaceArchitect:
             "artifact.pyi",
         )
         assert wi.current_state == "gating"
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
         wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
         assert len(channel._invocations) == 0
 
-    def test_resume_carries_original_actor_metadata(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
+    def test_resume_carries_original_actor_metadata(self, mock_regista, workspace_root):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
         _ = _make_phase2_config(workspace_root)
         channel = _IdempotencyChannel(workspace_root)
-        _register_roles(mock_substrate)
+        _register_roles(mock_regista)
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -279,15 +279,15 @@ class TestPipelineIdempotencyInterfaceArchitect:
         assert resumable is not None
         attempt_num, manifest = resumable
 
-        _ = mock_substrate.acquire_claim(iface.work_item_id, "factory-arch")
-        mock_substrate.transition(
+        _ = mock_regista.acquire_claim(iface.work_item_id, "factory-arch")
+        mock_regista.transition(
             iface.work_item_id,
             "claim",
             "factory-arch",
             actor_metadata={"role": "interface_architect"},
         )
         _resume_and_submit(
-            mock_substrate,
+            mock_regista,
             iface,
             attempt_num,
             manifest,
@@ -297,7 +297,7 @@ class TestPipelineIdempotencyInterfaceArchitect:
             role_name="interface_architect",
         )
 
-        events = mock_substrate.read_events(work_item_id=iface.work_item_id)
+        events = mock_regista.read_events(work_item_id=iface.work_item_id)
         submit_events = [e for e in events if e.transition == "submit"]
         assert len(submit_events) == 1
         md = submit_events[0].actor_metadata or {}
@@ -306,17 +306,17 @@ class TestPipelineIdempotencyInterfaceArchitect:
 
 
 class TestPipelineIdempotencyTestAuthor:
-    def test_resume_test_author_after_crash(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
+    def test_resume_test_author_after_crash(self, mock_regista, workspace_root):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
         config = _make_phase2_config(workspace_root)
         channel = _IdempotencyChannel(workspace_root)
-        _register_roles(mock_substrate)
+        _register_roles(mock_regista)
 
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -332,7 +332,7 @@ class TestPipelineIdempotencyTestAuthor:
         wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
-        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        sched_runtime = PipelineRuntime(sub=mock_regista, config=config)
         _ensure_downstream_item(
             sched_runtime,
             wi,
@@ -340,7 +340,7 @@ class TestPipelineIdempotencyTestAuthor:
         )
         ts_wis = [
             w
-            for w in mock_substrate.query_work_items(
+            for w in mock_regista.query_work_items(
                 current_states=["new"],
                 page_size=50,
             ).items
@@ -357,7 +357,7 @@ class TestPipelineIdempotencyTestAuthor:
             '    assert compute(1) == "1"\n'
         )
         wi = _resume_and_gate(
-            mock_substrate,
+            mock_regista,
             config,
             channel,
             ts_wi,
@@ -373,17 +373,17 @@ class TestPipelineIdempotencyTestAuthor:
 
 
 class TestPipelineIdempotencyImplementer:
-    def test_resume_implementer_after_crash(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
+    def test_resume_implementer_after_crash(self, mock_regista, workspace_root):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
         config = _make_phase2_config(workspace_root)
         channel = _IdempotencyChannel(workspace_root)
-        _register_roles(mock_substrate)
+        _register_roles(mock_regista)
 
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -399,7 +399,7 @@ class TestPipelineIdempotencyImplementer:
         wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
-        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        sched_runtime = PipelineRuntime(sub=mock_regista, config=config)
         _ensure_downstream_item(
             sched_runtime,
             wi,
@@ -407,7 +407,7 @@ class TestPipelineIdempotencyImplementer:
         )
         ts_wis = [
             w
-            for w in mock_substrate.query_work_items(
+            for w in mock_regista.query_work_items(
                 current_states=["new"],
                 page_size=50,
             ).items
@@ -432,7 +432,7 @@ class TestPipelineIdempotencyImplementer:
         )
         impl_wis = [
             w
-            for w in mock_substrate.query_work_items(
+            for w in mock_regista.query_work_items(
                 current_states=["new"],
                 page_size=50,
             ).items
@@ -442,7 +442,7 @@ class TestPipelineIdempotencyImplementer:
 
         artifact_content = "def compute(x: int) -> str:\n    return str(x)\n"
         wi = _resume_and_gate(
-            mock_substrate,
+            mock_regista,
             config,
             channel,
             impl_wi,
@@ -458,17 +458,17 @@ class TestPipelineIdempotencyImplementer:
 
 
 class TestPipelineIdempotencyGateProcess:
-    def test_gate_reclaim_after_crash_is_safe(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
+    def test_gate_reclaim_after_crash_is_safe(self, mock_regista, workspace_root):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
         config = _make_phase2_config(workspace_root)
         channel = _IdempotencyChannel(workspace_root)
-        _register_roles(mock_substrate)
+        _register_roles(mock_regista)
 
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -487,21 +487,21 @@ class TestPipelineIdempotencyGateProcess:
         wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
-        events = mock_substrate.read_events(work_item_id=iface.work_item_id)
+        events = mock_regista.read_events(work_item_id=iface.work_item_id)
         gate_passes = [e for e in events if e.transition == "gate_pass"]
         assert len(gate_passes) == 1
 
-    def test_test_suite_gate_reclaim_after_crash(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
+    def test_test_suite_gate_reclaim_after_crash(self, mock_regista, workspace_root):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
         config = _make_phase2_config(workspace_root)
         channel = _IdempotencyChannel(workspace_root)
-        _register_roles(mock_substrate)
+        _register_roles(mock_regista)
 
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -518,7 +518,7 @@ class TestPipelineIdempotencyGateProcess:
         wi = _run_gate(runtime, wi)
         assert wi.current_state == "locked"
 
-        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        sched_runtime = PipelineRuntime(sub=mock_regista, config=config)
         _ensure_downstream_item(
             sched_runtime,
             wi,
@@ -526,7 +526,7 @@ class TestPipelineIdempotencyGateProcess:
         )
         ts_wis = [
             w
-            for w in mock_substrate.query_work_items(
+            for w in mock_regista.query_work_items(
                 current_states=["new"],
                 page_size=50,
             ).items
@@ -548,18 +548,18 @@ class TestPipelineIdempotencyGateProcess:
 
 
 class TestPipelineIdempotencyMultiRole:
-    def test_mid_pipeline_crash_at_each_stage(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
+    def test_mid_pipeline_crash_at_each_stage(self, mock_regista, workspace_root):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
         config = _make_phase2_config(workspace_root)
         channel = _IdempotencyChannel(workspace_root)
-        _register_roles(mock_substrate)
+        _register_roles(mock_regista)
 
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
-        sched_runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
+        sched_runtime = PipelineRuntime(sub=mock_regista, config=config)
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -569,7 +569,7 @@ class TestPipelineIdempotencyMultiRole:
         # Stage 1: interface_architect — resume from crash
         iface_artifact = 'def compute(x: int) -> str:\n    """AC-01"""\n    ...\n'
         wi = _resume_and_gate(
-            mock_substrate,
+            mock_regista,
             config,
             channel,
             iface,
@@ -591,7 +591,7 @@ class TestPipelineIdempotencyMultiRole:
         )
         ts_wis = [
             w
-            for w in mock_substrate.query_work_items(
+            for w in mock_regista.query_work_items(
                 current_states=["new"],
                 page_size=50,
             ).items
@@ -607,7 +607,7 @@ class TestPipelineIdempotencyMultiRole:
             "    assert True\n"
         )
         wi = _resume_and_gate(
-            mock_substrate,
+            mock_regista,
             config,
             channel,
             ts_wi,
@@ -629,7 +629,7 @@ class TestPipelineIdempotencyMultiRole:
         )
         impl_wis = [
             w
-            for w in mock_substrate.query_work_items(
+            for w in mock_regista.query_work_items(
                 current_states=["new"],
                 page_size=50,
             ).items
@@ -639,7 +639,7 @@ class TestPipelineIdempotencyMultiRole:
 
         impl_artifact = "def compute(x: int) -> str:\n    return str(x)\n"
         wi = _resume_and_gate(
-            mock_substrate,
+            mock_regista,
             config,
             channel,
             impl_wi,

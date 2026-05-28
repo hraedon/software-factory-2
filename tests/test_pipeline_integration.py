@@ -255,51 +255,51 @@ class _BadImplIntegrationChannel(_IntegrationChannel):
 
 
 class TestPipelineIntegration:
-    def test_three_item_subset_end_to_end(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
+    def test_three_item_subset_end_to_end(self, mock_regista, workspace_root):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
         config = _make_phase2_config(workspace_root)
         channel = _IntegrationChannel(workspace_root)
-        _register_roles(mock_substrate)
+        _register_roles(mock_regista)
 
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
         results = _drive_full_pipeline(runtime, channel)
 
         for key in ("interface_spec", "test_suite", "implementation"):
             wi = results[key]
-            events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+            events = mock_regista.read_events(work_item_id=wi.work_item_id)
             transitions = [e.transition for e in events]
             assert "claim" in transitions, f"{key}: missing claim"
             assert "submit" in transitions, f"{key}: missing submit"
             assert "gate_pass" in transitions, f"{key}: missing gate_pass"
 
-    def test_artifact_paths_propagate_through_chain(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
+    def test_artifact_paths_propagate_through_chain(self, mock_regista, workspace_root):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
         config = _make_phase2_config(workspace_root)
         channel = _IntegrationChannel(workspace_root)
-        _register_roles(mock_substrate)
+        _register_roles(mock_regista)
 
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
         results = _drive_full_pipeline(runtime, channel)
 
         # Each item should have an artifact_path after submission
         for key in ("interface_spec", "test_suite", "implementation"):
-            wi = mock_substrate.get_work_item(results[key].work_item_id)
+            wi = mock_regista.get_work_item(results[key].work_item_id)
             artifact_path = (wi.custom_fields or {}).get("artifact_path", "")
             assert artifact_path, f"{key}: no artifact_path"
             assert Path(artifact_path).exists(), f"{key}: artifact file missing at {artifact_path}"
 
         # test_suite should carry interface_ref pointing to the interface_spec
-        ts = mock_substrate.get_work_item(results["test_suite"].work_item_id)
+        ts = mock_regista.get_work_item(results["test_suite"].work_item_id)
         assert (ts.custom_fields or {}).get("interface_ref") == str(
             results["interface_spec"].work_item_id,
         )
 
         # implementation should carry both refs
-        impl = mock_substrate.get_work_item(results["implementation"].work_item_id)
+        impl = mock_regista.get_work_item(results["implementation"].work_item_id)
         assert (impl.custom_fields or {}).get("interface_ref") == str(
             results["interface_spec"].work_item_id,
         )
@@ -307,17 +307,17 @@ class TestPipelineIntegration:
             results["test_suite"].work_item_id,
         )
 
-    def test_e2e_escalation_through_repeated_gate_failures(self, mock_substrate, workspace_root):
-        mock_substrate.register_workflow_file(
+    def test_e2e_escalation_through_repeated_gate_failures(self, mock_regista, workspace_root):
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
         config = _make_phase2_config(workspace_root)
         channel = _BadImplIntegrationChannel(workspace_root)
-        _register_roles(mock_substrate)
+        _register_roles(mock_regista)
 
-        runtime = PipelineRuntime(sub=mock_substrate, config=config)
+        runtime = PipelineRuntime(sub=mock_regista, config=config)
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -367,7 +367,7 @@ class TestPipelineIntegration:
         # produces another bad artifact, gate fails impl_lint again.
         # Worker claim=attempt3, Gate claim=attempt4. attempt4 >= 3, escalation fires.
         # Item transitions to cannot_proceed (terminal), stopping the retry loop.
-        impl_wi = mock_substrate.get_work_item(impl_wi.work_item_id)
+        impl_wi = mock_regista.get_work_item(impl_wi.work_item_id)
         wi = _run_worker_stage(
             runtime,
             channel,
@@ -383,7 +383,7 @@ class TestPipelineIntegration:
         assert diags.get("escalated_from_kind") == "impl_lint"
         assert diags.get("escalated_after_attempts") == 4
 
-        impl_events = mock_substrate.read_events(work_item_id=impl_wi.work_item_id)
+        impl_events = mock_regista.read_events(work_item_id=impl_wi.work_item_id)
         gate_fails = [e for e in impl_events if e.transition == "gate_fail"]
         assert len(gate_fails) == 1
         gate_escalations = [e for e in impl_events if e.transition == "gate_escalation"]

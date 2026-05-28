@@ -35,10 +35,10 @@ The `catalog/cli-tool` archetype already exists (RFC-020 landed). A small CLI to
 **Candidates** (CLI-tool-shaped, 3–6 modules, 8–15 interface specs):
 
 1. **A log-redaction CLI** — reads structured logs, applies redaction rules from YAML, emits redacted stream + audit JSONL. Modules: rules parser, redactor, audit writer, stream IO, CLI entry. Naturally exercises file IO, structured config, and side-effecting outputs (audit log).
-2. **A dependency-graph viewer for substrate event logs** — reads substrate event log, produces a DOT graph of work-item dependencies. Modules: substrate reader, graph builder, DOT emitter, CLI. Has the advantage of dogfooding substrate.
+2. **A dependency-graph viewer for regista event logs** — reads regista event log, produces a DOT graph of work-item dependencies. Modules: regista reader, graph builder, DOT emitter, CLI. Has the advantage of dogfooding regista.
 3. **A breadcrumb-velocity reporter** — reads `breadcrumbs/` directory, computes the 7-day rolling count from RFC-032, emits a markdown report. Smallest of the three.
 
-**Recommendation:** Candidate 2 (substrate dep-graph viewer). It (a) dogfoods substrate, surfacing real consumer-side API friction; (b) has a tight, definable AC ("DOT output renders the same shape as the substrate web UI for the same run"); (c) is the kind of internal tool the principal actually benefits from; (d) is a different module shape from cert-watch (read-only, no scheduled side effects, single-binary output).
+**Recommendation:** Candidate 2 (regista dep-graph viewer). It (a) dogfoods regista, surfacing real consumer-side API friction; (b) has a tight, definable AC ("DOT output renders the same shape as the regista web UI for the same run"); (c) is the kind of internal tool the principal actually benefits from; (d) is a different module shape from cert-watch (read-only, no scheduled side effects, single-binary output).
 
 Decision is the principal's; this plan lists the options and proceeds once selected.
 
@@ -81,11 +81,11 @@ A short writeup (`plans/gr040-gr041-analysis.md` or in the worklog) answering:
 
 | Sibling | What sf2 needs | What sf2 gives |
 |---|---|---|
-| **substrate** | `query_events()` server-side filter to fix BC-196 properly (currently client-side cache). If W1 picks Candidate 2 (substrate dep-graph viewer), the workload doubles as substrate consumer-API stress test. | Real-workload consumer feedback; possibly a substrate plan-015 item if the dep-graph viewer surfaces friction. |
-| **agent-notes-mcp** | Continue using breadcrumb/memory MCPs for cross-session state. No new dependency. | Real-workload validation of the breadcrumb MCP under sustained Phase 6 work. |
+| **regista** | `query_events()` server-side filter to fix BC-196 properly (currently client-side cache). If W1 picks Candidate 2 (regista dep-graph viewer), the workload doubles as regista consumer-API stress test. | Real-workload consumer feedback; possibly a regista plan-015 item if the dep-graph viewer surfaces friction. |
+| **agent-notes** | Continue using breadcrumb/memory MCPs for cross-session state. No new dependency. | Real-workload validation of the breadcrumb MCP under sustained Phase 6 work. |
 | **agent-wake** | Nothing this plan. Scaffold-only sibling. | Composition seam: after W5, evaluate whether mid-run external-event injection (e.g., "principal canceled this item") is something sf2 wants. Not a blocker. |
 | **agent-provenance** | Nothing this plan. Skeleton-stage sibling. | Composition seam: each sf2 model invocation is a candidate provenance event. The integration design belongs in a separate plan once agent-provenance ships harness hooks. Explicitly deferred. |
-| **substrate-eventlog MCP** | Use `list_golden_runs` + `golden_run_summary` for GR-040/GR-041 review instead of grepping logs. Already integrated; just keep using. | Validation under Phase 6 cadence. |
+| **regista-eventlog MCP** | Use `list_golden_runs` + `golden_run_summary` for GR-040/GR-041 review instead of grepping logs. Already integrated; just keep using. | Validation under Phase 6 cadence. |
 
 ## Work-item breakdown
 
@@ -126,7 +126,7 @@ Total: ~1.5 weeks of focused work, dominated by W2.2 (Phase B implementation) an
 
 1. **Phase B's place in the pipeline:** is it run by `populate_work_items.py` as a pre-pass, or is it Stage 0 of the pipeline proper (with its own gate)? RFC-023 leans the latter. Decide in W2.1.
 2. **Sidecar `spec.yaml` produced by socratic-specification:** is it ready, or does W1 fall back to `spec.md`? Check socratic-spec status before W1.2.
-3. **Acceptance signal for the new workload's outcome verification:** cert-watch has a runnable artifact. Candidate 2 (substrate dep-graph viewer) does too. Confirm runnable-AC alignment in W1.2.
+3. **Acceptance signal for the new workload's outcome verification:** cert-watch has a runnable artifact. Candidate 2 (regista dep-graph viewer) does too. Confirm runnable-AC alignment in W1.2.
 4. **One workload or two for Phase 6 exit?** This plan validates N=2 (cert-watch + new). Whether N=2 is enough for Phase 6 exit, or N=3 is required, is the principal's call in W5.
 
 ## Notes

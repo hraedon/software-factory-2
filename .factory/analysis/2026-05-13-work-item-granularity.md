@@ -24,7 +24,7 @@
 | GR-019 | 19 | cert-watch full DAG | K2-only | Yes (runner log) |
 | GR-020 | 24 | cert-watch full DAG | K2-only | Yes (runner log) |
 
-**Note on measurement quality:** GR-015 through GR-018 used the golden-run nanny, which does not capture `inner_gate_*` structured log lines. Their first-attempt data is inferred from substrate gate events, which conflates inner and outer gate attempts. The clean signal comes from GR-019 and GR-020 (43 rows). The full 96-row set is used for lock-rate analysis; the 43-row modern subset is used for first-attempt rate analysis.
+**Note on measurement quality:** GR-015 through GR-018 used the golden-run nanny, which does not capture `inner_gate_*` structured log lines. Their first-attempt data is inferred from regista gate events, which conflates inner and outer gate attempts. The clean signal comes from GR-019 and GR-020 (43 rows). The full 96-row set is used for lock-rate analysis; the 43-row modern subset is used for first-attempt rate analysis.
 
 ---
 

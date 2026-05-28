@@ -12,7 +12,7 @@ resolution: deleted-after-inmemorysubstrate-migration
 
 ## Background
 
-After session 7 migrated SF2 from `MockSubstrate` to substrate's `InMemorySubstrate`, the file `tests/_mock_substrate.py` remained on disk. It had zero imports — no test or production code referenced it. Presence of the dead file was confusing for future agents.
+After session 7 migrated SF2 from `MockSubstrate` to regista's `InMemorySubstrate`, the file `tests/_mock_substrate.py` remained on disk. It had zero imports — no test or production code referenced it. Presence of the dead file was confusing for future agents.
 
 ## Fix applied (2026-05-07)
 

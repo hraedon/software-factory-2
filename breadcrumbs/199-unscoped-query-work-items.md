@@ -12,7 +12,7 @@ related: []
 
 ## Problem
 
-`initiative.py` and `review_surface.py` call `sub.query_work_items()` with zero arguments. This returns ALL work items across ALL workflows in the project. While the project is already scoped by the Substrate constructor, these calls still fetch every workflow's items when they only need one workflow's items.
+`initiative.py` and `review_surface.py` call `sub.query_work_items()` with zero arguments. This returns ALL work items across ALL workflows in the project. While the project is already scoped by the Regista constructor, these calls still fetch every workflow's items when they only need one workflow's items.
 
 In a multi-workflow deployment, `cancel_initiative("abc")` would iterate over items from all workflows (including unrelated ones), and `generate_review_report()` would include items from all workflow versions.
 

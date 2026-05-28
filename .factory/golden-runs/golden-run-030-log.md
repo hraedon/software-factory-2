@@ -80,7 +80,7 @@ This run is **not a valid Phase 5 exit candidate** due to:
 1. **Link type bug fixed:** `integrates` and `verified_by` link types in `workflows/phase5.yaml` had reversed source/target directions. The scheduler creates links as `from=new_item to=locked_item`, so link types must have the new item as `source_type`. Fixed in this run.
 2. **Integration import gate works mechanically:** The `evaluate_integration` gate correctly validates assembled_tree JSON artifacts, writes files to tempdir, and runs import/mypy/pytest. The integrator prompt needs refinement to produce artifacts that pass the import gate.
 3. **Dual-family jury operational:** Qwen 3.6-27b via Mac Studio local server works as a second family for review and jury roles.
-4. **Orphan submit:** 1 item had a submit event without a corresponding gate claim — likely from the `channel_fail` path where the item was submitted to substrate before the channel failure was detected.
+4. **Orphan submit:** 1 item had a submit event without a corresponding gate claim — likely from the `channel_fail` path where the item was submitted to regista before the channel failure was detected.
 
 ## Artifacts preserved
 

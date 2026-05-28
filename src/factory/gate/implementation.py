@@ -11,6 +11,7 @@ from factory.constants import (
     GATE_NAME_IMPLEMENTATION_IMPORTS,
     GATE_NAME_IMPLEMENTATION_NOT_EMPTY,
     GATE_NAME_IMPLEMENTATION_SYNTAX,
+    DiagnosticKind,
 )
 from factory.gate._base import GateResult, _guard_artifact_size
 from factory.gate._subprocess import _run_mypy, _run_pytest, _run_ruff
@@ -40,7 +41,7 @@ def evaluate_implementation(
             gate_name=GATE_NAME_IMPLEMENTATION_FILE_EXISTS,
             diagnostics=[f"Artifact not found: {artifact_path}"],
             artifact_valid=False,
-            diagnostic_kind="file_exists",
+            diagnostic_kind=DiagnosticKind.FILE_EXISTS,
         )
 
     content = artifact_path.read_text()
@@ -50,7 +51,7 @@ def evaluate_implementation(
             gate_name=GATE_NAME_IMPLEMENTATION_NOT_EMPTY,
             diagnostics=["Artifact is empty"],
             artifact_valid=False,
-            diagnostic_kind="not_empty",
+            diagnostic_kind=DiagnosticKind.NOT_EMPTY,
         )
 
     syntax_result = _check_syntax(content)
@@ -60,7 +61,7 @@ def evaluate_implementation(
             gate_name=GATE_NAME_IMPLEMENTATION_SYNTAX,
             diagnostics=syntax_result.diagnostics,
             artifact_valid=False,
-            diagnostic_kind="syntax",
+            diagnostic_kind=DiagnosticKind.SYNTAX,
         )
 
     if interface_pyi_path is not None:
@@ -115,7 +116,7 @@ def _check_impl_imports(content: str) -> GateResult:
             gate_name=GATE_NAME_IMPLEMENTATION_IMPORTS,
             diagnostics=[f"SyntaxError at line {e.lineno}: {e.msg}"],
             artifact_valid=False,
-            diagnostic_kind="syntax",
+            diagnostic_kind=DiagnosticKind.SYNTAX,
         )
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -126,7 +127,7 @@ def _check_impl_imports(content: str) -> GateResult:
                     gate_name=GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN,
                     diagnostics=[f"Implementation imports forbidden module '{mod}'"],
                     artifact_valid=False,
-                    diagnostic_kind="impl_import",
+                    diagnostic_kind=DiagnosticKind.IMPL_IMPORT,
                 )
     return GateResult(passed=True, gate_name=GATE_NAME_IMPLEMENTATION_IMPORTS)
 

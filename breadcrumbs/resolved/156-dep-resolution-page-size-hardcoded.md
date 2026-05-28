@@ -16,7 +16,7 @@ related: []
 
 ```python
 # dep_resolution.py:101-104
-impls = substrate.query_work_items(
+impls = regista.query_work_items(
     work_item_types=[WORK_ITEM_TYPE_IMPLEMENTATION],
     current_states=[STATE_LOCKED],
     page_size=200,  # ← should be config.query_page_size

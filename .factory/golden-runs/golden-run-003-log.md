@@ -27,7 +27,7 @@ The remaining failures are **entirely in prompt quality**, not pipeline mechanic
 - **T+12m:** First implementations passing all four gates (import, mypy, pytest, lint). Items 10-dead_letter and RS2-chunked_process lock successfully.
 - **T+14m:** Remaining implementations failing at `implementation_lint`. Ruff catching `I001`, `UP006`, `UP007`, `UP035` violations. Items cycling through claim→submit→gate_fail.
 - **T+20m:** Escalations firing correctly. Items hitting `gate_escalation` → `cannot_proceed` after 3 failed attempts (BC-037 fix confirmed). Worker resumes from cached artifact on retry (design issue — same bad artifact resubmitted).
-- **T+28m (16:04):** Processes killed. Final state captured from substrate.
+- **T+28m (16:04):** Processes killed. Final state captured from regista.
 
 ## Results
 

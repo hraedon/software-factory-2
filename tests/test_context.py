@@ -126,10 +126,10 @@ class TestPromptContext:
 
 
 class TestDeriveContextSpecContent:
-    def test_work_item_spec_section_takes_priority(self, mock_substrate):
+    def test_work_item_spec_section_takes_priority(self, mock_regista):
         from factory.context import derive_context
 
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -139,17 +139,17 @@ class TestDeriveContextSpecContent:
             },
         )
         ctx = derive_context(
-            mock_substrate,
+            mock_regista,
             wi.work_item_id,
             "interface_architect",
             spec_content="Factory level spec",
         )
         assert ctx.spec_section == "Work item fixture content"
 
-    def test_factory_spec_as_fallback_when_empty(self, mock_substrate):
+    def test_factory_spec_as_fallback_when_empty(self, mock_regista):
         from factory.context import derive_context
 
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -159,17 +159,17 @@ class TestDeriveContextSpecContent:
             },
         )
         ctx = derive_context(
-            mock_substrate,
+            mock_regista,
             wi.work_item_id,
             "interface_architect",
             spec_content="Factory level spec as fallback",
         )
         assert ctx.spec_section == "Factory level spec as fallback"
 
-    def test_empty_spec_section_no_factory_spec(self, mock_substrate):
+    def test_empty_spec_section_no_factory_spec(self, mock_regista):
         from factory.context import derive_context
 
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -179,17 +179,17 @@ class TestDeriveContextSpecContent:
             },
         )
         ctx = derive_context(
-            mock_substrate,
+            mock_regista,
             wi.work_item_id,
             "interface_architect",
             spec_content=None,
         )
         assert ctx.spec_section == ""
 
-    def test_work_item_content_preserved_with_factory_spec_also_set(self, mock_substrate):
+    def test_work_item_content_preserved_with_factory_spec_also_set(self, mock_regista):
         from factory.context import derive_context
 
-        wi, _ = mock_substrate.create_work_item(
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -199,17 +199,17 @@ class TestDeriveContextSpecContent:
             },
         )
         ctx = derive_context(
-            mock_substrate,
+            mock_regista,
             wi.work_item_id,
             "interface_architect",
             spec_content="This should NOT appear in the context",
         )
         assert ctx.spec_section == "The real spec section from the work item"
 
-    def test_context_hash_changes_with_different_spec_sources(self, mock_substrate):
+    def test_context_hash_changes_with_different_spec_sources(self, mock_regista):
         from factory.context import derive_context
 
-        wi_1, _ = mock_substrate.create_work_item(
+        wi_1, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -218,7 +218,7 @@ class TestDeriveContextSpecContent:
                 "ac_ids": ["AC-05"],
             },
         )
-        wi_2, _ = mock_substrate.create_work_item(
+        wi_2, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -227,8 +227,8 @@ class TestDeriveContextSpecContent:
                 "ac_ids": ["AC-05"],
             },
         )
-        ctx_1 = derive_context(mock_substrate, wi_1.work_item_id, "interface_architect")
-        ctx_2 = derive_context(mock_substrate, wi_2.work_item_id, "interface_architect")
+        ctx_1 = derive_context(mock_regista, wi_1.work_item_id, "interface_architect")
+        ctx_2 = derive_context(mock_regista, wi_2.work_item_id, "interface_architect")
         assert ctx_1.context_hash != ctx_2.context_hash
 
 
@@ -436,14 +436,14 @@ class TestRenderPrompt:
 
 
 class TestDeriveContextMissingWorkItem:
-    def test_missing_work_item_raises(self, mock_substrate):
+    def test_missing_work_item_raises(self, mock_regista):
         with pytest.raises(ValueError, match=r"Work item .* not found"):
-            derive_context(mock_substrate, str(uuid.uuid4()), "interface_architect")
+            derive_context(mock_regista, str(uuid.uuid4()), "interface_architect")
 
 
 class TestMissingPromptTemplate:
-    def test_missing_prompt_file_raises(self, mock_substrate):
-        wi, _ = mock_substrate.create_work_item(
+    def test_missing_prompt_file_raises(self, mock_regista):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -453,21 +453,21 @@ class TestMissingPromptTemplate:
             },
         )
         with pytest.raises(FileNotFoundError, match="nonexistent_role"):
-            derive_context(mock_substrate, wi.work_item_id, "nonexistent_role")
+            derive_context(mock_regista, wi.work_item_id, "nonexistent_role")
 
 
 class TestDeriveTestAuthorContext:
-    def test_includes_locked_interface(self, mock_substrate, tmp_path):
+    def test_includes_locked_interface(self, mock_regista, tmp_path):
         from factory.context import derive_test_author_context
 
-        mock_substrate.register_workflow_file(
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
 
         iface_pyi = tmp_path / "iface.pyi"
         iface_pyi.write_text("def compute(x: int) -> str: ...\n")
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="arch",
@@ -479,7 +479,7 @@ class TestDeriveTestAuthorContext:
             },
         )
 
-        ts, _ = mock_substrate.create_work_item(
+        ts, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="test_suite",
             actor_id="tester",
@@ -490,18 +490,18 @@ class TestDeriveTestAuthorContext:
             },
         )
 
-        ctx = derive_test_author_context(mock_substrate, ts.work_item_id)
+        ctx = derive_test_author_context(mock_regista, ts.work_item_id)
         assert ctx.extra_artifacts.get("locked_interface") == "def compute(x: int) -> str: ...\n"
         assert ctx.role == "test_author"
 
-    def test_missing_interface_ref_handled_gracefully(self, mock_substrate):
+    def test_missing_interface_ref_handled_gracefully(self, mock_regista):
         from factory.context import derive_test_author_context
 
-        mock_substrate.register_workflow_file(
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="arch",
@@ -511,7 +511,7 @@ class TestDeriveTestAuthorContext:
             },
         )
 
-        ts, _ = mock_substrate.create_work_item(
+        ts, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="test_suite",
             actor_id="tester",
@@ -522,15 +522,15 @@ class TestDeriveTestAuthorContext:
             },
         )
 
-        ctx = derive_test_author_context(mock_substrate, ts.work_item_id)
+        ctx = derive_test_author_context(mock_regista, ts.work_item_id)
         assert ctx.extra_artifacts.get("locked_interface", "") == ""
 
 
 class TestDeriveImplementerContext:
-    def test_includes_locked_interface_and_test_suite(self, mock_substrate, tmp_path):
+    def test_includes_locked_interface_and_test_suite(self, mock_regista, tmp_path):
         from factory.context import derive_implementer_context
 
-        mock_substrate.register_workflow_file(
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
 
@@ -539,7 +539,7 @@ class TestDeriveImplementerContext:
         ts_file = tmp_path / "test_compute.py"
         ts_file.write_text("def test_compute(): assert True\n")
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="arch",
@@ -549,7 +549,7 @@ class TestDeriveImplementerContext:
                 "artifact_path": str(iface_pyi),
             },
         )
-        ts, _ = mock_substrate.create_work_item(
+        ts, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="test_suite",
             actor_id="tester",
@@ -561,7 +561,7 @@ class TestDeriveImplementerContext:
             },
         )
 
-        impl, _ = mock_substrate.create_work_item(
+        impl, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="implementation",
             actor_id="impl",
@@ -573,19 +573,19 @@ class TestDeriveImplementerContext:
             },
         )
 
-        ctx = derive_implementer_context(mock_substrate, impl.work_item_id)
+        ctx = derive_implementer_context(mock_regista, impl.work_item_id)
         assert ctx.extra_artifacts.get("locked_interface") == "def compute(x: int) -> str: ...\n"
         assert ctx.extra_artifacts.get("test_suite") == "def test_compute(): assert True\n"
         assert ctx.role == "implementer"
 
-    def test_missing_refs_handled_gracefully(self, mock_substrate):
+    def test_missing_refs_handled_gracefully(self, mock_regista):
         from factory.context import derive_implementer_context
 
-        mock_substrate.register_workflow_file(
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="arch",
@@ -594,7 +594,7 @@ class TestDeriveImplementerContext:
                 "ac_ids": ["AC-01"],
             },
         )
-        suite, _ = mock_substrate.create_work_item(
+        suite, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="test_suite",
             actor_id="tester",
@@ -605,7 +605,7 @@ class TestDeriveImplementerContext:
             },
         )
 
-        impl, _ = mock_substrate.create_work_item(
+        impl, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="implementation",
             actor_id="impl",
@@ -617,13 +617,13 @@ class TestDeriveImplementerContext:
             },
         )
 
-        ctx = derive_implementer_context(mock_substrate, impl.work_item_id)
+        ctx = derive_implementer_context(mock_regista, impl.work_item_id)
         assert ctx.extra_artifacts == {}
 
-    def test_dependency_contents_injected_into_implementer(self, mock_substrate, tmp_path):
+    def test_dependency_contents_injected_into_implementer(self, mock_regista, tmp_path):
         from factory.context import derive_implementer_context
 
-        mock_substrate.register_workflow_file(
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
 
@@ -637,7 +637,7 @@ class TestDeriveImplementerContext:
         ts_file = tmp_path / "test_scan.py"
         ts_file.write_text("def test_scan(): assert True\n")
 
-        dep, _ = mock_substrate.create_work_item(
+        dep, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="arch",
@@ -648,7 +648,7 @@ class TestDeriveImplementerContext:
             },
         )
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="arch",
@@ -659,7 +659,7 @@ class TestDeriveImplementerContext:
             },
         )
 
-        ts, _ = mock_substrate.create_work_item(
+        ts, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="test_suite",
             actor_id="tester",
@@ -671,7 +671,7 @@ class TestDeriveImplementerContext:
             },
         )
 
-        impl, _ = mock_substrate.create_work_item(
+        impl, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="implementation",
             actor_id="impl",
@@ -684,14 +684,14 @@ class TestDeriveImplementerContext:
             },
         )
 
-        ctx = derive_implementer_context(mock_substrate, impl.work_item_id)
+        ctx = derive_implementer_context(mock_regista, impl.work_item_id)
         assert "locked_dependency_certificate_model" in ctx.extra_artifacts
         assert "Certificate" in ctx.extra_artifacts["locked_dependency_certificate_model"]
 
-    def test_dependency_contents_injected_into_test_author(self, mock_substrate, tmp_path):
+    def test_dependency_contents_injected_into_test_author(self, mock_regista, tmp_path):
         from factory.context import derive_test_author_context
 
-        mock_substrate.register_workflow_file(
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
 
@@ -703,7 +703,7 @@ class TestDeriveImplementerContext:
             "from certificate_model import Certificate\ndef scan(host: str) -> Certificate: ...\n"
         )
 
-        dep, _ = mock_substrate.create_work_item(
+        dep, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="arch",
@@ -714,7 +714,7 @@ class TestDeriveImplementerContext:
             },
         )
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="arch",
@@ -725,7 +725,7 @@ class TestDeriveImplementerContext:
             },
         )
 
-        ts, _ = mock_substrate.create_work_item(
+        ts, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="test_suite",
             actor_id="tester",
@@ -737,14 +737,14 @@ class TestDeriveImplementerContext:
             },
         )
 
-        ctx = derive_test_author_context(mock_substrate, ts.work_item_id)
+        ctx = derive_test_author_context(mock_regista, ts.work_item_id)
         assert "locked_dependency_certificate_model" in ctx.extra_artifacts
         assert "Certificate" in ctx.extra_artifacts["locked_dependency_certificate_model"]
 
-    def test_no_dependency_refs_produces_no_locked_dependencies(self, mock_substrate, tmp_path):
+    def test_no_dependency_refs_produces_no_locked_dependencies(self, mock_regista, tmp_path):
         from factory.context import derive_implementer_context
 
-        mock_substrate.register_workflow_file(
+        mock_regista.register_workflow_file(
             str(Path(__file__).parent.parent / "workflows" / "phase2.yaml")
         )
 
@@ -753,7 +753,7 @@ class TestDeriveImplementerContext:
         ts_file = tmp_path / "test_compute.py"
         ts_file.write_text("def test_compute(): assert True\n")
 
-        iface, _ = mock_substrate.create_work_item(
+        iface, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="arch",
@@ -763,7 +763,7 @@ class TestDeriveImplementerContext:
                 "artifact_path": str(iface_pyi),
             },
         )
-        ts, _ = mock_substrate.create_work_item(
+        ts, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="test_suite",
             actor_id="tester",
@@ -775,7 +775,7 @@ class TestDeriveImplementerContext:
             },
         )
 
-        impl, _ = mock_substrate.create_work_item(
+        impl, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="implementation",
             actor_id="impl",
@@ -787,6 +787,6 @@ class TestDeriveImplementerContext:
             },
         )
 
-        ctx = derive_implementer_context(mock_substrate, impl.work_item_id)
+        ctx = derive_implementer_context(mock_regista, impl.work_item_id)
         dep_keys = [k for k in ctx.extra_artifacts if k.startswith("locked_dependency_")]
         assert dep_keys == []

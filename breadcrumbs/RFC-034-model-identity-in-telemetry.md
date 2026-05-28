@@ -30,7 +30,7 @@ This is a Phase-3 blocker: without it, the entire "data-driven placement" premis
 
 ## Alternatives considered
 
-- **Composite channel name.** Treat `kimi-k2.6-turbo` and `kimi-k2.7-turbo` as separate channels. Cheap but lies about the substrate: a "channel" is a transport (opencode subprocess, claude-code CLI), not a model. This conflation makes the per-(role, channel) table useless for the other thing it should answer ("is opencode-the-transport reliable").
+- **Composite channel name.** Treat `kimi-k2.6-turbo` and `kimi-k2.7-turbo` as separate channels. Cheap but lies about the regista: a "channel" is a transport (opencode subprocess, claude-code CLI), not a model. This conflation makes the per-(role, channel) table useless for the other thing it should answer ("is opencode-the-transport reliable").
 - **Telemetry tag, not key.** Record model as a free-form tag; aggregate by key only. Cheap but defeats the placement use case — placement *needs* to compare by model.
 
 ## Acceptance criteria
@@ -62,7 +62,7 @@ Implemented as specified. `model` is independent of `prompt_template_hash` in th
 
 **NULL-row handling:** Existing legacy rows (pre-RFC-034 events with no `model` in actor_metadata) become a distinct `model=None` bucket — *not* merged with any resolved-model bucket. The formatter emits a NOTE counting NULL rows so operators know whether the table is on the new or old basis.
 
-**Migration story:** No explicit migration. After one full golden run on the new code, NULL-model rows can be filtered out by `--exclude-null-model` if added to the CLI (deferred). Pre-RFC-034 substrate event payloads remain readable; `to_dict()` on `ActorMetadata` already supported `model`, so the wire format is unchanged.
+**Migration story:** No explicit migration. After one full golden run on the new code, NULL-model rows can be filtered out by `--exclude-null-model` if added to the CLI (deferred). Pre-RFC-034 regista event payloads remain readable; `to_dict()` on `ActorMetadata` already supported `model`, so the wire format is unchanged.
 
 **Tests:** new `tests/test_rfc034_model_in_telemetry.py` covers (a) `InvocationResult` default + explicit, (b) `compute_pass_rates` produces separate buckets for distinct models on the same channel, (c) NULL model is a distinct bucket, (d) formatter emits the model-drift warning and the partial-NULL note. All 63 telemetry-related tests pass.
 

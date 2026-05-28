@@ -7,14 +7,14 @@ None.
 ## Glossary
 
 - **DOT graph**: A plain-text graph description language consumed by Graphviz. Nodes and edges are declared with attributes for labels, colors, and shapes.
-- **event log**: The append-only table of substrate events. Each event describes a state transition, link creation, or custom field update. The primary data source for the viewer.
-- **link**: A typed, directed edge between two work items in substrate. Link types include 'depends_on', 'derived_from', 'tested_by', etc.
+- **event log**: The append-only table of regista events. Each event describes a state transition, link creation, or custom field update. The primary data source for the viewer.
+- **link**: A typed, directed edge between two work items in regista. Link types include 'depends_on', 'derived_from', 'tested_by', etc.
 - **run**: A single execution of the sf2 pipeline identified by a project name and a set of work items. The viewer produces one DOT graph per run.
-- **work item**: A unit of work in the substrate workflow engine. Has a type, state, id, and custom fields. Represented as a node in the dependency graph.
+- **work item**: A unit of work in the regista workflow engine. Has a type, state, id, and custom fields. Represented as a node in the dependency graph.
 
 ## FR-01
 
-Given a PostgreSQL DSN and a project name, the system connects to the substrate database and reads the event log for that project. Connection failures produce a structured error.
+Given a PostgreSQL DSN and a project name, the system connects to the regista database and reads the event log for that project. Connection failures produce a structured error.
 
 ## AC-DGV-01
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import StrEnum
 
 from factory.constants import (
     STATE_CANNOT_PROCEED,
@@ -12,40 +11,13 @@ from factory.constants import (
     TRANSITION_CHANNEL_FAIL,
     TRANSITION_GATE_FAIL,
     TRANSITION_GATE_PASS,
+    WORK_ITEM_TYPE_IMPLEMENTATION,
+    DiagnosticKind,
 )
 from factory.gate import GateResult
 
-
-class DiagnosticKind(StrEnum):
-    SYNTAX = "syntax"
-    STUB = "stub"
-    STRUCTURAL_SEMANTICS = "structural_semantics"
-    FILE_EXISTS = "file_exists"
-    NOT_EMPTY = "not_empty"
-    CHANNEL_FAIL = "channel_fail"
-    CANNOT_PROCEED = "cannot_proceed"
-    UNKNOWN_TYPE = "unknown_type"
-    GENERIC = "generic"
-    TEST_AC_BINDING = "test_ac_binding"
-    TEST_COLLECT = "test_collect"
-    TEST_IMPORT_FORBIDDEN = "test_import_forbidden"
-    TEST_NO_ASSERTIONS = "test_no_assertions"
-    IMPL_MYPY = "impl_mypy"
-    IMPL_PYTEST = "impl_pytest"
-    IMPL_LINT = "impl_lint"
-    IMPL_IMPORT = "impl_import"
-    CANNOT_PROCEED_SEAM = "cannot_proceed_seam"
-    MISSING_DEPENDENCY = "missing_dependency"
-    MISSING_ARTIFACT = "missing_artifact"
-    TOOL_NOT_FOUND = "tool_not_found"
-    CROSS_FAMILY_REVIEW = "cross_family_review"
-    JURY = "jury"
-    REVIEW_MALFORMED = "review_malformed"
-    REVIEW_FOUND_DEFECT = "review_found_defect"
-    INTEGRATION_IMPORT = "integration_import"
-    INTEGRATION_MYPY = "integration_mypy"
-    INTEGRATION_PYTEST = "integration_pytest"
-    OUTCOME_E2E = "outcome_e2e"
+# DiagnosticKind is re-exported from constants for backward compatibility.
+# All new code should import from factory.constants directly.
 
 
 def _classify_diagnostic(gate_result: GateResult) -> DiagnosticKind:
@@ -94,7 +66,7 @@ class RouteContext:
     kind: DiagnosticKind | None = None
 
 
-_KIND_DISPATCH = {
+KIND_DISPATCH = {
     DiagnosticKind.SYNTAX: Route(
         target_state=STATE_NEW,
     ),
@@ -169,13 +141,16 @@ _KIND_DISPATCH = {
         target_state=STATE_NEW,
         custom_fields_update={"review_feedback_pending": True},
         create_upstream_revision=True,
-        upstream_type="implementation",
+        upstream_type=WORK_ITEM_TYPE_IMPLEMENTATION,
         upstream_context_key="review_feedback",
     ),
     DiagnosticKind.JURY: Route(
         target_state=STATE_NEW,
     ),
     DiagnosticKind.INTEGRATION_IMPORT: Route(
+        target_state=STATE_NEW,
+    ),
+    DiagnosticKind.INTEGRATION_UNSAFE_PATH: Route(
         target_state=STATE_NEW,
     ),
     DiagnosticKind.INTEGRATION_MYPY: Route(
@@ -187,10 +162,13 @@ _KIND_DISPATCH = {
     DiagnosticKind.OUTCOME_E2E: Route(
         target_state=STATE_NEW,
     ),
+    DiagnosticKind.ARTIFACT_OVERSIZED: Route(
+        target_state=STATE_NEW,
+    ),
 }
 
 
-_ESCALATABLE_KINDS = {
+ESCALATABLE_KINDS = {
     DiagnosticKind.IMPL_MYPY,
     DiagnosticKind.IMPL_PYTEST,
     DiagnosticKind.IMPL_LINT,
@@ -206,6 +184,10 @@ _ESCALATABLE_KINDS = {
     DiagnosticKind.INTEGRATION_PYTEST,
     DiagnosticKind.OUTCOME_E2E,
 }
+
+# Backward-compatible aliases (BC-218: made public; private names deprecated)
+_KIND_DISPATCH = KIND_DISPATCH
+_ESCALATABLE_KINDS = ESCALATABLE_KINDS
 
 # Worker-retryable failures: these kinds originate from non-deterministic channel
 # output (mypy/pytest/lint/import errors, test binding/collect/import issues) and
@@ -261,7 +243,7 @@ class EscalationHandler(RouteHandler):
     def can_handle(self, ctx: RouteContext) -> bool:
         return (
             ctx.kind is not None
-            and ctx.kind in _ESCALATABLE_KINDS
+            and ctx.kind in ESCALATABLE_KINDS
             and ctx.attempt_number >= ctx.attempt_threshold
         )
 
@@ -287,11 +269,11 @@ class EscalationHandler(RouteHandler):
 
 class DispatchHandler(RouteHandler):
     def can_handle(self, ctx: RouteContext) -> bool:
-        return ctx.kind is not None and ctx.kind in _KIND_DISPATCH
+        return ctx.kind is not None and ctx.kind in KIND_DISPATCH
 
     def build_route(self, ctx: RouteContext) -> Route:
         gr = ctx.gate_result
-        base = _KIND_DISPATCH.get(ctx.kind, Route(target_state=STATE_NEW))
+        base = KIND_DISPATCH.get(ctx.kind, Route(target_state=STATE_NEW))
         return Route(
             target_state=base.target_state,
             diagnostics=gr.diagnostics if gr else [],

@@ -16,7 +16,7 @@ A code path is production-reliant but has no test coverage or only stub/partial 
 
 ## Systemic cause
 
-The project prioritized building the pipeline over testing it. Test coverage was added reactively (after bugs) rather than proactively. The test surface is dominated by unit tests with mock substrates; real-substrate integration tests are a small fraction. There is no coverage gate in CI.
+The project prioritized building the pipeline over testing it. Test coverage was added reactively (after bugs) rather than proactively. The test surface is dominated by unit tests with mock substrates; real-regista integration tests are a small fraction. There is no coverage gate in CI.
 
 ## Systemic fix
 
@@ -36,7 +36,7 @@ Add a coverage threshold to CI. Require new code paths to carry at least one int
 | 014  | Resume path untested at integration level |
 | 019  | Channel failure modes untested |
 | 020  | Config YAML loading untested |
-| 022  | Integration tests access substrate private API |
+| 022  | Integration tests access regista private API |
 | 029  | Test suite coverage gap closure |
 | 031  | Gate process/runner coverage stuck at 54% |
 | 064  | No automated channel adapter integration tests |

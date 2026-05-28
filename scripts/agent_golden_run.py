@@ -69,9 +69,9 @@ def _log_dir_for(log_prefix: str) -> Path:
 #     fatal threshold retained given BC-181/BC-182 coverage).
 #
 # channel_invoke_failed:
-#   Precondition: no substrate-level channel health check or retry budget that would
+#   Precondition: no regista-level channel health check or retry budget that would
 #     surface a dead channel without accumulating invoke failures in the log.
-#   Audit trigger: re-evaluate when a substrate channel-health or retry-budget
+#   Audit trigger: re-evaluate when a regista channel-health or retry-budget
 #     mechanism is implemented (no current BC; file one if channel retry logic lands).
 #   Current status: FATAL at >= 5 (see _monitor_logs); the only remaining fatal
 #     in this table as of 2026-05-17.
@@ -444,12 +444,12 @@ def _monitor_logs(
                 # and BC-182 (gate_process self-circuit-breaker), so the count
                 # guardrail here is obsolete. Warn only, never fatal.
                 # RFC-033: channel_invoke_failed fatal threshold.
-                # Precondition: no substrate-level channel health check or retry
+                # Precondition: no regista-level channel health check or retry
                 #   budget that would surface a dead/rate-limited channel without
                 #   accumulating invoke failures in the runner log. Five failures
                 #   chosen as empirical floor for distinguishing transient from
                 #   systemic channel loss (no BC covers this yet).
-                # Audit trigger: re-evaluate when a substrate channel-health or
+                # Audit trigger: re-evaluate when a regista channel-health or
                 #   model-retry-budget mechanism is implemented. If a new BC adds
                 #   structured channel-failure reporting, this count heuristic
                 #   becomes redundant.

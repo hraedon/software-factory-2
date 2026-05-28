@@ -35,7 +35,7 @@ Without (1), there is no operational answer to "did adding channel Z improve the
 ## Open questions
 
 1. Does this depend on RFC-034 (model identity in telemetry)? **Yes** — without resolved model strings, "channel Y is best" is conflated with "model snapshot Y was on the day this data was collected."
-2. Should `Placement.propose` consume `runs/` artifacts directly or read from substrate? **Substrate.** Single source of truth; `runs/` is for human inspection.
+2. Should `Placement.propose` consume `runs/` artifacts directly or read from regista? **Regista.** Single source of truth; `runs/` is for human inspection.
 3. How does this interact with the principal-review-surface (RFC-026)? Placement diffs should be a first-class object in that surface.
 
 ## Acceptance criteria

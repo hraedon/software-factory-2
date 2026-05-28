@@ -11,13 +11,11 @@ from typing import NamedTuple
 
 from factory.config import GateTimeouts
 from factory.constants import (
-    ARTIFACT_FILENAME_INTERFACE,
     INNER_GATE_RUFF_IGNORE,
     INNER_GATE_RUFF_SELECT,
     INNER_GATE_RUFF_UNSAFE_FIXES,
     TEMPFILE_PREFIX_COLLECT,
     TEMPFILE_PREFIX_MYPY,
-    TEMPFILE_PREFIX_PYTEST,
 )
 from factory.sandbox import gate_subprocess_env
 from factory.subprocess import run as run_subprocess
@@ -1097,51 +1095,19 @@ def _run_pytest_fast(
     test_suite_path: Path | None = None,
     timeout: int = 300,
 ) -> dict:
-    import tempfile
-
     if test_suite_path is None or not test_suite_path.exists():
         return {"passed": True, "diagnostics": []}
 
-    exe = python_executable or sys.executable
-    try:
-        with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_PYTEST) as tmpdir:
-            impl_content = artifact_path.read_text()
-            impl_copy = Path(tmpdir) / artifact_path.name
-            impl_copy.write_text(impl_content)
-            if artifact_path.stem != ARTIFACT_FILENAME_INTERFACE:
-                iface_copy = Path(tmpdir) / f"interface{artifact_path.suffix}"
-                iface_copy.write_text(impl_content)
-            if interface_pyi_path is not None and interface_pyi_path.exists():
-                stub_copy = Path(tmpdir) / "interface.pyi"
-                stub_copy.write_text(interface_pyi_path.read_text())
-            test_copy = Path(tmpdir) / test_suite_path.name
-            test_copy.write_text(test_suite_path.read_text())
-            copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
-            result = run_subprocess(
-                cmd=[
-                    exe,
-                    "-m",
-                    "pytest",
-                    str(test_copy),
-                    "-x",
-                    "--tb=short",
-                    "-q",
-                ],
-                cwd=Path(tmpdir),
-                env=gate_subprocess_env(PYTHONPATH=tmpdir),
-                timeout_s=timeout,
-            )
-            if result.timed_out:
-                return _fail([f"pytest timed out after {timeout}s"])
-            if result.returncode != 0:
-                if "No module named pytest" in result.stderr:
-                    return _fail(["pytest not installed"])
-                lines = result.stdout.strip().splitlines()
-                err_lines = result.stderr.strip().splitlines()
-                combined = lines + err_lines
-                diags = combined[-3:] if combined else ["pytest reported failures"]
-                raw = _truncate_raw_output(result.stdout + "\n" + result.stderr)
-                return _fail(diags, raw)
-    except Exception as e:
-        return _fail([f"pytest invocation failed: {e}"])
-    return _ok()
+    from factory.gate._subprocess import _run_pytest
+
+    result = _run_pytest(
+        artifact_path=artifact_path,
+        test_suite_path=test_suite_path,
+        dependency_pyi_paths=dependency_pyi_paths,
+        dependency_spec_paths=dependency_spec_paths,
+        python_executable=python_executable,
+        timeout=timeout,
+        interface_pyi_path=interface_pyi_path,
+    )
+    diagnostics = list(result.diagnostics)
+    return {"passed": result.passed, "diagnostics": diagnostics, "raw_output": ""}

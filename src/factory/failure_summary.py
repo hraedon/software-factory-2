@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from substrate import Substrate
+from regista import Regista
 
 from factory.constants import (
     GATE_NAME_UNKNOWN,
@@ -29,8 +29,8 @@ class FailureEntry:
     gate_output: str = ""
 
 
-def derive_failures(substrate: Substrate, work_item_id: str) -> list[FailureEntry]:
-    events = substrate.read_events(work_item_id=work_item_id, limit=1000)
+def derive_failures(regista: Regista, work_item_id: str) -> list[FailureEntry]:
+    events = regista.read_events(work_item_id=work_item_id, limit=1000)
     failures: list[FailureEntry] = []
     for event in events:
         if event.transition in (TRANSITION_GATE_FAIL, TRANSITION_GATE_ESCALATION):
@@ -53,6 +53,7 @@ def derive_failures(substrate: Substrate, work_item_id: str) -> list[FailureEntr
                     failure_type=event.transition,
                     gate_name=gate_name,
                     diagnostic=_extract_diagnostic_message(event),
+                    gate_output=_extract_gate_output(event),
                     actor_metadata=meta,
                 )
             )
@@ -92,6 +93,8 @@ def failures_to_json(failures: list[FailureEntry]) -> str:
         }
         if f.failure_type in (TRANSITION_GATE_FAIL, TRANSITION_GATE_ESCALATION):
             d.update(gate_name=f.gate_name, diagnostic=f.diagnostic)
+            if f.gate_output:
+                d["gate_output"] = f.gate_output
         elif f.failure_type == TRANSITION_CHANNEL_FAIL:
             d.update(error_message=f.error_message, timed_out=f.timed_out)
             if f.exit_code is not None:
@@ -107,4 +110,13 @@ def _attempt_from_meta(meta: dict) -> int:
 def _extract_diagnostic_message(event) -> str:
     payload = event.payload or {}
     diagnostics = payload.get("diagnostics", {})
+    return diagnostics.get("message", "")
+
+
+def _extract_gate_output(event) -> str:
+    payload = event.payload or {}
+    diagnostics = payload.get("diagnostics", {})
+    messages = diagnostics.get("messages")
+    if isinstance(messages, list):
+        return "\n".join(str(m) for m in messages)
     return diagnostics.get("message", "")

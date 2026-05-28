@@ -17,14 +17,14 @@
 
 Given a parsed log line and a loaded ruleset, the system evaluates rules in order. For each matching rule, it applies the configured replacement to the matched field(s) and records an audit entry.
 
-## AC-LOG-04
+## AC-01: Mask replacement redacts email field
 
 Given a log line with field 'email' and a rule matching 'email' with replacement_type='mask', apply_rules replaces the email value with '[REDACTED]'
 
-## AC-LOG-05
+## AC-02: Hash replacement produces SHA-256 hex
 
 Given a log line with field 'ssn' and a rule matching 'ssn' with replacement_type='hash', apply_rules replaces the ssn value with the SHA-256 hex digest of the original value
 
-## AC-LOG-06
+## AC-03: First matching rule wins per field
 
 Given two rules where both match field 'message', apply_rules applies only the first matching rule and records a single audit entry

@@ -4,7 +4,11 @@ import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from factory.constants import GATE_NAME_ARTIFACT_OVERSIZED, MAX_ARTIFACT_SIZE_BYTES
+from factory.constants import (
+    GATE_NAME_ARTIFACT_OVERSIZED,
+    MAX_ARTIFACT_SIZE_BYTES,
+    DiagnosticKind,
+)
 
 
 @dataclass(frozen=True)
@@ -13,7 +17,7 @@ class GateResult:
     gate_name: str
     diagnostics: list[str] = field(default_factory=list)
     artifact_valid: bool = True
-    diagnostic_kind: str = ""
+    diagnostic_kind: DiagnosticKind | str = ""
     skipped: bool = False
     transition_fields: dict = field(default_factory=dict)
     """Custom fields to merge into the current work item's transition payload."""
@@ -55,6 +59,6 @@ def _guard_artifact_size(artifact_path: Path) -> GateResult | None:
                 f"Artifact size {size} bytes exceeds gate limit {MAX_ARTIFACT_SIZE_BYTES} bytes"
             ],
             artifact_valid=False,
-            diagnostic_kind="artifact_oversized",
+            diagnostic_kind=DiagnosticKind.ARTIFACT_OVERSIZED,
         )
     return None

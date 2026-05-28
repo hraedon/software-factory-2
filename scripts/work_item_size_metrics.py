@@ -9,7 +9,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
-from substrate import Substrate
+from regista import Regista
 
 from factory.config import FactoryConfig, load_config
 from factory.constants import (
@@ -73,7 +73,7 @@ def _word_count(text: str) -> int:
     return len(text.split())
 
 
-def _count_dep_lines(sub: Substrate, dep_refs: list[str]) -> tuple[int, int]:
+def _count_dep_lines(sub: Regista, dep_refs: list[str]) -> tuple[int, int]:
     if not dep_refs:
         return 0, 0
     dep_count = 0
@@ -96,7 +96,7 @@ def _count_dep_lines(sub: Substrate, dep_refs: list[str]) -> tuple[int, int]:
     return dep_count, total_lines
 
 
-def _get_gate_events(sub: Substrate, work_item_id: str, event_limit: int) -> list[dict]:
+def _get_gate_events(sub: Regista, work_item_id: str, event_limit: int) -> list[dict]:
     events = sub.read_events(work_item_id=work_item_id, limit=event_limit)
     gate_events = []
     for ev in events:
@@ -191,7 +191,7 @@ def extract_size_rows(
     gr_id: str,
     runner_log_path: str | None = None,
 ) -> list[SizeRow]:
-    sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
+    sub = Regista(config.dsn, config.project_name, config.hmac_key_path)
     try:
         page = sub.query_work_items(
             workflow_name=config.workflow_name,

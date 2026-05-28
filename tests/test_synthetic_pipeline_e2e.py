@@ -19,7 +19,7 @@ What this intentionally does NOT cover
   outcome_verifier).  Those are exercised by ``test_pipeline_smoke.py``.
 - Real model channels (Claude Code, OpenCode, Gemini).  A FakeChannel is used
   throughout.
-- PostgreSQL-backed Substrate.  InMemorySubstrate is used throughout.
+- PostgreSQL-backed Regista.  InMemoryRegista is used throughout.
 - Inner-gate retry loops (``inner_gate_retries > 0`` requires real pre-gate
   tooling; retries are disabled here via ``inner_gate_retries=0``).
 - Concurrent scheduler races or multi-process dedup.
@@ -37,7 +37,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from substrate.testing import InMemorySubstrate
+from regista.testing import InMemoryRegista
 
 from factory.channel import InvocationResult
 from factory.config import FactoryConfig, StageHandoff
@@ -102,14 +102,14 @@ class _BadChannel:
 
 
 # ---------------------------------------------------------------------------
-# Fixture: an InMemorySubstrate wired to the phase2 workflow, with all
+# Fixture: an InMemoryRegista wired to the phase2 workflow, with all
 # actors pre-registered.
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture()
-def e2e_substrate():
-    sub = InMemorySubstrate()
+def e2e_regista():
+    sub = InMemoryRegista()
     sub.register_workflow_file(WORKFLOW_PATH)
     sub.register_actor_role("worker-fake", "interface_architect")
     sub.register_actor_role("gate-fake", "mechanical_gate")
@@ -157,7 +157,7 @@ def _create_and_claim_iface(sub, config, actor_id="worker-fake"):
 
 class TestSyntheticPipelineE2E:
     def test_happy_path_gate_pass_routes_to_locked_and_schedules_downstream(
-        self, e2e_substrate, e2e_config
+        self, e2e_regista, e2e_config
     ):
         """Happy path: gate passes → work item reaches 'locked' → scheduler creates test_suite.
 
@@ -165,7 +165,7 @@ class TestSyntheticPipelineE2E:
           claim → model invoke → submit → gate evaluate → gate_pass →
           locked → _ensure_downstream_item → test_suite created in 'new'
         """
-        sub = e2e_substrate
+        sub = e2e_regista
         config = e2e_config
         wi, claim = _create_and_claim_iface(sub, config)
 
@@ -220,7 +220,7 @@ class TestSyntheticPipelineE2E:
         )
 
     def test_failure_path_gate_fail_routes_back_to_new_no_downstream(
-        self, e2e_substrate, e2e_config
+        self, e2e_regista, e2e_config
     ):
         """Failure path: gate fails → work item returns to 'new' → no test_suite created.
 
@@ -229,7 +229,7 @@ class TestSyntheticPipelineE2E:
           gate_fail → 'new' (diagnostic_kind='not_empty') →
           _ensure_downstream_item is a no-op because source is not 'locked'
         """
-        sub = e2e_substrate
+        sub = e2e_regista
         config = e2e_config
         wi, claim = _create_and_claim_iface(sub, config)
 

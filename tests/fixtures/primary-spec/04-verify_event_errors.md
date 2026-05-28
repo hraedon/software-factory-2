@@ -1,7 +1,7 @@
 # verify_event — Error Taxonomy
 
 ## Source
-substrate spec §5, FR-15
+regista spec §5, FR-15
 
 ## Spec excerpt
 

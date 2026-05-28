@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from factory.channel import Channel
+from factory.constants import ROLE_CROSS_FAMILY_REVIEWER
 from factory.output_extraction import extract_json_from_output
 
 
@@ -58,7 +59,7 @@ def run_review(
     timeout: int,
 ) -> ReviewResult:
     """Invoke a single cross-family reviewer channel and parse structured output."""
-    result = channel.invoke("cross_family_reviewer", prompt, outputs_dir, timeout)
+    result = channel.invoke(ROLE_CROSS_FAMILY_REVIEWER, prompt, outputs_dir, timeout)
     if not result.success:
         return ReviewResult(
             passed=False,

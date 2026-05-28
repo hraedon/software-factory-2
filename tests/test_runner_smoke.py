@@ -56,9 +56,9 @@ class FakeChannel:
 
 @pytest.mark.integration
 class TestRunnerSmoke:
-    def test_full_loop_with_mock_channel(self, substrate, workspace_root, tmp_path, factory_config):
+    def test_full_loop_with_mock_channel(self, regista, workspace_root, tmp_path, factory_config):
         # 1. Create work-item in 'new' state
-        wi, _ = substrate.create_work_item(
+        wi, _ = regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -67,11 +67,11 @@ class TestRunnerSmoke:
                 "ac_ids": ["AC-01"],
             },
         )
-        substrate.register_actor_role("test-worker", "interface_architect")
+        regista.register_actor_role("test-worker", "interface_architect")
 
         # 2. Acquire claim and move to 'in_progress'
-        claim = substrate.acquire_claim(wi.work_item_id, "test-worker", ttl_seconds=300)
-        substrate.transition(
+        claim = regista.acquire_claim(wi.work_item_id, "test-worker", ttl_seconds=300)
+        regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker",
@@ -81,7 +81,7 @@ class TestRunnerSmoke:
         # 3. Run worker process step
         fake_channel = FakeChannel(ac_ids=["AC-01"])
         runtime = PipelineRuntime(
-            sub=substrate, config=factory_config, spec_content="Test section", channel=fake_channel
+            sub=regista, config=factory_config, spec_content="Test section", channel=fake_channel
         )
         process_work_item(
             runtime,
@@ -92,7 +92,7 @@ class TestRunnerSmoke:
         )
 
         # 4. Verify item is in 'gating'
-        updated = substrate.get_work_item(wi.work_item_id)
+        updated = regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "gating"
 
         # 5. Verify artifact written
@@ -108,14 +108,14 @@ class TestRunnerSmoke:
         assert (ad / "manifest.json").exists()
 
         # 6. Run gate process step (use fresh work-item state)
-        substrate.register_actor_role("test-gate", "mechanical_gate")
-        gate_claim = substrate.acquire_claim(wi.work_item_id, "test-gate", ttl_seconds=300)
-        fresh = substrate.get_work_item(wi.work_item_id)
-        gate_runtime = PipelineRuntime(sub=substrate, config=factory_config)
+        regista.register_actor_role("test-gate", "mechanical_gate")
+        gate_claim = regista.acquire_claim(wi.work_item_id, "test-gate", ttl_seconds=300)
+        fresh = regista.get_work_item(wi.work_item_id)
+        gate_runtime = PipelineRuntime(sub=regista, config=factory_config)
         process_gate_item(gate_runtime, fresh, "test-gate", gate_claim)
 
         # 7. Verify item is in 'locked'
-        final = substrate.get_work_item(wi.work_item_id)
+        final = regista.get_work_item(wi.work_item_id)
         assert final.current_state == "locked"
 
     def test_workspace_artifacts_written(self, workspace_root, tmp_path):
@@ -140,11 +140,11 @@ class TestRunnerSmoke:
         assert num == 1
         assert found_manifest.artifact_sha256 == sha
 
-    def test_prompt_rendering_includes_spec_and_acs(self, substrate, workspace_root):
+    def test_prompt_rendering_includes_spec_and_acs(self, regista, workspace_root):
         """Ensure the rendered prompt contains spec_section text and AC IDs."""
         from factory.context import derive_context, render_prompt
 
-        wi, _ = substrate.create_work_item(
+        wi, _ = regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -153,7 +153,7 @@ class TestRunnerSmoke:
                 "ac_ids": ["AC-01", "AC-02"],
             },
         )
-        ctx = derive_context(substrate, wi.work_item_id, "interface_architect")
+        ctx = derive_context(regista, wi.work_item_id, "interface_architect")
         prompt = render_prompt(ctx)
 
         assert "Parse a date range given a today anchor." in prompt
@@ -165,8 +165,8 @@ class TestRunnerSmoke:
 
 
 class TestWorkerLoopClaimTransition:
-    def test_claim_event_recorded_in_mock_substrate(self, mock_substrate, workspace_root):
-        wi, _ = mock_substrate.create_work_item(
+    def test_claim_event_recorded_in_mock_regista(self, mock_regista, workspace_root):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -181,25 +181,25 @@ class TestWorkerLoopClaimTransition:
             claim_ttl_seconds=60,
         )
         fake_channel = FakeChannel(ac_ids=["AC-01"])
-        mock_substrate.register_actor_role("factory-worker-fake", "interface_architect")
+        mock_regista.register_actor_role("factory-worker-fake", "interface_architect")
 
         def _run_loop_once():
             for role_name in config.worker_roles:
                 try:
-                    mock_substrate.register_actor_role("factory-worker-fake", role_name)
+                    mock_regista.register_actor_role("factory-worker-fake", role_name)
                 except Exception:
                     pass
-            page = mock_substrate.query_work_items(
+            page = mock_regista.query_work_items(
                 workflow_name=config.workflow_name,
                 current_states=["new"],
                 claimable_now=True,
                 page_size=10,
             )
             for item in page.items:
-                claim = mock_substrate.acquire_claim(
+                claim = mock_regista.acquire_claim(
                     item.work_item_id, "factory-worker-fake", config.claim_ttl_seconds
                 )
-                mock_substrate.transition(
+                mock_regista.transition(
                     item.work_item_id,
                     "claim",
                     "factory-worker-fake",
@@ -211,7 +211,7 @@ class TestWorkerLoopClaimTransition:
                 )
                 process_work_item(
                     PipelineRuntime(
-                        sub=mock_substrate,
+                        sub=mock_regista,
                         config=config,
                         spec_content="Test spec for claim transition.",
                         channel=fake_channel,
@@ -225,16 +225,16 @@ class TestWorkerLoopClaimTransition:
 
         _run_loop_once()
 
-        all_events = mock_substrate.read_events(work_item_id=wi.work_item_id)
+        all_events = mock_regista.read_events(work_item_id=wi.work_item_id)
         events = events_by_transition(all_events, "claim")
         assert len(events) == 1
         assert events[0].transition == "claim"
 
-        updated = mock_substrate.get_work_item(wi.work_item_id)
+        updated = mock_regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "gating"
 
-    def test_worker_loop_sets_in_progress_state(self, mock_substrate, workspace_root):
-        wi, _ = mock_substrate.create_work_item(
+    def test_worker_loop_sets_in_progress_state(self, mock_regista, workspace_root):
+        wi, _ = mock_regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -249,12 +249,12 @@ class TestWorkerLoopClaimTransition:
             claim_ttl_seconds=60,
         )
         fake_channel = FakeChannel(ac_ids=["AC-02"])
-        mock_substrate.register_actor_role("factory-worker-fake", "interface_architect")
+        mock_regista.register_actor_role("factory-worker-fake", "interface_architect")
 
-        claim = mock_substrate.acquire_claim(
+        claim = mock_regista.acquire_claim(
             wi.work_item_id, "factory-worker-fake", config.claim_ttl_seconds
         )
-        mock_substrate.transition(
+        mock_regista.transition(
             wi.work_item_id,
             "claim",
             "factory-worker-fake",
@@ -265,12 +265,12 @@ class TestWorkerLoopClaimTransition:
             },
         )
 
-        in_progress = mock_substrate.get_work_item(wi.work_item_id)
+        in_progress = mock_regista.get_work_item(wi.work_item_id)
         assert in_progress.current_state == "in_progress"
 
         process_work_item(
             PipelineRuntime(
-                sub=mock_substrate,
+                sub=mock_regista,
                 config=config,
                 spec_content="Another test spec.",
                 channel=fake_channel,
@@ -281,14 +281,14 @@ class TestWorkerLoopClaimTransition:
             "interface_architect",
         )
 
-        submitted = mock_substrate.get_work_item(wi.work_item_id)
+        submitted = mock_regista.get_work_item(wi.work_item_id)
         assert submitted.current_state == "gating"
 
 
 @pytest.mark.integration
 class TestWorkerLoopClaimTransitionLive:
-    def test_claim_transition_on_live_substrate(self, substrate, workspace_root):
-        wi, _ = substrate.create_work_item(
+    def test_claim_transition_on_live_regista(self, regista, workspace_root):
+        wi, _ = regista.create_work_item(
             workflow_name="software_factory",
             work_item_type="interface_spec",
             actor_id="test-creator",
@@ -297,19 +297,19 @@ class TestWorkerLoopClaimTransitionLive:
                 "ac_ids": ["AC-01"],
             },
         )
-        substrate.register_actor_role("test-worker-claim", "interface_architect")
-        substrate.acquire_claim(wi.work_item_id, "test-worker-claim", ttl_seconds=300)
-        substrate.transition(
+        regista.register_actor_role("test-worker-claim", "interface_architect")
+        regista.acquire_claim(wi.work_item_id, "test-worker-claim", ttl_seconds=300)
+        regista.transition(
             wi.work_item_id,
             "claim",
             "test-worker-claim",
             actor_metadata={"role": "interface_architect"},
         )
 
-        updated = substrate.get_work_item(wi.work_item_id)
+        updated = regista.get_work_item(wi.work_item_id)
         assert updated.current_state == "in_progress"
 
-        all_events = substrate.read_events(work_item_id=wi.work_item_id)
+        all_events = regista.read_events(work_item_id=wi.work_item_id)
         events = events_by_transition(all_events, "claim")
         assert len(events) >= 1
         assert events[-1].transition == "claim"

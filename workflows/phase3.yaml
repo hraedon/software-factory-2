@@ -1,4 +1,4 @@
 name: software_factory
 version: 3
-substrate_version: "0.1.0"
+regista_version: "0.1.0"
 extends: ./phase2.yaml

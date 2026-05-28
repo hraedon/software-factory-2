@@ -12,7 +12,7 @@ related: ["002", "006"]
 
 ## Problem
 
-The three integration test classes (`TestRunnerSmoke`, `TestGateProcessIntegration`) don't actually exercise the runner or gate process functions. They create substrate work items and then assert trivially true conditions without calling `process_work_item()` or `process_gate_item()`.
+The three integration test classes (`TestRunnerSmoke`, `TestGateProcessIntegration`) don't actually exercise the runner or gate process functions. They create regista work items and then assert trivially true conditions without calling `process_work_item()` or `process_gate_item()`.
 
 ### `TestRunnerSmoke.test_full_loop_with_mock_channel`
 

@@ -16,10 +16,10 @@
 
 Given redaction actions performed during a run, the system emits an audit JSONL stream to a configurable audit file path. Each entry describes what was redacted: line number, rule id, field name, replacement type.
 
-## AC-LOG-08
+## AC-01: Audit stream has one line per redaction
 
 Given redaction actions from a run, emit_audit writes one JSONL line per action containing line_number, rule_id, field_name, and replacement_type
 
-## AC-LOG-09
+## AC-02: Zero redactions emit header only
 
 Given a run with no redactions, emit_audit writes a single header line with action='run_start' but no redaction entries

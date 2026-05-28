@@ -62,6 +62,7 @@ def _invoke_juror(
     """
     ch_outputs = outputs_dir / ch_name
     ch_outputs.mkdir(parents=True, exist_ok=True)
+    fb_outputs = ch_outputs
     result = channel.invoke(
         "frontier_judge",
         prompt,

@@ -88,7 +88,7 @@ In `_run_import_check` (or its consumer in the inner-gate loop), when the subpro
 
 ## Phase placement
 
-Phase 3 (current). Pure runner/prompt change — no new gate stage, no new substrate transition, no new channel adapter.
+Phase 3 (current). Pure runner/prompt change — no new gate stage, no new regista transition, no new channel adapter.
 
 ## Validation criteria
 

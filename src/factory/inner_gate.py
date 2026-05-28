@@ -5,12 +5,13 @@ import time
 from pathlib import Path
 
 import structlog
-from substrate import ActorMetadata, Substrate
+from regista import ActorMetadata, Regista
 
 from factory.channel import Channel
 from factory.config import FactoryConfig, GateTimeouts
 from factory.constants import (
     ARTIFACT_FILENAME_CANNOT_PROCEED,
+    CANNOT_PROCEED_SIGNAL,
     CUSTOM_FIELD_INTERFACE_REF,
     CUSTOM_FIELD_TEST_SUITE_REF,
     GATE_NAME_INNER_COLLECT,
@@ -34,6 +35,13 @@ from factory.pre_gate import GateScope, PreGateDeps, PreGateResult
 from factory.runtime import PipelineRuntime
 
 log = structlog.get_logger()
+
+
+def _safe_json_parse(data: bytes) -> object:
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, ValueError):
+        return {"raw": data.decode("utf-8", errors="replace")[:1000]}
 
 
 def _should_failover(invoke_result) -> bool:
@@ -72,7 +80,7 @@ def _should_failover(invoke_result) -> bool:
     return False
 
 
-def _resolve_pre_gate_deps(sub: Substrate, wi, config: FactoryConfig) -> PreGateDeps:
+def _resolve_pre_gate_deps(sub: Regista, wi, config: FactoryConfig) -> PreGateDeps:
     from factory.gate_process import _resolve_dependency_refs, _resolve_ref_artifact
 
     custom = wi.custom_fields or {}
@@ -123,7 +131,7 @@ def _build_export_map(
 
 
 def _handle_invoke_failure(
-    sub: Substrate,
+    sub: Regista,
     wi,
     ad: Path,
     invoke_result,
@@ -138,7 +146,7 @@ def _handle_invoke_failure(
     fallback_model: str | None = None,
 ) -> None:
     work_item_id = wi.work_item_id
-    if invoke_result.error_message == "cannot_proceed":
+    if invoke_result.error_message == CANNOT_PROCEED_SIGNAL:
         cp_path = ad / ARTIFACT_FILENAME_CANNOT_PROCEED
         if cp_path.exists():
             cp_data = cp_path.read_bytes()
@@ -155,7 +163,7 @@ def _handle_invoke_failure(
                     prompt_template_hash=ctx.prompt_template_hash,
                 ).to_dict(),
                 custom_fields={
-                    "diagnostics": json.loads(cp_data),
+                    "diagnostics": _safe_json_parse(cp_data),
                 },
                 event_id=make_event_id(
                     work_item_id,

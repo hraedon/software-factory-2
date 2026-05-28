@@ -1,6 +1,6 @@
 ---
 number: "029"
-title: Test suite coverage gap closure — runner unit, IO failure, config malformed, prompt rendering, substrate coupling
+title: Test suite coverage gap closure — runner unit, IO failure, config malformed, prompt rendering, regista coupling
 severity: medium
 status: implemented
 kind: improvement
@@ -20,7 +20,7 @@ Test suite analysis (2026-05-07 session) identified eight coverage and maintaina
 4. `FactoryConfig.from_yaml` missing malformed-input tests (bad YAML, wrong types)
 5. `test_workspace.py` and `test_runner_idempotency.py` duplicated `_make_manifest` helper
 6. Workspace `write_artifact` / `quarantine_attempt` IO failure modes untested
-7. Substrate private-API imports (`substrate._types`, `substrate.testing`) had no early-failure smoke test
+7. Regista private-API imports (`regista._types`, `regista.testing`) had no early-failure smoke test
 8. `pytest-cov` not configured; no coverage threshold or reporting
 
 ## Resolution

@@ -34,7 +34,7 @@ The current gate process is environment-coupled. A test suite that imports `pyda
 
 ### Why not the factory venv
 
-The factory venv contains substrate, psycopg, structlog, and other dependencies the generated code should not import. Running generated code in the factory venv is a sandbox violation. It also means generated projects can accidentally depend on factory-internal packages without declaring them.
+The factory venv contains regista, psycopg, structlog, and other dependencies the generated code should not import. Running generated code in the factory venv is a sandbox violation. It also means generated projects can accidentally depend on factory-internal packages without declaring them.
 
 ### Relationship to BC-059
 

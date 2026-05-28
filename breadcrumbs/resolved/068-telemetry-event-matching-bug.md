@@ -24,7 +24,7 @@ The event-matching logic pairs `submit` events with subsequent `gate_pass`/`gate
 
 - **Fleet-placement decisions are data-blind.** Phase 3 role-to-channel binding depends on per-(role, channel, gate) pass rates. If gate names are unknown, the table collapses into a single bucket and cannot discriminate "mypy failures on K2" from "pytest failures on Claude."
 - **Golden-run evaluation is misleading.** The 0% first-attempt rate suggests every item failed its first attempt, even when GR004/005 show 80–90% first-attempt success.
-- **The bug is latent in unit tests.** `test_telemetry.py` exercises synthetic event streams but does not assert that real substrate event shapes (from `ActorMetadata.to_dict()` and gate payload structure) produce non-unknown gate names.
+- **The bug is latent in unit tests.** `test_telemetry.py` exercises synthetic event streams but does not assert that real regista event shapes (from `ActorMetadata.to_dict()` and gate payload structure) produce non-unknown gate names.
 
 ## Likely causes
 
@@ -37,7 +37,7 @@ The event-matching logic pairs `submit` events with subsequent `gate_pass`/`gate
 1. Add `gate_name` to the gate actor metadata in `gate_process.py` so every gate event self-describes which gate evaluated the artifact.
 2. Update `telemetry.collect_gate_attempts()` to read `gate_name` from actor_metadata first, then payload, then custom_fields, with explicit logging when none is found.
 3. Add a telemetry data-quality test that replays a golden-run event subset and asserts zero `"unknown"` gate names and non-zero first-attempt pass rates.
-4. Optionally: add a `telemetry --verify` CLI mode that reads the live substrate and reports data-quality stats (unknown-rate, orphan submit events, unmatched gate events).
+4. Optionally: add a `telemetry --verify` CLI mode that reads the live regista and reports data-quality stats (unknown-rate, orphan submit events, unmatched gate events).
 
 ## Related v1 lesson
 

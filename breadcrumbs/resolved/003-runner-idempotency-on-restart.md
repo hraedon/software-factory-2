@@ -12,7 +12,7 @@ related: ["002"]
 
 ## Decision Required
 
-When the runner crashes after a channel produces an artifact but before the corresponding `submit` transition is written to substrate, what happens on restart?
+When the runner crashes after a channel produces an artifact but before the corresponding `submit` transition is written to regista, what happens on restart?
 
 This is a load-bearing correctness question for the runner. Without a decision, Phase 1 code will diverge across implementations.
 
@@ -24,13 +24,13 @@ This is a load-bearing correctness question for the runner. Without a decision, 
 
 ### 1. Attempt-number / directory mapping (was internally inconsistent)
 
-**Original (wrong):** The mechanics had attempt 2's claim reusing directory `1/`, but the spec amendment asserted "each substrate attempt_number maps to exactly one attempt directory." These contradicted each other.
+**Original (wrong):** The mechanics had attempt 2's claim reusing directory `1/`, but the spec amendment asserted "each regista attempt_number maps to exactly one attempt directory." These contradicted each other.
 
 **Corrected:** Option (a) — resume reuses the directory from the earlier attempt. The invariant is rewritten:
 
-> "Each attempt directory maps to the substrate attempt that produced it; later attempts may resume from earlier directories."
+> "Each attempt directory maps to the regista attempt that produced it; later attempts may resume from earlier directories."
 
-Attempt 2's claim event is substrate state. The filesystem state (artifact in `attempt-001/`) is substrate state from attempt 1. They are linked by the manifest, not by directory naming.
+Attempt 2's claim event is regista state. The filesystem state (artifact in `attempt-001/`) is regista state from attempt 1. They are linked by the manifest, not by directory naming.
 
 This preserves the audit trail (artifact in `attempt-001/` is exactly what attempt 1's channel invocation produced) without burning directories or re-invoking.
 
@@ -39,10 +39,10 @@ This preserves the audit trail (artifact in `attempt-001/` is exactly what attem
 **Original (wrong):** "W is in `new` (no submit was recorded)."
 
 **Corrected:** W is in `in_progress`. The original `claim` transition moved it from `new → in_progress`. The crash means the `submit` was never written. W stays in `in_progress` until:
-- The claim's TTL expires and substrate's `sweep_expired_claims` (per BC-006) moves it back to `new`, OR
+- The claim's TTL expires and regista's `sweep_expired_claims` (per BC-006) moves it back to `new`, OR
 - An operator force-expires the claim.
 
-This is a real wall-clock delay (default TTL in substrate is claim-configurable, default 5 minutes). The runner cannot restart and immediately reclaim W. It must either:
+This is a real wall-clock delay (default TTL in regista is claim-configurable, default 5 minutes). The runner cannot restart and immediately reclaim W. It must either:
 - Wait out the TTL (normal ops), or
 - Be restarted with a force-expire flag (operator intervention).
 
@@ -86,7 +86,7 @@ This preserves per-(role, channel) pass-rate telemetry (spec §7). A Claude-prod
 
 Spec §9.11 uses the template `.factory/work/<work_item_id>/<attempt_id>/<artifact_name>`.
 
-This breadcrumb uses `attempt-NNNN` for directory names (zero-padded, 4 digits). `attempt_id` in the spec and `attempt_number` from substrate are the same thing, zero-padded for filesystem sorting. No ambiguity.
+This breadcrumb uses `attempt-NNNN` for directory names (zero-padded, 4 digits). `attempt_id` in the spec and `attempt_number` from regista are the same thing, zero-padded for filesystem sorting. No ambiguity.
 
 **Path examples:**
 - `.factory/work/wi-7f3a/attempt-0001/artifact.pyi`
@@ -95,11 +95,11 @@ This breadcrumb uses `attempt-NNNN` for directory names (zero-padded, 4 digits).
 
 ### Happy path (no crash)
 
-1. Runner claims work-item W (substrate attempt 1).
+1. Runner claims work-item W (regista attempt 1).
 2. Runner derives context, invokes channel adapter.
 3. Channel adapter writes artifact to `.factory/work/W/attempt-0001/artifact.pyi`.
 4. Runner computes manifest hash, writes `.factory/work/W/attempt-0001/manifest.json` (atomically via temp+rename).
-5. Runner calls `submit` on substrate; work-item transitions `in_progress → gating`.
+5. Runner calls `submit` on regista; work-item transitions `in_progress → gating`.
    - `submit` event actor metadata: `actor_id`, `channel`, `channel_family`, `model` from manifest.
 6. Mechanical gate claims W, evaluates artifact, transitions `gating → locked` (or `new`).
 
@@ -107,9 +107,9 @@ This breadcrumb uses `attempt-NNNN` for directory names (zero-padded, 4 digits).
 
 On restart:
 
-1. Runner polls substrate for claimable work-items in `new` or after TTL expiry.
+1. Runner polls regista for claimable work-items in `new` or after TTL expiry.
 2. W may still be in `in_progress` (claim not expired). Runner waits or operator force-expires.
-3. Once W returns to `new`, runner claims W again (substrate attempt 2).
+3. Once W returns to `new`, runner claims W again (regista attempt 2).
 4. Before invoking channel, runner calls `find_resumable_artifact(W)`.
 5. `find_resumable_artifact` scans `.factory/work/W/attempt-*/manifest.json`, returns the highest-numbered valid manifest.
 6. **If valid manifest found:** Runner reads the artifact path from manifest. Skips channel invocation. Proceeds directly to `submit` with the existing artifact path and manifest hash. `submit` event carries original attempt's actor metadata from manifest.
@@ -145,18 +145,18 @@ The manifest is written atomically (rename over temp file). A partial manifest i
 
 Only "manifest present + hash matches content" resumes.
 
-### Substrate contract
+### Regista contract
 
-The runner does NOT rely on substrate for artifact storage. Substrate stores the event log and custom fields (`artifact_path`, `artifact_hash`). The runner stores the bytes. On re-claim, the runner bridges the two by checking: "does the filesystem state for the highest prior attempt match what a valid manifest claims?"
+The runner does NOT rely on regista for artifact storage. Regista stores the event log and custom fields (`artifact_path`, `artifact_hash`). The runner stores the bytes. On re-claim, the runner bridges the two by checking: "does the filesystem state for the highest prior attempt match what a valid manifest claims?"
 
 ## Spec amendment (corrected)
 
 Add §9.12 to `spec.md`:
 
 > ### 9.12 Runner idempotency on restart
-> The runner must be safe to restart at any point. On re-claiming a work-item, the runner scans all prior attempt directories for a valid manifest. If a valid manifest is found (SHA-256 matches artifact on disk), the runner resumes from the highest-numbered valid attempt without re-invoking the channel. The `submit` event carries the original attempt's actor metadata (`channel`, `model`, `family`) from the manifest. If no valid manifest is found, all prior attempt directories are quarantined (renamed to `.corrupt/attempt-NNNN-YYYYmmdd-HHMMSS/`) and the runner invokes the channel fresh. The runner never overwrites an existing attempt directory. Each attempt directory maps to the substrate attempt that produced it; later attempts may resume from earlier directories.
+> The runner must be safe to restart at any point. On re-claiming a work-item, the runner scans all prior attempt directories for a valid manifest. If a valid manifest is found (SHA-256 matches artifact on disk), the runner resumes from the highest-numbered valid attempt without re-invoking the channel. The `submit` event carries the original attempt's actor metadata (`channel`, `model`, `family`) from the manifest. If no valid manifest is found, all prior attempt directories are quarantined (renamed to `.corrupt/attempt-NNNN-YYYYmmdd-HHMMSS/`) and the runner invokes the channel fresh. The runner never overwrites an existing attempt directory. Each attempt directory maps to the regista attempt that produced it; later attempts may resume from earlier directories.
 >
-> If the work-item is still in `in_progress` because the prior claim's TTL has not expired, the runner must wait for substrate's `sweep_expired_claims` to return it to `new`, or an operator must force-expire the claim. The runner does not force-expire claims automatically.
+> If the work-item is still in `in_progress` because the prior claim's TTL has not expired, the runner must wait for regista's `sweep_expired_claims` to return it to `new`, or an operator must force-expire the claim. The runner does not force-expire claims automatically.
 
 ## Acceptance criteria (corrected)
 
@@ -175,6 +175,6 @@ Add §9.12 to `spec.md`:
 
 - spec §9.11 (Artifact addressing)
 - spec §9.2 (Context derivation)
-- substrate dedup semantics (`event_id` uniqueness)
-- substrate BC-006 (sweep_expired_claims / heartbeat TTL)
+- regista dedup semantics (`event_id` uniqueness)
+- regista BC-006 (sweep_expired_claims / heartbeat TTL)
 - BC-002 (Runner skeleton complexity risk)

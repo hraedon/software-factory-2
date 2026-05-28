@@ -24,7 +24,7 @@ items in `gating` state have no equivalent protection.
 
 ## Root cause
 
-No attempt-number check in `gate_loop`. Substrate increments the attempt
+No attempt-number check in `gate_loop`. Regista increments the attempt
 counter on every `acquire_claim`, but `gate_loop` never queries it.
 
 ## Fix

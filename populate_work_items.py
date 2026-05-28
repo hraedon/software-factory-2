@@ -7,7 +7,7 @@ import sys
 import uuid as _uuid
 from pathlib import Path
 
-from substrate import Substrate
+from regista import Regista
 
 from factory.config import FactoryConfig
 from factory.constants import (
@@ -170,9 +170,9 @@ def _open_or_create_project(
     workflow_path: Path,
     reset: bool,
     workspace_root: str | None = None,
-) -> Substrate:
+) -> Regista:
     if reset:
-        from substrate._testing import drop_project_schema
+        from regista._testing import drop_project_schema
 
         try:
             drop_project_schema(dsn, project)
@@ -187,13 +187,13 @@ def _open_or_create_project(
             print(f"Cleaned workspace '{workspace_root}'")
         print(f"Reset project '{project}'")
     try:
-        sub = Substrate.create_project(dsn, project, key_path)
+        sub = Regista.create_project(dsn, project, key_path)
         print(f"Created project '{project}'")
         sub.register_workflow_file(str(workflow_path))
         return sub
     except Exception as e:
         if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
-            sub = Substrate(dsn, project, key_path)
+            sub = Regista(dsn, project, key_path)
             print(f"Connected to existing project '{project}'")
             sub.register_workflow_file(str(workflow_path))
             return sub
@@ -208,7 +208,7 @@ def main():
     from argparse import ArgumentParser
 
     parser = ArgumentParser(description="Populate SF2 work-items from fixture specs")
-    parser.add_argument("--project", default="sf2_test", help="Substrate project name")
+    parser.add_argument("--project", default="sf2_test", help="Regista project name")
     parser.add_argument("--dsn", default=_PRIMARY_DSN, help="Postgres connection string")
     parser.add_argument("--key-path", default=_KEY_PATH, help="Path to HMAC key file")
     parser.add_argument(
@@ -242,7 +242,7 @@ def main():
         "--workflow",
         type=str,
         default=None,
-        choices=["phase1", "phase2", "phase3", "phase4"],
+        choices=["phase1", "phase2", "phase3", "phase4", "phase5"],
         help="Workflow version to register (default: inferred from --config or phase2)",
     )
     parser.add_argument(
@@ -357,47 +357,7 @@ def main():
     else:
         workflow_version = 2
 
-    if args.spec_yaml:
-        from factory.decomposer import (
-            decompose_from_spec_yaml as _decompose_yaml,
-        )
-        from factory.decomposer import (
-            write_fixture_files as _write_fixtures,
-        )
-
-        spec_path = Path(args.spec_yaml)
-
-        # Run spec review if requested
-        if args.spec_review:
-            _run_spec_review(spec_path, config, args)
-
-        result = _decompose_yaml(spec_path)
-        decomposed_dir = Path(args.workspace_root or "/tmp") / ".decomposed"
-        _write_fixtures(result, decomposed_dir)
-        print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
-        md_files = sorted(decomposed_dir.glob("*.md"))
-        items = [(f.name, f.stem, "custom", ["AC-01"]) for f in md_files]
-    elif args.spec_md:
-        from factory.decomposer import (
-            decompose_from_spec_md as _decompose_md,
-        )
-        from factory.decomposer import (
-            write_fixture_files as _write_fixtures,
-        )
-
-        spec_path = Path(args.spec_md)
-
-        # Run spec review if requested
-        if args.spec_review:
-            _run_spec_review(spec_path, config, args)
-
-        result = _decompose_md(spec_path)
-        decomposed_dir = Path(args.workspace_root or "/tmp") / ".decomposed"
-        _write_fixtures(result, decomposed_dir)
-        print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
-        md_files = sorted(decomposed_dir.glob("*.md"))
-        items = [(f.name, f.stem, "custom", ["AC-01"]) for f in md_files]
-    elif args.decomposer_channel and (args.spec_yaml or args.spec_md):
+    if args.decomposer_channel and (args.spec_yaml or args.spec_md):
         from factory.decomposer_model import DecomposeError, decompose_from_model
 
         spec_path = Path(args.spec_yaml or args.spec_md)
@@ -441,6 +401,46 @@ def main():
         from factory.decomposer import write_fixture_files as _write_fixtures
 
         decomposed_dir = ws_root / ".decomposed"
+        _write_fixtures(result, decomposed_dir)
+        print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
+        md_files = sorted(decomposed_dir.glob("*.md"))
+        items = [(f.name, f.stem, "custom", ["AC-01"]) for f in md_files]
+    elif args.spec_yaml:
+        from factory.decomposer import (
+            decompose_from_spec_yaml as _decompose_yaml,
+        )
+        from factory.decomposer import (
+            write_fixture_files as _write_fixtures,
+        )
+
+        spec_path = Path(args.spec_yaml)
+
+        # Run spec review if requested
+        if args.spec_review:
+            _run_spec_review(spec_path, config, args)
+
+        result = _decompose_yaml(spec_path)
+        decomposed_dir = Path(args.workspace_root or "/tmp") / ".decomposed"
+        _write_fixtures(result, decomposed_dir)
+        print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
+        md_files = sorted(decomposed_dir.glob("*.md"))
+        items = [(f.name, f.stem, "custom", ["AC-01"]) for f in md_files]
+    elif args.spec_md:
+        from factory.decomposer import (
+            decompose_from_spec_md as _decompose_md,
+        )
+        from factory.decomposer import (
+            write_fixture_files as _write_fixtures,
+        )
+
+        spec_path = Path(args.spec_md)
+
+        # Run spec review if requested
+        if args.spec_review:
+            _run_spec_review(spec_path, config, args)
+
+        result = _decompose_md(spec_path)
+        decomposed_dir = Path(args.workspace_root or "/tmp") / ".decomposed"
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
         md_files = sorted(decomposed_dir.glob("*.md"))

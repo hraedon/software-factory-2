@@ -12,7 +12,7 @@ related: ["BC-210"]
 
 ## Problem
 
-Spec §7 states: "Outcome dashboard for the principal: per-spec status, per-stage timing, escalations, dead-letters. Built on substrate's event store + Prometheus metrics." The codebase has zero Prometheus integration. `telemetry.py` is a CLI tool that prints tables, not a metrics endpoint.
+Spec §7 states: "Outcome dashboard for the principal: per-spec status, per-stage timing, escalations, dead-letters. Built on regista's event store + Prometheus metrics." The codebase has zero Prometheus integration. `telemetry.py` is a CLI tool that prints tables, not a metrics endpoint.
 
 The "fleet health monitor" described in spec §7 (per-channel uptime, rate-limit hits, average latency) also does not exist.
 

@@ -22,9 +22,9 @@ Implemented as "abort on stolen claim" (vs. the simpler log-only variant): when 
 
 ### `factory/heartbeat.py` — HeartbeatSession (new)
 
-Context manager that wraps a long-running claim. Spawns a daemon thread that calls `substrate.heartbeat_claim(work_item_id, actor_id, ttl_seconds, expected_attempt_number=...)` every `max(30s, ttl/3)`. Behavior:
+Context manager that wraps a long-running claim. Spawns a daemon thread that calls `regista.heartbeat_claim(work_item_id, actor_id, ttl_seconds, expected_attempt_number=...)` every `max(30s, ttl/3)`. Behavior:
 
-- Normal renewal: no event emitted (substrate's `coalesce_threshold` suppresses spam).
+- Normal renewal: no event emitted (regista's `coalesce_threshold` suppresses spam).
 - `SubstrateError(CLAIM_LOST)`: logs `claim_lost`, sets `cancel_event`, exits the thread.
 - Other `SubstrateError`: logs `heartbeat_substrate_error` and keeps trying.
 - Unexpected exception: logs and keeps trying — heartbeat failure must not kill the worker on transient DB blips.
@@ -57,7 +57,7 @@ The Protocol change `cancel_event: threading.Event | None = None` is backward-co
 
 - HeartbeatSession beats periodically while in scope.
 - HeartbeatSession sets `cancel_event` on `CLAIM_LOST`.
-- HeartbeatSession tolerates transient (non-`CLAIM_LOST`) substrate errors without cancelling.
+- HeartbeatSession tolerates transient (non-`CLAIM_LOST`) regista errors without cancelling.
 - `subprocess.run` with `cancel_event` kills a long-running subprocess promptly when the event is set.
 - `subprocess.run` without `cancel_event` is unchanged (success and timeout paths).
 

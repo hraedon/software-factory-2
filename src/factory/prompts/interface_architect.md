@@ -10,7 +10,7 @@ You will be given a `PromptContext` bundle containing:
 2. **`ac_ids`** — the list of acceptance-criteria IDs this work-item must satisfy. Each AC has prose in the spec excerpt above.
 3. **`glossary`** — the canonical-term excerpt from `spec.yaml`, scoped to terms used in this section.
 4. **`prior_failures`** — a `failures.json` summarizing earlier attempts on this work-item (empty on first attempt). Each entry has `attempt_number`, `gate_name`, `diagnostic`. Read these carefully. The most common reason a contract fails the cross-family review or jury is *the same reason it failed last time*.
-5. **`work_item_id`** — substrate identifier, for logging only. Do not embed it in the artifact.
+5. **`work_item_id`** — regista identifier, for logging only. Do not embed it in the artifact.
 
 ## What you produce
 

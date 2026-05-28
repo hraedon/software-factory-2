@@ -19,7 +19,7 @@ The numbering gap exists because GR-015 through GR-018 were batch-planned during
 
 - No `golden-run-016-config.yaml` exists.
 - No process logs exist in `/tmp`.
-- No substrate project was created.
+- No regista project was created.
 - No artifacts were produced.
 
 ## Recommendation

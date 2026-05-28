@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-22
 **Author:** opus-4-7
-**Source:** RFC review during BC-199 (substrate) / BC-194 (sf2) hardening pass
+**Source:** RFC review during BC-199 (regista) / BC-194 (sf2) hardening pass
 **Scope:** Plans for the seven RFCs the principal accepted in the 2026-05-22 review. RFC-032 deliberately omitted (decision: defer until RFC-030+031 have run for a few weeks).
 
 ## Tier legend
@@ -130,7 +130,7 @@ The validation experiment proposed at the end of RFC-029 (A/B at `inner_gate_ret
 
 ### Why Opus
 
-This is a phase-3-blocker with multiple still-open design questions in the RFC body (substrate vs. `runs/` as data source; how to compose with the principal-review surface in RFC-026; what policy primitives to expose). Implementing the wrong shape commits the principal to YAML-edit-by-hand workflows that the RFC is trying to replace.
+This is a phase-3-blocker with multiple still-open design questions in the RFC body (regista vs. `runs/` as data source; how to compose with the principal-review surface in RFC-026; what policy primitives to expose). Implementing the wrong shape commits the principal to YAML-edit-by-hand workflows that the RFC is trying to replace.
 
 ### Acceptance criteria
 
@@ -142,11 +142,11 @@ This is a phase-3-blocker with multiple still-open design questions in the RFC b
 
 ### Implementation steps
 
-1. Resolve the substrate-vs-runs question first (RFC says substrate; needs verification that `compute_pass_rates` exposes everything needed).
+1. Resolve the regista-vs-runs question first (RFC says regista; needs verification that `compute_pass_rates` exposes everything needed).
 2. Build the `Placement.propose` API. Returns a structured diff object, not a mutated config.
 3. Implement the first `PlacementPolicy`. Defer cost-minimizing and Anthropic-preference policies to follow-ups.
 4. Implement the three apply modes. `live` mode should require both a flag *and* a confirmation prompt in interactive contexts.
-5. CLI: `factory placement propose --history-from substrate --policy highest-pass-rate --output runs/placement-NNN.diff`.
+5. CLI: `factory placement propose --history-from regista --policy highest-pass-rate --output runs/placement-NNN.diff`.
 6. Tests on synthetic + GR-038 datasets.
 7. Flip RFC-035 status.
 

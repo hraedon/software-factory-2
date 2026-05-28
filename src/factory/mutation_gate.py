@@ -15,12 +15,9 @@ from factory.constants import (
     GATE_NAME_IMPLEMENTATION_SYNTAX,
     GATE_NAME_INNER_MYPY,
     GATE_NAME_MUTATION_SPOT_CHECK,
-    TEMPFILE_PREFIX_PYTEST,
 )
 from factory.gate._base import GateResult
-from factory.pre_gate import copy_dependency_pyis
-from factory.sandbox import gate_subprocess_env
-from factory.subprocess import run as run_subprocess
+from factory.gate._subprocess import _run_pytest
 
 log = logging.getLogger(__name__)
 
@@ -49,79 +46,6 @@ def _check_impl_imports(content: str) -> GateResult:
             diagnostics=[f"Import check failed: {exc}"],
             diagnostic_kind="impl_import",
         )
-
-
-def _run_pytest(
-    artifact_path: Path,
-    test_suite_path: Path,
-    interface_pyi_path: Path | None = None,
-    dependency_pyi_paths: list[tuple[str, Path]] | None = None,
-    python_executable: str | None = None,
-    timeout: int | None = None,
-    implementation_name: str | None = None,
-) -> GateResult:
-    """Run pytest for mutation testing. Wraps result with mutation gate name.
-
-    Note: This is a local variant because mutation testing requires the real
-    interface .pyi stub (not a dummy created from implementation content).
-    Delegates to gate._subprocess._run_pytest would lose the interface stub.
-    """
-    exe = python_executable or sys.executable
-    if timeout is None:
-        timeout = GateTimeouts.pytest_timeout
-    try:
-        with tempfile.TemporaryDirectory(prefix=TEMPFILE_PREFIX_PYTEST) as tmpdir:
-            impl_content = artifact_path.read_text()
-            impl_name = implementation_name or artifact_path.name
-            impl_copy = Path(tmpdir) / impl_name
-            impl_copy.write_text(impl_content)
-            if interface_pyi_path is not None and interface_pyi_path.exists():
-                iface_copy = Path(tmpdir) / f"interface{artifact_path.suffix}"
-                iface_copy.write_text(interface_pyi_path.read_text())
-            elif artifact_path.stem != "interface":
-                iface_copy = Path(tmpdir) / f"interface{artifact_path.suffix}"
-                iface_copy.write_text(impl_content)
-            test_copy = Path(tmpdir) / test_suite_path.name
-            test_copy.write_text(test_suite_path.read_text())
-            copy_dependency_pyis(tmpdir, dependency_pyi_paths)
-            result = run_subprocess(
-                cmd=[exe, "-m", "pytest", str(test_copy), "-x", "--tb=short", "-q"],
-                cwd=Path(tmpdir),
-                env=gate_subprocess_env(PYTHONPATH=tmpdir),
-                timeout_s=timeout,
-            )
-            if result.timed_out:
-                return GateResult(
-                    passed=False,
-                    gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
-                    diagnostics=[f"pytest timed out after {timeout}s", "timed_out: True"],
-                    diagnostic_kind="impl_pytest",
-                )
-            if result.returncode != 0:
-                if "No module named pytest" in result.stderr:
-                    return GateResult(
-                        passed=False,
-                        gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
-                        diagnostics=["pytest not installed"],
-                        diagnostic_kind="tool_not_found",
-                    )
-                lines = result.stdout.strip().splitlines()
-                err_lines = result.stderr.strip().splitlines()
-                diagnostics = (lines + err_lines)[-3:] or ["pytest reported failures"]
-                return GateResult(
-                    passed=False,
-                    gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
-                    diagnostics=diagnostics,
-                    diagnostic_kind="impl_pytest",
-                )
-    except Exception as e:
-        return GateResult(
-            passed=False,
-            gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
-            diagnostics=[f"pytest invocation failed: {e}"],
-            diagnostic_kind="impl_pytest",
-        )
-    return GateResult(passed=True, gate_name=GATE_NAME_MUTATION_SPOT_CHECK)
 
 
 @dataclass(frozen=True)
@@ -264,6 +188,7 @@ def _run_suite_on_mutant(
             python_executable=python_executable,
             timeout=timeout,
             implementation_name=implementation_path.name,
+            gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
         )
         return pytest_result
 

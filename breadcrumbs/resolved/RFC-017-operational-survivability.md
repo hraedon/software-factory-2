@@ -98,14 +98,14 @@ All fields are optional; if absent, the default above applies. No bare strings i
 ### Safety invariants
 
 1. Cleanup never deletes a workspace outside `/tmp`, `/var/tmp`, or the configured `workspace_root`.
-2. Cleanup never deletes workspaces with active claims (checked via substrate `in_progress` state).
+2. Cleanup never deletes workspaces with active claims (checked via regista `in_progress` state).
 3. Log rotation never deletes the final `*.log` file — only rotates when size exceeds threshold.
-4. Resource limiter emits a substrate event (`event_type="resource_limit_exceeded"`) before killing, so telemetry can classify the failure.
+4. Resource limiter emits a regista event (`event_type="resource_limit_exceeded"`) before killing, so telemetry can classify the failure.
 
 ## Dependencies
 
 - `psutil` is optional. If not installed, memory RSS limits are skipped with a warning.
-- No substrate changes required for Phase 5 MVP.
+- No regista changes required for Phase 5 MVP.
 
 ## Phase placement
 

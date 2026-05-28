@@ -1,6 +1,6 @@
 name: software_factory
 version: 4
-substrate_version: "0.1.0"
+regista_version: "0.1.0"
 extends: ./phase3.yaml
 
 roles:

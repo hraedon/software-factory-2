@@ -6,10 +6,52 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 
-from substrate import Substrate
+from regista import Regista
 
 from factory.config import FactoryConfig, load_config
 from factory.constants import (
+    GATE_NAME_ARTIFACT_OVERSIZED,
+    GATE_NAME_CROSS_FAMILY_REVIEW,
+    GATE_NAME_IMPLEMENTATION,
+    GATE_NAME_IMPLEMENTATION_DEPENDENCY,
+    GATE_NAME_IMPLEMENTATION_FILE_EXISTS,
+    GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN,
+    GATE_NAME_IMPLEMENTATION_IMPORTS,
+    GATE_NAME_IMPLEMENTATION_LINT,
+    GATE_NAME_IMPLEMENTATION_MYPY,
+    GATE_NAME_IMPLEMENTATION_NOT_EMPTY,
+    GATE_NAME_IMPLEMENTATION_PYTEST,
+    GATE_NAME_IMPLEMENTATION_SYNTAX,
+    GATE_NAME_INNER_COLLECT,
+    GATE_NAME_INNER_IMPORT,
+    GATE_NAME_INNER_IMPORT_SYMBOLS,
+    GATE_NAME_INNER_JSON_SHAPE,
+    GATE_NAME_INNER_MYPY,
+    GATE_NAME_INNER_PYTEST,
+    GATE_NAME_INNER_RUFF,
+    GATE_NAME_INTEGRATION,
+    GATE_NAME_INTEGRATION_IMPORT,
+    GATE_NAME_INTEGRATION_MYPY,
+    GATE_NAME_INTEGRATION_PYTEST,
+    GATE_NAME_INTERFACE_SPEC,
+    GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
+    GATE_NAME_INTERFACE_SPEC_NOT_EMPTY,
+    GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS,
+    GATE_NAME_INTERFACE_SPEC_STUB,
+    GATE_NAME_INTERFACE_SPEC_SYNTAX,
+    GATE_NAME_JURY,
+    GATE_NAME_JURY_DISAGREE,
+    GATE_NAME_JURY_QUORUM,
+    GATE_NAME_MUTATION_SPOT_CHECK,
+    GATE_NAME_OUTCOME_E2E,
+    GATE_NAME_TEST_SUITE,
+    GATE_NAME_TEST_SUITE_ASSERTIONS,
+    GATE_NAME_TEST_SUITE_COLLECT,
+    GATE_NAME_TEST_SUITE_DEPENDENCY,
+    GATE_NAME_TEST_SUITE_FILE_EXISTS,
+    GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
+    GATE_NAME_TEST_SUITE_NOT_EMPTY,
+    GATE_NAME_TEST_SUITE_SYNTAX,
     GATE_NAME_UNKNOWN,
     STATE_CANNOT_PROCEED,
     STATE_IN_PROGRESS,
@@ -21,6 +63,7 @@ from factory.constants import (
     TRANSITION_ROUTE_TO_CANNOT_PROCEED,
     TRANSITION_SUBMIT,
     UNKNOWN_FALLBACK,
+    WORK_ITEM_TYPE_OUTCOME_VERIFICATION,
 )
 from factory.event_schemas import (
     ChannelFailPayload,
@@ -33,7 +76,7 @@ log = logging.getLogger(__name__)
 
 
 def _query_work_items_and_events(
-    sub: Substrate, config: FactoryConfig
+    sub: Regista, config: FactoryConfig
 ) -> tuple[dict[str, object], dict[str, list]]:
     """Load all work items and their events once.
 
@@ -59,53 +102,53 @@ def _query_work_items_and_events(
 
 DETERMINISTIC_GATES = frozenset(
     {
-        "interface_spec",
-        "interface_spec_syntax",
-        "interface_spec_stub",
-        "interface_spec_structural_semantics",
-        "interface_spec_file_exists",
-        "interface_spec_not_empty",
-        "test_suite",
-        "test_suite_syntax",
-        "test_suite_import_forbidden",
-        "test_suite_collect",
-        "test_suite_file_exists",
-        "test_suite_not_empty",
-        "test_suite_assertions",
-        "test_suite_dependency",
-        "implementation",
-        "implementation_syntax",
-        "implementation_import_forbidden",
-        "implementation_imports",
-        "implementation_mypy",
-        "implementation_pytest",
-        "implementation_lint",
-        "implementation_file_exists",
-        "implementation_not_empty",
-        "implementation_dependency",
-        "artifact_oversized",
-        "inner_pytest",
-        "inner_import",
-        "inner_test_collect",
-        "inner_mypy",
-        "inner_ruff",
-        "inner_import_symbols",
-        "inner_json_shape",
-        "integration_import",
-        "integration_mypy",
-        "integration_pytest",
-        "integration",
-        "mutation_spot_check",
+        GATE_NAME_INTERFACE_SPEC,
+        GATE_NAME_INTERFACE_SPEC_SYNTAX,
+        GATE_NAME_INTERFACE_SPEC_STUB,
+        GATE_NAME_INTERFACE_SPEC_STRUCTURAL_SEMANTICS,
+        GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
+        GATE_NAME_INTERFACE_SPEC_NOT_EMPTY,
+        GATE_NAME_TEST_SUITE,
+        GATE_NAME_TEST_SUITE_SYNTAX,
+        GATE_NAME_TEST_SUITE_IMPORT_FORBIDDEN,
+        GATE_NAME_TEST_SUITE_COLLECT,
+        GATE_NAME_TEST_SUITE_FILE_EXISTS,
+        GATE_NAME_TEST_SUITE_NOT_EMPTY,
+        GATE_NAME_TEST_SUITE_ASSERTIONS,
+        GATE_NAME_TEST_SUITE_DEPENDENCY,
+        GATE_NAME_IMPLEMENTATION,
+        GATE_NAME_IMPLEMENTATION_SYNTAX,
+        GATE_NAME_IMPLEMENTATION_IMPORT_FORBIDDEN,
+        GATE_NAME_IMPLEMENTATION_IMPORTS,
+        GATE_NAME_IMPLEMENTATION_MYPY,
+        GATE_NAME_IMPLEMENTATION_PYTEST,
+        GATE_NAME_IMPLEMENTATION_LINT,
+        GATE_NAME_IMPLEMENTATION_FILE_EXISTS,
+        GATE_NAME_IMPLEMENTATION_NOT_EMPTY,
+        GATE_NAME_IMPLEMENTATION_DEPENDENCY,
+        GATE_NAME_ARTIFACT_OVERSIZED,
+        GATE_NAME_INNER_PYTEST,
+        GATE_NAME_INNER_IMPORT,
+        GATE_NAME_INNER_COLLECT,
+        GATE_NAME_INNER_MYPY,
+        GATE_NAME_INNER_RUFF,
+        GATE_NAME_INNER_IMPORT_SYMBOLS,
+        GATE_NAME_INNER_JSON_SHAPE,
+        GATE_NAME_INTEGRATION_IMPORT,
+        GATE_NAME_INTEGRATION_MYPY,
+        GATE_NAME_INTEGRATION_PYTEST,
+        GATE_NAME_INTEGRATION,
+        GATE_NAME_MUTATION_SPOT_CHECK,
     }
 )
 
 MODEL_MEDIATED_GATES = frozenset(
     {
-        "cross_family_review",
-        "jury",
-        "jury_quorum",
-        "jury_disagree",
-        "outcome_e2e",
+        GATE_NAME_CROSS_FAMILY_REVIEW,
+        GATE_NAME_JURY,
+        GATE_NAME_JURY_QUORUM,
+        GATE_NAME_JURY_DISAGREE,
+        GATE_NAME_OUTCOME_E2E,
     }
 )
 
@@ -145,7 +188,7 @@ class ExitCriteriaMetrics:
 
 
 def compute_exit_criteria(
-    sub: Substrate,
+    sub: Regista,
     config: FactoryConfig,
     attempts: list[GateAttempt],
     work_items: dict[str, object] | None = None,
@@ -176,8 +219,8 @@ def compute_exit_criteria(
 
     # Compute first gate-evaluation pass rate per (work_item, gate_name).
     # "First attempt" means the earliest gate evaluation for that pair,
-    # regardless of substrate attempt_n (which conflates worker claims
-    # and gate claims).  Inner-gate events are not substrate transitions,
+    # regardless of regista attempt_n (which conflates worker claims
+    # and gate claims).  Inner-gate events are not regista transitions,
     # so we measure outer-gate first evaluations here.  Inner gate data
     # is available via runner log parsing (work_item_size_metrics.py).
     per_item: dict[str, list[GateAttempt]] = defaultdict(list)
@@ -231,7 +274,7 @@ def compute_exit_criteria(
     inner_rate = inner_first_passes / inner_evaluations if inner_evaluations else 0.0
 
     # RFC-029: attempt-count bucketing per (work_item_id, gate_name).
-    # For each group, flatten inner evaluations across all substrate submits
+    # For each group, flatten inner evaluations across all regista submits
     # and count how many evaluations were needed before first pass.
     bucket_0_passes = 0
     bucket_1_recovery_count = 0
@@ -339,6 +382,7 @@ def format_exit_criteria_summary(metrics: ExitCriteriaMetrics) -> str:
         f"{fa_label:4s} [target: >=60%]"
     )
     lines.append(fa_line)
+    ig_pass = True
     if metrics.inner_gate_evaluations > 0:
         ig = f"{metrics.inner_gate_first_pass_rate:.0%}"
         ig_pass = metrics.inner_gate_first_pass_rate >= 0.60
@@ -386,7 +430,7 @@ def format_exit_criteria_summary(metrics: ExitCriteriaMetrics) -> str:
             for wid, att_count, gate_name in metrics.inner_gate_item_attempts:
                 lines.append(f"    {wid[:22]}  {att_count:>2d} evals  {gate_name}")
     else:
-        lines.append("  Inner gate first-pass rate:    — (no inner gate data in substrate)")
+        lines.append("  Inner gate first-pass rate:    — (no inner gate data in regista)")
 
     lines.append("")
     lines.append(
@@ -437,14 +481,14 @@ class GateAttempt:
     # aggregate, or legacy rows from before the model field was plumbed
     # through. NULL is treated as a distinct bucket by `compute_pass_rates`.
     model: str | None = None
-    # RFC-029: retry number within a single substrate attempt for inner-gate
+    # RFC-029: retry number within a single regista attempt for inner-gate
     # evaluations. 0 = first inner evaluation, 1 = first retry, etc. None
     # for outer-gate events (they have no retry concept within one event).
     inner_retry: int | None = None
 
 
 def collect_gate_attempts(
-    sub: Substrate,
+    sub: Regista,
     config: FactoryConfig,
     events_by_id: dict[str, list] | None = None,
 ) -> list[GateAttempt]:
@@ -486,7 +530,12 @@ def collect_gate_attempts(
                                 )
                     except EventSchemaError:
                         pass
-            if ev.transition not in (TRANSITION_GATE_PASS, TRANSITION_GATE_FAIL):
+            _gate_transitions = (
+                TRANSITION_GATE_PASS,
+                TRANSITION_GATE_FAIL,
+                TRANSITION_CHANNEL_FAIL,
+            )
+            if ev.transition not in _gate_transitions:
                 continue
             gate_name = md.get("gate_name")
             if not gate_name:
@@ -671,8 +720,6 @@ def format_pass_rate_table(rows: list[PassRateRow]) -> str:
     # RFC-034: detect confounded groups along both prompt and model axes.
     # Same role/channel/family/gate with multiple hashes OR multiple models
     # is a comparison-group confound.
-    from collections import defaultdict
-
     by_four: dict[tuple[str, str, str, str], set[str | None]] = defaultdict(set)
     by_four_models: dict[tuple[str, str, str, str], set[str | None]] = defaultdict(set)
     for r in rows:
@@ -754,7 +801,7 @@ class ContractComplaintMetrics:
 
 
 def collect_contract_complaints(
-    sub: Substrate,
+    sub: Regista,
     config: FactoryConfig,
     work_items: dict[str, object] | None = None,
     events_by_id: dict[str, list] | None = None,
@@ -830,7 +877,7 @@ def format_contract_complaint_summary(metrics: ContractComplaintMetrics) -> str:
 
 
 def run_telemetry_report(config: FactoryConfig) -> str:
-    sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
+    sub = Regista(config.dsn, config.project_name, config.hmac_key_path)
     try:
         work_items, events_by_id = _query_work_items_and_events(sub, config)
         attempts = collect_gate_attempts(sub, config, events_by_id=events_by_id)
@@ -860,7 +907,7 @@ class RoutingHintMetrics:
 
 
 def collect_routing_hints(
-    sub: Substrate,
+    sub: Regista,
     config: FactoryConfig,
     work_items: dict[str, object] | None = None,
     events_by_id: dict[str, list] | None = None,
@@ -873,7 +920,7 @@ def collect_routing_hints(
     samples: list[dict] = []
 
     for wi_id, wi in work_items.items():
-        if wi.work_item_type != "outcome_verification":
+        if wi.work_item_type != WORK_ITEM_TYPE_OUTCOME_VERIFICATION:
             continue
         events = events_by_id.get(wi_id, [])
         for ev in events:
@@ -940,7 +987,7 @@ class VerifyResult:
 
 
 def run_telemetry_verify(config: FactoryConfig) -> VerifyResult:
-    sub = Substrate(config.dsn, config.project_name, config.hmac_key_path)
+    sub = Regista(config.dsn, config.project_name, config.hmac_key_path)
     try:
         work_items, events_by_id = _query_work_items_and_events(sub, config)
         attempts = collect_gate_attempts(sub, config, events_by_id=events_by_id)

@@ -5,14 +5,16 @@ import threading
 from pathlib import Path
 
 import structlog
-from substrate import ActorMetadata
+from regista import ActorMetadata
 
 from factory.channel import Channel
 from factory.config import FactoryConfig
 from factory.constants import (
     ARTIFACT_FILENAME_JURY_VERDICT,
+    CHANNEL_JURY_AGGREGATE,
     CUSTOM_FIELD_ARTIFACT_HASH,
     CUSTOM_FIELD_ARTIFACT_PATH,
+    FAMILY_MULTI,
     ROLE_FRONTIER_JUDGE,
     TRANSITION_CHANNEL_FAIL,
     TRANSITION_SUBMIT,
@@ -93,7 +95,7 @@ def _process_jury_work_item(
             actor_id,
             actor_metadata=ActorMetadata(
                 role=ROLE_FRONTIER_JUDGE,
-                channel="none",
+                channel=CHANNEL_JURY_AGGREGATE,
                 family="",
                 attempt_n=attempt_number,
                 context_hash=ctx.context_hash,
@@ -117,7 +119,7 @@ def _process_jury_work_item(
             prompt=prompt,
             outputs_dir=ad,
             timeout=timeout,
-            quorum=getattr(config, "jury_quorum", 2),
+            quorum=config.jury_quorum,
             models=jury_models,
             fallback_channels=jury_fallback_channels,
             fallback_models=jury_fallback_models,
@@ -136,8 +138,8 @@ def _process_jury_work_item(
             actor_id,
             actor_metadata=ActorMetadata(
                 role=ROLE_FRONTIER_JUDGE,
-                channel="jury_aggregate",
-                family="multi",
+                channel=CHANNEL_JURY_AGGREGATE,
+                family=FAMILY_MULTI,
                 attempt_n=attempt_number,
                 context_hash=ctx.context_hash,
                 prompt_template_hash=ctx.prompt_template_hash,

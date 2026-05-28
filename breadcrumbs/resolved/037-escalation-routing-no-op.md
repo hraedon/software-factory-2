@@ -31,7 +31,7 @@ Golden run 002: implementation items with `cannot_proceed_seam` diagnostics cont
 
 ## Proposed Fix (Option A — simplest for Phase 2)
 
-When escalation fires for a non-interface_spec work item, transition the item to `cannot_proceed` (terminal state) instead of back to `new`. This stops the retry loop and surfaces the failure to the principal via substrate's dead-letter mechanism. The escalation diagnostics (including the original gate failure messages and attempt count) are preserved on the work item's `diagnostics` custom field.
+When escalation fires for a non-interface_spec work item, transition the item to `cannot_proceed` (terminal state) instead of back to `new`. This stops the retry loop and surfaces the failure to the principal via regista's dead-letter mechanism. The escalation diagnostics (including the original gate failure messages and attempt count) are preserved on the work item's `diagnostics` custom field.
 
 Phase 3+ can implement option B (create a new interface_spec work item with escalation context) when the principal wants automated contract revision instead of manual surfacing.
 
