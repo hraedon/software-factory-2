@@ -24,17 +24,41 @@ Emit valid DOT syntax to stdout or a file. Nodes are colored by state, edges sty
 - `Edge`: `{source, target, type, style}`
 - `Graph`: `{nodes: list[Node], edges: list[Edge]}`
 
-## Acceptance Criteria
+## AC-DGV-01
 
-- **AC-DGV-01** [FR-01]: Valid DSN returns events ordered by timestamp.
-- **AC-DGV-02** [FR-01]: Unreachable host raises `ConnectionError`.
-- **AC-DGV-03** [FR-02]: Correct nodes and directed edges from events.
-- **AC-DGV-04** [FR-02]: `module_name` in custom_fields becomes node label.
-- **AC-DGV-05** [FR-03]: `--filter-type implementation` shows only implementation nodes.
-- **AC-DGV-06** [FR-03]: Multiple `--filter-type` values are OR'd.
-- **AC-DGV-07** [FR-04]: Locked state node is green; depends_on edge is solid.
-- **AC-DGV-08** [FR-04]: 100-node graph renders in <1s and passes `dot -Tpng`.
-- **AC-DGV-09** [FR-04]: Empty graph produces minimal DOT with "No work items found" comment.
+Given a valid DSN, read_event_log returns a list of Event objects for the specified project, ordered by event timestamp ascending
+
+## AC-DGV-02
+
+Given a DSN with unreachable host, read_event_log raises ConnectionError with message containing 'could not connect'
+
+## AC-DGV-03
+
+Given a list of events including work-item creation and link creation, build_graph returns a Graph with correct nodes and directed edges
+
+## AC-DGV-04
+
+Given a node with custom_fields containing module_name='foo', the graph node's label is 'foo', not its UUID
+
+## AC-DGV-05
+
+Given --filter-type implementation, filter_graph returns only nodes of type 'implementation' and edges between them
+
+## AC-DGV-06
+
+Given --filter-type interface_spec,review, nodes of both types are included; all other types are excluded
+
+## AC-DGV-07
+
+Given a graph with one node in state 'locked' and one 'depends_on' edge, emit_dot produces syntactically valid DOT with a green node and a solid edge
+
+## AC-DGV-08
+
+Given a graph with 100 nodes, emit_dot completes in under 1 second and produces output that graphviz dot -Tpng accepts without error
+
+## AC-DGV-09
+
+Given an empty graph, emit_dot produces a minimal DOT graph declaration with a comment 'No work items found'
 
 ## Business Rules
 

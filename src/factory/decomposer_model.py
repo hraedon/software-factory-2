@@ -67,7 +67,13 @@ def _invoke_decomposer_channel(
 
     timeout = 120
 
-    log.info("decomposer.invoke", spec=str(spec_path), channel=channel.name, timeout=timeout, model=model_override)
+    log.info(
+        "decomposer.invoke",
+        spec=str(spec_path),
+        channel=channel.name,
+        timeout=timeout,
+        model=model_override,
+    )
     result = channel.invoke(
         role=ROLE_INTERFACE_ARCHITECT,
         prompt=prompt,
@@ -443,8 +449,10 @@ def decompose_from_model(
     attempts fail validation, raises ``DecomposeError``.
     """
     # Load spec data once for AC condition lookup
-    spec_yaml_file = spec_yaml_path if spec_yaml_path and spec_yaml_path.exists() else (
-        spec_path if spec_path.suffix in (".yaml", ".yml") and spec_path.exists() else None
+    spec_yaml_file = (
+        spec_yaml_path
+        if spec_yaml_path and spec_yaml_path.exists()
+        else (spec_path if spec_path.suffix in (".yaml", ".yml") and spec_path.exists() else None)
     )
     spec_data: dict[str, Any] | None = None
     if spec_yaml_file is not None:
@@ -493,8 +501,7 @@ def decompose_from_model(
                     fr_id=m["fr_id"],
                     fr_text=m["fr_text"],
                     ac_entries=[
-                        {"id": ac, "condition": ac_lookup.get(ac, "")}
-                        for ac in m.get("ac_ids", [])
+                        {"id": ac, "condition": ac_lookup.get(ac, "")} for ac in m.get("ac_ids", [])
                     ],
                     dependency_fr_ids=[
                         fr_to_module.get(d, d) for d in m.get("dependency_fr_ids", [])

@@ -77,9 +77,7 @@ class TestFromYaml:
     def test_from_yaml_or_default_with_nonexistent_path(self, tmp_path):
         config = FactoryConfig.from_yaml_or_default(tmp_path / "does_not_exist.yaml")
         assert config.workflow_name == "software_factory"
-        assert (
-            config.dsn == "postgresql://regista_test:regista_test@localhost:5432/regista_test"
-        )
+        assert config.dsn == "postgresql://regista_test:regista_test@localhost:5432/regista_test"
         assert config.workspace_root == Path(".factory/work")
 
     def test_from_yaml_or_default_with_existing_path(self, tmp_path):

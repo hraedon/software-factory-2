@@ -219,9 +219,7 @@ class TestSyntheticPipelineE2E:
             f"got {ts_custom.get(CUSTOM_FIELD_INTERFACE_REF)!r}"
         )
 
-    def test_failure_path_gate_fail_routes_back_to_new_no_downstream(
-        self, e2e_regista, e2e_config
-    ):
+    def test_failure_path_gate_fail_routes_back_to_new_no_downstream(self, e2e_regista, e2e_config):
         """Failure path: gate fails → work item returns to 'new' → no test_suite created.
 
         Exercises the full sequence:

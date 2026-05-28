@@ -99,8 +99,6 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 
 | # | Title | Severity | Status |
 |---|---|---|---|---|
-| 218 | Remaining medium-severity quality issues from adversarial review | medium | resolved |
-| 217 | Adversarial review: 3 critical bugs + 8 high-severity issues found and fixed | critical | resolved |
 | 215 | Scheduler dedup lock is single-process only — no HA support | low | proposed |
 | 211 | No Prometheus metrics endpoint despite spec §7 claiming one | medium | proposed |
 | 210 | No streaming/incremental telemetry — operators have no visibility during long runs | medium | proposed |
