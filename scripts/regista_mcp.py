@@ -6,7 +6,7 @@ Exposes three tools:
   golden_run_summary — state distribution + per-(role,gate) pass rates for one run
   get_failure_modes  — ranked failure modes (gate + diagnostic_kind) for one run
 
-Connection: reads SUBSTRATE_DSN env var, defaults to the local test DSN.
+Connection: reads REGISTA_DSN env var, defaults to the local test DSN.
 """
 from __future__ import annotations
 
@@ -16,8 +16,8 @@ import sys
 from contextlib import contextmanager
 
 DSN = os.environ.get(
-    "SUBSTRATE_DSN",
-    "postgresql://substrate_test:substrate_test@localhost:5432/substrate_test",
+    "REGISTA_DSN",
+    "postgresql://regista_test:regista_test@localhost:5432/regista_test",
 )
 
 # ---------------------------------------------------------------------------

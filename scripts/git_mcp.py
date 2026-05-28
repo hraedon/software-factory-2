@@ -207,7 +207,7 @@ TOOLS = [
         "name": "search_commits",
         "description": (
             "Search commit messages across all repos for a keyword or phrase. "
-            "Useful for finding when a specific change (e.g., 'InMemorySubstrate', "
+            "Useful for finding when a specific change (e.g., 'InMemoryRegista', "
             "'gate_fail', 'BC-194') was introduced or fixed across the constellation."
         ),
         "inputSchema": {

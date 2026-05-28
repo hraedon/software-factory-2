@@ -55,7 +55,7 @@ ROUTING_STRESS_ITEMS = [
 
 ALL_ITEMS = PRIMARY_ITEMS + ADVERSARIAL_ITEMS + SECONDARY_ITEMS + ROUTING_STRESS_ITEMS
 
-_PRIMARY_DSN = "postgresql://substrate_test:substrate_test@localhost:5432/substrate_test"
+_PRIMARY_DSN = "postgresql://regista_test:regista_test@localhost:5432/regista_test"
 _KEY_PATH = str(ROOT_DIR / "tests" / "test_keys.json")
 
 

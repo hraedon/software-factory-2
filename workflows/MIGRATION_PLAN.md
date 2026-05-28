@@ -16,7 +16,7 @@ The `phase1.yaml` through `phase5.yaml` files represent a strictly linear progre
 We will establish a single inheritance chain: `phase1` -> `phase2` -> `phase3` -> `phase4` -> `phase5`.
 
 **Crucial Rules:**
-1. **Top-Level Scalars:** Every child file MUST explicitly declare all three top-level scalars: `name`, `version`, and `substrate_version`. Inheriting `substrate_version` silently is a footgun.
+1. **Top-Level Scalars:** Every child file MUST explicitly declare all three top-level scalars: `name`, `version`, and `regista_version`. Inheriting `regista_version` silently is a footgun.
 2. **Relative Paths Only:** The composer rejects `extends:` in absolute-path form or paths that escape the compose root. Relative paths like `extends: ./phase1.yaml` are strictly required.
 
 ### Step 1: Base File (`phase1.yaml`)
@@ -27,7 +27,7 @@ Refactored to extend `phase1.yaml`.
 ```yaml
 name: software_factory
 version: 2
-substrate_version: "0.1.0"
+regista_version: "0.1.0"
 extends: ./phase1.yaml
 
 roles:
@@ -48,7 +48,7 @@ link_types:
 ```yaml
 name: software_factory
 version: 3
-substrate_version: "0.1.0"
+regista_version: "0.1.0"
 extends: ./phase2.yaml
 ```
 *(Note: If no active runs rely on Phase 3, this file could theoretically be deleted. For this migration, we will preserve it as an artifact).*

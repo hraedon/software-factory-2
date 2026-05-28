@@ -5,7 +5,7 @@ regista spec §5, FR-17
 
 ## Spec excerpt
 
-**FR-17:** Parse and validate workflow definition (YAML + JSON Schema). Declares: `version` (required integer), `substrate_version` (required, semver), states, transitions, role-gating per transition, custom typed fields per work-item-type (each field has `type` + `ui_visible` flag, default `false`), link types per work-item-type pair, attempt threshold, per-hook retry overrides.
+**FR-17:** Parse and validate workflow definition (YAML + JSON Schema). Declares: `version` (required integer), `regista_version` (required, semver), states, transitions, role-gating per transition, custom typed fields per work-item-type (each field has `type` + `ui_visible` flag, default `false`), link types per work-item-type pair, attempt threshold, per-hook retry overrides.
 
 Custom field type vocabulary (closed set): `string`, `integer`, `boolean`, `timestamp`, `json`, `enum`, `work_item_ref`.
 

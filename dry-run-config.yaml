@@ -1,6 +1,6 @@
 workflow_name: software_factory
 workflow_version: 1
-dsn: postgresql://substrate_test:substrate_test@localhost:5432/substrate_test
+dsn: postgresql://regista_test:regista_test@localhost:5432/regista_test
 project_name: sf2_dryrun
 hmac_key_path: tests/test_keys.json
 workspace_root: /tmp/sf2-dryrun-001
