@@ -32,3 +32,11 @@ Run the pipeline on 2-3 real, non-trivial workloads:
 3. A library module (e.g., a data validation library)
 
 Each should have 5-10 work items with cross-module dependencies. Document which stages succeed, which fail, and why. Use the results to update the tier table, gate budget, and role prompts.
+
+## Progress
+
+**GR-040 (2026-05-26):** Phase A baseline on log-redact-cli (5 FRs). 96% lock rate (45/47). 2 integration failures from cross-module type incompatibility — expected Phase A limitation.
+
+**GR-043 (2026-05-28):** Phase B with MiMo-V2.5-Pro decomposer on log-redact-cli. 97% lock rate (33/34). MiMo produced semantic module names (`rule_loader`, `log_reader`, `redaction_engine`, `output_emitter`); K2 could not (GR-041). 1 transient channel_fail on integration (unrelated to decomposition).
+
+**Remaining:** dep-graph-viewer workload (4 FRs) not yet run. Need N=2 workloads for Phase 6 exit. Web-service archetype deferred to Phase 6.2.

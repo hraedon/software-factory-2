@@ -79,3 +79,9 @@ Phase 6 (generalization). Phase 5 is synthetic-fixture validation with hand-craf
 - Spec-lint integration — decomposed modules are linted individually downstream, but no dedicated pre-decomposition lint gate exists.
 - Failure-to-decompose escalation path — currently raises `DecomposeError` to CLI stderr; regista work-item not created.
 - Glossary extraction from model output — currently empty in model-driven mode (deterministic path preserves glossary forwarding).
+
+**Phase B validation (2026-05-28, GR-043):**
+- MiMo-V2.5-Pro follows the Phase B prompt: semantic names, FR grouping, populated AC bodies. K2 could not (GR-041).
+- 97% lock rate on log-redact-cli, matching Phase A baseline (96%).
+- Key fixes: AC condition enrichment from spec.yaml, FR-ID → semantic name mapping for dependency resolution, AC ID extraction from fixture content (was hardcoded to `["AC-01"]`).
+- Model choice matters: the decomposer prompt is not model-agnostic. MiMo-V2.5-Pro instruction-following is significantly stronger than K2 for structured output tasks.

@@ -25,6 +25,27 @@ FIXTURES_DIR = ROOT_DIR / "tests" / "fixtures" / "primary-spec"
 SECONDARY_DIR = ROOT_DIR / "tests" / "fixtures" / "secondary-spec"
 ROUTING_STRESS_DIR = ROOT_DIR / "tests" / "fixtures" / "routing-stress"
 
+
+def _extract_ac_ids_from_fixture(spec_text: str) -> list[str]:
+    """Extract AC IDs from a fixture spec's heading or bulleted format."""
+    ids: list[str] = []
+    for line in spec_text.splitlines():
+        m = re.match(r"^##\s+(AC-(?:[A-Z]+-)?\d+)\s*:?", line, re.IGNORECASE)
+        if m:
+            ids.append(m.group(1))
+    if ids:
+        return ids
+    for line in spec_text.splitlines():
+        stripped = line.strip()
+        m = re.match(r"^- `(AC-(?:[A-Z]+-)?\d+)`:", stripped)
+        if m:
+            ids.append(m.group(1))
+            continue
+        m = re.match(r"^-\s*(AC-(?:[A-Z]+-)?\d+):", stripped)
+        if m:
+            ids.append(m.group(1))
+    return ids
+
 PRIMARY_ITEMS = [
     ("01-acquire_claim.md", "01", "pure-interface", ["AC-06"]),
     ("02-register_workflow.md", "02", "pure-interface", ["AC-17"]),
@@ -394,6 +415,7 @@ def main():
                 spec_yaml_path=Path(args.spec_yaml) if args.spec_yaml else None,
                 workspace_root=ws_root,
                 max_retries=2,
+                model_override=args.decomposer_model,
             )
         except DecomposeError as exc:
             print(f"ERROR: model-driven decomposition failed: {exc}", file=sys.stderr)
@@ -404,7 +426,10 @@ def main():
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
         md_files = sorted(decomposed_dir.glob("*.md"))
-        items = [(f.name, f.stem, "custom", ["AC-01"]) for f in md_files]
+        items = []
+        for f in md_files:
+            ac_ids = _extract_ac_ids_from_fixture(f.read_text()) or ["AC-01"]
+            items.append((f.name, f.stem, "custom", ac_ids))
     elif args.spec_yaml:
         from factory.decomposer import (
             decompose_from_spec_yaml as _decompose_yaml,
@@ -424,7 +449,10 @@ def main():
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
         md_files = sorted(decomposed_dir.glob("*.md"))
-        items = [(f.name, f.stem, "custom", ["AC-01"]) for f in md_files]
+        items = []
+        for f in md_files:
+            ac_ids = _extract_ac_ids_from_fixture(f.read_text()) or ["AC-01"]
+            items.append((f.name, f.stem, "custom", ac_ids))
     elif args.spec_md:
         from factory.decomposer import (
             decompose_from_spec_md as _decompose_md,
@@ -444,11 +472,17 @@ def main():
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
         md_files = sorted(decomposed_dir.glob("*.md"))
-        items = [(f.name, f.stem, "custom", ["AC-01"]) for f in md_files]
+        items = []
+        for f in md_files:
+            ac_ids = _extract_ac_ids_from_fixture(f.read_text()) or ["AC-01"]
+            items.append((f.name, f.stem, "custom", ac_ids))
     elif args.fixtures:
         fixtures_dir = Path(args.fixtures)
         md_files = sorted(fixtures_dir.glob("*.md"))
-        items = [(f.name, f.stem, "custom", ["AC-01"]) for f in md_files]
+        items = []
+        for f in md_files:
+            ac_ids = _extract_ac_ids_from_fixture(f.read_text()) or ["AC-01"]
+            items.append((f.name, f.stem, "custom", ac_ids))
     elif args.set == "primary":
         items = PRIMARY_ITEMS + ADVERSARIAL_ITEMS
     elif args.set == "secondary":

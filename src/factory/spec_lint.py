@@ -50,9 +50,10 @@ def _extract_acs(spec_text: str) -> list[tuple[str, str]]:
     acs: list[tuple[str, str]] = []
     lines = spec_text.splitlines()
 
+    ac_heading_re = re.compile(r"^##\s+(AC-(?:[A-Z]+-)?\d+)\s*:?\s*(.*)", re.IGNORECASE)
     heading_ids = []
     for line in lines:
-        m = re.match(r"^##\s+(AC-\d+)\s*:\s*(.*)", line, re.IGNORECASE)
+        m = ac_heading_re.match(line)
         if m:
             heading_ids.append(m.group(1))
 
@@ -60,7 +61,7 @@ def _extract_acs(spec_text: str) -> list[tuple[str, str]]:
         current_id: str | None = None
         current_body_lines: list[str] = []
         for line in lines:
-            m = re.match(r"^##\s+(AC-\d+)\s*:\s*(.*)", line, re.IGNORECASE)
+            m = ac_heading_re.match(line)
             if m:
                 if current_id is not None:
                     acs.append((current_id, "\n".join(current_body_lines).strip()))
@@ -105,7 +106,7 @@ def _extract_backtick_symbols(text: str) -> list[str]:
 def check_ac_section_exists(spec_name: str, spec_text: str) -> LintFinding | None:
     acs = _extract_acs(spec_text)
     has_ac_section = bool(acs)
-    ac_heading_pat = r"^##\s+AC-\d+\s*:"
+    ac_heading_pat = r"^##\s+AC-(?:[A-Z]+-)?\d+\s*:?"
     has_heading = bool(re.search(ac_heading_pat, spec_text, re.IGNORECASE | re.MULTILINE))
     ac_section_pat = r"^##\s+acceptance criteria"
     has_bulleted = bool(re.search(ac_section_pat, spec_text, re.IGNORECASE | re.MULTILINE))
@@ -124,7 +125,7 @@ def check_ac_bullets_well_formed(spec_name: str, spec_text: str) -> list[LintFin
     findings: list[LintFinding] = []
 
     if not acs:
-        ac_heading_pat = r"^##\s+AC-\d+\s*:"
+        ac_heading_pat = r"^##\s+AC-(?:[A-Z]+-)?\d+\s*:?"
         has_ac_heading = bool(re.search(ac_heading_pat, spec_text, re.IGNORECASE | re.MULTILINE))
         ac_section_pat = r"^##\s+acceptance criteria"
         has_ac_section = bool(re.search(ac_section_pat, spec_text, re.IGNORECASE | re.MULTILINE))
@@ -204,7 +205,7 @@ def check_ac_symbol_references_resolve(
                 continue
             if sym in spec_own_names:
                 continue
-            if re.match(r"^AC-\d+$", sym):
+            if re.match(r"^AC-(?:[A-Z]+-)?\d+$", sym):
                 continue
             findings.append(
                 LintFinding(

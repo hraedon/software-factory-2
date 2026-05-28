@@ -251,7 +251,7 @@ def _preflight(config_path: Path, fixtures: str | None) -> None:
     _info("=== Pre-flight passed ===")
 
 
-def _populate(config_path: Path, fixtures: str | None) -> None:
+def _populate(config_path: Path, fixtures: str | None, decomposer_channel: str | None = None, decomposer_model: str | None = None) -> None:
     """Run populate_work_items.py from repo root."""
     _info("Populating work items...")
     cmd = [
@@ -262,6 +262,10 @@ def _populate(config_path: Path, fixtures: str | None) -> None:
     ]
     if fixtures:
         cmd += ["--fixtures", str(REPO_ROOT / fixtures)]
+    if decomposer_channel:
+        cmd += ["--decomposer-channel", decomposer_channel]
+    if decomposer_model:
+        cmd += ["--decomposer-model", decomposer_model]
     result = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True)
     if result.returncode != 0:
         _fatal(f"populate_work_items failed:\n{result.stderr}")
@@ -519,6 +523,15 @@ def main() -> None:
         help="Skip workspace/log cleanup"
     )
     parser.add_argument(
+        "--decomposer-channel",
+        choices=["opencode", "claude-code", "gemini-cli"],
+        help="Model channel for RFC-023 Phase B model-driven decomposition",
+    )
+    parser.add_argument(
+        "--decomposer-model",
+        help="Model override for --decomposer-channel (e.g. xiaomi-token-plan-sgp/mimo-v2.5-pro)",
+    )
+    parser.add_argument(
         "--monitor-interval", type=int, default=30,
         help="Seconds between log checks"
     )
@@ -535,7 +548,7 @@ def main() -> None:
     xdg_data_home.mkdir(parents=True, exist_ok=True)
 
     _preflight(config_path, args.fixtures)
-    _populate(config_path, args.fixtures)
+    _populate(config_path, args.fixtures, decomposer_channel=args.decomposer_channel, decomposer_model=args.decomposer_model)
     runner, gate, scheduler = _launch_processes(
         config_path, log_prefix, xdg_data_home=xdg_data_home
     )

@@ -48,6 +48,7 @@ def _invoke_decomposer_channel(
     spec_yaml_path: Path | None,
     workspace_root: Path,
     prior_failures: list[DecompositionGateResult] | None = None,
+    model_override: str | None = None,
 ) -> str:
     """Invoke the model channel for decomposition; return raw output text."""
     spec_data: dict[str, Any] | None = None
@@ -66,12 +67,13 @@ def _invoke_decomposer_channel(
 
     timeout = 120
 
-    log.info("decomposer.invoke", spec=str(spec_path), channel=channel.name, timeout=timeout)
+    log.info("decomposer.invoke", spec=str(spec_path), channel=channel.name, timeout=timeout, model=model_override)
     result = channel.invoke(
         role=ROLE_INTERFACE_ARCHITECT,
         prompt=prompt,
         outputs_dir=outputs_dir,
         timeout=timeout,
+        model_override=model_override,
     )
 
     if not result.success:
@@ -433,12 +435,21 @@ def decompose_from_model(
     spec_yaml_path: Path | None,
     workspace_root: Path,
     max_retries: int = 2,
+    model_override: str | None = None,
 ) -> DecompositionResult:
     """Model-driven decomposition with mechanical gate validation and retry.
 
     On failure, retries the channel up to ``max_retries`` times. If all
     attempts fail validation, raises ``DecomposeError``.
     """
+    # Load spec data once for AC condition lookup
+    spec_yaml_file = spec_yaml_path if spec_yaml_path and spec_yaml_path.exists() else (
+        spec_path if spec_path.suffix in (".yaml", ".yml") and spec_path.exists() else None
+    )
+    spec_data: dict[str, Any] | None = None
+    if spec_yaml_file is not None:
+        spec_data = _render_yaml_for_prompt(spec_yaml_file)
+
     last_diagnostics: list[DecompositionGateResult] = []
     for attempt in range(max_retries + 1):
         log.info("decomposer.attempt", attempt=attempt, max_retries=max_retries)
@@ -449,6 +460,7 @@ def decompose_from_model(
             spec_yaml_path,
             workspace_root,
             prior_failures=last_diagnostics or None,
+            model_override=model_override,
         )
         try:
             data = _extract_decomposition_json(raw_text)
@@ -466,13 +478,27 @@ def decompose_from_model(
         diagnostics = _validate_decomposition(data, phase_b=True)
         last_diagnostics = diagnostics
         if all(r.passed for r in diagnostics):
+            # Build AC lookup from spec data to enrich model's ac_ids with condition text
+            ac_lookup: dict[str, str] = {}
+            if spec_data is not None:
+                for ac in spec_data.get("acceptance_criteria", []):
+                    ac_lookup[ac["id"]] = ac.get("condition", ac.get("text", ""))
+            # Build FR-ID → semantic module_name lookup for dependency resolution
+            fr_to_module: dict[str, str] = {
+                m["fr_id"]: m["module_name"] for m in data.get("modules", [])
+            }
             modules = [
                 DecomposedModule(
                     module_name=m["module_name"],
                     fr_id=m["fr_id"],
                     fr_text=m["fr_text"],
-                    ac_entries=[{"id": ac} for ac in m.get("ac_ids", [])],
-                    dependency_fr_ids=m.get("dependency_fr_ids", []),
+                    ac_entries=[
+                        {"id": ac, "condition": ac_lookup.get(ac, "")}
+                        for ac in m.get("ac_ids", [])
+                    ],
+                    dependency_fr_ids=[
+                        fr_to_module.get(d, d) for d in m.get("dependency_fr_ids", [])
+                    ],
                     glossary={},  # model pass doesn't extract glossary yet
                 )
                 for m in data.get("modules", [])

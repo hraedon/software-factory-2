@@ -118,6 +118,11 @@ make golden-run CONFIG=.factory/golden-runs/golden-run-022-config.yaml FIXTURES=
 For manual step-by-step control (recommended for monitoring):
 
 ```bash
+# IMPORTANT: Set XDG_DATA_HOME to isolate opencode session DB from the
+# principal's persistent store. Without this, golden-run opencode sessions
+# appear in the main project's session history. Use a unique directory per run.
+export XDG_DATA_HOME=/tmp/sf2-golden-NNN-opencode-data
+
 .venv/bin/python populate_work_items.py --config .factory/golden-runs/golden-run-022-config.yaml --reset --fixtures tests/fixtures/cert-watch-mini
 .venv/bin/python -m factory.runner --config .factory/golden-runs/golden-run-022-config.yaml > /tmp/gr022-runner.log 2>&1 &
 .venv/bin/python -m factory.gate_process --config .factory/golden-runs/golden-run-022-config.yaml > /tmp/gr022-gate.log 2>&1 &
@@ -125,7 +130,12 @@ For manual step-by-step control (recommended for monitoring):
 wait
 .venv/bin/python -m factory.telemetry --config .factory/golden-runs/golden-run-022-config.yaml
 .venv/bin/python -m factory.telemetry --verify --config .factory/golden-runs/golden-run-022-config.yaml
+
+# Cleanup: remove the isolated DB after the run (optional, preserves forensics)
+# rm -rf /tmp/sf2-golden-NNN-opencode-data
 ```
+
+**Why `XDG_DATA_HOME`?** The opencode CLI stores session state in `$XDG_DATA_HOME/opencode/` (defaults to `~/.local/share/opencode/`). Golden-run model invocations create sessions that pollute the principal's session list. Setting `XDG_DATA_HOME` to a temp directory per run keeps them isolated. The `agent_golden_run.py` wrapper does this automatically.
 
 ### Monitoring
 

@@ -191,7 +191,7 @@ class TestDecomposeFromModel:
             max_retries=0,
         )
         assert len(result.modules) == 2
-        assert result.modules[1].dependency_fr_ids == ["FR-01"]
+        assert result.modules[1].dependency_fr_ids == ["m1"]
 
     def test_retry_on_bad_output(self, tmp_path: Path):
         bad = {"modules": [{"module_name": "x"}]}
@@ -388,9 +388,9 @@ class TestDecomposeFromModelSnapshotLogRedactCLI:
             "audit_writer",
         ]
         deps = {m.fr_id: m.dependency_fr_ids for m in result.modules}
-        assert deps["FR-03"] == ["FR-01", "FR-02"]
-        assert deps["FR-04"] == ["FR-03"]
-        assert deps["FR-05"] == ["FR-03"]
+        assert deps["FR-03"] == ["rule_loader", "log_reader"]
+        assert deps["FR-04"] == ["redaction_engine"]
+        assert deps["FR-05"] == ["redaction_engine"]
 
 
 class TestDecomposeFromModelSnapshotDepGraphViewer:
@@ -442,8 +442,8 @@ class TestDecomposeFromModelSnapshotDepGraphViewer:
         names = [m.module_name for m in result.modules]
         assert names == ["event_reader", "graph_builder", "graph_filter", "dot_emitter"]
         deps = {m.fr_id: m.dependency_fr_ids for m in result.modules}
-        assert deps["FR-03"] == ["FR-02"]
-        assert deps["FR-04"] == ["FR-03"]
+        assert deps["FR-03"] == ["graph_builder"]
+        assert deps["FR-04"] == ["graph_filter"]
 
 
 class TestDecomposeFromModelSnapshotCertWatch:
