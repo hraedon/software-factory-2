@@ -1,5 +1,7 @@
 # Software Factory v2 — Agent Guide
 
+> **Upstream renamed 2026-05-27:** the coordination spine was previously `substrate`; it is now `regista` (consumer migration in `plans/2026-05-27-substrate-rename-consumer-migration.md`, regista Plan 018 upstream). The test DSN database `substrate_test` was renamed to `regista_test`. Older `.factory/` history, breadcrumbs, reflections, and debate documents that still say "substrate" are intentional historical record; `dep-graph-viewer` fixture's "large substrates" wording is the generic noun, not the project name.
+
 ## Orientation
 
 Read in this order:
