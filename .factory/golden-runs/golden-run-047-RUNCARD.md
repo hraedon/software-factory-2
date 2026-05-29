@@ -1,6 +1,6 @@
 # GR-047 Run Card — MiMo decomposer on url-shortener (web-service archetype)
 
-**Status:** not yet run
+**Status:** complete — see `golden-run-047-log.md` (reconciled per BC-223)
 **Config:** `.factory/golden-runs/golden-run-047-config.yaml`
 **Decomposer:** MiMo-V2.5-Pro (`opencode` channel, model `xiaomi-token-plan-sgp/mimo-v2.5-pro`)
 **Spec:** `tests/fixtures/url-shortener/spec.yaml`

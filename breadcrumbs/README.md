@@ -99,6 +99,9 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 224 | Jury/review accept stub, non-HTTP code as satisfying HTTP/persistence ACs — quorum buries the one juror that catches it | high | proposed |
+| 223 | Golden-run RUNCARD status field not reconciled after run — audit trail self-contradicts | low | proposed |
+| 222 | outcome_e2e gate on web-service workloads is unvalidated — GR-047 escalation, unknown root cause | medium | proposed |
 | 221 | populate_work_items.py --spec-yaml mode has 3 bugs: workspace_root fallback, reset destroys files, requirements.txt not copied | high | in_progress |
 | 215 | Scheduler dedup lock is single-process only — no HA support | low | proposed |
 | 211 | No Prometheus metrics endpoint despite spec §7 claiming one | medium | proposed |
