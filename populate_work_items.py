@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 import shutil
 import sys
+import tempfile
 import uuid as _uuid
 from pathlib import Path
 
@@ -378,12 +379,13 @@ def main():
     else:
         workflow_version = 2
 
+    # Decompose to a temp dir first; files are copied into workspace after --reset
+    _decompose_temp: Path | None = None
     if args.decomposer_channel and (args.spec_yaml or args.spec_md):
         from factory.decomposer_model import DecomposeError, decompose_from_model
 
         spec_path = Path(args.spec_yaml or args.spec_md)
-        ws_root = Path(args.workspace_root or "/tmp")
-        ws_root.mkdir(parents=True, exist_ok=True)
+        _decompose_temp = Path(tempfile.mkdtemp(prefix="sf2-decompose-"))
         _cfg = config or FactoryConfig()
 
         # Run spec review if requested
@@ -413,7 +415,7 @@ def main():
                 _cfg,
                 spec_path,
                 spec_yaml_path=Path(args.spec_yaml) if args.spec_yaml else None,
-                workspace_root=ws_root,
+                workspace_root=_decompose_temp,
                 max_retries=2,
                 model_override=args.decomposer_model,
             )
@@ -422,7 +424,7 @@ def main():
             sys.exit(1)
         from factory.decomposer import write_fixture_files as _write_fixtures
 
-        decomposed_dir = ws_root / ".decomposed"
+        decomposed_dir = _decompose_temp / ".decomposed"
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
         md_files = sorted(decomposed_dir.glob("*.md"))
@@ -444,8 +446,9 @@ def main():
         if args.spec_review:
             _run_spec_review(spec_path, config, args)
 
+        _decompose_temp = Path(tempfile.mkdtemp(prefix="sf2-decompose-"))
         result = _decompose_yaml(spec_path)
-        decomposed_dir = Path(args.workspace_root or "/tmp") / ".decomposed"
+        decomposed_dir = _decompose_temp / ".decomposed"
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
         md_files = sorted(decomposed_dir.glob("*.md"))
@@ -467,8 +470,9 @@ def main():
         if args.spec_review:
             _run_spec_review(spec_path, config, args)
 
+        _decompose_temp = Path(tempfile.mkdtemp(prefix="sf2-decompose-"))
         result = _decompose_md(spec_path)
-        decomposed_dir = Path(args.workspace_root or "/tmp") / ".decomposed"
+        decomposed_dir = _decompose_temp / ".decomposed"
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
         md_files = sorted(decomposed_dir.glob("*.md"))
@@ -495,6 +499,15 @@ def main():
     only_labels = set(args.only.split(",")) if args.only else None
 
     sub = _open_or_create_project(dsn, project, key_path, workflow_path, args.reset, workspace_root)
+
+    # Copy decomposed files into the (now-clean) workspace
+    if _decompose_temp is not None and workspace_root:
+        ws_root = Path(workspace_root)
+        ws_root.mkdir(parents=True, exist_ok=True)
+        dest_dir = ws_root / ".decomposed"
+        shutil.copytree(_decompose_temp / ".decomposed", dest_dir, dirs_exist_ok=True)
+        shutil.rmtree(_decompose_temp, ignore_errors=True)
+
     _config = FactoryConfig()
     if config is not None:
         _config = config
@@ -580,6 +593,11 @@ def main():
             spec_text = spec_path.read_text() if spec_path.exists() else None
         else:
             spec_text = _resolve_spec_text(filename, label)
+            # Fallback: check workspace .decomposed dir for model-decomposed fixtures
+            if spec_text is None and workspace_root:
+                ws_decomposed = Path(workspace_root) / ".decomposed" / filename
+                if ws_decomposed.exists():
+                    spec_text = ws_decomposed.read_text()
         if spec_text is None:
             print(f"  [{label}] SKIP: {filename} not found")
             continue

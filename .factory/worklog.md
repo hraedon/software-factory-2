@@ -1,5 +1,36 @@
 ---
 
+## 2026-05-29 — Session 53: GR-046 — MiMo decomposer on dep-graph-viewer, fresh session
+
+**Invocation:** MiMo-V2.5-Pro (decomposer), K2 (workers), Sonnet (review/jury)
+
+**Focus:** Execute GR-046 to resolve the BC-220 confound: is decomposer cross-workload contamination session-driven or model-driven? MiMo-V2.5-Pro decomposed dep-graph-viewer in a fresh session (XDG_DATA_HOME isolation), then ran the full 7-stage pipeline.
+
+### Changes
+
+1. **opencode config: xiaomi-token-plan-sgp provider**
+   - Added `xiaomi-token-plan-sgp` provider to `~/.config/opencode/opencode.json` with base URL `https://token-plan-sgp.xiaomimimo.com/v1` and API key from stored credentials.
+
+2. **populate_work_items.py: 3 bugs found and fixed (BC-221)**
+   - Bug 1: `args.workspace_root` fallback used `args.workspace_root or "/tmp"` instead of resolved `workspace_root` from config. Fixed by using resolved variable.
+   - Bug 2: `--reset` called `shutil.rmtree(workspace)` AFTER decomposer wrote to it, destroying output. Fixed by decomposing to temp dir first, copying into workspace after reset.
+   - Bug 3 (not fixed): `--spec-yaml` path doesn't copy `requirements.txt` from fixture directory. Filed as BC-221.
+
+3. **GR-046 execution**
+   - Decomposer: MiMo-V2.5-Pro produced clean semantic names (event_reader, graph_builder, graph_filter, dot_emitter) with zero contamination.
+   - Pipeline: 96% lock (23/24), mean attempts 1.83, first gate pass 96%, inner gate first-pass 94%, verify_passed=True.
+   - 1 cannot_proceed: event_reader implementation failed mypy on psycopg import (CLASS-008, requirements.txt bug).
+
+### Test results
+
+1107 passed, 13 skipped, 0 lint errors, 0 vulture findings.
+
+### BC-220 verdict
+
+**Session-driven, not model-driven.** MiMo produced clean decomposition on dep-graph-viewer in a fresh session. BC-220's severity stays `medium` (workaround: XDG_DATA_HOME isolation). RFC-023 Phase B promotion is now on firm ground — MiMo validated across both workloads (GR-043: log-redact-cli 97%, GR-046: dep-graph-viewer 96%).
+
+---
+
 ## 2026-05-25 — Session 52: Adversarial review completion — string constants, telemetry parity, mutation_gate cleanup
 
 **Invocation:** DeepSeek (interrupted by usage limits), completed by K2

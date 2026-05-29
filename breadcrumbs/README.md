@@ -98,7 +98,8 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 ### Active Bugs & Improvements
 
 | # | Title | Severity | Status |
-|---|---|---|---|---|
+|---|---|---|---|
+| 221 | populate_work_items.py --spec-yaml mode has 3 bugs: workspace_root fallback, reset destroys files, requirements.txt not copied | high | in_progress |
 | 215 | Scheduler dedup lock is single-process only — no HA support | low | proposed |
 | 211 | No Prometheus metrics endpoint despite spec §7 claiming one | medium | proposed |
 | 210 | No streaming/incremental telemetry — operators have no visibility during long runs | medium | proposed |

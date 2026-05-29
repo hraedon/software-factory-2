@@ -84,3 +84,53 @@ To:
 3. **Mutation gate exercise** — Run mutation_gate in a golden run to validate test efficacy
 4. **BC-220 resolution** — Filter decomposer output against spec's declared FR IDs
 5. **Non-CLI workload validation** — BC-209's remaining gap: no workload exercises production complexity
+
+---
+
+## Addendum — the decomposer evidence is weaker than "N=2 validated" implies (2026-05-29)
+
+**Author:** Claude Opus (review session)
+
+The "Phase B validated on N=2 workloads" finding above carries two confounds that materially affect the RFC-023 promotion recommendation. Stated plainly so the gate decision isn't made on the rosier reading:
+
+### 1. The N=2 is two different decomposer models, one workload each — not one model across two workloads
+
+| Workload | Decomposer | Result | N |
+|---|---|---|---|
+| log-redact-cli | MiMo-V2.5-Pro (GR-043) | clean semantic names, no contamination | 1 |
+| dep-graph-viewer | Sonnet (GR-045) | semantic names **+ cross-workload contamination (BC-220)** | 1 |
+
+No single decomposer model has been validated across both workloads. MiMo is validated on 1; Sonnet on 1 (with a defect). The run planned in GR-043 lesson #5 was *MiMo on dep-graph-viewer*; GR-045 substituted Sonnet. So the matched pair this gate appears to rest on **does not exist** — it's a mixed pair presented as a clean one.
+
+### 2. The model scoreboard is not "MiMo/Sonnet good, K2 bad"
+
+All three decomposer results are N=1, and the failure modes are not equivalent:
+
+- **K2 / Kimi (GR-041):** declined to follow the semantic-naming instruction → degraded safely to deterministic Phase A. A benign, inert failure. (GR-041's ugly lock rate was largely the since-fixed `populate_work_items` AC-ID bug, BC-219, not K2's decomposition.) K2 is also the worker model carrying every stage of these pipelines at 96–97%.
+- **MiMo (GR-043):** clean. The run's "SOME FAIL" was an unrelated channel hiccup, not the decomposition.
+- **Sonnet (GR-045):** followed the instruction but injected another spec's content (BC-220). In an autonomous run this flows downstream; spec_lint only warns, it doesn't reject.
+
+Ranked by danger, Sonnet's contamination is the **worst** of the three decomposer outcomes — more dangerous than K2's safe non-compliance, because it produces wrong content rather than no new content.
+
+### Implication for the RFC-023 promotion recommendation
+
+Promoting Phase B to "implemented" currently rests on (a) one model clean on one workload and (b) one model *defective* on the other. That is thinner than "validated on N=2." **Recommend gating the promotion on GR-046 (below)** producing one decomposer model clean across both workloads, with BC-220 either resolved or demonstrated to be session-specific.
+
+What this addendum does **not** dispute: Phase A fallback robustness, lock-rate equivalence, and "model choice matters for instruction-following" all hold. The narrowing is specifically about the strength of the "Phase B generalizes" claim and the safety of the decomposer role. It also does not touch the separate, still-open question of whether semantic naming earns its complexity — GR-045 found the names are a readability gain, not a correctness gain.
+
+### Recommended: GR-046 — MiMo on dep-graph-viewer, fresh session
+
+**Purpose:** convert the confounded N=2 into one decomposer model (MiMo) clean across both workloads, and determine whether BC-220 contamination is session-driven or model-driven.
+
+**Design:**
+- Decomposer: MiMo-V2.5-Pro (`--decomposer-channel`/`--decomposer-model`) on `dep-graph-viewer/spec.yaml`.
+- **Fresh session / no prior decomposition in context** — the key control. BC-220's root-cause hypothesis is session-context retention from GR-043 (log-redact-cli decomposed in the same context). A clean context is the only way to distinguish "MiMo is clean" from "the session leaked."
+- Hold everything else at the GR-044/045 config (K2 workers, Sonnet review/jury) so the decomposer is the only variable.
+
+**Decision value (either outcome is informative):**
+- **Clean →** MiMo validated on 2 workloads; contamination looks session-specific (supports the BC-220 workaround); RFC-023 promotion is on firm ground.
+- **Contaminated →** BC-220 is systemic across decomposer models, not a Sonnet quirk → promotion blocked, and the contamination is a higher-severity defect than its current `medium` rating.
+
+**Optional GR-047:** re-run Sonnet on dep-graph-viewer in a *fresh* session to confirm BC-220 was the session artifact it hypothesizes (and not inherent Sonnet behavior). Cheap; fully separates model-quality from session-hygiene. Lower priority than GR-046.
+
+**Caveat:** GR-046 strengthens the generalization + safety claim only. It does not address whether semantic naming is worth the added model dependency and contamination surface — that cost/benefit question is separate and remains open regardless of GR-046's outcome.
