@@ -163,6 +163,9 @@ KIND_DISPATCH = {
     DiagnosticKind.OUTCOME_E2E: Route(
         target_state=STATE_NEW,
     ),
+    DiagnosticKind.CONFORMANCE: Route(
+        target_state=STATE_NEW,
+    ),
     DiagnosticKind.ARTIFACT_OVERSIZED: Route(
         target_state=STATE_NEW,
     ),
@@ -191,6 +194,7 @@ ESCALATABLE_KINDS = {
     DiagnosticKind.INTEGRATION_MYPY,
     DiagnosticKind.INTEGRATION_PYTEST,
     DiagnosticKind.OUTCOME_E2E,
+    DiagnosticKind.CONFORMANCE,
     DiagnosticKind.MUTATION_UNCAUGHT,
 }
 

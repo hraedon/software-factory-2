@@ -99,6 +99,7 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 226 | spec_lint should reject non-concrete ACs — fuzzy items in acceptance_criteria silently degrade RFC-038 gate coverage | medium | proposed |
 | 225 | interface_architect halts on FR-local type underspecification without consulting the glossary that defines the missing structure | low | proposed |
 | 224 | Jury/review accept stub, non-HTTP code as satisfying HTTP/persistence ACs — quorum buries the one juror that catches it | high | proposed |
 | 223 | Golden-run RUNCARD status field not reconciled after run — audit trail self-contradicts | low | proposed |

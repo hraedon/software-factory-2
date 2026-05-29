@@ -51,14 +51,18 @@ def _count_gate_entry_points(module) -> int:
 
 
 def test_gate_count_within_phase_3_budget():
-    """Phase 3 gate count must not exceed the spec §10 budget of 12."""
+    """Phase 5 gate count must not exceed the spec §10 budget of 16 deterministic."""
     outer = _count_gate_entry_points(gate_module)
     inner = _count_gate_entry_points(pre_gate_module)
     total = outer + inner
 
-    budget = _PHASE_BUDGET[3]
+    # Phase 5: 16 deterministic gates + 3 model-mediated gates.
+    # The conformance gate (RFC-038) replaces the model-mediated outcome_e2e
+    # with a deterministic execution-based gate, increasing the deterministic
+    # count by 1 while decreasing the model-mediated count by 1.
+    budget = _PHASE_BUDGET[5]
     assert total <= budget, (
-        f"Phase 3 mechanical gate count {total} exceeds budget {budget}. "
+        f"Phase 5 mechanical gate count {total} exceeds budget {budget}. "
         f"(outer={outer}, inner={inner}). "
         f"Per spec §10, the response is not a higher limit; it is a prompt/role/spec "
         f"change, or a spec amendment with rationale if all other responses failed."

@@ -25,6 +25,7 @@ from factory.gate._subprocess import (
 )
 
 # Gate evaluators
+from factory.gate.conformance import evaluate_conformance
 from factory.gate.implementation import evaluate_implementation
 from factory.gate.integration import evaluate_integration
 from factory.gate.interface_spec import evaluate_interface_spec
@@ -40,6 +41,7 @@ __all__ = [
     "_run_pytest",
     "_run_pytest_collect",
     "_run_ruff",
+    "evaluate_conformance",
     "evaluate_implementation",
     "evaluate_integration",
     "evaluate_interface_spec",

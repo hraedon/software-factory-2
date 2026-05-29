@@ -142,6 +142,7 @@ GATE_NAME_INTEGRATION_PYTEST = "integration_pytest"
 GATE_NAME_INTEGRATION = "integration"
 
 GATE_NAME_OUTCOME_E2E = "outcome_e2e"
+GATE_NAME_CONFORMANCE = "conformance"
 
 GATE_NAME_UNKNOWN_TYPE = "unknown_type"
 GATE_NAME_BEHAVIORAL = "behavioral"
@@ -243,3 +244,4 @@ class DiagnosticKind(StrEnum):
     OUTCOME_E2E = "outcome_e2e"
     ARTIFACT_OVERSIZED = "artifact_oversized"
     MUTATION_UNCAUGHT = "mutation_uncaught"
+    CONFORMANCE = "conformance"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import signal
 import threading
 import time
@@ -16,7 +17,9 @@ from factory.constants import (
     CUSTOM_FIELD_ARTIFACT_PATH,
     CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_DIAGNOSTICS,
+    CUSTOM_FIELD_INTEGRATION_REF,
     CUSTOM_FIELD_INTERFACE_REF,
+    CUSTOM_FIELD_SPEC_SECTION,
     CUSTOM_FIELD_TEST_SUITE_REF,
     FAMILY_CODE,
     GATE_NAME_BUDGET_EXHAUSTED,
@@ -42,6 +45,7 @@ from factory.dep_resolution import _safe_artifact_path, _to_uuid, resolve_dep_ar
 from factory.event_schemas import GateFailPayload
 from factory.gate import (
     GateResult,
+    evaluate_conformance,
     evaluate_implementation,
     evaluate_integration,
     evaluate_interface_spec,
@@ -433,8 +437,48 @@ def process_gate_item(
             gate_timeouts=config.gate_timeouts,
         )
     elif wi.work_item_type == WORK_ITEM_TYPE_OUTCOME_VERIFICATION:
-        # Outcome verification artifacts are JSON verdicts
-        gate_result = evaluate_outcome_verification(artifact_path)
+        # RFC-038: conformance gate (execution-based) takes priority over
+        # LLM-opinion-based outcome_e2e when spec_section is available and
+        # the integration artifact has a non-empty assembled tree.
+        spec_section = custom.get(CUSTOM_FIELD_SPEC_SECTION, "")
+        integration_ref = custom.get(CUSTOM_FIELD_INTEGRATION_REF, "")
+        conformance_artifact_path = artifact_path
+        if integration_ref:
+            # Resolve the integration artifact (has the assembled_tree)
+            try:
+                from factory.dep_resolution import _to_uuid
+                int_wi = runtime.sub.get_work_item(_to_uuid(integration_ref))
+                if int_wi and int_wi.custom_fields:
+                    int_artifact_str = int_wi.custom_fields.get(
+                        CUSTOM_FIELD_ARTIFACT_PATH, ""
+                    )
+                    if int_artifact_str:
+                        conformance_artifact_path = Path(int_artifact_str)
+            except Exception:
+                pass  # Fall back to the outcome_verification artifact
+
+        if spec_section and conformance_artifact_path and conformance_artifact_path.exists():
+            # Check if the integration artifact has a non-empty assembled tree
+            # before running conformance. Empty tree = no code to test.
+            try:
+                _int_text = conformance_artifact_path.read_text()
+                _int_data = json.loads(_int_text)
+                _has_tree = bool(_int_data.get("assembled_tree"))
+            except Exception:
+                _has_tree = False
+
+            if _has_tree:
+                gate_result = evaluate_conformance(
+                    conformance_artifact_path,
+                    spec_text=spec_section,
+                    python_executable=python_executable,
+                    gate_timeouts=config.gate_timeouts,
+                )
+            else:
+                gate_result = evaluate_outcome_verification(artifact_path)
+        else:
+            # Fallback: LLM verdict (legacy outcome_e2e)
+            gate_result = evaluate_outcome_verification(artifact_path)
     else:
         gate_result = GateResult(
             passed=False,
