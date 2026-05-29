@@ -37,6 +37,10 @@ High. This is the pipeline's core guarantee failing: it ships code that does not
 3. **Turn on RFC-027 (mutation/test-efficacy gate) and calibrate it on THIS workload** — the test theater here (suites that never assert HTTP status or DB integration) is exactly what mutation testing detects. url-shortener is a better calibration target than a clean CLI workload.
 4. **Close the `outcome_e2e` error-path gap** that let FR-05 pass (see BC-222).
 
+## Systemic fix
+
+**RFC-038 (verification-driven conformance gate)** is the proposed systemic fix: make conformance *executed* against AC-derived acceptance tests in a hermetic container, rather than *judged* by an LLM jury. This makes the jury non-load-bearing for conformance (the better outcome than fixing its rubric by prompt — which v1 evidence, dep-v1-314, says won't converge). See RFC-038, which also incorporates the v1 lessons (dep-v1-106: mutation testing was insufficient; dep-v1-342: real runs are the only reliable integration test; dep-v1-364: the must-fail-against-stub invariant).
+
 ## Why this isn't the previous fix recurring
 
 N/A — first instance of this defect shape (gate-rubric contract-altitude / quorum-masks-conformance-dissent). It is the upstream root cause that BC-222's symptom (outcome_e2e escalations) pointed back to.

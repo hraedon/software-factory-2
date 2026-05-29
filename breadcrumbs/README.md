@@ -115,6 +115,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 
 | # | Title | Severity | Phase Needed |
 |---|---|---|---|
+| RFC-038 | Verification-driven conformance gate — execute the assembled artifact against AC-derived acceptance tests in a hermetic container (systemic fix for BC-224; draws on v1 BC-106/314/342/364) | high | Phase 6.2 |
 | RFC-037 | Detect → enforce → retire tiering — declared commitment level for gates, allowlists, and status fields (cross-project meta-defense; lead example BC-194 implemented) | medium | Phase 5 in-flight |
 | RFC-035 | Data-driven channel placement layer — consume PassRateRow to propose role→channel config | high | Phase 3 (fleet integration) |
 | RFC-034 | Capture model identity (resolved model string) in telemetry keys | high | Phase 3 (fleet integration) |

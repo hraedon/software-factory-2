@@ -46,6 +46,8 @@ So this BC's original hypothesis (uvicorn startup race / process-group teardown)
 
 **Also note `outcome_e2e` is inconsistent:** it caught FR-01 and FR-04 but PASSED FR-05 error_formatter, which has no HTTP 422 endpoint (BC-224). So even the e2e gate has AC-coverage gaps on error paths. Severity unchanged (medium); status stays proposed; investigate `outcome_e2e` error-path coverage as part of the BC-224 work.
 
+**Systemic direction:** RFC-038 reframes `outcome_e2e` as the right *concept* executed by the wrong *oracle* (LLM rather than deterministic AC-execution). The FR-05 leak is exactly what a deterministic AC-derived acceptance suite (assert `POST /links {url:123}` → 422) would not miss. See RFC-038.
+
 ## Why this isn't the previous fix recurring
 
 N/A — first instance of this defect shape (outcome verification of a server-lifecycle workload). Related to BC-209 (the broader "no production-complexity workload validation" gap) and BC-224 (the upstream stub-code root cause). The CLASS-008 association is now doubtful given the reframed root cause.
