@@ -99,6 +99,7 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 
 | # | Title | Severity | Status |
 |---|---|---|---|
+| 225 | interface_architect halts on FR-local type underspecification without consulting the glossary that defines the missing structure | low | proposed |
 | 224 | Jury/review accept stub, non-HTTP code as satisfying HTTP/persistence ACs — quorum buries the one juror that catches it | high | proposed |
 | 223 | Golden-run RUNCARD status field not reconciled after run — audit trail self-contradicts | low | proposed |
 | 222 | outcome_e2e gate on web-service workloads is unvalidated — GR-047 escalation, unknown root cause | medium | proposed |

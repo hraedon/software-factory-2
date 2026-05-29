@@ -46,8 +46,9 @@ The principal of this project is a **systems architect, not a developer**. Archi
 ## Status
 
 - **Phase 5 complete.** Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs executed through GR-039 (RFC-011 + BC-195 validation under K2). All 211 BCs resolved; zero open bugs.
-- **Phase 6.1 complete.** Pipeline generalized to 3 workloads (cert-watch, log-redact-cli, dep-graph-viewer) at ≥96% lock rate through full 7-stage DAG. Phase B decomposer validated on 2 workloads with semantic module naming (MiMo-V2.5-Pro, Sonnet). 47 golden runs executed (GR-001 through GR-047). W5 decision gate written: `plans/2026-05-28-w5-decision-gate.md`.
-- **Phase 6.2 remaining:** Web-service archetype (first run: GR-047, 88% lock — jury disagreement on unfamiliar patterns), library-module archetype, BC-220 decomposer contamination fix.
+- **Phase 6.1 complete.** Pipeline generalized to 3 **CLI** workloads (cert-watch, log-redact-cli, dep-graph-viewer) at ≥96% lock rate through full 7-stage DAG. Phase B decomposer validated on 2 workloads with semantic module naming (MiMo-V2.5-Pro, Sonnet). W5 decision gate written: `plans/2026-05-28-w5-decision-gate.md`.
+- **Phase 6.2 — web-service archetype is FAILING (not near-pass).** GR-047 looked like 88% lock; GR-048 (3-member jury, artifacts preserved) read the verdicts against the spec and found the pipeline shipped stub, non-HTTP code (no FastAPI anywhere; fabricated in-memory data; no HTTP 422) that review + 2/3 of the jury blessed. The 96–97% CLI result was the atomic-decomposition assumption being *masked* (for CLI, unit ≈ deliverable), not validated. Root cause: **altitude mismatch** — ACs are deliverable-altitude, work units are atom-altitude (BC-224). 49 golden runs executed (GR-001 through GR-048; GR-049 planned).
+- **Active direction (Phase 6.2):** RFC-038 (verification-driven conformance gate — execute the assembled artifact in an ephemeral container against AC-derived tests, demote the jury from conformance authority) and RFC-039 (deliverable-driven decomposition + walking skeleton — *hypothesis*, to be validated, not doctrine). Next concrete step: build the RFC-038 ephemeral gate and run **GR-049** (point it at the existing atomic url-shortener output to confirm the stubs fail deterministically before changing the decomposer). Then GR-050 tests RFC-039 through the same gate. Library-module archetype and BC-220 deferred behind this.
 
 **What exists:**
 - 7-module runner: runner, gate, gate_process, router, scheduler, config, workspace
@@ -58,7 +59,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
 - **1118 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
 
-**Known issues:** 6 open items (2 medium proposed, 1 medium in-progress, 1 low proposed, 1 high proposed, 1 high in-progress) + 16 RFCs + 7 active defect classes + 2 stabilized (230 resolved). See `breadcrumbs/README.md`.
+**Known issues:** 10 open items (4 medium proposed, 1 medium in-progress, 3 low proposed, 1 high proposed, 1 high in-progress) + 18 RFCs + 7 active defect classes + 2 stabilized (230 resolved). See `breadcrumbs/README.md`. High-priority open: BC-224 (jury accepts stub code against HTTP ACs) — addressed by RFC-038/039.
 
 **Blocking on:** nothing.
 
