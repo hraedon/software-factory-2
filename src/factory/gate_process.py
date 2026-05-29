@@ -447,11 +447,10 @@ def process_gate_item(
             # Resolve the integration artifact (has the assembled_tree)
             try:
                 from factory.dep_resolution import _to_uuid
+
                 int_wi = runtime.sub.get_work_item(_to_uuid(integration_ref))
                 if int_wi and int_wi.custom_fields:
-                    int_artifact_str = int_wi.custom_fields.get(
-                        CUSTOM_FIELD_ARTIFACT_PATH, ""
-                    )
+                    int_artifact_str = int_wi.custom_fields.get(CUSTOM_FIELD_ARTIFACT_PATH, "")
                     if int_artifact_str:
                         conformance_artifact_path = Path(int_artifact_str)
             except Exception:
@@ -468,11 +467,20 @@ def process_gate_item(
                 _has_tree = False
 
             if _has_tree:
+                # Load requirements.txt from workspace if available for conformance gate
+                req_text = ""
+                req_path = config.workspace_root / "requirements.txt"
+                if req_path.exists():
+                    try:
+                        req_text = req_path.read_text()
+                    except Exception:
+                        pass
                 gate_result = evaluate_conformance(
                     conformance_artifact_path,
                     spec_text=spec_section,
                     python_executable=python_executable,
                     gate_timeouts=config.gate_timeouts,
+                    requirements_text=req_text,
                 )
             else:
                 gate_result = evaluate_outcome_verification(artifact_path)

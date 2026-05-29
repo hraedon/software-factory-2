@@ -1,5 +1,38 @@
 ---
 
+## 2026-05-29 — Session 55: RFC-038 lint fixes + GR-049 runtime corrections
+
+**Invocation:** K2
+
+**Focus:** Continue RFC-038 MVP implementation — fix lint errors and runtime bugs in the conformance gate so GR-049 can run cleanly.
+
+### Changes
+
+1. **RFC-038 lint fixes (56 errors → 0)**
+   - `src/factory/gate/conformance.py`: Fixed 10 `F541` f-strings without placeholders, 2 `E501` line-too-long, regex multiline formatting.
+   - `tests/test_gate_conformance.py`: Fixed 31 `F541`, 12 `E501` (parenthesized AC scenario strings), removed stale `# noqa: E501`.
+   - `src/factory/telemetry.py`: Fixed `I001` import block sort error.
+   - `src/factory/gate_process.py` + `src/factory/gate/conformance.py`: ruff formatted.
+
+2. **Runtime bug: `spec.yaml` key mismatch (`condition` vs `scenario`)**
+   - `_extract_acs_from_spec()` now reads `condition` first, falls back to `scenario`. Real spec.yaml uses `condition`; test/test data used `scenario`. Without this fix, GR-049 would see "No acceptance criteria found in spec" and silently fall back to LLM-jury `outcome_e2e`.
+
+3. **Runtime bug: Missing `requirements_text` plumbing**
+   - `evaluate_conformance` accepted a `requirements_text` parameter but `gate_process.py` never passed it.
+   - Added: read `requirements.txt` from `config.workspace_root` if present, pass it into `evaluate_conformance`. Without this, the ephemeral temp venv wouldn't install FastAPI/httpx and the ASGI test fixture would fail on ImportError rather than stub-assertion failure.
+
+### Test results
+
+1149 passed, 13 skipped, 0 lint errors, 0 vulture findings.
+
+### Open items (not addressed this session)
+
+- **AC-03 Location-header assertion gap** — `_translate_scenario` doesn't emit `assert resp.headers["location"] == ...`.
+- **Boot-probe end-to-end test** — no test exercises a real `from app import app` FastAPI import in the temp venv.
+- **RFC-039** — still design-only; no code changes.
+
+---
+
 ## 2026-05-29 — Session 54: GR-047 — Web-service archetype (url-shortener)
 
 **Invocation:** MiMo-V2.5-Pro (decomposer), K2 (workers), Sonnet (review/jury)

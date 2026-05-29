@@ -40,12 +40,15 @@ def _extract_acs_from_spec(spec_text: str) -> list[dict]:
             continue
         ac_id = ac.get("id", "")
         frs = ac.get("functional_requirements", [])
-        scenario = ac.get("scenario", "")
-        result.append({
-            "id": ac_id,
-            "fr": frs[0] if frs else "",
-            "scenario": scenario,
-        })
+        # Real spec.yaml uses "condition"; fixture/test data uses "scenario"
+        scenario = ac.get("condition", "") or ac.get("scenario", "")
+        result.append(
+            {
+                "id": ac_id,
+                "fr": frs[0] if frs else "",
+                "scenario": scenario,
+            }
+        )
     return result
 
 
@@ -66,9 +69,7 @@ def _derive_acceptance_tests(
     - If behavior is wrong, assertions fail
     """
     has_fastapi = any(
-        "fastapi" in requirements_text.lower()
-        or "fastapi" in f.lower()
-        for f in assembled_files
+        "fastapi" in requirements_text.lower() or "fastapi" in f.lower() for f in assembled_files
     )
 
     lines = [
@@ -83,33 +84,37 @@ def _derive_acceptance_tests(
     ]
 
     if has_fastapi:
-        lines.extend([
-            "from httpx import ASGITransport, AsyncClient",
-            "",
-            "",
-            "@pytest.fixture",
-            "def app():",
-            '    """Import the FastAPI app from the assembled artifact."""',
-            "    from app import app  # noqa: F811",
-            "    return app",
-            "",
-            "",
-            "@pytest.fixture",
-            "async def client(app):",
-            '    """Create an async test client using ASGITransport."""',
-            "    transport = ASGITransport(app=app)",
-            "    async with AsyncClient(transport=transport, base_url='http://test') as c:",
-            "        yield c",
-            "",
-        ])
+        lines.extend(
+            [
+                "from httpx import ASGITransport, AsyncClient",
+                "",
+                "",
+                "@pytest.fixture",
+                "def app():",
+                '    """Import the FastAPI app from the assembled artifact."""',
+                "    from app import app  # noqa: F811",
+                "    return app",
+                "",
+                "",
+                "@pytest.fixture",
+                "async def client(app):",
+                '    """Create an async test client using ASGITransport."""',
+                "    transport = ASGITransport(app=app)",
+                "    async with AsyncClient(transport=transport, base_url='http://test') as c:",
+                "        yield c",
+                "",
+            ]
+        )
     else:
-        lines.extend([
-            "@pytest.fixture",
-            "def app():",
-            '    """No FastAPI detected in artifact — fixture fails immediately."""',
-            "    pytest.fail('No FastAPI app found in assembled artifact')",
-            "",
-        ])
+        lines.extend(
+            [
+                "@pytest.fixture",
+                "def app():",
+                '    """No FastAPI detected in artifact — fixture fails immediately."""',
+                "    pytest.fail('No FastAPI app found in assembled artifact')",
+                "",
+            ]
+        )
 
     # Generate a test for each AC
     test_names = []
@@ -140,16 +145,16 @@ def _translate_scenario(ac_id: str, scenario: str, has_fastapi: bool) -> list[st
 
     if not has_fastapi:
         return [
-            f"@pytest.mark.anyio",
+            "@pytest.mark.anyio",
             f"async def {test_name}():",
             f'    """{ac_id}: {scenario[:80]}"""',
-            f"    pytest.fail('No FastAPI app — cannot test HTTP behavior')",
+            "    pytest.fail('No FastAPI app — cannot test HTTP behavior')",
         ]
 
     # Parse common patterns from the url-shortener AC scenarios
     # Pattern: "Given <precondition>, when/POST/GET <method> <path> <body>, then <expected>"
     lines = [
-        f"@pytest.mark.anyio",
+        "@pytest.mark.anyio",
         f"async def {test_name}(client):",
         f'    """{ac_id}: {scenario[:100]}"""',
     ]
@@ -170,24 +175,25 @@ def _translate_scenario(ac_id: str, scenario: str, has_fastapi: bool) -> list[st
     # Assert status code
     if expected_status:
         lines.append(f"    assert resp.status_code == {expected_status}, (")
-        lines.append(f"        f'Expected {expected_status}, got {{resp.status_code}}: {{resp.text[:200]}}'")
-        lines.append(f"    )")
+        lines.append("        f'Expected {expected_status}, got '")
+        lines.append("        f'{{resp.status_code}}: {{resp.text[:200]}}'")
+        lines.append("    )")
 
     # Assert response body properties
     if expected_body:
         for key, value in expected_body.items():
             if key == "error_code":
-                lines.append(f"    data = resp.json()")
+                lines.append("    data = resp.json()")
                 lines.append(f"    assert data['error']['code'] == '{value}'")
             elif key == "has_slug":
-                lines.append(f"    data = resp.json()")
-                lines.append(f"    assert 'slug' in data")
-                lines.append(f"    assert len(data['slug']) == 6")
+                lines.append("    data = resp.json()")
+                lines.append("    assert 'slug' in data")
+                lines.append("    assert len(data['slug']) == 6")
             elif key == "array_length_lte":
-                lines.append(f"    data = resp.json()")
+                lines.append("    data = resp.json()")
                 lines.append(f"    assert len(data) <= {value}")
             elif key == "total_hits":
-                lines.append(f"    data = resp.json()")
+                lines.append("    data = resp.json()")
                 lines.append(f"    assert data['total_hits'] == {value}")
 
     return lines
@@ -207,7 +213,12 @@ def _parse_scenario(
     expected_body: dict | None = None
 
     # Extract method and path: POST /links, GET /abc123, POST to /links, etc.
-    m = re.search(r"\b(POST|GET|PUT|DELETE|PATCH)\s+(?:to\s+)?(/[\w?=&/]*(?=[\s,{(]|$))", scenario, re.IGNORECASE)
+    m = re.search(
+        r"\b(POST|GET|PUT|DELETE|PATCH)\s+(?:to\s+)?"
+        r"(/[\w?=&/]*(?=[\s,{(]|$))",
+        scenario,
+        re.IGNORECASE,
+    )
     if m:
         method = m.group(1).upper()
         path = m.group(2)
@@ -383,11 +394,16 @@ def evaluate_conformance(
         # Run acceptance tests
         pytest_result = run_subprocess(
             cmd=[
-                exe, "-m", "pytest",
+                exe,
+                "-m",
+                "pytest",
                 str(test_file),
-                "-x", "--tb=short", "-q",
+                "-x",
+                "--tb=short",
+                "-q",
                 f"--rootdir={tmp_path}",
-                "-p", "no:cacheprovider",
+                "-p",
+                "no:cacheprovider",
             ],
             cwd=tmp_path,
             env=gate_subprocess_env(PYTHONPATH=str(tmp_path)),

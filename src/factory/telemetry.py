@@ -11,6 +11,7 @@ from regista import Regista
 from factory.config import FactoryConfig, load_config
 from factory.constants import (
     GATE_NAME_ARTIFACT_OVERSIZED,
+    GATE_NAME_CONFORMANCE,
     GATE_NAME_CROSS_FAMILY_REVIEW,
     GATE_NAME_IMPLEMENTATION,
     GATE_NAME_IMPLEMENTATION_DEPENDENCY,
@@ -29,7 +30,6 @@ from factory.constants import (
     GATE_NAME_INNER_MYPY,
     GATE_NAME_INNER_PYTEST,
     GATE_NAME_INNER_RUFF,
-    GATE_NAME_CONFORMANCE,
     GATE_NAME_INTEGRATION,
     GATE_NAME_INTEGRATION_IMPORT,
     GATE_NAME_INTEGRATION_MYPY,

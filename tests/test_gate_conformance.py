@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import json
-import textwrap
 from pathlib import Path
 
-import pytest
 import yaml
 
 from factory.constants import GATE_NAME_CONFORMANCE, DiagnosticKind
@@ -17,10 +15,10 @@ from factory.gate.conformance import (
     evaluate_conformance,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_spec_yaml(acs: list[dict]) -> str:
     """Build a minimal spec.yaml with the given ACs."""
@@ -59,41 +57,61 @@ URL_SHORTENER_ACS = [
     {
         "id": "AC-01",
         "functional_requirements": ["FR-01"],
-        "scenario": 'Given a POST to /links with {"url":"https://example.com"}, the response is HTTP 201 with a JSON body containing a 6-character slug',
+        "scenario": (
+            'Given a POST to /links with {"url":"https://example.com"}, '
+            "the response is HTTP 201 with a JSON body containing a 6-character slug"
+        ),
     },
     {
         "id": "AC-02",
         "functional_requirements": ["FR-01"],
-        "scenario": 'Given a POST to /links with {"url":"not-a-url"}, the response is HTTP 422 with error code \'invalid_url\'',
+        "scenario": (
+            'Given a POST to /links with {"url":"not-a-url"}, '
+            "the response is HTTP 422 with error code 'invalid_url'"
+        ),
     },
     {
         "id": "AC-03",
         "functional_requirements": ["FR-02"],
-        "scenario": "Given a GET to /abc123 (which maps to https://example.com), the response is HTTP 307 with Location header https://example.com",
+        "scenario": (
+            "Given a GET to /abc123 (which maps to https://example.com), "
+            "the response is HTTP 307 with Location header https://example.com"
+        ),
     },
     {
         "id": "AC-04",
         "functional_requirements": ["FR-02"],
-        "scenario": "Given a GET to /nonexistent, the response is HTTP 404 with error code 'not_found'",
+        "scenario": (
+            "Given a GET to /nonexistent, the response is HTTP 404 with error code 'not_found'"
+        ),
     },
     {
         "id": "AC-06",
         "functional_requirements": ["FR-04"],
-        "scenario": "Given 25 links in the database, GET /links returns 20 links (default limit). GET /links?offset=20 returns the remaining 5",
+        "scenario": (
+            "Given 25 links in the database, GET /links returns 20 links "
+            "(default limit). GET /links?offset=20 returns the remaining 5"
+        ),
     },
     {
         "id": "AC-07",
         "functional_requirements": ["FR-05"],
-        "scenario": 'Given a POST to /links with {"url": 123}, the response is HTTP 422 with error code \'invalid_url\'',
+        "scenario": (
+            'Given a POST to /links with {"url": 123}, '
+            "the response is HTTP 422 with error code 'invalid_url'"
+        ),
     },
 ]
 
-URL_SHORTENER_REQUIREMENTS = "fastapi>=0.110.0\nuvicorn>=0.27.0\npydantic>=2.0.0\nhttpx>=0.27.0\npytest>=8.0.0\n"
+URL_SHORTENER_REQUIREMENTS = (
+    "fastapi>=0.110.0\nuvicorn>=0.27.0\npydantic>=2.0.0\nhttpx>=0.27.0\npytest>=8.0.0\n"
+)
 
 
 # ---------------------------------------------------------------------------
 # Test _extract_acs_from_spec
 # ---------------------------------------------------------------------------
+
 
 class TestExtractAcsFromSpec:
     def test_extracts_acs_from_yaml(self):
@@ -126,10 +144,13 @@ class TestExtractAcsFromSpec:
 # Test _parse_scenario
 # ---------------------------------------------------------------------------
 
+
 class TestParseScenario:
     def test_post_with_body_and_status(self):
-        scenario = 'Given a POST to /links with {"url":"https://example.com"}, the response is HTTP 201'
-        method, path, body, status, expected = _parse_scenario(scenario)
+        scenario = (
+            'Given a POST to /links with {"url":"https://example.com"}, the response is HTTP 201'
+        )
+        method, path, body, status, _expected = _parse_scenario(scenario)
         assert method == "POST"
         assert path == "/links"
         assert body == {"url": "https://example.com"}
@@ -137,22 +158,25 @@ class TestParseScenario:
 
     def test_get_with_path(self):
         scenario = "Given a GET to /abc123, the response is HTTP 307"
-        method, path, body, status, expected = _parse_scenario(scenario)
+        method, path, body, status, _expected = _parse_scenario(scenario)
         assert method == "GET"
         assert path == "/abc123"
         assert body is None
         assert status == 307
 
     def test_error_code_extraction(self):
-        scenario = 'Given a POST to /links with {"url":"not-a-url"}, the response is HTTP 422 with error code \'invalid_url\''
-        method, path, body, status, expected = _parse_scenario(scenario)
+        scenario = (
+            'Given a POST to /links with {"url":"not-a-url"}, '
+            "the response is HTTP 422 with error code 'invalid_url'"
+        )
+        _method, _path, _body, status, expected = _parse_scenario(scenario)
         assert status == 422
         assert expected is not None
         assert expected["error_code"] == "invalid_url"
 
     def test_array_length_extraction(self):
         scenario = "Given 25 links in the database, GET /links returns 20 links"
-        method, path, body, status, expected = _parse_scenario(scenario)
+        method, path, _body, _status, expected = _parse_scenario(scenario)
         assert method == "GET"
         assert path == "/links"
         assert expected is not None
@@ -160,31 +184,31 @@ class TestParseScenario:
 
     def test_at_most_extraction(self):
         scenario = "GET /links?limit=5 returns at most 5 links"
-        method, path, body, status, expected = _parse_scenario(scenario)
+        _method, _path, _body, _status, expected = _parse_scenario(scenario)
         assert expected is not None
         assert expected["array_length_lte"] == 5
 
     def test_total_hits_extraction(self):
         scenario = "GET /links/abc123/stats with 5 hits, total_hits=5"
-        method, path, body, status, expected = _parse_scenario(scenario)
+        _method, _path, _body, _status, expected = _parse_scenario(scenario)
         assert expected is not None
         assert expected["total_hits"] == 5
 
     def test_slug_extraction(self):
         scenario = 'POST /links {"url":"https://example.com"} -> HTTP 201 with "slug":"<6-char>"'
-        method, path, body, status, expected = _parse_scenario(scenario)
+        _method, _path, _body, _status, expected = _parse_scenario(scenario)
         assert expected is not None
         assert expected["has_slug"] is True
 
     def test_no_method(self):
         scenario = "Something happens"
-        method, path, body, status, expected = _parse_scenario(scenario)
+        method, path, _body, _status, _expected = _parse_scenario(scenario)
         assert method == ""
         assert path == ""
 
     def test_post_with_integer_body(self):
         scenario = 'Given a POST to /links with {"url": 123}, the response is HTTP 422'
-        method, path, body, status, expected = _parse_scenario(scenario)
+        method, _path, body, status, _expected = _parse_scenario(scenario)
         assert method == "POST"
         assert body == {"url": 123}
         assert status == 422
@@ -194,11 +218,15 @@ class TestParseScenario:
 # Test _translate_scenario
 # ---------------------------------------------------------------------------
 
+
 class TestTranslateScenario:
     def test_post_scenario_generates_test(self):
         lines = _translate_scenario(
             "AC-01",
-            'Given a POST to /links with {"url":"https://example.com"}, the response is HTTP 201 with a 6-character slug',
+            (
+                'Given a POST to /links with {"url":"https://example.com"}, '
+                "the response is HTTP 201 with a 6-character slug"
+            ),
             has_fastapi=True,
         )
         code = "\n".join(lines)
@@ -209,7 +237,11 @@ class TestTranslateScenario:
     def test_get_scenario_generates_test(self):
         lines = _translate_scenario(
             "AC-03",
-            "Given a GET to /abc123, the response is HTTP 307",
+            (
+                "Given a GET to /abc123 "
+                "(which maps to https://example.com), "
+                "the response is HTTP 307"
+            ),
             has_fastapi=True,
         )
         code = "\n".join(lines)
@@ -220,7 +252,7 @@ class TestTranslateScenario:
     def test_no_fastapi_fails_immediately(self):
         lines = _translate_scenario(
             "AC-01",
-            'Given a POST to /links with {"url":"https://example.com"}, the response is HTTP 201',
+            ('Given a POST to /links with {"url":"https://example.com"}, the response is HTTP 201'),
             has_fastapi=False,
         )
         code = "\n".join(lines)
@@ -231,6 +263,7 @@ class TestTranslateScenario:
 # ---------------------------------------------------------------------------
 # Test _derive_acceptance_tests
 # ---------------------------------------------------------------------------
+
 
 class TestDeriveAcceptanceTests:
     def test_generates_test_file_with_fastapi(self):
@@ -274,6 +307,7 @@ class TestDeriveAcceptanceTests:
 # ---------------------------------------------------------------------------
 # Test evaluate_conformance (integration-level)
 # ---------------------------------------------------------------------------
+
 
 class TestEvaluateConformance:
     def test_no_fastapi_app_fails(self, tmp_path):
@@ -357,24 +391,25 @@ class TestEvaluateConformance:
 # Test router integration
 # ---------------------------------------------------------------------------
 
+
 class TestConformanceRouting:
     def test_conformance_in_kind_dispatch(self):
-        from factory.router import KIND_DISPATCH
         from factory.constants import DiagnosticKind
+        from factory.router import KIND_DISPATCH
 
         assert DiagnosticKind.CONFORMANCE in KIND_DISPATCH
         route = KIND_DISPATCH[DiagnosticKind.CONFORMANCE]
         assert route.target_state == "new"
 
     def test_conformance_in_escalatable_kinds(self):
-        from factory.router import ESCALATABLE_KINDS
         from factory.constants import DiagnosticKind
+        from factory.router import ESCALATABLE_KINDS
 
         assert DiagnosticKind.CONFORMANCE in ESCALATABLE_KINDS
 
     def test_conformance_gate_result_routes_correctly(self):
-        from factory.router import route
         from factory.constants import STATE_GATING, TRANSITION_GATE_FAIL
+        from factory.router import route
 
         gr = GateResult(
             passed=False,
@@ -382,12 +417,18 @@ class TestConformanceRouting:
             diagnostics=["test failed"],
             diagnostic_kind=DiagnosticKind.CONFORMANCE,
         )
-        routing = route(STATE_GATING, TRANSITION_GATE_FAIL, gr, attempt_number=1, attempt_threshold=3)
+        routing = route(
+            STATE_GATING,
+            TRANSITION_GATE_FAIL,
+            gr,
+            attempt_number=1,
+            attempt_threshold=3,
+        )
         assert routing.target_state == "new"
 
     def test_conformance_escalates_at_threshold(self):
-        from factory.router import route
         from factory.constants import STATE_GATING, TRANSITION_GATE_FAIL
+        from factory.router import route
 
         gr = GateResult(
             passed=False,
@@ -395,5 +436,11 @@ class TestConformanceRouting:
             diagnostics=["test failed"],
             diagnostic_kind=DiagnosticKind.CONFORMANCE,
         )
-        routing = route(STATE_GATING, TRANSITION_GATE_FAIL, gr, attempt_number=3, attempt_threshold=3)
+        routing = route(
+            STATE_GATING,
+            TRANSITION_GATE_FAIL,
+            gr,
+            attempt_number=3,
+            attempt_threshold=3,
+        )
         assert routing.target_state == "cannot_proceed"
