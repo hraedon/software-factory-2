@@ -8,6 +8,7 @@ author: opencode (mimo-v2.5-pro)
 date: "2026-05-29"
 tags: [populate, stage-1, decomposer]
 related: ["219"]
+resolved_date: "2026-05-29"
 ---
 
 ## Symptom
@@ -26,11 +27,10 @@ Three bugs in the `--spec-yaml` code path:
 
 ## Fix
 
-Bugs 1 and 2 fixed in this session:
-- Decompose to a temp directory (`tempfile.mkdtemp`), build items list from temp, then copy into workspace after reset.
-- Use resolved `workspace_root` variable instead of `args.workspace_root`.
-
-Bug 3 (requirements.txt) not yet fixed — filed as a separate concern. The `--spec-yaml` path needs to detect the fixture directory (derived from `spec_yaml_path`'s parent) and copy `requirements.txt` from it.
+All three bugs fixed:
+- Bug 1: Use resolved `workspace_root` variable instead of `args.workspace_root`.
+- Bug 2: Decompose to a temp directory (`tempfile.mkdtemp`), build items list from temp, then copy into workspace after reset.
+- Bug 3: When `--spec-yaml` or `--spec-md` is used, derive the fixture directory from the spec file's parent and copy `requirements.txt` from it to the workspace root.
 
 ## Impact
 

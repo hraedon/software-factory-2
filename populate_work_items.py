@@ -514,6 +514,17 @@ def main():
     actor_id = "factory-setup"
 
     fixtures_dir_custom = Path(args.fixtures) if args.fixtures else None
+    # Copy requirements.txt from spec file's parent dir when using --spec-yaml/--spec-md
+    if fixtures_dir_custom is None and workspace_root and (args.spec_yaml or args.spec_md):
+        spec_parent = Path(args.spec_yaml or args.spec_md).resolve().parent
+        spec_reqs = spec_parent / "requirements.txt"
+        if spec_reqs.exists():
+            ws_root = Path(workspace_root)
+            ws_root.mkdir(parents=True, exist_ok=True)
+            dest = ws_root / "requirements.txt"
+            if not dest.exists():
+                dest.write_text(spec_reqs.read_text())
+                print(f"  Copied {spec_reqs} -> {dest}")
     if fixtures_dir_custom is not None and workspace_root:
         fixture_reqs = fixtures_dir_custom / "requirements.txt"
         if fixture_reqs.exists():
