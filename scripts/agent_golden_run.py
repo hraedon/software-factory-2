@@ -73,8 +73,10 @@ def _log_dir_for(log_prefix: str) -> Path:
 #     surface a dead channel without accumulating invoke failures in the log.
 #   Audit trigger: re-evaluate when a regista channel-health or retry-budget
 #     mechanism is implemented (no current BC; file one if channel retry logic lands).
-#   Current status: FATAL at >= 5 (see _monitor_logs); the only remaining fatal
-#     in this table as of 2026-05-17.
+#     Also re-evaluate if per-item retry budgets shrink below 3 (fewer retries means
+#     fewer channel_invoke_failed events per genuinely-dead item, lowering the floor).
+#   Current status: FATAL at >= 10 (see _monitor_logs); raised from 5 after GR-042
+#     showed 3 items failing twice = 6 events on a pipeline handling it correctly.
 DANGER_SIGNALS = [
     ("claim_near_budget", re.compile(r"claim_near_budget")),
     ("gate_fail_cross_family_review", re.compile(r"gate_failed.*cross_family_review")),
@@ -450,14 +452,17 @@ def _monitor_logs(
                 # RFC-033: channel_invoke_failed fatal threshold.
                 # Precondition: no regista-level channel health check or retry
                 #   budget that would surface a dead/rate-limited channel without
-                #   accumulating invoke failures in the runner log. Five failures
-                #   chosen as empirical floor for distinguishing transient from
-                #   systemic channel loss (no BC covers this yet).
+                #   accumulating invoke failures in the runner log.
                 # Audit trigger: re-evaluate when a regista channel-health or
                 #   model-retry-budget mechanism is implemented. If a new BC adds
                 #   structured channel-failure reporting, this count heuristic
-                #   becomes redundant.
-                if name == "channel_invoke_failed" and count >= 5:
+                #   becomes redundant. Also re-evaluate if per-item retry budgets
+                #   (attempt_threshold) shrink below 3.
+                # GR-042 showed 3 items × 2 attempts = 6 events for transient
+                #   failures that the pipeline handled correctly (items went to
+                #   cannot_proceed as designed). Raised from 5 to 10 to avoid
+                #   false-killing healthy runs with a few bad items.
+                if name == "channel_invoke_failed" and count >= 10:
                     _fatal(
                         "Multiple channel invoke failures. "
                         "Model channel may be down or rate-limited. "
