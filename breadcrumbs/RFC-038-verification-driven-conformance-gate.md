@@ -65,23 +65,31 @@ An acceptance-suite failure routes to the responsible upstream work item with th
 - **Semantic correctness beyond the ACs** — execution proves the stated scenarios, not unstated intent.
 - **It is not RFC-027.** Mutation testing (RFC-027) scores test bite on real code; this gate proves the artifact meets the contract. Both are needed; neither subsumes the other (dep-v1-106 is the proof that mutation alone is insufficient).
 
-## Cost and risk (honest)
+## Cost and risk (honest) — and where the work actually is
 
-- Real infrastructure: image build/caching, compose for backing services, container lifecycle, per-archetype acceptance drivers (web service vs CLI vs library exercise differently). This is a build, not a flag.
-- **Primary risk is non-completion** (dep-v1-314 died `in_progress`). Mitigation: ship the smallest thing that would have caught GR-048 first — the boot probe + a deterministic translation of url-shortener's already-executable ACs, host-execution fallback acceptable — and measure before building the general translator or per-archetype drivers.
-- Strategic upside: a sealed, reproducible verification container is the same hermetic-provenance primitive regista is built around. Verification-driven development and cryptographic agent-audit are one mechanism seen twice.
+The instinct to treat this as "Docker integration" misplaces the effort. The container is ~20% of this and it is the boring, solved part. **We do NOT need v1's apparatus** (BC-314's stack-fingerprinting, image cache, registry pinning, soft-dependency-with-host-fallback). The MVP is one ephemeral container per factory run: start → health-probe-until-ready → run the acceptance suite → tear down → discard. The only lifecycle that can't be skipped is those four steps (and they become trivial precisely *because* nothing is kept warm — this is the easy version of the concern BC-222 was circling).
 
-## MVP (deliberately smaller than v1's P1+P2)
+The cost and risk live in the other 80%, in two places:
 
-1. Boot probe in a container for the web-service archetype: assemble the modules, start the service, assert it accepts one request. This alone fails GR-048's three bad modules.
-2. Deterministic translation of url-shortener's AC scenarios (they are already black-box HTTP) into an executable acceptance suite; the dep-v1-364 "must-fail-against-stub" guard as a blocking pre-check.
-3. Wire results as the conformance authority for this one workload; leave the jury in place for non-conformance judgment.
-4. Re-run url-shortener (GR-049) and confirm the bad modules are caught at this gate, not leaked.
+- **AC → acceptance-suite translation (the load-bearing risk).** Doing this faithfully is genuinely hard and hard *for everyone* — it is an open problem, not an sf2-specific gap. If the worker model family authors the harness, it reimports the GR-048 blind spot (asserts `validate_url(...) is not None` instead of `POST → 422`). Current best guess: deterministic templating off the AC scenarios, guarded by the dep-v1-364 must-fail-against-stub check. This guess may prove brittle; it is the part to stay tentative about.
+- **Decomposition altitude (RFC-039).** Whether units can even *own* the behavior an AC asserts.
+- **Watch-item:** if effort drifts toward polishing container plumbing, that is the tell that it is avoiding the hard part. **Primary failure mode is still non-completion** (dep-v1-314 died `in_progress`); keeping the container dumb and ephemeral is how we avoid re-living that.
 
-Decide on generalization (other archetypes, the general AC translator, deprecating the jury-as-conformance) only after the MVP catches the observed failure in a real run. Ship the minimum that closes the observed bug, then re-decide — the same discipline v1's BC-314 stated and then failed to honor.
+Strategic upside: a sealed, reproducible verification container is the same hermetic-provenance primitive regista is built around. Verification-driven development and cryptographic agent-audit are one mechanism seen twice.
+
+## MVP — and why it ships before RFC-039, not after
+
+This gate is **the falsification instrument for RFC-039**, so it is built first and deliberately decoupled from the decomposition change. The sequencing is what makes the whole thing low-risk rather than a rearchitecting:
+
+1. **Build the ephemeral execution gate** (one container per run; start → health-probe → run suite → discard). No v1 apparatus.
+2. **Point it at the EXISTING (atomic-decomposed) url-shortener output first — GR-049.** Change nothing else. Expectation: the gate fails the GR-048 stub modules deterministically (no HTTP server → boot probe fails; no `POST→422` → AC scenario fails). This converts GR-048's hand-read finding into a mechanical, repeatable conformance signal **before** we touch the decomposer — confirming the diagnosis on its own.
+3. **Then, separately, run deliverable-decomposed url-shortener through the same gate (RFC-039 validation).** If the diagnosis is right, those units can own and pass their ACs where the atomic ones could not. The gate is the same; the decomposition is the variable.
+4. Wire the gate as the conformance authority for this one workload; leave the jury in place for non-conformance judgment (design/security/readability).
+
+Deterministic translation of url-shortener's AC scenarios (already black-box HTTP) into the executable suite, guarded by the dep-v1-364 must-fail-against-stub check, is the load-bearing component (see Cost and risk). Decide on generalization (other archetypes, a general AC translator, demoting the jury-as-conformance) only after the MVP catches the observed failure in GR-049. Ship the minimum that closes the observed bug, then re-decide — the discipline v1's BC-314 stated and then failed to honor.
 
 ## Open questions
 
 - Who owns the AC→suite translation — a deterministic module, or a tightly-constrained non-worker model? (dep-v1-364 warns against the worker family doing it.)
-- Does the acceptance suite live at interface time (verification-first) or as a final gate (less invasive)? v1's bringup doc argues for earlier; sf2's stage topology currently favors a gate.
+- Does the acceptance suite live at interface time (verification-first) or as a final gate (less invasive)? **Principal lean (2026-05-29): interface time** — the suite derived from ACs before implementation, so implementers code against an executable target. This is only *possible* once units are deliverable-altitude (RFC-039); with today's atomic units it cannot live at interface time (you can't HTTP-test a bare function). So the MVP starts as a gate (GR-049, existing output) and moves to interface-time as RFC-039 lands. v1's bringup doc argues for earlier and is the precedent.
 - Relationship to `integration` and `outcome_verification` stages: does this replace `outcome_e2e`, or harden it? (GR-048 shows `outcome_e2e` is the right *concept*, executed by the wrong *oracle* — LLM rather than AC-execution.)
