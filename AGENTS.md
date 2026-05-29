@@ -46,8 +46,8 @@ The principal of this project is a **systems architect, not a developer**. Archi
 ## Status
 
 - **Phase 5 complete.** Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs executed through GR-039 (RFC-011 + BC-195 validation under K2). All 211 BCs resolved; zero open bugs.
-- **Phase 6.1 complete.** Pipeline generalized to 3 workloads (cert-watch, log-redact-cli, dep-graph-viewer) at ≥96% lock rate through full 7-stage DAG. Phase B decomposer validated on 2 workloads with semantic module naming (MiMo-V2.5-Pro, Sonnet). 46 golden runs executed (GR-001 through GR-046). W5 decision gate written: `plans/2026-05-28-w5-decision-gate.md`.
-- **Phase 6.2 remaining:** Web-service archetype, library-module archetype, mutation_gate exercise, test-efficacy validation (RFC-027), BC-220 decomposer contamination fix.
+- **Phase 6.1 complete.** Pipeline generalized to 3 workloads (cert-watch, log-redact-cli, dep-graph-viewer) at ≥96% lock rate through full 7-stage DAG. Phase B decomposer validated on 2 workloads with semantic module naming (MiMo-V2.5-Pro, Sonnet). 47 golden runs executed (GR-001 through GR-047). W5 decision gate written: `plans/2026-05-28-w5-decision-gate.md`.
+- **Phase 6.2 remaining:** Web-service archetype (first run: GR-047, 88% lock — jury disagreement on unfamiliar patterns), library-module archetype, mutation_gate exercise, test-efficacy validation (RFC-027), BC-220 decomposer contamination fix.
 
 **What exists:**
 - 7-module runner: runner, gate, gate_process, router, scheduler, config, workspace

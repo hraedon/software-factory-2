@@ -1,5 +1,28 @@
 ---
 
+## 2026-05-29 — Session 54: GR-047 — Web-service archetype (url-shortener)
+
+**Invocation:** MiMo-V2.5-Pro (decomposer), K2 (workers), Sonnet (review/jury)
+
+**Focus:** First non-CLI workload. Test whether the pipeline generalizes to a web-service module shape (HTTP handlers, Pydantic models, SQLite persistence).
+
+### Changes
+
+1. **GR-047 execution**
+   - Decomposer: MiMo-V2.5-Pro produced 4 semantic modules (link_creator, link_resolver, link_lister, error_formatter) with zero contamination.
+   - Pipeline: 88% lock (21/24), mean attempts 1.62, inner gate first-pass 100%, 2 jury_disagree → cannot_proceed.
+   - 1 outcome_e2e escalation, 1 orphan submit.
+
+### Key finding
+
+100% inner gate first-pass — best ever. Code quality is not the issue. The 2 failures are jury disagreements (K2+Sonnet disagree on web-service architecture). The web-service pattern triggers 50% jury disagreement vs 0% on CLI tools.
+
+### Test results
+
+1107 passed, 13 skipped, 0 lint errors, 0 vulture findings.
+
+---
+
 ## 2026-05-29 — Session 53: GR-046 — MiMo decomposer on dep-graph-viewer, fresh session
 
 **Invocation:** MiMo-V2.5-Pro (decomposer), K2 (workers), Sonnet (review/jury)
