@@ -47,7 +47,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
 
 - **Phase 5 complete.** Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs executed through GR-039 (RFC-011 + BC-195 validation under K2). All 211 BCs resolved; zero open bugs.
 - **Phase 6.1 complete.** Pipeline generalized to 3 workloads (cert-watch, log-redact-cli, dep-graph-viewer) at ≥96% lock rate through full 7-stage DAG. Phase B decomposer validated on 2 workloads with semantic module naming (MiMo-V2.5-Pro, Sonnet). 47 golden runs executed (GR-001 through GR-047). W5 decision gate written: `plans/2026-05-28-w5-decision-gate.md`.
-- **Phase 6.2 remaining:** Web-service archetype (first run: GR-047, 88% lock — jury disagreement on unfamiliar patterns), library-module archetype, mutation_gate exercise, test-efficacy validation (RFC-027), BC-220 decomposer contamination fix.
+- **Phase 6.2 remaining:** Web-service archetype (first run: GR-047, 88% lock — jury disagreement on unfamiliar patterns), library-module archetype, BC-220 decomposer contamination fix.
 
 **What exists:**
 - 7-module runner: runner, gate, gate_process, router, scheduler, config, workspace
@@ -56,9 +56,9 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - 6 workflow YAMLs with `extends:` composition (phase1–5, full_pipeline)
 - Unified subprocess wrapper (RFC-011): all subprocess calls use `factory.subprocess.run`
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
-- **1107 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
+- **1118 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
 
-**Known issues:** 6 open items (2 medium proposed, 1 medium in-progress, 1 low proposed, 1 high proposed, 1 high in-progress) + 17 RFCs + 7 active defect classes + 2 stabilized (229 resolved). See `breadcrumbs/README.md`.
+**Known issues:** 6 open items (2 medium proposed, 1 medium in-progress, 1 low proposed, 1 high proposed, 1 high in-progress) + 16 RFCs + 7 active defect classes + 2 stabilized (230 resolved). See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing.
 
@@ -68,7 +68,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
 2. **RFC-026 (principal review surface)** — implemented: `src/factory/review_surface.py` generates `REVIEW.md` + `review.json` from regista state. Human-readable module summaries, cannot-proceed detail, artifact listings.
 3. **RFC-022 (initiative primitive)** — implemented: `src/factory/initiative.py` provides `generate_initiative_id()`, `query_initiatives()`, `cancel_initiative()`, `requeue_initiative()`. `populate_work_items.py` assigns initiative IDs at populate time. Regista-dependent operations require `initiative_id` custom field in workflow YAML (integration tests).
 4. **RFC-024 (coherence reviewer)** — removed per Option A; role deleted from all configuration. May be reintroduced in Phase 6 with concrete evidence of a structural-coherence gap.
-5. **RFC-027 (test efficacy)** — no mechanical verification that tests validate behavior.
+5. **RFC-027 (test efficacy)** — implemented: `mutation_gate.py` wired into `evaluate_implementation` with 6 operators (comparison swap, constant ±1, return-deletion, BoolOp swap, not removal, return-value replacement). Routing creates upstream test_suite revision on failure. 1118 tests pass. Calibration run pending.
 
 **Phase 4 exit criteria** (defined in `spec.md` §10, assessed at GR-027): all met or near-miss with cause analysis. Lock-within-budget 88%, mean attempts 1.88, inner-gate first-pass 71%, review first-attempt 83%, jury quorum-met 80%, unknown gate-name rate 0%, multi-family jury exercised, disagreement/rejection paths exercised, channel failover exercised, gate budget 15.
 

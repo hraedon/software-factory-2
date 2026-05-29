@@ -13,8 +13,8 @@ from factory.config import GateTimeouts
 from factory.constants import (
     GATE_NAME_IMPLEMENTATION_IMPORTS,
     GATE_NAME_IMPLEMENTATION_SYNTAX,
-    GATE_NAME_INNER_MYPY,
     GATE_NAME_MUTATION_SPOT_CHECK,
+    DiagnosticKind,
 )
 from factory.gate._base import GateResult
 from factory.gate._subprocess import _run_pytest
@@ -63,6 +63,9 @@ class _Mutator(ast.NodeTransformer):
 
     Operators implemented:
     - Swap comparison operators (> <, == !=, >= <=)
+    - Swap boolean operators (and ↔ or)
+    - Remove not (UnaryOp) — replace with identity operand
+    - Replace return value: True ↔ False; non-bool → return None
     - Delete a return statement (replace with Pass)
     - Change a numeric constant (increment/decrement by 1)
     """
@@ -100,6 +103,48 @@ class _Mutator(ast.NodeTransformer):
                 self.visited += 1
         return self.generic_visit(node)
 
+    def visit_BoolOp(self, node: ast.BoolOp) -> ast.AST:
+        if self.mutation is not None:
+            return self.generic_visit(node)
+        if self.visited == self.index:
+            if isinstance(node.op, ast.And):
+                node.op = ast.Or()
+                self.mutation = Mutation(
+                    description="swapped BoolOp And to Or",
+                    line_no=node.lineno if hasattr(node, "lineno") else None,
+                    original="And",
+                    mutated="Or",
+                )
+                return node
+            elif isinstance(node.op, ast.Or):
+                node.op = ast.And()
+                self.mutation = Mutation(
+                    description="swapped BoolOp Or to And",
+                    line_no=node.lineno if hasattr(node, "lineno") else None,
+                    original="Or",
+                    mutated="And",
+                )
+                return node
+            self.visited += 1
+        self.visited += 1
+        return self.generic_visit(node)
+
+    def visit_UnaryOp(self, node: ast.UnaryOp) -> ast.AST:
+        if self.mutation is not None:
+            return self.generic_visit(node)
+        if self.visited == self.index:
+            if isinstance(node.op, ast.Not):
+                self.mutation = Mutation(
+                    description="removed Not unary operator",
+                    line_no=node.lineno if hasattr(node, "lineno") else None,
+                    original="not x",
+                    mutated="x",
+                )
+                return node.operand
+            self.visited += 1
+        self.visited += 1
+        return self.generic_visit(node)
+
     def visit_Constant(self, node: ast.Constant) -> ast.AST:
         if self.mutation is not None:
             return self.generic_visit(node)
@@ -126,6 +171,26 @@ class _Mutator(ast.NodeTransformer):
         if self.mutation is not None:
             return self.generic_visit(node)
         if self.visited == self.index:
+            # Replace return value when there is a value.
+            if node.value is not None:
+                if isinstance(node.value, ast.Constant) and isinstance(node.value.value, bool):
+                    new_val = ast.Constant(value=(not node.value.value))
+                    self.mutation = Mutation(
+                        description=f"swapped return {node.value.value} to {new_val.value}",
+                        line_no=node.lineno if hasattr(node, "lineno") else None,
+                        original=str(node.value.value),
+                        mutated=str(new_val.value),
+                    )
+                    return ast.Return(value=new_val)
+                # Non-bool return → return None
+                self.mutation = Mutation(
+                    description="replaced return value with None",
+                    line_no=node.lineno if hasattr(node, "lineno") else None,
+                    original="return expr",
+                    mutated="return None",
+                )
+                return ast.Return(value=ast.Constant(value=None))
+            # No value on return → delete (original operator)
             self.mutation = Mutation(
                 description="deleted return statement",
                 line_no=node.lineno if hasattr(node, "lineno") else None,
@@ -258,11 +323,9 @@ def evaluate_mutation_spot_check(
             python_executable=exe,
             timeout=timeout,
         )
-        if result.skipped or result.gate_name == GATE_NAME_INNER_MYPY:
-            # Skipped / un-buildable mutants don't count toward the rate
-            if result.skipped:
-                skipped_mutants += 1
-                details.append(f"  SKIPPED: {mutation.description} at line {mutation.line_no}")
+        if result.skipped:
+            skipped_mutants += 1
+            details.append(f"  SKIPPED: {mutation.description} at line {mutation.line_no}")
             continue
         if result.passed:
             # Test suite PASSED on the mutant → test efficacy gap
@@ -295,5 +358,5 @@ def evaluate_mutation_spot_check(
         passed=passed,
         gate_name=GATE_NAME_MUTATION_SPOT_CHECK,
         diagnostics=diagnostics,
-        diagnostic_kind="mutation_uncaught" if not passed else "",
+        diagnostic_kind=DiagnosticKind.MUTATION_UNCAUGHT if not passed else "",
     )

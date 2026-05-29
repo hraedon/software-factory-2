@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from factory.config import FactoryConfig, RoleConfig
+from factory.config import FactoryConfig, OpsConfig, RoleConfig
 
 
 class TestFromYaml:
@@ -209,6 +209,28 @@ class TestPhaseConfigRoundTrip:
         types = {h.target_type for h in loaded.stage_topology}
         assert "review" in types
         assert "jury" in types
+
+    def test_mutation_gate_config_validation(self):
+        """OpsConfig mutation gate fields are validated in FactoryConfig.validate()."""
+        cfg = FactoryConfig(
+            ops=OpsConfig(
+                mutation_gate_enabled=True,
+                mutation_gate_sample_size=0,
+                mutation_gate_fail_threshold=1.5,
+            )
+        )
+        errors = cfg.validate()
+        assert any("mutation_gate_sample_size must be >= 1" in e for e in errors)
+        assert any("mutation_gate_fail_threshold must be in [0,1]" in e for e in errors)
+
+        cfg_ok = FactoryConfig(
+            ops=OpsConfig(
+                mutation_gate_enabled=True,
+                mutation_gate_sample_size=3,
+                mutation_gate_fail_threshold=0.5,
+            )
+        )
+        assert cfg_ok.validate() == []
 
     def test_stage_topology_yaml_list(self, tmp_path: Path):
         """Direct YAML with stage_topology list round-trips correctly."""

@@ -65,6 +65,7 @@ class GateTimeouts:
     ruff_timeout: int = 60
     mypy_timeout: int = 120
     pytest_timeout: int = 300
+    mutation_timeout: int = 300
 
 
 @dataclass(frozen=True)
@@ -79,6 +80,10 @@ class OpsConfig:
     disk_alert_error_percent: float = 90.0
     max_memory_rss_mb: int = 2048
     gate_subprocess_timeout_multiplier: float = 1.5
+    mutation_gate_enabled: bool = False
+    mutation_gate_sample_size: int = 3
+    mutation_gate_fail_threshold: float = 0.5
+    mutation_gate_seed: int | None = None
 
 
 @dataclass(frozen=True)
@@ -241,6 +246,16 @@ class FactoryConfig:
             errors.append(f"jury_quorum must be >= 1, got {self.jury_quorum}")
         if self.query_page_size < 1:
             errors.append(f"query_page_size must be >= 1, got {self.query_page_size}")
+        if self.ops.mutation_gate_sample_size < 1:
+            errors.append(
+                f"ops.mutation_gate_sample_size must be >= 1, "
+                f"got {self.ops.mutation_gate_sample_size}"
+            )
+        if not (0.0 <= self.ops.mutation_gate_fail_threshold <= 1.0):
+            errors.append(
+                f"ops.mutation_gate_fail_threshold must be in [0,1], "
+                f"got {self.ops.mutation_gate_fail_threshold}"
+            )
         # Verify all roles in type_to_role have corresponding RoleConfig entries
         configured_roles = {rc.role for rc in self.roles}
         for type_name, role_name in self.type_to_role:

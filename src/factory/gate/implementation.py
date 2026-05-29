@@ -18,10 +18,11 @@ from factory.gate._subprocess import _run_mypy, _run_pytest, _run_ruff
 from factory.gate.interface_spec import _check_syntax
 from factory.gate.test_suite import _import_module_name
 
-
 # tier: enforce
 # precondition: interface_spec + test_suite gates are enforce; this gate runs after both
 # audit trigger: re-evaluate if implementation gate is split into sub-gates
+
+
 def evaluate_implementation(
     artifact_path: Path,
     test_suite_path: Path | None = None,
@@ -30,6 +31,10 @@ def evaluate_implementation(
     dependency_spec_paths: list[tuple[str, Path]] | None = None,
     python_executable: str | None = None,
     gate_timeouts: GateTimeouts | None = None,
+    mutation_enabled: bool = False,
+    mutation_sample_size: int = 3,
+    mutation_fail_threshold: float = 0.5,
+    mutation_seed: int | None = None,
 ) -> GateResult:
     t = gate_timeouts or GateTimeouts()
     size_guard = _guard_artifact_size(artifact_path)
@@ -92,6 +97,22 @@ def evaluate_implementation(
         )
         if not pytest_result.passed:
             return pytest_result
+
+    if mutation_enabled and test_suite_path is not None:
+        from factory.mutation_gate import evaluate_mutation_spot_check
+
+        mutation_result = evaluate_mutation_spot_check(
+            implementation_path=artifact_path,
+            test_suite_path=test_suite_path,
+            interface_pyi_path=interface_pyi_path,
+            python_executable=python_executable,
+            timeout=t.mutation_timeout,
+            sample_size=mutation_sample_size,
+            fail_threshold=mutation_fail_threshold,
+            seed=mutation_seed,
+        )
+        if not mutation_result.passed:
+            return mutation_result
 
     ruff_result = _run_ruff(
         artifact_path, python_executable=python_executable, timeout=t.ruff_timeout

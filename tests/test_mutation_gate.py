@@ -81,8 +81,60 @@ class TestMutatorAST:
         assert mutator.mutation is not None
         assert "changed constant" in mutator.mutation.description
 
-    def test_return_deleted(self):
-        source = "def f():\n    return 1\n"
+    def test_boolop_swap_and_to_or(self):
+        source = "x = a and b"
+        tree = ast.parse(source)
+        mutator = _Mutator(index=0)
+        mutated = ast.fix_missing_locations(mutator.visit(tree))
+        new_source = ast.unparse(mutated)
+        assert "a or b" in new_source
+        assert mutator.mutation is not None
+        assert "swapped BoolOp And to Or" in mutator.mutation.description
+
+    def test_boolop_swap_or_to_and(self):
+        source = "x = a or b"
+        tree = ast.parse(source)
+        mutator = _Mutator(index=0)
+        mutated = ast.fix_missing_locations(mutator.visit(tree))
+        new_source = ast.unparse(mutated)
+        assert "a and b" in new_source
+        assert mutator.mutation is not None
+        assert "swapped BoolOp Or to And" in mutator.mutation.description
+
+    def test_not_removal(self):
+        source = "x = not a"
+        tree = ast.parse(source)
+        mutator = _Mutator(index=0)
+        mutated = ast.fix_missing_locations(mutator.visit(tree))
+        new_source = ast.unparse(mutated)
+        assert "a" in new_source
+        assert "not" not in new_source
+        assert mutator.mutation is not None
+        assert "removed Not unary operator" in mutator.mutation.description
+
+    def test_return_value_bool_swap(self):
+        source = "def f():\n    return True\n"
+        tree = ast.parse(source)
+        mutator = _Mutator(index=0)
+        mutated = ast.fix_missing_locations(mutator.visit(tree))
+        new_source = ast.unparse(mutated)
+        assert "return False" in new_source
+        assert mutator.mutation is not None
+        assert mutator.mutation.description.startswith("swapped return True")
+
+    def test_return_value_replace_none(self):
+        source = "def f():\n    return 42\n"
+        tree = ast.parse(source)
+        mutator = _Mutator(index=0)
+        mutated = ast.fix_missing_locations(mutator.visit(tree))
+        new_source = ast.unparse(mutated)
+        assert "return None" in new_source
+        assert "42" not in new_source
+        assert mutator.mutation is not None
+        assert "replaced return value with None" in mutator.mutation.description
+
+    def test_return_deleted_still_works(self):
+        source = "def f():\n    return\n"
         tree = ast.parse(source)
         mutator = _Mutator(index=0)
         mutated = ast.fix_missing_locations(mutator.visit(tree))
@@ -170,21 +222,21 @@ class TestRunSuiteOnMutant:
         assert result.passed is False
 
     def test_live_mutant(self, tmp_path: Path):
-        """A mutant that deletes the untested branch should survive lax tests."""
+        """A mutant that deletes/replaces the untested branch should survive lax tests."""
         impl_path, test_path = _write_impl_and_tests(tmp_path, BRANCHED_IMPL, TEST_SUITE_LAX)
         source = impl_path.read_text()
         muts = _generate_mutations(source, max_mutations=10)
         assert muts
-        # Find a return-deletion mutation that removes the untested "big" branch.
-        # Line numbers: leading newline shifts by 1, so return "big" is at line 4.
+        # Find a return mutation that kills the untested "big" branch.
+        # visit_Return now replaces non-bool values with None on index 0.
         live_mutant = None
         for src, mut in muts:
-            if "deleted return" in mut.description and mut.line_no == 4:
+            if (
+                "replaced return" in mut.description or "deleted return" in mut.description
+            ) and mut.line_no == 4:
                 live_mutant = src
                 break
-        assert live_mutant is not None, (
-            "No return-deletion mutation on line 4 (the untested branch)"
-        )
+        assert live_mutant is not None, "No return mutation on line 4 (the untested branch)"
         result = _run_suite_on_mutant(
             mutated_source=live_mutant,
             test_suite_path=test_path,

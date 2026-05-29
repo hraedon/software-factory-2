@@ -416,6 +416,10 @@ def process_gate_item(
                     dependency_spec_paths=dep_spec_paths,
                     python_executable=python_executable,
                     gate_timeouts=config.gate_timeouts,
+                    mutation_enabled=config.ops.mutation_gate_enabled,
+                    mutation_sample_size=config.ops.mutation_gate_sample_size,
+                    mutation_fail_threshold=config.ops.mutation_gate_fail_threshold,
+                    mutation_seed=config.ops.mutation_gate_seed,
                 )
     elif wi.work_item_type == WORK_ITEM_TYPE_REVIEW:
         gate_result = evaluate_review(artifact_path)

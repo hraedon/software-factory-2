@@ -119,7 +119,6 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | RFC-032 | Breadcrumb-velocity circuit breaker — freeze new feature scope when arrival rate exceeds absorption (v1-lesson meta-defense) | medium | Phase 5 in-flight |
 | RFC-031 | Fix-family root-cause requirement — BCs citing related BCs must explain missing invariant (v1-lesson meta-defense) | medium | Phase 5 |
 | RFC-030 | Class promotion must produce an invariant, not just an RFC (v1-lesson meta-defense; CLASS-005/008 stabilized by RFC-011) | high | Phase 5 |
-| RFC-027 | Test efficacy — no mechanical verification that tests actually validate behavior | high | Phase 6 |
 | RFC-028 | Per-role capability map — collapse 5-point registration into single declaration | medium | Phase 5 exit / Phase 6 |
 | RFC-029 | Attempt-count telemetry bucketing — separate prompt calibration from gate-difficulty tail | medium | Phase 5 |
 | RFC-026 | Principal review surface — pipeline needs artifact bundle format and feedback intake | high | Phase 6 (first real workload) |

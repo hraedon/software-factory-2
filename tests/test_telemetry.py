@@ -810,6 +810,65 @@ class TestComputeExitCriteria:
         assert metrics.inner_gate_attempt_2plus_total == 0
         assert len(metrics.inner_gate_item_attempts) == 2
 
+    def test_model_attributable_deterministic_rate(self, mock_regista):
+        """Harness-attributable gate events are excluded from the
+        model-attributable deterministic gate rate (opus directive 2026-05-29)."""
+        from factory.constants import (
+            GATE_NAME_IMPLEMENTATION_DEPENDENCY,
+            GATE_NAME_IMPLEMENTATION_MYPY,
+            GATE_NAME_IMPLEMENTATION_PYTEST,
+            GATE_NAME_IMPLEMENTATION_SYNTAX,
+        )
+        from factory.telemetry import collect_gate_attempts, compute_exit_criteria
+
+        config = _make_config(mock_regista)
+
+        # Item 1: harness-attributable failure (dependency missing)
+        _seed_work_item(
+            mock_regista,
+            WORK_ITEM_TYPE_INTERFACE_SPEC,
+            gate_events=[_gate_md(gate_name=GATE_NAME_IMPLEMENTATION_DEPENDENCY, passed=False)],
+        )
+        # Item 2: model-attributable failure (syntax error)
+        _seed_work_item(
+            mock_regista,
+            WORK_ITEM_TYPE_INTERFACE_SPEC,
+            gate_events=[_gate_md(gate_name=GATE_NAME_IMPLEMENTATION_SYNTAX, passed=False)],
+        )
+        # Item 3: model-attributable pass (mypy)
+        _seed_work_item(
+            mock_regista,
+            WORK_ITEM_TYPE_INTERFACE_SPEC,
+            gate_events=[_gate_md(gate_name=GATE_NAME_IMPLEMENTATION_MYPY, passed=True)],
+        )
+        # Item 4: model-attributable pass (pytest)
+        _seed_work_item(
+            mock_regista,
+            WORK_ITEM_TYPE_INTERFACE_SPEC,
+            gate_events=[_gate_md(gate_name=GATE_NAME_IMPLEMENTATION_PYTEST, passed=True)],
+        )
+
+        page = mock_regista.query_work_items(
+            workflow_name="software_factory",
+            workflow_version=1,
+            page_size=100,
+        )
+        work_items = {str(wi.work_item_id): wi for wi in page.items}
+        attempts = collect_gate_attempts(mock_regista, config)
+        metrics = compute_exit_criteria(mock_regista, config, attempts, work_items=work_items)
+
+        # All 4 events are deterministic
+        assert metrics.deterministic_count == 4
+        assert metrics.deterministic_gate_rate == 1.0
+        # 1 harness-attributable event (dependency_missing)
+        assert metrics.deterministic_harness_attributable_count == 1
+        # Model denominator: 3 events (syntax_fail, mypy_pass, pytest_pass)
+        assert metrics.deterministic_model_attributable_total == 3
+        # Model numerator: 2 passes (mypy_pass, pytest_pass)
+        assert metrics.deterministic_model_attributable_count == 2
+        # Model-attributable pass rate: 2/3 = 66.7%
+        assert abs(metrics.deterministic_model_attributable_rate - 2 / 3) < 0.001
+
     def test_signature_match(self):
         assert _looks_like_contract_complaint("function signature is wrong") is True
         assert _looks_like_contract_complaint("signature mismatch") is True

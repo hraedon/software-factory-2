@@ -53,6 +53,7 @@ from factory.constants import (
     GATE_NAME_TEST_SUITE_NOT_EMPTY,
     GATE_NAME_TEST_SUITE_SYNTAX,
     GATE_NAME_UNKNOWN,
+    HARNESS_ATTRIBUTABLE_DETERMINISTIC_GATES,
     STATE_CANNOT_PROCEED,
     STATE_IN_PROGRESS,
     STATE_LOCKED,
@@ -168,6 +169,11 @@ class ExitCriteriaMetrics:
     total_gate_events: int
     deterministic_gate_rate: float
     deterministic_count: int
+    # Attribution: harness-vs-model (opus directive 2026-05-29)
+    deterministic_harness_attributable_count: int
+    deterministic_model_attributable_rate: float
+    deterministic_model_attributable_count: int
+    deterministic_model_attributable_total: int
     inner_gate_first_pass_rate: float
     inner_gate_first_passes: int
     inner_gate_evaluations: int
@@ -253,6 +259,29 @@ def compute_exit_criteria(
     deterministic_count = sum(1 for a in attempts if a.gate_name in DETERMINISTIC_GATES)
     deterministic_rate = deterministic_count / total_gate_events if total_gate_events else 0.0
 
+    # Oplus directive 2026-05-29: attribute every deterministic gate event
+    # to model vs harness.  Harness-attributable events (CLASS-002/008/010
+    # seams: missing artifact, broken dependency ref resolution, oversized
+    # artifact, env mismatch, tool-not-found) reject correct model output
+    # because the harness plumbing is wrong, not because of model quality.
+    # The model-attributable pass rate counts only deterministic gate events
+    # that exercise model output — how often does correct model output
+    # pass the gates that actually test its work?
+    deterministic_harness_count = sum(
+        1 for a in attempts if a.gate_name in HARNESS_ATTRIBUTABLE_DETERMINISTIC_GATES
+    )
+    deterministic_model_events = [
+        a
+        for a in attempts
+        if a.gate_name in DETERMINISTIC_GATES
+        and a.gate_name not in HARNESS_ATTRIBUTABLE_DETERMINISTIC_GATES
+    ]
+    deterministic_model_total = len(deterministic_model_events)
+    deterministic_model_pass = sum(1 for a in deterministic_model_events if a.passed)
+    deterministic_model_rate = (
+        deterministic_model_pass / deterministic_model_total if deterministic_model_total else 0.0
+    )
+
     lock_rate = locked / total if total else 0.0
 
     inner_attempts = [a for a in attempts if a.gate_name.startswith("inner_")]
@@ -336,6 +365,10 @@ def compute_exit_criteria(
         total_gate_events=total_gate_events,
         deterministic_gate_rate=deterministic_rate,
         deterministic_count=deterministic_count,
+        deterministic_harness_attributable_count=deterministic_harness_count,
+        deterministic_model_attributable_rate=deterministic_model_rate,
+        deterministic_model_attributable_count=deterministic_model_pass,
+        deterministic_model_attributable_total=deterministic_model_total,
         inner_gate_first_pass_rate=inner_rate,
         inner_gate_first_passes=inner_first_passes,
         inner_gate_evaluations=inner_evaluations,
@@ -456,6 +489,21 @@ def format_exit_criteria_summary(metrics: ExitCriteriaMetrics) -> str:
         f"{dr_label:4s} [target: >=80%]"
     )
     lines.append(dr_line)
+
+    # Oplus attribution breakdown: model-attributable rate excludes
+    # harness-attributable gate events from both numerator and denominator.
+    mdr = (
+        f"{metrics.deterministic_model_attributable_rate:.0%}"
+        if metrics.deterministic_model_attributable_total > 0
+        else "—"
+    )
+    mdr_line = (
+        f"  Model-attributable det gate:  {mdr} "
+        f"({metrics.deterministic_model_attributable_count}/"
+        f"{metrics.deterministic_model_attributable_total})  "
+        f"[excludes {metrics.deterministic_harness_attributable_count} harness events]"
+    )
+    lines.append(mdr_line)
 
     all_pass = ma_pass and fa_pass and ig_pass and ur_pass and dr_pass
     lines.append("")

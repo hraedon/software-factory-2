@@ -12,6 +12,7 @@ from factory.constants import (
     TRANSITION_GATE_FAIL,
     TRANSITION_GATE_PASS,
     WORK_ITEM_TYPE_IMPLEMENTATION,
+    WORK_ITEM_TYPE_TEST_SUITE,
     DiagnosticKind,
 )
 from factory.gate import GateResult
@@ -165,6 +166,13 @@ KIND_DISPATCH = {
     DiagnosticKind.ARTIFACT_OVERSIZED: Route(
         target_state=STATE_NEW,
     ),
+    DiagnosticKind.MUTATION_UNCAUGHT: Route(
+        target_state=STATE_NEW,
+        custom_fields_update={"review_feedback_pending": True},
+        create_upstream_revision=True,
+        upstream_type=WORK_ITEM_TYPE_TEST_SUITE,
+        upstream_context_key="review_feedback",
+    ),
 }
 
 
@@ -183,6 +191,7 @@ ESCALATABLE_KINDS = {
     DiagnosticKind.INTEGRATION_MYPY,
     DiagnosticKind.INTEGRATION_PYTEST,
     DiagnosticKind.OUTCOME_E2E,
+    DiagnosticKind.MUTATION_UNCAUGHT,
 }
 
 # Backward-compatible aliases (BC-218: made public; private names deprecated)

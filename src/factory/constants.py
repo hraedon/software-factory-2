@@ -152,6 +152,28 @@ GATE_NAME_ARTIFACT_OVERSIZED = "artifact_oversized"
 GATE_NAME_BUDGET_EXHAUSTED = "gate_budget_exhausted"
 GATE_NAME_CRASH_LOOP = "gate_crash_loop"
 
+# Deterministic gates whose failure is attributable to pipeline harness
+# plumbing (CLASS-002/008/010 seams) rather than model output quality.
+# These gates reject when the harness itself is broken — missing artifact
+# staging, dependency ref resolution failure, tool-not-found, oversized
+# artifact limit, subprocess env mismatch.  A pass/fail here says nothing
+# about the model's ability to produce correct code.
+#
+# When computing model-attributable deterministic gate rates these gates
+# are excluded from both numerator and denominator so the rate reflects
+# "how often does the model pass the checks that actually test its output?"
+HARNESS_ATTRIBUTABLE_DETERMINISTIC_GATES: frozenset[str] = frozenset(
+    {
+        GATE_NAME_INTERFACE_SPEC_FILE_EXISTS,
+        GATE_NAME_TEST_SUITE_FILE_EXISTS,
+        GATE_NAME_TEST_SUITE_DEPENDENCY,
+        GATE_NAME_IMPLEMENTATION_FILE_EXISTS,
+        GATE_NAME_IMPLEMENTATION_DEPENDENCY,
+        GATE_NAME_ARTIFACT_OVERSIZED,
+        GATE_NAME_INTEGRATION_IMPORT,
+    }
+)
+
 CHANNEL_TO_FAMILY = {
     CHANNEL_CLAUDE_CODE: FAMILY_ANTHROPIC,
     CHANNEL_OPENCODE: FAMILY_OPENCODE,
@@ -220,3 +242,4 @@ class DiagnosticKind(StrEnum):
     INTEGRATION_PYTEST = "integration_pytest"
     OUTCOME_E2E = "outcome_e2e"
     ARTIFACT_OVERSIZED = "artifact_oversized"
+    MUTATION_UNCAUGHT = "mutation_uncaught"
