@@ -1,0 +1,220 @@
+meta:
+  name: "url-shortener"
+  spec_level: 2
+  desired_level: 3
+  date: "2026-05-29"
+  extensions: []
+
+glossary:
+  - term: "short link"
+    definition: "A mapping from a unique slug (alphanumeric string) to a target URL. Created via POST, resolved via GET."
+  - term: "slug"
+    definition: "The unique identifier in a short link. 6 characters, base62-encoded. Generated server-side; never user-chosen."
+  - term: "hit"
+    definition: "A recorded access to a short link via the resolve endpoint. Each hit stores timestamp, source IP, and user-agent."
+  - term: "link store"
+    definition: "The SQLite database backing the service. Stores links and hits. Single-file, no external database server."
+
+scope:
+  in_scope:
+    - Creating short links from target URLs (POST /links)
+    - Resolving short links to target URLs (GET /:slug)
+    - Recording hits on resolution (metadata: timestamp, IP, user-agent)
+    - Retrieving link statistics (GET /links/:slug/stats)
+    - Listing all links with pagination (GET /links)
+    - Input validation (valid URL format, non-empty slug)
+    - Structured error responses (JSON error body with code and message)
+    - SQLite persistence with WAL mode
+  out_of_scope:
+    - Authentication or authorization (open service)
+    - Custom slug selection (slugs are server-generated)
+    - Rate limiting or abuse prevention
+    - HTTPS termination (runs behind a reverse proxy)
+    - Link expiration or TTL
+    - Bulk import/export
+    - Admin interface or dashboard
+
+mvp:
+  description: "A lightweight URL shortener web service. Accepts URLs via POST, returns short slugs, resolves them via redirect, and tracks hit statistics."
+  fr_ids: ["FR-01", "FR-02", "FR-03", "FR-04", "FR-05"]
+  rationale: "All FRs are required for a coherent service. Skipping link creation means no data; skipping resolution means no redirects; skipping hit tracking means no stats; skipping stats endpoint means no visibility; skipping list endpoint means no management."
+  architectural_prerequisites:
+    - fr_id: "FR-01"
+      requires: "HTTP framework with typed request/response models"
+      resolution: "invisible_infrastructure"
+    - fr_id: "FR-03"
+      requires: "SQLite with WAL mode for concurrent reads"
+      resolution: "invisible_infrastructure"
+
+functional_requirements:
+  - id: "FR-01"
+    mvp: true
+    text: "Given a valid URL in a JSON POST body, create_link generates a unique 6-character slug, stores the mapping in SQLite, and returns the slug with HTTP 201. Duplicate target URLs get new slugs (no dedup)."
+  - id: "FR-02"
+    mvp: true
+    text: "Given a GET request to /:slug, resolve_link looks up the slug in SQLite. If found, records a hit (timestamp, source IP, user-agent) and returns an HTTP 307 redirect to the target URL. If not found, returns HTTP 404 with a JSON error body."
+  - id: "FR-03"
+    mvp: true
+    text: "Given a GET request to /links/:slug/stats, get_stats returns a JSON object with: slug, target_url, created_at, total_hits, and a list of recent hits (last 10, each with timestamp, ip, user_agent). Returns 404 if slug not found."
+  - id: "FR-04"
+    mvp: true
+    text: "Given a GET request to /links with optional query params offset (default 0) and limit (default 20, max 100), list_links returns a JSON array of link objects (slug, target_url, created_at, total_hits) ordered by created_at descending."
+  - id: "FR-05"
+    mvp: true
+    text: "Given any request with invalid JSON body, missing required fields, or malformed URL, the service returns HTTP 422 with a JSON error body containing a machine-readable code and a human-readable message."
+
+data:
+  inputs:
+    - name: "HTTP requests"
+      format: "JSON over HTTP"
+      source: "Any HTTP client"
+      validation: "Pydantic models for request bodies; URL format validation for target URLs"
+  outputs:
+    - name: "HTTP responses"
+      format: "JSON (success and error) or HTTP redirect (307)"
+      destination: "HTTP response"
+  persisted_state:
+    - description: "SQLite database with links and hits tables"
+      location: "Configurable via --db-path, default ./url-shortener.db"
+      retention: "Indefinite"
+
+business_rules:
+  - id: "BR-01"
+    text: "Slugs are 6 characters, base62 (a-z, A-Z, 0-9). Generated via secrets.token_urlsafe and truncated."
+  - id: "BR-02"
+    text: "Target URLs must be valid HTTP or HTTPS URLs. Reject file://, ftp://, javascript:, etc."
+  - id: "BR-03"
+    text: "Hits are recorded asynchronously — the redirect response is returned immediately; hit recording is best-effort."
+  - id: "BR-04"
+    text: "The list endpoint returns links in reverse chronological order (newest first)."
+  - id: "BR-05"
+    text: "All error responses have the shape: {\"error\": {\"code\": \"STRING\", \"message\": \"STRING\"}}"
+
+failure_modes:
+  - failure: "Database locked"
+    trigger: "Concurrent writes overwhelm SQLite"
+    response: "HTTP 503 with error code 'database_locked'"
+    notification: "HTTP response"
+  - failure: "Invalid URL"
+    trigger: "POST body contains a non-HTTP URL or malformed URL"
+    response: "HTTP 422 with error code 'invalid_url'"
+    notification: "HTTP response"
+  - failure: "Slug collision"
+    trigger: "Generated slug already exists (astronomically unlikely with base62^6)"
+    response: "Retry generation up to 3 times, then HTTP 500 with error code 'slug_generation_failed'"
+    notification: "HTTP response"
+
+nfr:
+  performance: "Resolve a short link in under 50ms (P99) — derived from: 'must feel instant for redirect responses'"
+  reliability: "WAL mode ensures reads are never blocked by writes — derived from: 'stats endpoint must not degrade resolve performance'"
+  operability: "Single process, no daemon manager, no config file beyond --db-path — derived from: 'must run with uvicorn url_shortener.main:app'"
+
+high_coupling_decisions:
+  - decision: "SQLite with WAL mode, not an external database"
+    status: "decided"
+    notes: "Keeps the service self-contained. No Docker, no Postgres, no connection pooling."
+  - decision: "Pydantic v2 for request/response models"
+    status: "decided"
+    notes: "Already used by FastAPI. Provides validation, serialization, and OpenAPI schema generation."
+  - decision: "FastAPI as the HTTP framework"
+    status: "decided"
+    notes: "De facto standard for Python web services. Provides typed routing, dependency injection, and automatic docs."
+  - decision: "Hits recorded on resolve, not on redirect"
+    status: "decided"
+    notes: "The hit is recorded before the redirect response is sent. Best-effort: if recording fails, the redirect still happens."
+
+acceptance_criteria:
+  - id: "AC-01"
+    fr_ids: ["FR-01"]
+    condition: "Given a POST to /links with {\"url\": \"https://example.com\"}, the response is HTTP 201 with {\"slug\": \"<6-char>\", \"url\": \"https://example.com\", \"short_url\": \"http://host/<6-char>\"}"
+  - id: "AC-02"
+    fr_ids: ["FR-01"]
+    condition: "Given a POST to /links with {\"url\": \"not-a-url\"}, the response is HTTP 422 with error code 'invalid_url'"
+  - id: "AC-03"
+    fr_ids: ["FR-02"]
+    condition: "Given a GET to /abc123 where abc123 maps to https://example.com, the response is HTTP 307 with Location: https://example.com"
+  - id: "AC-04"
+    fr_ids: ["FR-02"]
+    condition: "Given a GET to /nonexistent, the response is HTTP 404 with error code 'not_found'"
+  - id: "AC-05"
+    fr_ids: ["FR-03"]
+    condition: "Given a GET to /links/abc123/stats where abc123 has 5 hits, the response contains total_hits=5 and a hits array with up to 10 entries"
+  - id: "AC-06"
+    fr_ids: ["FR-04"]
+    condition: "Given 25 links in the database, GET /links returns 20 links (default limit) and GET /links?offset=20 returns the remaining 5"
+  - id: "AC-07"
+    fr_ids: ["FR-05"]
+    condition: "Given a POST to /links with {\"url\": 123}, the response is HTTP 422 with error code 'invalid_url'"
+  - id: "AC-08"
+    fr_ids: ["FR-01"]
+    condition: "Given two POSTs with the same target URL, both succeed with different slugs"
+  - id: "AC-09"
+    fr_ids: ["FR-04"]
+    condition: "Given GET /links?limit=5, at most 5 links are returned even if more exist"
+  - id: "AC-10"
+    fr_ids: ["FR-02"]
+    condition: "After resolving /abc123 once, GET /links/abc123/stats shows total_hits incremented by 1"
+
+untestable_items:
+  - item: "Actual HTTP redirect behavior in browsers"
+    reason: "The service returns HTTP 307 with Location header. Browser behavior is out of scope."
+  - item: "Performance under high concurrency"
+    reason: "SQLite WAL mode handles concurrent reads well but writes are serialized. This is acceptable for the target use case."
+
+work_decomposition:
+  value_phases:
+    - phase: 1
+      label: "MVP"
+      fr_ids: ["FR-01", "FR-02", "FR-03", "FR-04", "FR-05"]
+      rationale: "All FRs are required. The service is a coherent unit: create, resolve, track, list, validate."
+
+  dependency_hints:
+    - fr_id: "FR-01"
+      requires: []
+      parallel_with: []
+    - fr_id: "FR-02"
+      requires: ["FR-01"]
+      parallel_with: []
+    - fr_id: "FR-03"
+      requires: ["FR-02"]
+      parallel_with: []
+    - fr_id: "FR-04"
+      requires: ["FR-01"]
+      parallel_with: ["FR-02", "FR-03"]
+    - fr_id: "FR-05"
+      requires: []
+      parallel_with: ["FR-01", "FR-02", "FR-03", "FR-04"]
+
+assumptions:
+  - assumption: "Python 3.12+ is available"
+    rationale: "FastAPI and Pydantic v2 require modern Python."
+  - assumption: "SQLite is available in the Python standard library"
+    rationale: "sqlite3 is bundled with Python. No external dependency needed."
+  - assumption: "The service runs behind a reverse proxy for HTTPS"
+    rationale: "The service itself is HTTP-only. TLS termination is the operator's responsibility."
+
+handoff:
+  decisions_made:
+    - decision: "Use FastAPI with Pydantic v2 models"
+      rationale: "Standard Python web service stack. Provides typed routing and automatic OpenAPI."
+    - decision: "SQLite with WAL mode"
+      rationale: "Self-contained, no external dependencies. WAL allows concurrent reads during writes."
+    - decision: "Server-generated slugs (6-char base62)"
+      rationale: "Avoids slug collision and user-chosen slug abuse."
+    - decision: "Hits recorded best-effort on resolve"
+      rationale: "Redirect latency must not depend on hit recording reliability."
+  intent_signals:
+    - signal: "Must be self-contained (no external database)"
+      relevance: "Drives the SQLite choice. The service runs with zero infrastructure."
+    - signal: "Must feel instant for redirects"
+      relevance: "Drives the best-effort hit recording. The redirect is never delayed."
+    - signal: "Must have typed request/response models"
+      relevance: "Drives the Pydantic choice. Every endpoint has a contract."
+
+delta_to_next_level:
+  - gap: "No authentication or rate limiting"
+    what_would_close_it: "Add API key middleware and per-IP rate limiting"
+  - gap: "No link expiration"
+    what_would_close_it: "Add TTL field to links table and expiry check on resolve"
+  - gap: "No bulk operations"
+    what_would_close_it: "Add POST /links/batch for creating multiple links at once"
