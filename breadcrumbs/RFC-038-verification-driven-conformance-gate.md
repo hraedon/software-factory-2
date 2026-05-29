@@ -77,6 +77,28 @@ The cost and risk live in the other 80%, in two places:
 
 Strategic upside: a sealed, reproducible verification container is the same hermetic-provenance primitive regista is built around. Verification-driven development and cryptographic agent-audit are one mechanism seen twice.
 
+## AC translatability — first measurement (2026-05-29)
+
+MiMo's review asked the right question: "how far does templating actually go — what fraction of real ACs are mechanically translatable vs. require judgment?" The untestable fraction *is* the gate's coverage ceiling. A first-pass classification across the three buildable fixtures:
+
+| Fixture | `acceptance_criteria` | mechanically translatable | judgment-required | already quarantined (`untestable_items` / `nfr`) |
+|---|---|---|---|---|
+| url-shortener | 10 | 10 | 0 | 2 / 3 |
+| log-redact-cli | 9 | 9 | 0 | 2 / 3 |
+| dep-graph-viewer | 9 | 9 | 0 | 2 / 3 |
+| **total** | **28** | **28 (~100%)** | **0** | **6 / 9** |
+
+("Mechanically translatable" = concrete input → concrete observable: HTTP status/body, exception type + message substring, return-value shape, file/DOT output, counts, timing. Two are borderline-but-doable: DGV-07 needs DOT-attribute-aware assertions; DGV-08 needs the `graphviz` binary + a timing budget.)
+
+**The finding reframes the risk.** The translatable fraction of the `acceptance_criteria` section is ~100% on this corpus — *because the spec format already pushes judgment-requiring items upstream into separate `untestable_items` and `nfr` sections* (each fixture quarantines ~2 untestable + 3 NFR: "visual aesthetics," "performance under concurrency," "human readability"). So the gate's coverage = the `acceptance_criteria` section, and the residual is out of scope *by spec construction*, not by gate failure.
+
+This narrows the load-bearing risk from "AC translation is an open problem" to three bounded things:
+1. **Faithful fixture seeding** — "Given 25 links in the database" must seed 25 real rows; this is the substantive translation work, not the assertion.
+2. **Non-worker authorship** — the translator must not be the worker model family (else the GR-048 blind spot returns).
+3. **Upstream discipline holding** — the ~100% depends on socratic-specification continuing to write concrete scenarios and quarantine the rest. If a real spec's `acceptance_criteria` carries fuzzy items, the number drops. **Caveat:** these are curated, buildable fixtures; treat 28/28 as "what the spec format affords when it works," not a universal constant.
+
+Concrete next measurement: when a non-fixture / messier spec arrives, re-run this classification and watch whether the translatable fraction holds.
+
 ## MVP — and why it ships before RFC-039, not after
 
 This gate is **the falsification instrument for RFC-039**, so it is built first and deliberately decoupled from the decomposition change. The sequencing is what makes the whole thing low-risk rather than a rearchitecting:
