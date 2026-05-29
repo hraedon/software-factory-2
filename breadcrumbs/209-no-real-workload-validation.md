@@ -1,8 +1,8 @@
 ---
 number: "209"
 title: "No real workload validation — all 39 golden runs use synthetic cert-watch fixtures"
-severity: high
-status: proposed
+severity: medium
+status: in_progress
 kind: design
 author: adversarial-review
 date: "2026-05-25"
@@ -39,4 +39,10 @@ Each should have 5-10 work items with cross-module dependencies. Document which 
 
 **GR-043 (2026-05-28):** Phase B with MiMo-V2.5-Pro decomposer on log-redact-cli. 97% lock rate (33/34). MiMo produced semantic module names (`rule_loader`, `log_reader`, `redaction_engine`, `output_emitter`); K2 could not (GR-041). 1 transient channel_fail on integration (unrelated to decomposition).
 
-**Remaining:** dep-graph-viewer workload (4 FRs) not yet run. Need N=2 workloads for Phase 6 exit. Web-service archetype deferred to Phase 6.2.
+**GR-044 (2026-05-28):** Phase A on dep-graph-viewer (4 FRs, psycopg2 dependency, sequential FR chain). 97% lock rate (30/31). Full DAG completed through outcome_verification. verify_passed=True. 1 implementation cannot_proceed (psycopg2 type confusion).
+
+**GR-045 (2026-05-28):** Phase B with Sonnet decomposer on dep-graph-viewer. 96% lock rate (27/28). 100% first-attempt pass rate across all roles. Zero failures. Sonnet produced semantic names (`event_log_reader`, `graph_builder`, `graph_filter`, `dot_emitter`). 1 orphan submit (timing issue).
+
+**Assessment:** Pipeline generalizes to non-cert-watch workloads. Both Phase A and Phase B produce ≥96% lock rates on workloads with different module shapes (file IO + audit logs vs database + graph rendering). The remaining gap is that neither workload exercises production-grade complexity (auth, API contracts, multi-service). All fixtures are still CLI tools with simple I/O patterns. Severity downgraded from high to medium — the pipeline works on structurally different CLI tools; the open question is whether it works on non-CLI workloads.
+
+**Remaining:** Web-service archetype (Phase 6.2). Library-module archetype not yet tested.

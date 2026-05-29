@@ -102,7 +102,8 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 | 215 | Scheduler dedup lock is single-process only — no HA support | low | proposed |
 | 211 | No Prometheus metrics endpoint despite spec §7 claiming one | medium | proposed |
 | 210 | No streaming/incremental telemetry — operators have no visibility during long runs | medium | proposed |
-| 209 | No real workload validation — all 39 golden runs use synthetic cert-watch fixtures | high | proposed |
+| 220 | Decomposer produces cross-workload contamination — hallucinated FR-05 with wrong-spec content | medium | proposed |
+| 209 | No real workload validation — 4 non-cert-watch golden runs completed (96-97% lock), remaining gap is non-CLI workloads | medium | in_progress |
 
 ### RFCs (awaiting upstream phases)
 

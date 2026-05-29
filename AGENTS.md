@@ -46,8 +46,8 @@ The principal of this project is a **systems architect, not a developer**. Archi
 ## Status
 
 - **Phase 5 complete.** Phase 5 exit validated at GR-038 (first all-pass full-DAG run). 39 golden runs executed through GR-039 (RFC-011 + BC-195 validation under K2). All 211 BCs resolved; zero open bugs.
-- **Phase 6 in progress.** RFC-023 Phase A (deterministic decomposer) validated through GR-039. Phase B (model-driven semantic naming + FR grouping) implemented in Session 50: prompt template, structured prompt builder, semantic naming gates (fr-shaped, generic suffixes, length, snake_case), prior-failure feedback, Phase A fallback. Snapshot tests for three workloads (cert-watch, log-redact-cli, dep-graph-viewer) passing.
-- **W3/W4/W5 remaining:** GR-040 baseline golden run on new workloads via Phase A; GR-041 Phase B golden run with real model channel; decision gate writeup updating Phase 6 status.
+- **Phase 6.1 complete.** Pipeline generalized to 3 workloads (cert-watch, log-redact-cli, dep-graph-viewer) at ≥96% lock rate through full 7-stage DAG. Phase B decomposer validated on 2 workloads with semantic module naming (MiMo-V2.5-Pro, Sonnet). 45 golden runs executed (GR-001 through GR-045). W5 decision gate written: `plans/2026-05-28-w5-decision-gate.md`.
+- **Phase 6.2 remaining:** Web-service archetype, library-module archetype, mutation_gate exercise, test-efficacy validation (RFC-027), BC-220 decomposer contamination fix.
 
 **What exists:**
 - 7-module runner: runner, gate, gate_process, router, scheduler, config, workspace
@@ -58,13 +58,13 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
 - **1107 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
 
-**Known issues:** 5 open bugs (1 high, 3 medium, 1 low) + 17 RFCs + 7 active defect classes + 2 stabilized (228 resolved). See `breadcrumbs/README.md`.
+**Known issues:** 5 open items (2 medium proposed, 1 medium in-progress, 1 low proposed, 1 high proposed) + 17 RFCs + 7 active defect classes + 2 stabilized (228 resolved). See `breadcrumbs/README.md`.
 
 **Blocking on:** nothing.
 
 ### Phase 6 gate items (priority order)
 
-1. **RFC-023 (decomposer)** — Phase A (deterministic) implemented: reads `spec.yaml` or `spec.md`, produces per-FR fixture `.md` files. **Phase B (model-driven):** implemented in Session 50 — new `decomposer.md` prompt with semantic naming rules, structured prompt builder (`_build_structured_prompt`), semantic naming gate (`fr\d+`, generic suffix, length, snake_case), prior-failure feedback, Phase A fallback. Snapshot tests for three workloads passing. Awaiting W3/W4 golden-run validation.
+1. **RFC-023 (decomposer)** — Phase A (deterministic): validated on 3 workloads. **Phase B (model-driven):** validated on 2 workloads (log-redact-cli GR-043, dep-graph-viewer GR-045) with ≥96% lock rate. Semantic naming works with MiMo-V2.5-Pro and Sonnet; K2 does not follow the prompt. W5 decision gate written. **BC-220:** decomposer produces cross-workload contamination (hallucinated FRs from wrong spec).
 2. **RFC-026 (principal review surface)** — implemented: `src/factory/review_surface.py` generates `REVIEW.md` + `review.json` from regista state. Human-readable module summaries, cannot-proceed detail, artifact listings.
 3. **RFC-022 (initiative primitive)** — implemented: `src/factory/initiative.py` provides `generate_initiative_id()`, `query_initiatives()`, `cancel_initiative()`, `requeue_initiative()`. `populate_work_items.py` assigns initiative IDs at populate time. Regista-dependent operations require `initiative_id` custom field in workflow YAML (integration tests).
 4. **RFC-024 (coherence reviewer)** — removed per Option A; role deleted from all configuration. May be reintroduced in Phase 6 with concrete evidence of a structural-coherence gap.
