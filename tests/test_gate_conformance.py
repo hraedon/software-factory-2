@@ -140,6 +140,77 @@ class TestExtractAcsFromSpec:
         assert "POST" in acs[0]["scenario"]
         assert "HTTP 201" in acs[0]["scenario"]
 
+    def test_heading_style_ac_format(self):
+        """Heading-style spec.md format (GR-051 conformance blocker)."""
+        spec_text = (
+            "# Interface Specification: FR 01\n"
+            "\n"
+            "## Dependencies\n"
+            "\n"
+            "None.\n"
+            "\n"
+            "## AC-01\n"
+            "\n"
+            "Given a POST to /links with JSON body, the response is HTTP 201.\n"
+            "\n"
+            "## AC-02\n"
+            "\n"
+            "Given a POST to /links with invalid URL, the response is HTTP 422.\n"
+        )
+        acs = _extract_acs_from_spec(spec_text)
+        assert len(acs) == 2
+        assert acs[0]["id"] == "AC-01"
+        assert "POST" in acs[0]["scenario"]
+        assert acs[1]["id"] == "AC-02"
+        assert "HTTP 422" in acs[1]["scenario"]
+
+    def test_heading_style_with_boot_ac(self):
+        """AC-BOOT-01 injected into substrate modules."""
+        spec_text = (
+            "# Interface Specification: link_store\n"
+            "\n"
+            "## AC-BOOT-01\n"
+            "\n"
+            "Given a fresh app instance, GET /healthz returns HTTP 200.\n"
+        )
+        acs = _extract_acs_from_spec(spec_text)
+        assert len(acs) == 1
+        assert acs[0]["id"] == "AC-BOOT-01"
+        assert "healthz" in acs[0]["scenario"]
+
+    def test_yaml_fallback_on_backtick_prose(self):
+        """Markdown backticks in prose should not break YAML fallback to heading format."""
+        spec_text = (
+            "# Interface Specification: FR 01\n"
+            "\n"
+            "## Dependencies\n"
+            "\n"
+            "- `interface_ref`: `link_creator`\n"
+            "\n"
+            "## AC-01\n"
+            "\n"
+            "Given a POST to /links, the response is HTTP 201.\n"
+        )
+        # The backtick prose is NOT valid YAML, so yaml.safe_load will throw.
+        # The fallback heading parser must still extract AC-01.
+        acs = _extract_acs_from_spec(spec_text)
+        assert len(acs) == 1
+        assert acs[0]["id"] == "AC-01"
+        assert "POST" in acs[0]["scenario"]
+
+    def test_bulleted_format(self):
+        """Bulleted ## Acceptance Criteria format."""
+        spec_text = (
+            "## Acceptance Criteria\n"
+            "\n"
+            "- `AC-01`: Given a POST to /links, the response is HTTP 201\n"
+            "- `AC-02`: Given a POST to /links, the response is HTTP 422\n"
+        )
+        acs = _extract_acs_from_spec(spec_text)
+        assert len(acs) == 2
+        assert acs[0]["id"] == "AC-01"
+        assert acs[1]["id"] == "AC-02"
+
 
 # ---------------------------------------------------------------------------
 # Test _parse_scenario

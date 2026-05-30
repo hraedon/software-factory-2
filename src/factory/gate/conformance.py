@@ -46,11 +46,60 @@ def _extract_acs_from_spec(spec_text: str) -> list[dict]:
     except Exception as exc:
         _log.debug("conformance_spec_yaml_parse_failed", error=str(exc))
 
-    # Fallback: markdown format (e.g. spec.md)
-    # Pattern: - `AC-NN`: condition text
+    # Fallback: heading-style AC format (e.g. spec.md ## AC-01: title)
+    # Matches spec_lint.py _extract_acs heading format.
+    ac_heading_re = re.compile(r"^##\s+(AC-(?:[A-Z]+-)?\d+)\s*:?\s*(.*)", re.IGNORECASE)
+    heading_ids = []
+    lines = spec_text.splitlines()
+    for line in lines:
+        m = ac_heading_re.match(line)
+        if m:
+            heading_ids.append(m.group(1))
+    if heading_ids:
+        result = []
+        current_id: str | None = None
+        current_body_lines: list[str] = []
+        for line in lines:
+            m = ac_heading_re.match(line)
+            if m:
+                if current_id is not None:
+                    result.append(
+                        {
+                            "id": current_id,
+                            "fr": "",
+                            "scenario": "\n".join(current_body_lines).strip(),
+                        }
+                    )
+                current_id = m.group(1)
+                current_body_lines = [m.group(2)]
+                continue
+            if current_id is not None:
+                if line.strip().startswith("## "):
+                    result.append(
+                        {
+                            "id": current_id,
+                            "fr": "",
+                            "scenario": "\n".join(current_body_lines).strip(),
+                        }
+                    )
+                    current_id = None
+                    current_body_lines = []
+                    continue
+                current_body_lines.append(line)
+        if current_id is not None:
+            result.append(
+                {
+                    "id": current_id,
+                    "fr": "",
+                    "scenario": "\n".join(current_body_lines).strip(),
+                }
+            )
+        return result
+
+    # Fallback: bulleted AC section format (e.g. spec.md ## Acceptance Criteria)
     result = []
     in_ac_section = False
-    for line in spec_text.splitlines():
+    for line in lines:
         stripped = line.strip()
         if stripped.lower().startswith("## acceptance criteria"):
             in_ac_section = True
