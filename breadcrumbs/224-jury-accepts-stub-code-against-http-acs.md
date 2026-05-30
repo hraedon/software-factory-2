@@ -2,7 +2,7 @@
 number: "224"
 title: "Jury/review accept stub, non-HTTP code as satisfying HTTP/persistence ACs — quorum buries the one juror that catches it"
 severity: high
-status: proposed
+status: in_progress
 kind: bug
 author: claude-opus (review session)
 date: "2026-05-29"
