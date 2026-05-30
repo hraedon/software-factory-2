@@ -20,6 +20,7 @@ from factory.constants import (
     ROLE_INTERFACE_ARCHITECT,
     WORK_ITEM_TYPE_INTERFACE_SPEC,
 )
+from factory.decomposer import AC_BOOT_ID, inject_boot_ac
 
 ROOT_DIR = Path(__file__).resolve().parent
 FIXTURES_DIR = ROOT_DIR / "tests" / "fixtures" / "primary-spec"
@@ -427,10 +428,16 @@ def main():
         decomposed_dir = _decompose_temp / ".decomposed"
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
+        # Build substrate lookup: module_name -> is_substrate
+        _substrate_names = {m.module_name for m in result.modules if m.is_substrate}
         md_files = sorted(decomposed_dir.glob("*.md"))
         items = []
         for f in md_files:
             ac_ids = _extract_ac_ids_from_fixture(f.read_text()) or ["AC-01"]
+            # Substrate modules get system-owned AC-BOOT-01 instead of default AC-01
+            bare_name = f.stem.removeprefix("wi_")
+            if bare_name in _substrate_names and ac_ids == ["AC-01"]:
+                ac_ids = ["AC-BOOT-01"]
             items.append((f.name, f.stem, "custom", ac_ids))
     elif args.spec_yaml:
         from factory.decomposer import (
@@ -451,10 +458,14 @@ def main():
         decomposed_dir = _decompose_temp / ".decomposed"
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
+        _substrate_names = {m.module_name for m in result.modules if m.is_substrate}
         md_files = sorted(decomposed_dir.glob("*.md"))
         items = []
         for f in md_files:
             ac_ids = _extract_ac_ids_from_fixture(f.read_text()) or ["AC-01"]
+            bare_name = f.stem.removeprefix("wi_")
+            if bare_name in _substrate_names and ac_ids == ["AC-01"]:
+                ac_ids = ["AC-BOOT-01"]
             items.append((f.name, f.stem, "custom", ac_ids))
     elif args.spec_md:
         from factory.decomposer import (
@@ -475,10 +486,14 @@ def main():
         decomposed_dir = _decompose_temp / ".decomposed"
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
+        _substrate_names = {m.module_name for m in result.modules if m.is_substrate}
         md_files = sorted(decomposed_dir.glob("*.md"))
         items = []
         for f in md_files:
             ac_ids = _extract_ac_ids_from_fixture(f.read_text()) or ["AC-01"]
+            bare_name = f.stem.removeprefix("wi_")
+            if bare_name in _substrate_names and ac_ids == ["AC-01"]:
+                ac_ids = ["AC-BOOT-01"]
             items.append((f.name, f.stem, "custom", ac_ids))
     elif args.fixtures:
         fixtures_dir = Path(args.fixtures)
@@ -562,6 +577,10 @@ def main():
                 spec_text = _resolve_spec_text(filename, label)
             if spec_text is None:
                 continue
+            # Substrate modules (AC-BOOT-01) need the boot AC section injected
+            # before lint so that check_ac_section_exists and check_ac_count_within_band pass
+            if AC_BOOT_ID in _ac_ids:
+                spec_text = inject_boot_ac(spec_text)
             result = spec_lint(filename, spec_text)
             lint_results.append((filename, result))
 

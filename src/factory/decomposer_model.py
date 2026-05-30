@@ -12,7 +12,7 @@ import yaml
 from factory.channel import Channel
 from factory.config import FactoryConfig
 from factory.constants import ROLE_INTERFACE_ARCHITECT
-from factory.decomposer import DecomposedModule, DecompositionResult
+from factory.decomposer import AC_BOOT_ID, DecomposedModule, DecompositionResult
 
 
 @dataclass(frozen=True)
@@ -328,7 +328,8 @@ def _validate_decomposition(data: dict, *, phase_b: bool = True) -> list[Decompo
             )
     for m in modules:
         acs = m.get("ac_ids", [])
-        if len(acs) < 2:
+        is_sub = m.get("is_substrate", False)
+        if len(acs) < 2 and not is_sub:
             # Soft-warning — count as pass with diagnostic to avoid blocking natural 1-AC modules
             results.append(
                 DecompositionGateResult(
@@ -338,6 +339,76 @@ def _validate_decomposition(data: dict, *, phase_b: bool = True) -> list[Decompo
                     diagnostic=f"Module {m['fr_id']} has only {len(acs)} AC(s)",
                 )
             )
+
+    # Gate 5b: is_substrate false-positive guard
+    # Build fr_id -> list of dependent module_names for the dependents check
+    fr_to_dependents: dict[str, list[str]] = {m["fr_id"]: [] for m in modules}
+    for m in modules:
+        for dep_fr in m.get("dependency_fr_ids", []):
+            if dep_fr in fr_to_dependents:
+                fr_to_dependents[dep_fr].append(m["module_name"])
+    for m in modules:
+        is_sub = m.get("is_substrate", False)
+        acs = m.get("ac_ids", [])
+        if is_sub:
+            # A substrate module must have no feature ACs
+            if acs:
+                results.append(
+                    DecompositionGateResult(
+                        passed=False,
+                        gate_name="substrate_validation",
+                        diagnostic_kind="substrate_has_feature_acs",
+                        diagnostic=(
+                            f"Module {m['module_name']} is marked is_substrate but has "
+                            f"feature ACs {acs} — substrate modules must not own feature ACs"
+                        ),
+                    )
+                )
+            # A substrate module must have ≥2 dependents
+            dependents = fr_to_dependents.get(m["fr_id"], [])
+            if len(dependents) < 2:
+                results.append(
+                    DecompositionGateResult(
+                        passed=False,
+                        gate_name="substrate_validation",
+                        diagnostic_kind="substrate_few_dependents",
+                        diagnostic=(
+                            f"Module {m['module_name']} is marked is_substrate but has "
+                            f"only {len(dependents)} dependent(s) — need ≥2, or inline it"
+                        ),
+                    )
+                )
+        else:
+            # Non-substrate module with empty ac_ids is suspicious
+            # (back-compat: model may not have set is_substrate)
+            if not acs:
+                # Auto-detect: if ≥2 dependents, treat as implicit substrate
+                dependents = fr_to_dependents.get(m["fr_id"], [])
+                if len(dependents) >= 2:
+                    results.append(
+                        DecompositionGateResult(
+                            passed=True,
+                            gate_name="substrate_validation",
+                            diagnostic_kind="implicit_substrate",
+                            diagnostic=(
+                                f"Module {m['module_name']} has empty ac_ids and "
+                                f"{len(dependents)} dependents — implied is_substrate=true"
+                            ),
+                        )
+                    )
+                else:
+                    results.append(
+                        DecompositionGateResult(
+                            passed=False,
+                            gate_name="substrate_validation",
+                            diagnostic_kind="empty_ac_ids",
+                            diagnostic=(
+                                f"Module {m['module_name']} has empty ac_ids but is "
+                                f"not marked is_substrate — each module must own at least "
+                                f"one AC or be an explicit substrate"
+                            ),
+                        )
+                    )
 
     # Gate 6: Phase B.5 — composition (orphaned module detection)
     # A module is orphaned if no other module lists it in dependency_fr_ids.
@@ -515,27 +586,50 @@ def decompose_from_model(
             # with that fr_id", not itself.
             fr_to_modules_map: dict[str, list[str]] = {}
             for mod in data.get("modules", []):
-                fr_to_modules_map.setdefault(mod["fr_id"], []).append(
-                    mod["module_name"]
+                fr_to_modules_map.setdefault(mod["fr_id"], []).append(mod["module_name"])
+            # Determine implicit substrate: empty ac_ids + ≥2 dependents
+            fr_to_dependent_count: dict[str, int] = {}
+            for mod in data.get("modules", []):
+                for dep_fr in mod.get("dependency_fr_ids", []):
+                    fr_to_dependent_count[dep_fr] = fr_to_dependent_count.get(dep_fr, 0) + 1
+
+            modules = []
+            for m in data.get("modules", []):
+                is_substrate = m.get("is_substrate", False)
+                ac_ids_raw = m.get("ac_ids", [])
+                # Implicit substrate detection: empty ac_ids + ≥2 dependents
+                if not is_substrate and not ac_ids_raw:
+                    dep_count = fr_to_dependent_count.get(m["fr_id"], 0)
+                    if dep_count >= 2:
+                        is_substrate = True
+                        log.info(
+                            "decomposer.implicit_substrate",
+                            module=m["module_name"],
+                            dependents=dep_count,
+                        )
+                # Substrate modules receive the system-owned AC-BOOT-01
+                if is_substrate and not ac_ids_raw:
+                    ac_entries = [{"id": AC_BOOT_ID, "condition": ""}]
+                else:
+                    ac_entries = [
+                        {"id": ac, "condition": ac_lookup.get(ac, "")} for ac in ac_ids_raw
+                    ]
+                modules.append(
+                    DecomposedModule(
+                        module_name=m["module_name"],
+                        fr_id=m["fr_id"],
+                        fr_text=m["fr_text"],
+                        ac_entries=ac_entries,
+                        dependency_fr_ids=[
+                            dep_mod
+                            for d in m.get("dependency_fr_ids", [])
+                            for dep_mod in fr_to_modules_map.get(d, [d])
+                            if dep_mod != m["module_name"]
+                        ],
+                        glossary={},
+                        is_substrate=is_substrate,
+                    )
                 )
-            modules = [
-                DecomposedModule(
-                    module_name=m["module_name"],
-                    fr_id=m["fr_id"],
-                    fr_text=m["fr_text"],
-                    ac_entries=[
-                        {"id": ac, "condition": ac_lookup.get(ac, "")} for ac in m.get("ac_ids", [])
-                    ],
-                    dependency_fr_ids=[
-                        dep_mod
-                        for d in m.get("dependency_fr_ids", [])
-                        for dep_mod in fr_to_modules_map.get(d, [d])
-                        if dep_mod != m["module_name"]
-                    ],
-                    glossary={},  # model pass doesn't extract glossary yet
-                )
-                for m in data.get("modules", [])
-            ]
             return DecompositionResult(
                 source=str(spec_path),
                 source_hash="model-driven",

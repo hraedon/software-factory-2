@@ -11,6 +11,7 @@ from factory.gate.conformance import (
     _derive_acceptance_tests,
     _extract_acs_from_spec,
     _parse_scenario,
+    _translate_boot_probe,
     _translate_scenario,
     evaluate_conformance,
 )
@@ -444,3 +445,51 @@ class TestConformanceRouting:
             attempt_threshold=3,
         )
         assert routing.target_state == "cannot_proceed"
+
+
+# ---------------------------------------------------------------------------
+# Test AC-BOOT-01 boot probe
+# ---------------------------------------------------------------------------
+
+
+class TestBootProbe:
+    def test_boot_probe_with_fastapi(self):
+        lines = _translate_boot_probe(has_fastapi=True)
+        code = "\n".join(lines)
+        assert "async def test_ac_boot_01" in code
+        assert "/healthz" in code
+        assert "/docs" in code
+        assert "pytest.fail" not in code
+        assert "assert resp.status_code == 200" in code
+
+    def test_boot_probe_without_fastapi(self):
+        lines = _translate_boot_probe(has_fastapi=False)
+        code = "\n".join(lines)
+        assert "async def test_ac_boot_01" in code
+        assert "pytest.fail" in code
+        assert "No FastAPI app" in code
+
+    def test_boot_ac_in_derive_acceptance_tests(self):
+        boot_ac = {"id": "AC-BOOT-01", "fr": "", "scenario": "Boot probe"}
+        acs_with_boot = [*URL_SHORTENER_ACS, boot_ac]
+        code = _derive_acceptance_tests(
+            acs_with_boot,
+            ["app.py"],
+            URL_SHORTENER_REQUIREMENTS,
+        )
+        assert "test_ac_boot_01" in code
+        assert "/healthz" in code
+
+    def test_boot_ac_not_translated_as_regular_scenario(self):
+        acs_with_boot = [
+            {"id": "AC-BOOT-01", "fr": "", "scenario": "Boot probe"},
+        ]
+        code = _derive_acceptance_tests(
+            acs_with_boot,
+            ["app.py"],
+            URL_SHORTENER_REQUIREMENTS,
+        )
+        assert "test_ac_boot_01" in code
+        # Should NOT try to parse "Boot probe" as an HTTP scenario
+        assert "client.post" not in code
+        assert "client.get('/links" not in code

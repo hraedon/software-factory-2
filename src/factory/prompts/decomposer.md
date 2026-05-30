@@ -23,6 +23,7 @@ Output a **single fenced JSON code block** containing a `DecompositionResult`. N
       "fr_id": "FR-NN identifier from spec, or freeform if spec uses prose",
       "fr_text": "One-sentence functional requirement this module implements",
       "ac_ids": ["AC-01", "AC-02"],
+      "is_substrate": false,
       "dependency_fr_ids": ["FR-01"],
       "glossary_terms": ["widget"]
     }
@@ -33,6 +34,23 @@ Output a **single fenced JSON code block** containing a `DecompositionResult`. N
   "rationale": "Why this decomposition was chosen — key grouping decisions and trade-offs. 2-4 sentences."
 }
 ```
+
+### `is_substrate` field
+
+Set `is_substrate: true` **only** on the shared-infrastructure module (e.g. `link_store`) that
+multiple feature slices depend on for their DB schema, app factory, or shared models.
+A substrate module:
+
+- **MUST** have ≥ 2 other modules listing it in `dependency_fr_ids`.
+- **MUST NOT** own any feature ACs — its only AC will be `AC-BOOT-01`, injected by the pipeline.
+- **MUST NOT** be set for feature slices, endpoint modules, or single-dependency helpers.
+
+If a shared piece of infrastructure has exactly **one** dependent, inline it into that dependent
+module instead of creating a separate substrate module.
+
+Do **not** leave `ac_ids` empty. If you are designating a module as `is_substrate: true`, set
+`ac_ids: []` — the pipeline will inject `AC-BOOT-01` automatically. For all other modules,
+`ac_ids` must contain at least one spec AC.
 
 ## Phase C: Deliverable-driven decomposition + walking skeleton
 
@@ -52,16 +70,20 @@ You are running **Phase C** of the decomposer.
 
 For web-service specs (FastAPI + SQLite), produce a **walking skeleton** — a runnable FastAPI app with all endpoints stubbed (HTTP 501 or `raise NotImplementedError`) and the database schema in place. Then carve vertical feature slices on top of it.
 
-The skeleton is **not a separate module**; it is the shared substrate that lives inside every module's artifact. Each module's `app.py`:
+The skeleton shared substrate lives inside a dedicated module with `is_substrate: true` (e.g. `link_store` for the url-shortener). Each feature-slice module's `app.py`:
 - Creates the `FastAPI()` instance.
 - Registers all routers (including its own and stubs for the rest).
-- Initializes the SQLite schema on startup.
+- Initializes the SQLite schema on startup via the shared substrate module.
 
 This ensures any single module, when assembled by the integrator, boots as a runnable ASGI app.
 
-### Shared-substrate ownership rule
+### Shared-substrate module rule
 
-If every slice needs the same DB schema or shared Pydantic base models, **put them in ONE module** (the substrate module, e.g. `link_store` for the url-shortener) and make every other slice depend on it. Do not duplicate the schema in every module. The substrate module still satisfies all three altitude rules: it exposes its schema via importable constants/classes, not via a dead library with no runnable surface.
+If the skeleton substrate (DB schema, app factory, shared Pydantic models) is needed by **≥ 2 feature slices**, emit it as a separate module with `is_substrate: true`. The pipeline will inject `AC-BOOT-01` (walking-skeleton boot) automatically — do **not** author ACs for it.
+
+If exactly **one** slice depends on the substrate, inline the substrate into that slice module — no separate substrate work item. That slice's real ACs cover the substrate's correctness transitively.
+
+**Do not** duplicate the schema or shared models in every module.
 
 ### Semantic naming rules (MUST follow)
 
@@ -113,9 +135,10 @@ Before returning JSON, verify:
 - [ ] If the spec is a web service, every module's code boots as a standalone FastAPI app (walking skeleton check).
 - [ ] Every `module_name` is unique, snake_case, and contains no `fr\d+` pattern.
 - [ ] No `module_name` ends in generic suffixes (`module`, `handler`, `service`, `utils`, `manager`, `processor`).
-- [ ] Every `ac_id` appears in at least one module.
+- [ ] Every `ac_id` appears in at least one module (substrate modules may have empty `ac_ids` if `is_substrate: true`).
 - [ ] No `dependency_fr_ids` reference a `fr_id` that does not exist in `modules`.
 - [ ] No module has >12 ACs.
 - [ ] The dependency graph has no cycles.
 - [ ] Module names describe capabilities, not requirement numbers.
 - [ ] No "library-only" modules without runnable HTTP surface were created.
+- [ ] `is_substrate: true` is set on exactly one module (if there's a shared substrate), and that module has no feature ACs and ≥2 dependents.

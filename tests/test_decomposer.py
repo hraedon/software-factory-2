@@ -7,8 +7,12 @@ import pytest
 import yaml
 
 from factory.decomposer import (
+    AC_BOOT_ID,
+    DecomposedModule,
+    DecompositionResult,
     decompose_from_spec_md,
     decompose_from_spec_yaml,
+    inject_boot_ac,
     write_fixture_files,
 )
 
@@ -290,3 +294,85 @@ class TestRefurbWatcherRoundtrip:
         fr_ids = [m.fr_id for m in result.modules]
         assert "FR-01" in fr_ids
         assert "FR-06" in fr_ids
+
+
+class TestSubstrateModule:
+    def _make_substrate_module(self, is_substrate=True):
+        return DecomposedModule(
+            module_name="link_store",
+            fr_id="FR-00",
+            fr_text="Shared DB schema + app factory",
+            ac_entries=[{"id": AC_BOOT_ID, "condition": ""}],
+            dependency_fr_ids=[],
+            glossary={},
+            is_substrate=is_substrate,
+        )
+
+    def test_substrate_module_carries_flag(self):
+        mod = self._make_substrate_module()
+        assert mod.is_substrate is True
+
+    def test_non_substrate_module_defaults_false(self):
+        mod = DecomposedModule(
+            module_name="link_creator",
+            fr_id="FR-01",
+            fr_text="Create short links",
+            ac_entries=[{"id": "AC-01", "condition": "POST /links"}],
+            dependency_fr_ids=["link_store"],
+            glossary={},
+        )
+        assert mod.is_substrate is False
+
+    def test_substrate_spec_injects_boot_ac(self):
+        mod = self._make_substrate_module()
+        spec = mod.spec_text
+        assert AC_BOOT_ID in spec
+        assert "Walking-skeleton boot" in spec
+
+    def test_non_substrate_spec_no_boot_ac(self):
+        mod = DecomposedModule(
+            module_name="link_creator",
+            fr_id="FR-01",
+            fr_text="Create short links",
+            ac_entries=[{"id": "AC-01", "condition": "POST /links"}],
+            dependency_fr_ids=[],
+            glossary={},
+        )
+        spec = mod.spec_text
+        assert AC_BOOT_ID not in spec
+
+    def test_substrate_fixture_writes_boot_ac(self, tmp_path: Path):
+        mod = self._make_substrate_module()
+        result = DecompositionResult(
+            source="test",
+            source_hash="abc",
+            modules=[mod],
+            glossary={},
+            meta={},
+        )
+        output_dir = tmp_path / "fixtures"
+        written = write_fixture_files(result, output_dir)
+        content = written[0].read_text()
+        assert AC_BOOT_ID in content
+        assert "Walking-skeleton boot" in content
+
+
+class TestInjectBootAc:
+    def test_injects_when_missing(self):
+        original = "# Interface Specification: FR-00\n\nSome text"
+        result = inject_boot_ac(original)
+        assert AC_BOOT_ID in result
+        assert "Walking-skeleton boot" in result
+
+    def test_idempotent(self):
+        original = "# Interface Specification: FR-00\n\nSome text"
+        first = inject_boot_ac(original)
+        second = inject_boot_ac(first)
+        assert first == second
+
+    def test_no_injection_when_already_present(self):
+        from factory.decomposer import AC_BOOT_SPEC_SECTION
+
+        original = f"# Interface Specification: FR-00\n\n{AC_BOOT_SPEC_SECTION}\nSome text"
+        result = inject_boot_ac(original)
+        assert result == original

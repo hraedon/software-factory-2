@@ -12,6 +12,28 @@ class DecomposerError(Exception):
     """Raised when deterministic decomposition encounters an error."""
 
 
+AC_BOOT_ID = "AC-BOOT-01"
+
+AC_BOOT_SPEC_SECTION = (
+    "## AC-BOOT-01: Walking-skeleton boot\n"
+    "\n"
+    "Given a fresh environment, the assembled app starts, initializes its "
+    "declared shared-state layer (DB schema / regista instance / …), "
+    "and `GET /healthz` (or `/docs`) returns 200.\n"
+)
+
+
+def inject_boot_ac(spec_text: str) -> str:
+    """Inject the canonical AC-BOOT-01 section into a substrate module spec.
+
+    If the canonical section text (containing 'Walking-skeleton boot') is
+    already present, return the spec unchanged.
+    """
+    if "Walking-skeleton boot" in spec_text:
+        return spec_text
+    return spec_text.rstrip("\n") + "\n\n" + AC_BOOT_SPEC_SECTION
+
+
 @dataclass(frozen=True)
 class DecomposedModule:
     module_name: str
@@ -20,6 +42,7 @@ class DecomposedModule:
     ac_entries: list[dict]
     dependency_fr_ids: list[str]
     glossary: dict[str, str]
+    is_substrate: bool = False
 
     @property
     def ac_ids(self) -> list[str]:
@@ -172,12 +195,25 @@ def _render_module_spec(module: DecomposedModule) -> str:
     for ac in module.ac_entries:
         ac_id = ac["id"]
         condition = ac.get("condition", ac.get("text", ""))
-        lines.append(f"## {ac_id}")
-        lines.append("")
-        lines.append(condition)
-        lines.append("")
+        # Skip AC-BOOT-01 from entries; it's injected by inject_boot_ac for substrate modules
+        if ac_id == AC_BOOT_ID and module.is_substrate:
+            continue
+        if condition:
+            lines.append(f"## {ac_id}")
+            lines.append("")
+            lines.append(condition)
+            lines.append("")
+        else:
+            lines.append(f"## {ac_id}")
+            lines.append("")
 
-    return "\n".join(lines)
+    output = "\n".join(lines)
+
+    # Substrate modules always get the canonical boot AC injected
+    if module.is_substrate:
+        output = inject_boot_ac(output)
+
+    return output
 
 
 def _parse_frs_from_md(text: str) -> dict[str, str]:

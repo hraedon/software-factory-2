@@ -44,3 +44,14 @@ High. This is the pipeline's core guarantee failing: it ships code that does not
 ## Why this isn't the previous fix recurring
 
 N/A — first instance of this defect shape (gate-rubric contract-altitude / quorum-masks-conformance-dissent). It is the upstream root cause that BC-222's symptom (outcome_e2e escalations) pointed back to.
+
+## Progress (2026-05-30)
+
+Implemented the substrate boot-AC invariant (per plan `plans/2026-05-30-substrate-boot-ac-invariant.md`). This addresses the GR-050 blocker where `link_store` (shared-infrastructure substrate) was emitted with `ac_ids: []`, causing `spec_lint` to fail and the DAG to stall at 80%. The fix:
+
+1. Added `is_substrate: bool` to `DecomposedModule` and the decomposer JSON schema, with explicit validation (zero feature ACs + ≥2 dependents required).
+2. System-owned `AC-BOOT-01` ("Walking-skeleton boot") is now injected into substrate module specs before `spec_lint`, discharged by the RFC-038 boot probe (not by jury/inspection).
+3. The conformance gate routes AC-BOOT-01 to `test_ac_boot_01` (GET /healthz → 200).
+4. Single-dependent substrates are inlined (Option 3 from the plan).
+
+This does NOT resolve BC-224's root cause (jury altitude mismatch) — that requires RFC-038's full conformance gate. But it prevents the substrate-specific cannot_proceed stall and establishes the anti-vacuity guarantee for the boot AC.

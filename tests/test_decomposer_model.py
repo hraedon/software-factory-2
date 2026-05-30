@@ -171,6 +171,85 @@ class TestValidateDecomposition:
             r.gate_name == "semantic_naming" and "snake_case" in r.diagnostic for r in results
         )
 
+    def test_substrate_with_feature_acs_fails(self):
+        data = {
+            "modules": [
+                _valid_substrate("link_store", "FR-00"),
+                _valid_module("link_creator", "FR-01", dependency_fr_ids=["FR-00"]),
+                _valid_module("link_lister", "FR-02", dependency_fr_ids=["FR-00"]),
+            ]
+        }
+        # Overwrite substrate to have feature ACs (invalid)
+        data["modules"][0]["ac_ids"] = ["AC-01"]
+        results = _validate_decomposition(data)
+        assert any(
+            r.gate_name == "substrate_validation"
+            and "substrate_has_feature_acs" in r.diagnostic_kind
+            for r in results
+        )
+
+    def test_substrate_with_one_dependent_fails(self):
+        data = {
+            "modules": [
+                _valid_substrate("link_store", "FR-00"),
+                _valid_module("link_creator", "FR-01", dependency_fr_ids=["FR-00"]),
+            ]
+        }
+        results = _validate_decomposition(data)
+        assert any(
+            r.gate_name == "substrate_validation"
+            and "substrate_few_dependents" in r.diagnostic_kind
+            for r in results
+        )
+
+    def test_substrate_with_two_dependents_passes(self):
+        data = {
+            "modules": [
+                _valid_substrate("link_store", "FR-00"),
+                _valid_module("link_creator", "FR-01", dependency_fr_ids=["FR-00"]),
+                _valid_module("link_lister", "FR-02", dependency_fr_ids=["FR-00"]),
+            ]
+        }
+        results = _validate_decomposition(data)
+        substrate_fails = [
+            r for r in results if r.gate_name == "substrate_validation" and not r.passed
+        ]
+        assert substrate_fails == []
+
+    def test_non_substrate_empty_ac_ids_fails(self):
+        data = {"modules": [_valid_module("link_creator", "FR-01")]}
+        data["modules"][0]["ac_ids"] = []
+        data["modules"][0]["is_substrate"] = False
+        results = _validate_decomposition(data)
+        assert any(
+            r.gate_name == "substrate_validation" and "empty_ac_ids" in r.diagnostic_kind
+            for r in results
+        )
+
+    def test_implicit_substrate_detected(self):
+        data = {
+            "modules": [
+                {
+                    "module_name": "link_store",
+                    "fr_id": "FR-00",
+                    "fr_text": "Shared DB schema",
+                    "ac_ids": [],
+                    "dependency_fr_ids": [],
+                    "is_substrate": False,
+                },
+                _valid_module("link_creator", "FR-01", dependency_fr_ids=["FR-00"]),
+                _valid_module("link_lister", "FR-02", dependency_fr_ids=["FR-00"]),
+            ]
+        }
+        results = _validate_decomposition(data)
+        implicit = [
+            r
+            for r in results
+            if r.gate_name == "substrate_validation" and r.diagnostic_kind == "implicit_substrate"
+        ]
+        assert len(implicit) == 1
+        assert "link_store" in implicit[0].diagnostic
+
 
 class TestDecomposeFromModel:
     def test_success(self, tmp_path: Path):
@@ -527,6 +606,17 @@ def _valid_module(
         "fr_id": fr_id,
         "fr_text": f"Implement {fr_id}",
         "ac_ids": ac_ids if ac_ids is not None else ["AC-01", "AC-02"],
+        "dependency_fr_ids": dependency_fr_ids if dependency_fr_ids is not None else [],
+    }
+
+
+def _valid_substrate(name: str, fr_id: str, dependency_fr_ids: list[str] | None = None) -> dict:
+    return {
+        "module_name": name,
+        "fr_id": fr_id,
+        "fr_text": f"Shared infrastructure for {fr_id}",
+        "ac_ids": [],
+        "is_substrate": True,
         "dependency_fr_ids": dependency_fr_ids if dependency_fr_ids is not None else [],
     }
 

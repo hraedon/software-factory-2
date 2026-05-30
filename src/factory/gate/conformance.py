@@ -145,8 +145,11 @@ def _derive_acceptance_tests(
         test_name = f"test_{ac_id.lower().replace('-', '_')}"
         test_names.append(test_name)
 
-        # Parse the scenario to extract HTTP method, path, body, and expected response
-        test_body = _translate_scenario(ac_id, scenario, has_fastapi)
+        # AC-BOOT-01 gets a canonical boot probe test
+        if ac_id == "AC-BOOT-01":
+            test_body = _translate_boot_probe(has_fastapi)
+        else:
+            test_body = _translate_scenario(ac_id, scenario, has_fastapi)
         lines.append("")
         lines.extend(test_body)
 
@@ -292,6 +295,36 @@ def _parse_scenario(
         expected_body["total_hits"] = int(m.group(1))
 
     return method, path, body, expected_status, (expected_body or None)
+
+
+def _translate_boot_probe(has_fastapi: bool) -> list[str]:
+    """Generate the canonical boot probe test for AC-BOOT-01.
+
+    The boot probe verifies that the assembled app starts, initializes its
+    declared shared-state layer, and responds to health-check endpoints.
+    This is the anti-vacuity guarantee: AC-BOOT-01 may never pass by
+    model/jury verdict — only by an executed boot probe.
+    """
+    if not has_fastapi:
+        return [
+            "@pytest.mark.anyio",
+            "async def test_ac_boot_01():",
+            '    """AC-BOOT-01: Walking-skeleton boot — no FastAPI app."""',
+            "    pytest.fail('No FastAPI app — cannot verify boot')",
+        ]
+    return [
+        "@pytest.mark.anyio",
+        "async def test_ac_boot_01(client):",
+        '    """AC-BOOT-01: Walking-skeleton boot — app starts and serves health endpoints."""',
+        "    # Probe /healthz first, fall back to /docs",
+        "    resp = await client.get('/healthz')",
+        "    if resp.status_code == 404:",
+        "        resp = await client.get('/docs')",
+        "    assert resp.status_code == 200, (",
+        "        f'Boot probe failed: expected 200 from /healthz or /docs, '",
+        "        f'got {resp.status_code}: {resp.text[:200]}'",
+        "    )",
+    ]
 
 
 def evaluate_conformance(
