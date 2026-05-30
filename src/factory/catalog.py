@@ -75,9 +75,13 @@ def apply_skeleton(
     if not skeleton.exists():
         return []
 
+    skip_dirs = {".ruff_cache", "__pycache__", ".git", ".mypy_cache", ".pytest_cache"}
+
     created: list[Path] = []
     for source_path in skeleton.rglob("*"):
         if source_path.is_dir():
+            continue
+        if any(part in skip_dirs for part in source_path.relative_to(skeleton).parts):
             continue
         relative = source_path.relative_to(skeleton)
         target = target_dir / str(relative)

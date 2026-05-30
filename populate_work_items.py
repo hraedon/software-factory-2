@@ -20,7 +20,7 @@ from factory.constants import (
     ROLE_INTERFACE_ARCHITECT,
     WORK_ITEM_TYPE_INTERFACE_SPEC,
 )
-from factory.decomposer import AC_BOOT_ID, inject_boot_ac
+from factory.decomposer import AC_BOOT_ID, DecomposedModule, inject_boot_ac
 
 ROOT_DIR = Path(__file__).resolve().parent
 FIXTURES_DIR = ROOT_DIR / "tests" / "fixtures" / "primary-spec"
@@ -47,6 +47,19 @@ def _extract_ac_ids_from_fixture(spec_text: str) -> list[str]:
         if m:
             ids.append(m.group(1))
     return ids
+
+
+def _ac_ids_for_module(
+    modules: list[DecomposedModule], module_name: str, fixture_text: str
+) -> list[str]:
+    if modules:
+        module_map = {m.module_name: m for m in modules}
+        module = module_map.get(module_name)
+        if module is not None:
+            if module.is_substrate:
+                return [AC_BOOT_ID]
+            return module.ac_ids or ["AC-01"]
+    return _extract_ac_ids_from_fixture(fixture_text) or ["AC-01"]
 
 PRIMARY_ITEMS = [
     ("01-acquire_claim.md", "01", "pure-interface", ["AC-06"]),
@@ -428,16 +441,11 @@ def main():
         decomposed_dir = _decompose_temp / ".decomposed"
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
-        # Build substrate lookup: module_name -> is_substrate
-        _substrate_names = {m.module_name for m in result.modules if m.is_substrate}
         md_files = sorted(decomposed_dir.glob("*.md"))
         items = []
         for f in md_files:
-            ac_ids = _extract_ac_ids_from_fixture(f.read_text()) or ["AC-01"]
-            # Substrate modules get system-owned AC-BOOT-01 instead of default AC-01
             bare_name = f.stem.removeprefix("wi_")
-            if bare_name in _substrate_names and ac_ids == ["AC-01"]:
-                ac_ids = ["AC-BOOT-01"]
+            ac_ids = _ac_ids_for_module(result.modules, bare_name, f.read_text())
             items.append((f.name, f.stem, "custom", ac_ids))
     elif args.spec_yaml:
         from factory.decomposer import (
@@ -458,14 +466,11 @@ def main():
         decomposed_dir = _decompose_temp / ".decomposed"
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
-        _substrate_names = {m.module_name for m in result.modules if m.is_substrate}
         md_files = sorted(decomposed_dir.glob("*.md"))
         items = []
         for f in md_files:
-            ac_ids = _extract_ac_ids_from_fixture(f.read_text()) or ["AC-01"]
             bare_name = f.stem.removeprefix("wi_")
-            if bare_name in _substrate_names and ac_ids == ["AC-01"]:
-                ac_ids = ["AC-BOOT-01"]
+            ac_ids = _ac_ids_for_module(result.modules, bare_name, f.read_text())
             items.append((f.name, f.stem, "custom", ac_ids))
     elif args.spec_md:
         from factory.decomposer import (
@@ -486,14 +491,11 @@ def main():
         decomposed_dir = _decompose_temp / ".decomposed"
         _write_fixtures(result, decomposed_dir)
         print(f"Decomposed {spec_path.name} → {len(result.modules)} modules in {decomposed_dir}")
-        _substrate_names = {m.module_name for m in result.modules if m.is_substrate}
         md_files = sorted(decomposed_dir.glob("*.md"))
         items = []
         for f in md_files:
-            ac_ids = _extract_ac_ids_from_fixture(f.read_text()) or ["AC-01"]
             bare_name = f.stem.removeprefix("wi_")
-            if bare_name in _substrate_names and ac_ids == ["AC-01"]:
-                ac_ids = ["AC-BOOT-01"]
+            ac_ids = _ac_ids_for_module(result.modules, bare_name, f.read_text())
             items.append((f.name, f.stem, "custom", ac_ids))
     elif args.fixtures:
         fixtures_dir = Path(args.fixtures)
