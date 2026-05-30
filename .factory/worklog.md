@@ -1,3 +1,51 @@
+## 2026-05-30 — Session 58: GR-051 (Phase C with substrate boot-AC) — full 7-stage DAG reached, new conformance parse blocker discovered
+
+**Invocation:** K2
+
+**Focus:** Execute GR-051 to validate the substrate boot-AC fix (a3a06e9) from Session 57. Test whether injecting AC-BOOT-01 into substrate modules unblocks the full pipeline on a web-service workload.
+
+### Pre-flight
+
+- Commit uncommitted changes from Session 57 (populate_work_items.py refactor + catalog.py cache-dir skip).
+- Created golden-run-051-config.yaml from GR-050 template (project_name=sf2_golden_051, workspace=/tmp/sf2-golden-051).
+- Verified models (K2, Sonnet, MiMo) all reachable. Postgres healthy.
+
+### GR-051 execution
+
+- **Decomposer:** MiMo-V2.5-Pro produced same 5 deliverable-altitude modules as GR-050 on first attempt.
+- **Pipeline reached full DAG** for the first time on a web-service workload. All 7 stages (interface_spec → test_suite → implementation → review → jury → integration → outcome_verification) were exercised.
+- **Lock rate:** 75% (21/28), below the 90% target but a near-miss rather than a near-pass. The 7 cannot_proceed items expose new failure modes, not code-quality regression.
+
+### Results by stage
+
+| Stage | Items | Locked | Cannot Proceed |
+|---|---|---|---|
+| interface_spec | 5 | 5 (100%) | 0 |
+| test_suite | 5 | 5 (100%) | 0 |
+| implementation | 6 | 4 (67%) | 2 |
+| review | 5 | 3 (60%) | 2 |
+| jury | 3 | 2 (67%) | 1 |
+| integration | 2 | 2 (100%) | 0 |
+| outcome_verification | 2 | 0 (0%) | 2 |
+
+### Bugs discovered
+
+1. **conformance_spec_yaml_parse_failed** (2 items, 100% of outcome_verification items) — `_extract_acs_from_spec` attempts YAML parsing on model-generated specs that contain markdown backticks. The YAML parser throws before the markdown fallback can run. This is a deterministic bug in the conformance gate, not model error.
+2. **Upstream revision context gap** (1 item) — REVIEW_FOUND_DEFECT correctly created upstream revision, but the implementer model had no access to the dependency's implementation (only its interface spec), leading to repeated mypy failures trying to import private `_ensure_db` / `_DB_PATH` symbols.
+3. **Test author hallucinated pagination assertion** (1 item) — `assert 10 == 5` in `test_list_links_pagination` (test_author wrote incorrect assertion; implementer then failed the test).
+
+### Test results (unchanged)
+
+1166 passed, 13 skipped, 0 lint errors, 0 vulture findings.
+
+### Open items
+
+- **GR-052 next step:** Fix `_extract_acs_from_spec` to catch YAML parse errors gracefully and fall back to markdown regex. This unblocks outcome_verification stage.
+- BC-221 (high, in_progress) — populate_work_items.py --spec-yaml bugs still open.
+- BC-224 (high, in_progress) — RFC-038 conformance gate is catching stubs, but the YAML parse bug prevents it from validating real assembled artifacts.
+
+---
+
 ## 2026-05-30 — Session 57: GR-050 (Phase C decomposition) + cycle detection + dependency resolution fixes
 
 **Invocation:** GLM-5.1
