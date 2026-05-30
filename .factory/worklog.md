@@ -1,3 +1,39 @@
+## 2026-05-30 — Session 57: GR-050 (Phase C decomposition) + cycle detection + dependency resolution fixes
+
+**Invocation:** GLM-5.1
+
+**Focus:** Run GR-050 (Phase C deliverable-driven decomposition), fix two decomposer bugs discovered during the run, validate the model follows the Phase C prompt.
+
+### Changes
+
+1. **Cycle detection fix (decomposer_model.py):**
+   - Phase C allows multiple modules to share the same `fr_id` (e.g., substrate + endpoint both claim FR-01).
+   - Old code keyed cycle detection graph by `fr_id` → self-cycle false positive.
+   - Fixed: cycle detection now operates on `module_name` (unique), with `fr_to_modules_map` that maps each fr_id to all modules claiming it. Self-references excluded.
+
+2. **Dependency resolution fix (decomposer_model.py):**
+   - `fr_to_module` dict was `{fr_id: module_name}` — last module wins when multiple share an fr_id.
+   - `link_creator`'s `dependency_fr_ids: ["FR-01"]` resolved to itself instead of `link_store`.
+   - Fixed: `fr_to_modules_map: dict[str, list[str]]` resolves deps to all modules with that fr_id, excluding self.
+
+3. **GR-050 execution:**
+   - Created golden-run-050-config.yaml (3-member jury: K2, Sonnet, MiMo).
+   - Phase C decomposer: MiMo-V2.5-Pro produced 5 deliverable-altitude modules on first attempt.
+   - Pipeline: 4/5 interface_specs locked (80%), link_store → cannot_proceed (no ACs).
+   - Scheduler blocked: all items depend on link_store, so no test_suite items created.
+   - Pipeline stuck at interface_spec stage (only 1 of 7 stages reached).
+
+### Test results
+
+1149 passed, 13 skipped, 0 lint errors, 0 vulture findings.
+
+### Open items
+
+- **Substrate module with no ACs** — the Phase C decomposer correctly produces a substrate module with `ac_ids: []`, but the pipeline has no mechanism to handle AC-less work items. This is the design-level blocker for Phase C.
+- **GR-051** — next step: either assign walking skeleton AC to substrates or bypass AC validation for infrastructure modules.
+
+---
+
 ## 2026-05-29 — Session 56: GR-049 preparation + RFC-038 conformance gate validation
 
 **Invocation:** K2

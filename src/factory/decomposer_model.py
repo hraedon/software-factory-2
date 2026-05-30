@@ -254,8 +254,16 @@ def _validate_decomposition(data: dict, *, phase_b: bool = True) -> list[Decompo
                 )
 
     # Gate 4: acyclic dependency graph
+    # Phase C allows multiple modules to share an fr_id (e.g. shared substrate
+    # + endpoint module both claim FR-01). Cycle detection must operate on
+    # module_name (unique) not fr_id (potentially shared), otherwise a module
+    # depending on another module with the same fr_id looks like a self-cycle.
     fr_ids = {m["fr_id"] for m in modules}
-    dep_map: dict[str, list[str]] = {}
+
+    fr_to_modules: dict[str, list[str]] = {}
+    for m in modules:
+        fr_to_modules.setdefault(m["fr_id"], []).append(m["module_name"])
+
     for m in modules:
         fr_id = m["fr_id"]
         deps = m.get("dependency_fr_ids", [])
@@ -269,30 +277,39 @@ def _validate_decomposition(data: dict, *, phase_b: bool = True) -> list[Decompo
                     diagnostic=f"Module {fr_id} references unknown fr_ids: {bad_deps}",
                 )
             )
-        dep_map[fr_id] = [d for d in deps if d in fr_ids]
 
-    # Cycle detection (DFS)
+    module_deps: dict[str, set[str]] = {m["module_name"]: set() for m in modules}
+    for m in modules:
+        mn = m["module_name"]
+        for dep_fr in m.get("dependency_fr_ids", []):
+            if dep_fr not in fr_ids:
+                continue
+            for dep_mod in fr_to_modules.get(dep_fr, []):
+                if dep_mod != mn:
+                    module_deps[mn].add(dep_mod)
+
+    # Cycle detection (DFS) on module_name graph
     def _has_cycle(node: str, visiting: set[str], visited: set[str]) -> bool:
         if node in visiting:
             return True
         if node in visited:
             return False
         visiting.add(node)
-        for child in dep_map.get(node, []):
+        for child in module_deps.get(node, []):
             if _has_cycle(child, visiting, visited):
                 return True
         visiting.remove(node)
         visited.add(node)
         return False
 
-    for fr_id in dep_map:
-        if _has_cycle(fr_id, set(), set()):
+    for mn in module_deps:
+        if _has_cycle(mn, set(), set()):
             results.append(
                 DecompositionGateResult(
                     passed=False,
                     gate_name="decomposition_validation",
                     diagnostic_kind="cyclic_dependency",
-                    diagnostic=f"Cyclic dependency detected involving {fr_id}",
+                    diagnostic=f"Cyclic dependency detected involving module {mn}",
                 )
             )
             break
@@ -491,10 +508,16 @@ def decompose_from_model(
             if spec_data is not None:
                 for ac in spec_data.get("acceptance_criteria", []):
                     ac_lookup[ac["id"]] = ac.get("condition", ac.get("text", ""))
-            # Build FR-ID → semantic module_name lookup for dependency resolution
-            fr_to_module: dict[str, str] = {
-                m["fr_id"]: m["module_name"] for m in data.get("modules", [])
-            }
+            # Build FR-ID → module_names lookup for dependency resolution.
+            # Phase C allows multiple modules to share an fr_id (e.g. shared
+            # substrate + endpoint both claim FR-01). When resolving deps, a
+            # module listing its own fr_id means "depends on the OTHER module(s)
+            # with that fr_id", not itself.
+            fr_to_modules_map: dict[str, list[str]] = {}
+            for mod in data.get("modules", []):
+                fr_to_modules_map.setdefault(mod["fr_id"], []).append(
+                    mod["module_name"]
+                )
             modules = [
                 DecomposedModule(
                     module_name=m["module_name"],
@@ -504,7 +527,10 @@ def decompose_from_model(
                         {"id": ac, "condition": ac_lookup.get(ac, "")} for ac in m.get("ac_ids", [])
                     ],
                     dependency_fr_ids=[
-                        fr_to_module.get(d, d) for d in m.get("dependency_fr_ids", [])
+                        dep_mod
+                        for d in m.get("dependency_fr_ids", [])
+                        for dep_mod in fr_to_modules_map.get(d, [d])
+                        if dep_mod != m["module_name"]
                     ],
                     glossary={},  # model pass doesn't extract glossary yet
                 )
