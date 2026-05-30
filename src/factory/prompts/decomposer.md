@@ -34,9 +34,34 @@ Output a **single fenced JSON code block** containing a `DecompositionResult`. N
 }
 ```
 
-## Phase B: Semantic module naming and FR grouping
+## Phase C: Deliverable-driven decomposition + walking skeleton
 
-You are running **Phase B** of the decomposer. Phase A produced one module per FR with FR-shaped names (`fr01`, `fr02`). Your job is to produce a **semantically named** decomposition that groups related FRs when appropriate.
+You are running **Phase C** of the decomposer.
+
+**Core constraint:** Every module in your decomposition must be **deliverable-altitude** — it must own enough of the stack (HTTP routing, persistence, validation, and error contracts) so that a single AC can be exercised end-to-end without assuming another module provides the missing layer. The RFC-038 conformance gate executes the assembled artifact against AC-derived acceptance tests. A module that returns plain dataclasses with no HTTP surface or no DB surface will fail that gate, because the AC requires HTTP status codes, headers, and database-backed reads.
+
+**Do not decompose by atomic FR** (one function per module). Decompose by **vertical feature slice**, so that each slice is independently runnable and independently testable against its ACs.
+
+### Three altitude-alignment rules (MUST follow)
+
+1. **Every module that owns an AC involving HTTP status codes MUST contain the FastAPI router/endpoint for that AC.** Do not split "business logic" into one module and "HTTP wiring" into another. A module that only exposes a plain function (e.g. `validate_url(url) -> ErrorResponse`) cannot satisfy AC-07, because AC-07 requires an HTTP 422 response from a POST endpoint, not a function return value.
+2. **Every module that owns an AC involving database reads MUST contain the query code that hits the real database.** Do not split "DB model" into one module and "query logic" into another. A module whose list endpoint fabricates a hardcoded list of 25 objects in memory (no SQLite query) cannot satisfy AC-06, because AC-06 expects `offset`/`limit` to slice real persisted data.
+3. **Every module MUST own its own Pydantic request/response models and error formatting.** Do not rely on a separate `error_formatter` module to turn function returns into HTTP responses. The module that receives the request handles validation, maps validation errors to HTTP 422 with the spec's error body shape, and returns the correct status code.
+
+### Walking skeleton pattern
+
+For web-service specs (FastAPI + SQLite), produce a **walking skeleton** — a runnable FastAPI app with all endpoints stubbed (HTTP 501 or `raise NotImplementedError`) and the database schema in place. Then carve vertical feature slices on top of it.
+
+The skeleton is **not a separate module**; it is the shared substrate that lives inside every module's artifact. Each module's `app.py`:
+- Creates the `FastAPI()` instance.
+- Registers all routers (including its own and stubs for the rest).
+- Initializes the SQLite schema on startup.
+
+This ensures any single module, when assembled by the integrator, boots as a runnable ASGI app.
+
+### Shared-substrate ownership rule
+
+If every slice needs the same DB schema or shared Pydantic base models, **put them in ONE module** (the substrate module, e.g. `link_store` for the url-shortener) and make every other slice depend on it. Do not duplicate the schema in every module. The substrate module still satisfies all three altitude rules: it exposes its schema via importable constants/classes, not via a dead library with no runnable surface.
 
 ### Semantic naming rules (MUST follow)
 
@@ -49,15 +74,16 @@ You are running **Phase B** of the decomposer. Phase A produced one module per F
    - `dot_emitter` (not `fr04`)
    - `redaction_engine` (not `fr03`)
    - `audit_writer` (not `fr05`)
+   - `link_creator` (not `fr01`)
+   - `stats_reader` (not `fr03`)
 4. **Max 40 chars, snake_case, unique within decomposition.**
 
-### FR grouping rules
+### Slice sizing rules
 
-1. **Default: one module per FR** — if FRs are independently useful, keep them separate.
-2. **Group related FRs only when** they share ≥3 ACs AND have no natural interface boundary between them. Example: `FR-04` (output emission) and `FR-05` (audit trail) might be grouped into `output_emitter` if they both deal with writing structured output.
-3. **Do not over-split** — a module with <2 ACs is too small (risk of interface noise).
-4. **Do not under-split** — a module with >12 ACs is too large (risk of implementation sprawl).
-5. **Library modules** — cross-cutting concerns (logging, error utilities, config) get their own modules only if ≥2 other modules depend on them.
+1. **Default: one vertical slice per FR** — if FRs touch different endpoints, keep them separate.
+2. **Group related FRs only when** they share the same HTTP path prefix AND the same database table AND ≥3 ACs. Example: `FR-04` (list links) and `FR-05` (input validation) should NOT be grouped, because validation is cross-cutting and listing is endpoint-specific.
+3. **Do not under-split** — a slice with >12 ACs is too large (risk of implementation sprawl).
+4. **Do not create a separate `database` or `models` slice** unless it is the substrate owner (see Shared-substrate ownership rule above).
 
 ### Dependency rules
 
@@ -65,6 +91,12 @@ You are running **Phase B** of the decomposer. Phase A produced one module per F
 2. **The dependency graph must be acyclic.** If your output contains a cycle, the pipeline rejects it.
 3. **Prefer dependency over duplication.** If two modules both need the same data type, extract a third module for the type and have both depend on it.
 4. **Respect spec dependency hints.** If the spec says FR-B depends on FR-A, your decomposition must preserve that edge (possibly redirected to the grouped module containing FR-A).
+
+### What NOT to produce
+
+- Do NOT produce an `error_formatter` module that only contains dataclasses and validation functions with no HTTP surface. That pattern fails the altitude rules and the RFC-038 conformance gate.
+- Do NOT produce a `link_resolver` module whose `resolve_link` returns a plain dataclass (`Redirect`) instead of issuing an HTTP 307 response via a FastAPI endpoint.
+- Do NOT produce a `link_lister` module whose `get_links` returns a hardcoded Python list. It must query SQLite and return a JSON array over HTTP.
 
 ## Structured failure
 
@@ -77,6 +109,8 @@ If the spec is genuinely un-decomposable (single monolithic requirement with no 
 ## Pre-flight checklist
 
 Before returning JSON, verify:
+- [ ] Every module owns the HTTP endpoint, DB query, and error formatting needed for its ACs (altitude check).
+- [ ] If the spec is a web service, every module's code boots as a standalone FastAPI app (walking skeleton check).
 - [ ] Every `module_name` is unique, snake_case, and contains no `fr\d+` pattern.
 - [ ] No `module_name` ends in generic suffixes (`module`, `handler`, `service`, `utils`, `manager`, `processor`).
 - [ ] Every `ac_id` appears in at least one module.
@@ -84,3 +118,4 @@ Before returning JSON, verify:
 - [ ] No module has >12 ACs.
 - [ ] The dependency graph has no cycles.
 - [ ] Module names describe capabilities, not requirement numbers.
+- [ ] No "library-only" modules without runnable HTTP surface were created.

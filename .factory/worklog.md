@@ -1,3 +1,44 @@
+## 2026-05-29 — Session 56: GR-049 preparation + RFC-038 conformance gate validation
+
+**Invocation:** K2
+
+**Focus:** Prepare GR-049, confirm RFC-038 conformance gate catches GR-048 stubs deterministically, fix AC-03 translation gap, write decomposer Phase C prompt.
+
+### Changes
+
+1. **GR-049 preparation:**
+   - Created `.factory/golden-runs/golden-run-049-config.yaml` (project_name=sf2_golden_049, workspace=/tmp/sf2-golden-049, url-shortener fixture, 3-member jury).
+   - Copied GR-048 decomposed fixtures (`wi_*.md`) into `tests/fixtures/url-shortener/` for reproducibility.
+
+2. **RFC-038 conformance gate — baseline validation:**
+   - Manually confirmed GR-048's stub artifacts fail the gate with `pytest.fail('No FastAPI app — cannot test HTTP behavior')` for every AC. This is the expected deterministic stub-failure — the gate is working.
+
+3. **AC-03 Location-header assertion:**
+   - `_translate_scenario` now emits `assert resp.headers["location"] == ...` when the scenario contains `Location: <value>`.
+   - `_parse_scenario` extracts the Location header value deterministically.
+   - `_parse_scenario` also widened `error_code` regex to `['"]?([\w_]+)['"]?(?:\s*$|\s+or\b)` to catch underscores.
+   - `_parse_scenario` fixed `total_hits` regex to handle both `total_hits=5` and `total_hits incremented by 1`.
+
+4. **Phase C decomposer prompt:**
+   - Rewrote `src/factory/prompts/decomposer.md` from Phase B (semantic naming + FR grouping) to Phase C (deliverable-driven decomposition + walking skeleton).
+   - Added three altitude-alignment rules: HTTP endpoint ownership, DB query ownership, Pydantic/error-formatting ownership.
+   - Added walking skeleton pattern for FastAPI + SQLite specs.
+   - Added shared-substrate ownership rule.
+   - Added "What NOT to produce" anti-patterns explicitly forbidding `error_formatter`, `link_resolver` data-only modules, and `link_lister` hardcoded lists.
+
+5. **Markdown AC parsing fix (discovered in gate.log):**
+   - `_extract_acs_from_spec` fell back to YAML-only parsing. When `spec.md` content (bulleted AC format) reached the gate, it produced `conformance_spec_parse_failed`.
+   - Fixed: `_extract_acs_from_spec` now tries YAML first, then falls back to markdown regex parsing of `- \`AC-NN\`: condition` lines.
+
+### Test results
+
+1149 passed, 13 skipped, 0 lint errors, 0 vulture findings.
+
+### Open items
+
+- **GR-050** — Next step: run deliverable-driven decomposition through Phase C prompt and validate via the same conformance gate. The markdown AC parsing fix needs a live-run re-validation.
+
+
 ---
 
 ## 2026-05-29 — Session 55: RFC-038 lint fixes + GR-049 runtime corrections

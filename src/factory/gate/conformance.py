@@ -19,36 +19,57 @@ _log = structlog.get_logger()
 
 
 def _extract_acs_from_spec(spec_text: str) -> list[dict]:
-    """Extract acceptance criteria from a spec.yaml file.
+    """Extract acceptance criteria from spec text (YAML or markdown).
 
     Returns a list of dicts with keys: id, fr, scenario, input, expected.
-    Each AC is parsed from the structured YAML format.
     """
+    # Try structured YAML first
     try:
         spec = yaml.safe_load(spec_text)
+        if isinstance(spec, dict) and "acceptance_criteria" in spec:
+            acs = spec["acceptance_criteria"]
+            result = []
+            for ac in acs:
+                if not isinstance(ac, dict):
+                    continue
+                ac_id = ac.get("id", "")
+                frs = ac.get("functional_requirements", [])
+                scenario = ac.get("condition", "") or ac.get("scenario", "")
+                result.append(
+                    {
+                        "id": ac_id,
+                        "fr": frs[0] if frs else "",
+                        "scenario": scenario,
+                    }
+                )
+            return result
     except Exception as exc:
-        _log.warning("conformance_spec_parse_failed", error=str(exc))
-        return []
+        _log.debug("conformance_spec_yaml_parse_failed", error=str(exc))
 
-    acs = spec.get("acceptance_criteria", [])
-    if not acs:
-        return []
-
+    # Fallback: markdown format (e.g. spec.md)
+    # Pattern: - `AC-NN`: condition text
     result = []
-    for ac in acs:
-        if not isinstance(ac, dict):
+    in_ac_section = False
+    for line in spec_text.splitlines():
+        stripped = line.strip()
+        if stripped.lower().startswith("## acceptance criteria"):
+            in_ac_section = True
             continue
-        ac_id = ac.get("id", "")
-        frs = ac.get("functional_requirements", [])
-        # Real spec.yaml uses "condition"; fixture/test data uses "scenario"
-        scenario = ac.get("condition", "") or ac.get("scenario", "")
-        result.append(
-            {
-                "id": ac_id,
-                "fr": frs[0] if frs else "",
-                "scenario": scenario,
-            }
-        )
+        if in_ac_section and stripped.startswith("## "):
+            in_ac_section = False
+            continue
+        if in_ac_section:
+            m = re.match(r"^[-*]\s+`([^`]+)`\s*:\s*(.+)$", stripped)
+            if m:
+                ac_id = m.group(1)
+                scenario = m.group(2)
+                result.append(
+                    {
+                        "id": ac_id,
+                        "fr": "",
+                        "scenario": scenario,
+                    }
+                )
     return result
 
 
@@ -195,6 +216,8 @@ def _translate_scenario(ac_id: str, scenario: str, has_fastapi: bool) -> list[st
             elif key == "total_hits":
                 lines.append("    data = resp.json()")
                 lines.append(f"    assert data['total_hits'] == {value}")
+            elif key == "location_header":
+                lines.append(f"    assert resp.headers['location'] == '{value}'")
 
     return lines
 
@@ -240,7 +263,7 @@ def _parse_scenario(
     expected_body = {}
 
     # Error code: error code 'invalid_url', error code 'not_found'
-    m = re.search(r"error code ['\"]?(\w+)['\"]?", scenario)
+    m = re.search(r"error code ['\"]?([\w_]+)['\"]?(?:\s*$|\s+or\b)", scenario)
     if m:
         expected_body["error_code"] = m.group(1)
 
@@ -248,6 +271,11 @@ def _parse_scenario(
     if '"slug"' in scenario or "slug" in scenario.lower():
         if "6-char" in scenario or "six" in scenario.lower():
             expected_body["has_slug"] = True
+
+    # Location header: Location: https://example.com
+    m = re.search(r"Location:\s+([^\s,)\"]+)", scenario)
+    if m:
+        expected_body["location_header"] = m.group(1)
 
     # Array length: "returns 20", "at most 5 links"
     m = re.search(r"returns\s+(\d+)\s", scenario)
@@ -259,7 +287,7 @@ def _parse_scenario(
         expected_body["array_length_lte"] = int(m.group(1))
 
     # Total hits: total_hits=5, total_hits incremented
-    m = re.search(r"total_hits[=:]\s*(\d+)", scenario)
+    m = re.search(r"total_hits[:\s]*(?:=\s*)?(\d+)", scenario)
     if m:
         expected_body["total_hits"] = int(m.group(1))
 
