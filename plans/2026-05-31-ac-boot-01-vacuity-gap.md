@@ -211,3 +211,13 @@ still FAILs (≤2.0) but on small/variable samples.
 **Net:** WS-1 + WS-2 are validated (vacuous class gone; boot probe executes and
 enforces). Remaining: the two telemetry/launcher follow-ups, and a 055-scale
 clean comparison if desired (decomposer divergence).
+
+### GR-058 — relaunch on committed fixes (2026-05-31)
+
+Same Form A command (only project_name/workspace_root → 058). Unlike 056/057,
+**all fixes are committed** (conformance uv-pip fix, BC-229 telemetry, BC-230
+cleanup-exit, BC-231 config-opencode) — so this run is reproducible from git.
+Validation targets: (1) opencode workers no longer `channel_fail` (BC-231
+config-opencode.json now exists); (2) unknown-gate rate back to 0% (BC-229);
+(3) launcher exits 0 on success (BC-230); (4) WS-1/WS-2 hold (0 vacuous
+rejections; boot probe executes). Decomposer still kimi (scale varies run-to-run).
