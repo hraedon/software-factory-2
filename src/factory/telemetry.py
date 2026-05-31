@@ -11,6 +11,7 @@ from regista import Regista
 from factory.config import FactoryConfig, load_config
 from factory.constants import (
     GATE_NAME_ARTIFACT_OVERSIZED,
+    GATE_NAME_CHANNEL_FAIL,
     GATE_NAME_CONFORMANCE,
     GATE_NAME_CROSS_FAMILY_REVIEW,
     GATE_NAME_IMPLEMENTATION,
@@ -144,6 +145,7 @@ DETERMINISTIC_GATES = frozenset(
         GATE_NAME_CONFORMANCE,
         GATE_NAME_MUTATION_SPOT_CHECK,
         GATE_NAME_VACUOUS_TEST,
+        GATE_NAME_CHANNEL_FAIL,
     }
 )
 
@@ -609,12 +611,19 @@ def collect_gate_attempts(
                     diagnostics = payload.get("diagnostics", {})
                 gate_name = diagnostics.get("gate_name")
             if not gate_name:
-                gate_name = GATE_NAME_UNKNOWN
-                log.warning(
-                    "telemetry_gate_name_unknown: work_item_id=%s transition=%s",
-                    wi_id,
-                    ev.transition,
-                )
+                if ev.transition == TRANSITION_CHANNEL_FAIL:
+                    # A channel_fail with no gate_name in diagnostics is a
+                    # worker-process crash (harness-level failure) before any
+                    # gate ran.  Classify as channel_fail so it counts as a
+                    # known deterministic gate event rather than unknown.
+                    gate_name = GATE_NAME_CHANNEL_FAIL
+                else:
+                    gate_name = GATE_NAME_UNKNOWN
+                    log.warning(
+                        "telemetry_gate_name_unknown: work_item_id=%s transition=%s",
+                        wi_id,
+                        ev.transition,
+                    )
             attempts.append(
                 GateAttempt(
                     work_item_id=wi_id,
@@ -1058,7 +1067,11 @@ def run_telemetry_verify(config: FactoryConfig) -> VerifyResult:
             for ev in events:
                 if ev.transition == TRANSITION_SUBMIT:
                     has_submit = True
-                if ev.transition in (TRANSITION_GATE_PASS, TRANSITION_GATE_FAIL):
+                if ev.transition in (
+                    TRANSITION_GATE_PASS,
+                    TRANSITION_GATE_FAIL,
+                    TRANSITION_CHANNEL_FAIL,
+                ):
                     has_gate = True
             if has_submit and not has_gate and wi.current_state != STATE_IN_PROGRESS:
                 orphan_count += 1

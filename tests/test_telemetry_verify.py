@@ -202,6 +202,59 @@ def test_verify_unmatched_gate_fails() -> None:
     assert result.unmatched_gate_count == 1
 
 
+def test_channel_fail_without_gate_name_classified_not_unknown() -> None:
+    """BC-229: channel_fail events with no gate_name in diagnostics (worker crash
+    before any gate ran) must classify as GATE_NAME_CHANNEL_FAIL, not GATE_NAME_UNKNOWN.
+    Reproduces the GR-057 regression where 2 opencode crash events counted as unknown."""
+    from factory.constants import GATE_NAME_CHANNEL_FAIL, TRANSITION_CHANNEL_FAIL
+
+    sub = FakeRegista()
+    wi = uuid.uuid4()
+    sub.add_work_item(wi, STATE_LOCKED)
+    sub.add_event(
+        wi,
+        TRANSITION_SUBMIT,
+        actor_metadata={
+            "role": "implementer",
+            "channel": "opencode",
+            "family": "fireworks",
+        },
+    )
+    # Simulate a worker crash: channel_fail with no gate_name in diagnostics
+    sub.add_event(
+        wi,
+        TRANSITION_CHANNEL_FAIL,
+        actor_metadata={"role": "implementer", "channel": "opencode", "family": "fireworks"},
+        payload={
+            "diagnostics": {
+                "exit_code": 0,
+                "timed_out": False,
+                "error_message": "Empty output from opencode; stderr: agent-wake config not found",
+                "duration_seconds": 976.0,
+            }
+        },
+    )
+
+    from factory.telemetry import collect_gate_attempts
+
+    config = FakeConfig()
+    attempts = collect_gate_attempts(sub, config)
+    assert len(attempts) == 1
+    assert attempts[0].gate_name == GATE_NAME_CHANNEL_FAIL
+
+    import factory.telemetry as telemetry_mod
+
+    original_regista = telemetry_mod.Regista
+    telemetry_mod.Regista = lambda *a, **k: sub
+    try:
+        result = run_telemetry_verify(config)
+    finally:
+        telemetry_mod.Regista = original_regista
+
+    assert result.unknown_gate_name_count == 0
+    assert result.passed is True
+
+
 def test_unknown_rate_threshold_constant_used_everywhere() -> None:
     import inspect
 

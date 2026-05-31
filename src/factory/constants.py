@@ -154,6 +154,7 @@ GATE_NAME_VACUOUS_TEST = "vacuous_test"
 GATE_NAME_ARTIFACT_OVERSIZED = "artifact_oversized"
 GATE_NAME_BUDGET_EXHAUSTED = "gate_budget_exhausted"
 GATE_NAME_CRASH_LOOP = "gate_crash_loop"
+GATE_NAME_CHANNEL_FAIL = "channel_fail"
 
 # Deterministic gates whose failure is attributable to pipeline harness
 # plumbing (CLASS-002/008/010 seams) rather than model output quality.
