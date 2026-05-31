@@ -22,10 +22,11 @@ from factory.gate._subprocess import (
     _run_pytest,
     _run_pytest_collect,
     _run_ruff,
+    _run_vacuous_test_check,
 )
 
 # Gate evaluators
-from factory.gate.conformance import evaluate_conformance
+from factory.gate.conformance import evaluate_conformance, evaluate_module_boot_probe
 from factory.gate.implementation import evaluate_implementation
 from factory.gate.integration import evaluate_integration
 from factory.gate.interface_spec import evaluate_interface_spec
@@ -41,11 +42,13 @@ __all__ = [
     "_run_pytest",
     "_run_pytest_collect",
     "_run_ruff",
+    "_run_vacuous_test_check",
     "evaluate_conformance",
     "evaluate_implementation",
     "evaluate_integration",
     "evaluate_interface_spec",
     "evaluate_jury",
+    "evaluate_module_boot_probe",
     "evaluate_outcome_verification",
     "evaluate_review",
     "evaluate_test_suite",

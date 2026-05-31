@@ -931,7 +931,16 @@ def _run_collect_only(
                 iface_py.write_text(interface_pyi_path.read_text())
             copy_dependency_pyis(tmpdir, dependency_pyi_paths, dependency_spec_paths)
             result = run_subprocess(
-                cmd=[exe, "-m", "pytest", "--collect-only", "-q", str(test_copy)],
+                cmd=[
+                    exe,
+                    "-m",
+                    "pytest",
+                    "--collect-only",
+                    "-q",
+                    "-o",
+                    "asyncio_mode=auto",
+                    str(test_copy),
+                ],
                 cwd=Path(tmpdir),
                 env=gate_subprocess_env(PYTHONPATH=tmpdir),
                 timeout_s=timeout,

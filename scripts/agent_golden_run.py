@@ -253,7 +253,7 @@ def _preflight(config_path: Path, fixtures: str | None) -> None:
     _info("=== Pre-flight passed ===")
 
 
-def _populate(config_path: Path, fixtures: str | None, decomposer_channel: str | None = None, decomposer_model: str | None = None) -> None:
+def _populate(config_path: Path, fixtures: str | None, decomposer_channel: str | None = None, decomposer_model: str | None = None, spec_yaml: str | None = None) -> None:
     """Run populate_work_items.py from repo root."""
     _info("Populating work items...")
     cmd = [
@@ -264,6 +264,8 @@ def _populate(config_path: Path, fixtures: str | None, decomposer_channel: str |
     ]
     if fixtures:
         cmd += ["--fixtures", str(REPO_ROOT / fixtures)]
+    if spec_yaml:
+        cmd += ["--spec-yaml", str(REPO_ROOT / spec_yaml)]
     if decomposer_channel:
         cmd += ["--decomposer-channel", decomposer_channel]
     if decomposer_model:
@@ -528,6 +530,10 @@ def main() -> None:
         help="Skip workspace/log cleanup"
     )
     parser.add_argument(
+        "--spec-yaml",
+        help="Path to spec.yaml (relative to repo root) for Phase C model decomposition",
+    )
+    parser.add_argument(
         "--decomposer-channel",
         choices=["opencode", "claude-code", "gemini-cli"],
         help="Model channel for RFC-023 Phase B model-driven decomposition",
@@ -553,7 +559,7 @@ def main() -> None:
     xdg_data_home.mkdir(parents=True, exist_ok=True)
 
     _preflight(config_path, args.fixtures)
-    _populate(config_path, args.fixtures, decomposer_channel=args.decomposer_channel, decomposer_model=args.decomposer_model)
+    _populate(config_path, args.fixtures, decomposer_channel=args.decomposer_channel, decomposer_model=args.decomposer_model, spec_yaml=args.spec_yaml)
     runner, gate, scheduler = _launch_processes(
         config_path, log_prefix, xdg_data_home=xdg_data_home
     )

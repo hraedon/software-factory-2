@@ -83,7 +83,7 @@ class TestReviewFindingsFilteredOnReviewType:
             actor_id="test-creator",
             custom_fields={
                 "spec_section": "Test",
-                "ac_ids": ["AC-01"],
+                "ac_ids": [],
                 "interface_ref": str(iface_wi.work_item_id),
                 "test_suite_ref": str(test_wi.work_item_id),
                 "implementation_ref": str(impl_wi.work_item_id),
@@ -543,7 +543,7 @@ class TestBC185ReviewFoundDefectE2E:
             actor_id="test-creator",
             custom_fields={
                 "spec_section": "FR-01",
-                "ac_ids": ["AC-01"],
+                "ac_ids": [],
                 "interface_ref": str(iface_wi.work_item_id),
                 "test_suite_ref": str(test_wi.work_item_id),
                 "implementation_ref": str(impl_wi.work_item_id),

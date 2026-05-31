@@ -70,8 +70,7 @@ class _IntegrationChannel:
             name = "artifact.pyi"
         elif role == "test_author":
             content = (
-                "def compute(x: int) -> str:\n"
-                "    return str(x)\n\n"
+                "from interface import compute\n\n"
                 "def test_compute():\n"
                 f'    """{ac}"""\n'
                 '    assert compute(1) == "1"\n'

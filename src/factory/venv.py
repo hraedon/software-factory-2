@@ -105,7 +105,11 @@ def ensure_project_venv(project_dir: Path) -> Path:
     return venv_python
 
 
-_GATE_TOOLS = ["pytest", "mypy", "ruff"]
+# pytest-asyncio (with asyncio_mode=auto, set on the pytest invocation) lets the
+# gate collect and run `async def` tests — required for web-service archetypes
+# whose suites drive the ASGI app through an in-process httpx client. It is inert
+# for synchronous (CLI/library) suites.
+_GATE_TOOLS = ["pytest", "pytest-asyncio", "mypy", "ruff"]
 
 # Packages where the type stub name doesn't follow types-{name} convention.
 _STUB_NAME_OVERRIDES: dict[str, str] = {

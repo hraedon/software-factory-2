@@ -74,8 +74,7 @@ class _StubChannel:
             name = "artifact.pyi"
         elif role == "test_author":
             content = (
-                "def compute(x: int) -> str:\n"
-                "    return str(x)\n\n"
+                "from interface import compute\n\n"
                 "def test_compute():\n"
                 '    """AC-01"""\n'
                 '    assert compute(1) == "1"\n'

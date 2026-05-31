@@ -166,6 +166,15 @@ KIND_DISPATCH = {
     DiagnosticKind.CONFORMANCE: Route(
         target_state=STATE_NEW,
     ),
+    DiagnosticKind.VACUOUS_TEST: Route(
+        target_state=STATE_NEW,
+    ),
+    DiagnosticKind.BOOT_PROBE: Route(
+        target_state=STATE_NEW,
+        create_upstream_revision=True,
+        upstream_type=WORK_ITEM_TYPE_IMPLEMENTATION,
+        upstream_context_key="review_feedback",
+    ),
     DiagnosticKind.ARTIFACT_OVERSIZED: Route(
         target_state=STATE_NEW,
     ),
@@ -196,6 +205,8 @@ ESCALATABLE_KINDS = {
     DiagnosticKind.OUTCOME_E2E,
     DiagnosticKind.CONFORMANCE,
     DiagnosticKind.MUTATION_UNCAUGHT,
+    DiagnosticKind.VACUOUS_TEST,
+    DiagnosticKind.BOOT_PROBE,
 }
 
 # Backward-compatible aliases (BC-218: made public; private names deprecated)

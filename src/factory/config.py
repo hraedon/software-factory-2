@@ -93,6 +93,7 @@ class FactoryConfig:
     dsn: str = "postgresql://regista_test:regista_test@localhost:5432/regista_test"
     hmac_key_path: str = "test_keys.json"
     project_name: str = "sf2"
+    archetype: str = ""
     workspace_root: Path = _DEFAULT_WORKSPACE
     spec_file: Path | None = None
     poll_interval_seconds: int = 5

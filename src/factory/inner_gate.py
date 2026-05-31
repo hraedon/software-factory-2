@@ -408,6 +408,8 @@ def _inner_gate_loop(
             stub_only_deps=current_ctx.stub_only_deps,
             export_map=current_ctx.export_map,
             import_feedback=import_feedback,
+            archetype=current_ctx.archetype,
+            archetype_addendum=current_ctx.archetype_addendum,
         )
         retry_prompt = render_prompt(current_ctx)
         retry_ad = ad / f"retry-{retry}"

@@ -13,6 +13,7 @@ from regista import Regista
 from factory.config import FactoryConfig
 from factory.constants import (
     CUSTOM_FIELD_AC_IDS,
+    CUSTOM_FIELD_ARCHETYPE,
     CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_INITIATIVE_ID,
     CUSTOM_FIELD_MODULE_NAME,
@@ -642,6 +643,9 @@ def main():
             CUSTOM_FIELD_INITIATIVE_ID: initiative_id,
             "shape": shape,
         }
+        archetype_value = args.archetype or _config.archetype
+        if archetype_value:
+            custom_fields[CUSTOM_FIELD_ARCHETYPE] = archetype_value
         try:
             wi, _ = sub.create_work_item(
                 workflow_name=_config.workflow_name,

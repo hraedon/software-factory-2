@@ -93,8 +93,7 @@ class _IdempotencyChannel:
             name = "artifact.pyi"
         elif role == "test_author":
             content = (
-                "def compute(x: int) -> str:\n"
-                "    return str(x)\n\n"
+                "from interface import compute\n\n"
                 "def test_compute():\n"
                 '    """AC-01"""\n'
                 '    assert compute(1) == "1"\n'
@@ -350,8 +349,7 @@ class TestPipelineIdempotencyTestAuthor:
         ts_wi = ts_wis[0]
 
         artifact_content = (
-            "def compute(x: int) -> str:\n"
-            "    return str(x)\n\n"
+            "from interface import compute\n\n"
             "def test_compute():\n"
             '    """AC-01"""\n'
             '    assert compute(1) == "1"\n'
@@ -600,11 +598,10 @@ class TestPipelineIdempotencyMultiRole:
         ts_wi = ts_wis[0]
 
         ts_artifact = (
-            "def compute(x: int) -> str:\n"
-            "    return str(x)\n\n"
+            "from interface import compute\n\n"
             "def test_compute():\n"
             '    """AC-01"""\n'
-            "    assert True\n"
+            '    assert compute(1) == "1"\n'
         )
         wi = _resume_and_gate(
             mock_regista,

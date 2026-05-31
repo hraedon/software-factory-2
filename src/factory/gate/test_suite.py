@@ -14,7 +14,7 @@ from factory.constants import (
     DiagnosticKind,
 )
 from factory.gate._base import GateResult, _guard_artifact_size
-from factory.gate._subprocess import _run_pytest_collect
+from factory.gate._subprocess import _run_pytest_collect, _run_vacuous_test_check
 from factory.gate.interface_spec import _check_syntax
 
 
@@ -101,6 +101,19 @@ def evaluate_test_suite(
     assertion_result = _check_assertion_count(artifact_path)
     if not assertion_result.passed:
         return assertion_result
+
+    if interface_ref_pyi_path is not None and interface_ref_pyi_path.exists():
+        if _interface_has_callables(interface_ref_pyi_path):
+            vacuous_result = _run_vacuous_test_check(
+                artifact_path,
+                interface_ref_pyi_path,
+                dependency_pyi_paths=dependency_pyi_paths,
+                dependency_spec_paths=dependency_spec_paths,
+                python_executable=python_executable,
+                timeout=gate_timeouts.collect_timeout if gate_timeouts else 30,
+            )
+            if not vacuous_result.passed:
+                return vacuous_result
 
     return GateResult(
         passed=True,
@@ -212,3 +225,14 @@ def _import_module_name(node: ast.Import | ast.ImportFrom) -> str:
 
 def _is_non_interface_module(module: str) -> bool:
     return module in ("_impl", "implementation", "src")
+
+
+def _interface_has_callables(pyi_path: Path) -> bool:
+    try:
+        tree = ast.parse(pyi_path.read_text())
+    except SyntaxError:
+        return False
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return True
+    return False

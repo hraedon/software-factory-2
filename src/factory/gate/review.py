@@ -40,7 +40,10 @@ def _extract_json_vote(path: Path) -> dict:
         return {}
 
 
-def evaluate_review(artifact_path: Path) -> GateResult:
+def evaluate_review(
+    artifact_path: Path,
+    executable_ac_ids: list[str] | None = None,
+) -> GateResult:
     """Evaluate a cross-family review artifact.
 
     Expects a JSON object with `passed` (boolean), `findings` (list of dicts with
@@ -49,7 +52,12 @@ def evaluate_review(artifact_path: Path) -> GateResult:
     Emits `diagnostic_kind`:
     - "review_malformed" — reviewer output was empty, unparseable, or missing required fields.
     - "review_found_defect" — reviewer produced a valid verdict that found substantive defects.
+
+    WS-3: findings whose ``ac_id`` is in *executable_ac_ids* are advisory (annotated
+    but not terminally blocking).  Conformance-gate execution is the authority for
+    executable ACs; review is advisory for them.
     """
+    _executable = frozenset(executable_ac_ids or ())
     vote = _extract_json_vote(artifact_path)
     if not vote:
         return GateResult(
@@ -66,17 +74,29 @@ def evaluate_review(artifact_path: Path) -> GateResult:
     diagnostics: list[str] = []
     structured_findings: list[dict] = []
     has_structured_findings = False
+    has_blocking_findings = False
     if not passed:
         if raw_findings:
             for item in raw_findings:
                 if isinstance(item, dict) and "body" in item:
                     has_structured_findings = True
-                    structured_findings.append(item)
-                    diagnostics.append(
-                        f"[{item.get('severity', 'block')}] "
-                        f"{item.get('ac_id', '')} "
-                        f"({item.get('kind', 'impl')}): {item['body']}"
-                    )
+                    ac_id = item.get("ac_id", "")
+                    is_advisory = ac_id in _executable
+                    if not is_advisory:
+                        has_blocking_findings = True
+                        structured_findings.append(item)
+                        diagnostics.append(
+                            f"[{item.get('severity', 'block')}] "
+                            f"{ac_id} "
+                            f"({item.get('kind', 'impl')}): {item['body']}"
+                        )
+                    else:
+                        structured_findings.append({**item, "advisory": True})
+                        diagnostics.append(
+                            f"[advisory:{item.get('severity', 'info')}] "
+                            f"{ac_id} "
+                            f"({item.get('kind', 'impl')}): {item['body']}"
+                        )
                 else:
                     diagnostics.append(str(item))
         else:
@@ -86,7 +106,10 @@ def evaluate_review(artifact_path: Path) -> GateResult:
     # Malformed: no parseable JSON at all, or valid JSON but missing required shape on failure
     malformed = not passed and not has_structured_findings and not rationale
     diagnostic_kind = ""
-    if not passed:
+    if not passed and not has_blocking_findings and has_structured_findings:
+        passed = True
+        diagnostic_kind = ""
+    elif not passed:
         diagnostic_kind = (
             DiagnosticKind.REVIEW_MALFORMED if malformed else DiagnosticKind.REVIEW_FOUND_DEFECT
         )

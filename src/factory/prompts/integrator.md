@@ -43,6 +43,27 @@ Field semantics:
 4. **Integration tests must be new.** They are cross-cutting tests that exercise multiple modules together, not copies of existing per-module tests.
 5. **If a cross-module import cannot be resolved** (e.g., a module references a symbol that doesn't exist in the dependency), set `assembled_tree` to `null` and produce a `cannot_proceed` JSON instead (see below).
 
+## Web-service assembly (archetype-specific)
+
+If the modules are a **web-service** archetype, they follow the **walking-skeleton**
+model: there is **one** shared ASGI `app`, created by the substrate module; each
+feature module imports that shared `app` and registers its routes onto it. Your job
+is to wire them into a single importable application — **not** to merge separate
+apps.
+
+- Include a top-level **`app.py`** in `assembled_tree` whose module-level **`app`**
+  is the substrate's shared application with **every** feature module's routes
+  registered on it. The downstream conformance gate loads this as `app:app`.
+- The correct composition is to import the substrate `app` and then import **every
+  feature module** so that each one's route-registration side effects run against
+  that single `app` (do not call `mount()` to nest separate sub-apps, and do not
+  create a second application object). Then re-export `app`.
+- Set `entry_point` to **`app.app`**.
+- This is the one case where you write code beyond import-line fixes: author
+  `app.py` with these imports/re-export. Do **not** change any route's path, method,
+  request/response shape, or status code, and do **not** drop a feature module —
+  every module the ACs need must be imported so its routes attach.
+
 ## `cannot_proceed` format
 
 If the modules cannot be wired together due to an unresolvable conflict:

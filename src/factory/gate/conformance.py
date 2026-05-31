@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -485,12 +486,21 @@ def evaluate_conformance(
             "[tool.pytest.ini_options]\nasyncio_mode = 'auto'\n"
         )
 
-        # Install requirements if provided
+        # Install requirements if provided.
+        # The gate venv is created by `uv venv` (no bundled pip), so
+        # `<exe> -m pip` fails with "No module named pip" (GR-056). Use uv's
+        # pip driver when available — matching factory.venv — and fall back to
+        # module-pip only when uv is absent.
         if requirements_text:
             req_path = tmp_path / "requirements.txt"
             req_path.write_text(requirements_text)
+            uv = shutil.which("uv")
+            if uv:
+                install_cmd = [uv, "pip", "install", "--python", exe, "-q", "-r", str(req_path)]
+            else:
+                install_cmd = [exe, "-m", "pip", "install", "-q", "-r", str(req_path)]
             install_result = run_subprocess(
-                cmd=[exe, "-m", "pip", "install", "-q", "-r", str(req_path)],
+                cmd=install_cmd,
                 cwd=tmp_path,
                 env=gate_subprocess_env(),
                 timeout_s=60,
@@ -547,3 +557,61 @@ def evaluate_conformance(
         gate_name=GATE_NAME_CONFORMANCE,
         diagnostics=[],
     )
+
+
+_AC_BOOT_01 = "AC-BOOT-01"
+
+
+def evaluate_module_boot_probe(
+    artifact_path: Path,
+    spec_text: str,
+    requirements_text: str = "",
+    python_executable: str | None = None,
+    gate_timeouts: GateTimeouts | None = None,
+) -> GateResult:
+    """Run the AC-BOOT-01 boot probe against a single-module implementation.
+
+    This is the upstream invocation of the conformance gate: instead of
+    requiring a full ``assembled_tree`` JSON artifact, this takes a single
+    .py implementation file and wraps it in a synthetic assembled_tree so
+    the existing ``evaluate_conformance`` probe can run.
+
+    WS-2 (RFC-038 upstream): AC-BOOT-01 is discharged by execution at the
+    implementation gate, not by model/jury verdict at cross_family_review.
+    """
+    if not artifact_path.exists():
+        return GateResult(
+            passed=False,
+            gate_name=GATE_NAME_CONFORMANCE,
+            diagnostics=[f"Boot probe artifact not found: {artifact_path}"],
+            diagnostic_kind=DiagnosticKind.BOOT_PROBE,
+        )
+
+    impl_content = artifact_path.read_text()
+    module_name = artifact_path.stem
+    synthetic_tree = {f"{module_name}.py": impl_content}
+    if "fastapi" in requirements_text.lower() or "fastapi" in impl_content.lower():
+        synthetic_tree["app.py"] = impl_content
+
+    import json as _json
+
+    synthetic_artifact = _json.dumps({"assembled_tree": synthetic_tree})
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".json", prefix="sf2_boot_probe_", delete=False
+    ) as f:
+        f.write(synthetic_artifact)
+        synthetic_path = Path(f.name)
+
+    try:
+        return evaluate_conformance(
+            synthetic_path,
+            spec_text=spec_text,
+            requirements_text=requirements_text,
+            python_executable=python_executable,
+            gate_timeouts=gate_timeouts,
+        )
+    finally:
+        try:
+            synthetic_path.unlink()
+        except OSError:
+            pass

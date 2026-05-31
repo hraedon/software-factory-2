@@ -50,6 +50,7 @@ from factory.gate import (
     evaluate_integration,
     evaluate_interface_spec,
     evaluate_jury,
+    evaluate_module_boot_probe,
     evaluate_outcome_verification,
     evaluate_review,
     evaluate_test_suite,
@@ -425,8 +426,29 @@ def process_gate_item(
                     mutation_fail_threshold=config.ops.mutation_gate_fail_threshold,
                     mutation_seed=config.ops.mutation_gate_seed,
                 )
+                if gate_result.passed and "AC-BOOT-01" in ac_ids:
+                    spec_section = custom.get(CUSTOM_FIELD_SPEC_SECTION, "")
+                    req_text = ""
+                    req_path = config.workspace_root / "requirements.txt"
+                    if req_path.exists():
+                        try:
+                            req_text = req_path.read_text()
+                        except Exception:
+                            pass
+                    boot_result = evaluate_module_boot_probe(
+                        artifact_path,
+                        spec_text=spec_section,
+                        requirements_text=req_text,
+                        python_executable=python_executable,
+                        gate_timeouts=config.gate_timeouts,
+                    )
+                    if not boot_result.passed:
+                        gate_result = boot_result
     elif wi.work_item_type == WORK_ITEM_TYPE_REVIEW:
-        gate_result = evaluate_review(artifact_path)
+        gate_result = evaluate_review(
+            artifact_path,
+            executable_ac_ids=ac_ids,
+        )
     elif wi.work_item_type == WORK_ITEM_TYPE_JURY:
         gate_result = evaluate_jury(artifact_path)
     elif wi.work_item_type == WORK_ITEM_TYPE_INTEGRATION:

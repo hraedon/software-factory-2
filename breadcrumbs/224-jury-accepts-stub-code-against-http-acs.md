@@ -7,7 +7,7 @@ kind: bug
 author: claude-opus (review session)
 date: "2026-05-29"
 tags: [jury, review, stage-5, web-service, test-efficacy, phase-6]
-related: ["209", "222", "RFC-027"]
+related: ["209", "222", "227", "RFC-027"]
 ---
 
 ## Symptom

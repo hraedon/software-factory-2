@@ -59,7 +59,9 @@ class TestModuleNameResolution:
         test_suite.write_text(
             "from interface import scan_host\n"
             "from certificate_model import Certificate\n\n"
-            "def test_scan():\n    assert scan_host is not None\n"
+            "def test_scan():\n"
+            "    result = scan_host('example.com')\n"
+            "    assert isinstance(result, dict)\n"
         )
         interface_pyi = tmp_path / "interface.pyi"
         interface_pyi.write_text("def scan_host(host: str) -> dict: ...\n")
@@ -331,7 +333,8 @@ class TestCrossModuleImportInCollect:
             from tls_utils import handshake
 
             def test_combined():
-                assert True
+                result = scan_host('example.com')
+                assert isinstance(result, dict)
             """,
         )
         interface_pyi = _write(

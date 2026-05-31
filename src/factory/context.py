@@ -12,6 +12,7 @@ from regista import Regista
 
 from factory.constants import (
     CUSTOM_FIELD_AC_IDS,
+    CUSTOM_FIELD_ARCHETYPE,
     CUSTOM_FIELD_ARTIFACT_PATH,
     CUSTOM_FIELD_DEPENDENCY_REFS,
     CUSTOM_FIELD_IMPLEMENTATION_REF,
@@ -39,6 +40,25 @@ from factory.failure_summary import FailureEntry, derive_failures
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 
+def _load_archetype_addendum(archetype: str) -> str:
+    """Load the prompt addendum for a work item's archetype.
+
+    Returns "" when no archetype is set or the archetype is unknown — the
+    pipeline behaves exactly as it did before archetype plumbing existed.
+    """
+    if not archetype:
+        return ""
+    from factory.catalog import load_archetype
+
+    try:
+        return load_archetype(archetype).prompt_addendum
+    except (FileNotFoundError, ValueError):
+        logging.getLogger("factory.context").warning(
+            "archetype_addendum_unresolved archetype=%s", archetype
+        )
+        return ""
+
+
 @dataclass(frozen=True)
 class PromptContext:
     work_item_id: str
@@ -54,6 +74,8 @@ class PromptContext:
     stub_only_deps: list[str]
     export_map: dict[str, set[str]] | None = None
     import_feedback: str = ""
+    archetype: str = ""
+    archetype_addendum: str = ""
 
 
 def _to_uuid(value: str | uuid.UUID) -> uuid.UUID:
@@ -71,6 +93,7 @@ def derive_context(
     extra_artifacts: dict[str, str] | None = None,
     stub_only_deps: list[str] | None = None,
     export_map: dict[str, set[str]] | None = None,
+    archetype: str | None = None,
 ) -> PromptContext:
     wi_id = _to_uuid(work_item_id)
     wi = regista.get_work_item(wi_id)
@@ -90,6 +113,13 @@ def derive_context(
     if not section_content and spec_content is not None:
         section_content = spec_content
     extras = extra_artifacts or {}
+    # The archetype lives on the interface_spec work item. Downstream roles
+    # (test_author, implementer) pass it in explicitly, having resolved it from
+    # the interface_spec they reference; the interface_architect reads it from
+    # its own work item. Absent/unknown archetype => no addendum (back-compat).
+    if archetype is None:
+        archetype = custom.get(CUSTOM_FIELD_ARCHETYPE, "") or ""
+    archetype_addendum = _load_archetype_addendum(archetype)
     prompt_template_hash = hashlib.sha256(prompt_template.encode()).hexdigest()
     bundle = _serialize_bundle(
         section_content,
@@ -99,6 +129,7 @@ def derive_context(
         prompt_template,
         extras,
         stub_only_deps or [],
+        archetype_addendum,
     )
     context_hash = hashlib.sha256(bundle.encode()).hexdigest()
     return PromptContext(
@@ -114,7 +145,25 @@ def derive_context(
         extra_artifacts=extras,
         stub_only_deps=stub_only_deps or [],
         export_map=export_map,
+        archetype=archetype,
+        archetype_addendum=archetype_addendum,
     )
+
+
+def _resolve_archetype_from_ref(regista: Regista, ref: str | None) -> str | None:
+    """Read the archetype custom field from a referenced interface_spec work item.
+
+    Returns None when there is no ref or it carries no archetype, so the caller
+    falls through to the default (no addendum) behavior.
+    """
+    if not ref:
+        return None
+    ref_wi = regista.get_work_item(_to_uuid(ref))
+    if ref_wi and ref_wi.custom_fields:
+        value = ref_wi.custom_fields.get(CUSTOM_FIELD_ARCHETYPE)
+        if value:
+            return str(value)
+    return None
 
 
 def _resolve_dependency_contents(
@@ -168,6 +217,7 @@ def derive_test_author_context(
         extra_artifacts=extra_artifacts,
         stub_only_deps=stub_only,
         export_map=export_map,
+        archetype=_resolve_archetype_from_ref(regista, interface_ref),
     )
 
 
@@ -229,6 +279,7 @@ def derive_implementer_context(
         extra_artifacts=extra_artifacts,
         stub_only_deps=stub_only,
         export_map=export_map,
+        archetype=_resolve_archetype_from_ref(regista, interface_ref),
     )
 
 
@@ -363,6 +414,7 @@ def _serialize_bundle(
     prompt_template: str,
     extra_artifacts: dict[str, str] | None = None,
     stub_only_deps: list[str] | None = None,
+    archetype_addendum: str = "",
 ) -> str:
     data: dict[str, Any] = {
         "spec_section": spec_section,
@@ -388,6 +440,8 @@ def _serialize_bundle(
         data["extra_artifacts"] = extra_artifacts
     if stub_only_deps:
         data["stub_only_deps"] = sorted(stub_only_deps)
+    if archetype_addendum:
+        data["archetype_addendum"] = archetype_addendum
     return json.dumps(data, sort_keys=True)
 
 
@@ -625,6 +679,18 @@ def render_prompt(ctx: PromptContext) -> str:
     parts.append(f"work_item_id: {ctx.work_item_id}")
     parts.append(f"role: {ctx.role}")
     parts.append("")
+    if ctx.archetype_addendum:
+        parts.append("## archetype_contract")
+        parts.append("")
+        parts.append(
+            "This work item targets the "
+            f"**{ctx.archetype}** archetype. The contract shape below governs the "
+            "artifact you produce. Where it conflicts with a default assumption in "
+            "your role instructions, the archetype contract wins."
+        )
+        parts.append("")
+        parts.append(ctx.archetype_addendum)
+        parts.append("")
     parts.append("## spec_section")
     parts.append("")
     parts.append("```")
