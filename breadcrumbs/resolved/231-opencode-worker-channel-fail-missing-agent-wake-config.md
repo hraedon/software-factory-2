@@ -2,7 +2,7 @@
 number: "231"
 title: "GR opencode workers channel_fail — agent-wake adapter can't load config-opencode.json (stray AGENT_WAKE_CONFIG → missing file)"
 severity: medium
-status: implemented
+status: resolved
 kind: bug
 author: claude-opus (GR-057 review session)
 date: "2026-05-31"
@@ -64,3 +64,10 @@ path no longer ENOENTs.
 
 First instance of this defect shape (run-env harness-wiring config gap). Related
 to BC-229 only as the upstream cause of that telemetry symptom.
+
+## GR-058 confirmation (2026-05-31)
+
+Confirmed resolved: GR-058 ran with `config-opencode.json` in place — **0
+config-opencode ENOENT, 0 `channel_fail`** in runner.log, unknown-gate rate 0%,
+Overall ALL PASS. The residual *reproducibility-capture* item (this config lives
+in `~/.config`, not a repo) remains a separate follow-up, not a blocker.

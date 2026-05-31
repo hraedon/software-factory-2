@@ -221,3 +221,14 @@ Validation targets: (1) opencode workers no longer `channel_fail` (BC-231
 config-opencode.json now exists); (2) unknown-gate rate back to 0% (BC-229);
 (3) launcher exits 0 on success (BC-230); (4) WS-1/WS-2 hold (0 vacuous
 rejections; boot probe executes). Decomposer still kimi (scale varies run-to-run).
+
+### GR-058 outcome (2026-05-31) — ALL PASS
+
+First fully-green run of the cycle. Lock 79% (11/14), mean-attempts 2.00 (PASS,
+cleared ≤2.0 for the first time), first-gate-eval 79%, unknown-gate 0.0%,
+deterministic gate 86%, stuck 0 — **Overall: ALL PASS**, verify_passed True.
+All fixes validated composing on committed code: BC-231 (0 channel_fail / 0
+config-opencode ENOENT), BC-229 (unknown-gate 0%), BC-230 (launcher exit 0),
+WS-1 (0 review_found_defect), WS-2 (conformance fired, 0 pip failures). This run
+is reproducible from git (unlike 056/057). Decomposer divergence persists (14
+items vs 055's 50) — the one remaining open question is a 055-scale comparison.
