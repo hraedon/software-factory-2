@@ -496,6 +496,10 @@ def _cleanup_offered(
     The principal's persistent opencode store (~/.local/share/opencode/)
     is never touched. If *xdg_data_home* was provided, that temp directory
     (and the isolated opencode DB inside it) is also removed.
+
+    Logs under .factory/logs/ (inside the repo) are run history and are
+    intentionally preserved — cleaning them is skipped with a warning.
+    Only paths under /tmp/ are removed (BC-205 safety guard).
     """
     wr = Path(workspace_root)
     resolved_log_dir = Path(log_dir).resolve() if log_dir else _log_dir_for(log_prefix)
@@ -507,7 +511,13 @@ def _cleanup_offered(
     _info("NOTE: This script NEVER touches ~/.local/share/opencode/ or any application DB.")
     _info("Auto-cleaning workspace + logs + isolated DB (non-interactive mode)...")
     _safe_rmtree(wr, "remove workspace")
-    _safe_rmtree(resolved_log_dir, "remove logs")
+    # BC-230: only clean log dirs that are under /tmp/ (the BC-205 guard).
+    # Repo-internal log dirs (.factory/logs/...) are run history — skip with
+    # a warning rather than fataling, which would flip a successful run to exit 1.
+    if str(resolved_log_dir).startswith("/tmp/"):
+        _safe_rmtree(resolved_log_dir, "remove logs")
+    else:
+        _warn(f"Skipping log dir cleanup (not under /tmp/, preserving as run history): {resolved_log_dir}")
     if xdg_data_home is not None:
         _safe_rmtree(xdg_data_home, "remove isolated DB")
 

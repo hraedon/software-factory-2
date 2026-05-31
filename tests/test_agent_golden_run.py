@@ -11,6 +11,7 @@ from scripts.agent_golden_run import (
     _check_open_breadcrumbs,
     _cleanup_offered,
     _ping_models,
+    _safe_rmtree,
     _validate_config,
 )
 
@@ -319,3 +320,82 @@ class TestCleanup:
         assert not workspace.exists()
         assert not log1.exists()
         assert not isolated_db.exists()
+
+    def test_cleanup_skips_non_tmp_log_dir_with_warning(self, tmp_path, capsys):
+        """BC-230: repo-internal log dirs are skipped with a warning, not a fatal.
+
+        A successful run must exit 0 even when the log dir is under .factory/logs/
+        (inside the repo, not under /tmp/).  The BC-205 /tmp/-only guard in
+        _safe_rmtree must NOT be invoked for such paths — the fix is the early
+        check in _cleanup_offered.
+
+        Uses /var/tmp/ as a stand-in for .factory/logs/... because it is a real
+        writable path that resolves outside /tmp/.
+        """
+        import shutil
+        from pathlib import Path
+
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+
+        # /var/tmp/ is writable and resolves outside /tmp/ — a realistic proxy
+        # for .factory/logs/golden-run-NNN-config inside the repo.
+        non_tmp_log_dir = Path("/var/tmp/bc230-test-logs-warning")
+        non_tmp_log_dir.mkdir(exist_ok=True)
+        log_file = non_tmp_log_dir / "runner.log"
+        log_file.write_text("run output")
+        try:
+            _cleanup_offered(str(workspace), "gr-test", log_dir=str(non_tmp_log_dir))
+        finally:
+            shutil.rmtree(non_tmp_log_dir, ignore_errors=True)
+
+        captured = capsys.readouterr()
+        assert "Skipping log dir cleanup" in captured.err, (
+            "Expected a warning about skipping non-/tmp/ log dir"
+        )
+
+    def test_cleanup_non_tmp_log_dir_does_not_exit_nonzero(self, tmp_path):
+        """BC-230: cleanup with a non-/tmp/ log dir must not call sys.exit(1).
+
+        This is the core regression test: if _safe_rmtree is accidentally called
+        on a repo-internal path, it calls _fatal() which calls sys.exit(1), turning
+        a successful run into a failure.  After the fix, no SystemExit is raised.
+        """
+        import shutil
+        from pathlib import Path
+
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+
+        non_tmp_log_dir = Path("/var/tmp/bc230-test-logs-noexit")
+        non_tmp_log_dir.mkdir(exist_ok=True)
+        try:
+            # Must not raise SystemExit.
+            _cleanup_offered(str(workspace), "gr-test", log_dir=str(non_tmp_log_dir))
+        finally:
+            shutil.rmtree(non_tmp_log_dir, ignore_errors=True)
+
+    def test_safe_rmtree_still_rejects_non_tmp(self):
+        """BC-205 guard: _safe_rmtree itself still fatals on non-/tmp/ paths.
+
+        The BC-230 fix only adds an early skip in _cleanup_offered.
+        The underlying guard in _safe_rmtree must remain strict.
+        """
+        from pathlib import Path
+
+        non_tmp_dir = Path("/var/tmp/bc230-safe-rmtree-guard-test")
+        non_tmp_dir.mkdir(exist_ok=True)
+        try:
+            with pytest.raises(SystemExit, match="1"):
+                _safe_rmtree(non_tmp_dir, "remove non-tmp dir")
+        finally:
+            non_tmp_dir.rmdir()
+
+    def test_safe_rmtree_accepts_tmp_paths(self, tmp_path):
+        """_safe_rmtree removes directories that are under /tmp/."""
+        target = tmp_path / "to-remove"
+        target.mkdir()
+        (target / "file.txt").write_text("data")
+        # Must not raise; directory must be gone.
+        _safe_rmtree(target, "remove target")
+        assert not target.exists()
