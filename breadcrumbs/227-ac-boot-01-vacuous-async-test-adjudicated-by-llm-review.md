@@ -66,3 +66,13 @@ Still open: the fixes are **uncommitted** in the sf2 working tree; follow-ups
 BC-229 (telemetry unknown-gate) and BC-230 (launcher cleanup exit-1). This BC
 stays open until the fixes are committed and a 055-scale clean comparison
 confirms the lock-rate recovery holds at scale.
+
+## Update (2026-05-31) — GR-058 ALL PASS on committed fixes
+
+WS-1/2/3 + the conformance uv-pip fix are now **committed** (29a090e + follow-ups)
+and GR-058 was **Overall: ALL PASS** (lock 79%, mean-attempts 2.00, unknown-gate
+0%, 0 review_found_defect, conformance fired cleanly). The boot-probe efficacy was
+proven by controlled experiment. The **sole remaining gate** on closing this BC is
+a GR-055-scale comparison — GR-056/057/058 ran at 11–18 items vs 055's 50, so the
+lock-rate recovery is unproven at scale. Tracked as BC-232. This BC stays open
+until that scale comparison confirms recovery holds.

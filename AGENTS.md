@@ -59,7 +59,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
 - **1149 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
 
-**Known issues:** 11 open items (5 medium proposed, 1 medium in-progress, 3 low proposed, 1 high proposed, 1 high-in-progress) + 18 RFCs + 7 active defect classes + 2 stabilized (230 resolved). See `breadcrumbs/README.md`. High-priority open: BC-224 (jury accepts stub code against HTTP ACs) — addressed by RFC-038 conformance gate (MVP implemented and lint-clean, GR-049 validation pending).
+**Known issues:** 17 open items (2 high proposed, 1 high in-progress, 10 medium proposed, 1 medium in-progress, 3 low proposed) + 18 RFCs + 7 active defect classes + 2 stabilized. See `breadcrumbs/README.md` (full set, incl. `resolved/`). High-priority open: BC-224 (jury accepts stub code against HTTP ACs) and BC-227 (AC-BOOT-01 vacuity) — both addressed by the RFC-038 conformance gate, now validated end-to-end: GR-058 was ALL PASS with the boot probe executing and enforcing anti-vacuity; the only remaining gate is a GR-055-scale confirmation (BC-232). This session resolved BC-229/230/231.
 
 **Blocking on:** nothing.
 
