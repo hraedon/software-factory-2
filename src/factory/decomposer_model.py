@@ -27,6 +27,9 @@ class DecomposeError(Exception):
     """Raised when model-driven decomposition fails irrevocably."""
 
 
+_GATE_NAME_SCHEMA = "decomposition_schema"
+_DIAG_KIND_SCHEMA = "schema"
+
 log = structlog.get_logger()
 
 
@@ -150,11 +153,17 @@ def _extract_decomposition_json(raw_text: str) -> dict:
     raise DecomposeError("Could not extract JSON decomposition from model output")
 
 
-def _validate_decomposition(data: dict, *, phase_b: bool = True) -> list[DecompositionGateResult]:
+def _validate_decomposition(
+    data: dict,
+    *,
+    phase_b: bool = True,
+    spec_fr_ids: set[str] | None = None,
+) -> list[DecompositionGateResult]:
     """Run mechanical gates on the decomposition result.
 
     When ``phase_b=True`` the semantic naming gate is enforced.
     When ``phase_b=False`` (Phase A fallback) only structural gates run.
+    When ``spec_fr_ids`` is provided, hallucinated FR IDs are rejected.
     """
     results: list[DecompositionGateResult] = []
 
@@ -163,8 +172,8 @@ def _validate_decomposition(data: dict, *, phase_b: bool = True) -> list[Decompo
         results.append(
             DecompositionGateResult(
                 passed=False,
-                gate_name="decomposition_schema",
-                diagnostic_kind="schema",
+                gate_name=_GATE_NAME_SCHEMA,
+                diagnostic_kind=_DIAG_KIND_SCHEMA,
                 diagnostic="Top-level value is not a JSON object",
             )
         )
@@ -175,8 +184,8 @@ def _validate_decomposition(data: dict, *, phase_b: bool = True) -> list[Decompo
         results.append(
             DecompositionGateResult(
                 passed=False,
-                gate_name="decomposition_schema",
-                diagnostic_kind="schema",
+                gate_name=_GATE_NAME_SCHEMA,
+                diagnostic_kind=_DIAG_KIND_SCHEMA,
                 diagnostic="'modules' must be a non-empty list",
             )
         )
@@ -190,8 +199,8 @@ def _validate_decomposition(data: dict, *, phase_b: bool = True) -> list[Decompo
             results.append(
                 DecompositionGateResult(
                     passed=False,
-                    gate_name="decomposition_schema",
-                    diagnostic_kind="schema",
+                    gate_name=_GATE_NAME_SCHEMA,
+                    diagnostic_kind=_DIAG_KIND_SCHEMA,
                     diagnostic=f"Module[{i}] missing fields: {sorted(missing)}",
                 )
             )
@@ -313,6 +322,22 @@ def _validate_decomposition(data: dict, *, phase_b: bool = True) -> list[Decompo
                 )
             )
             break
+
+    # Gate 4b: hallucinated FR IDs (when spec FR IDs are known)
+    if spec_fr_ids is not None:
+        hallucinated = fr_ids - spec_fr_ids
+        if hallucinated:
+            results.append(
+                DecompositionGateResult(
+                    passed=False,
+                    gate_name="decomposition_validation",
+                    diagnostic_kind="hallucinated_fr_id",
+                    diagnostic=(
+                        f"Modules claim FR IDs not in spec: {sorted(hallucinated)}. "
+                        f"Spec defines: {sorted(spec_fr_ids)}"
+                    ),
+                )
+            )
 
     # Gate 5: module size constraints (soft cap only)
     for m in modules:
@@ -543,8 +568,12 @@ def decompose_from_model(
         else (spec_path if spec_path.suffix in (".yaml", ".yml") and spec_path.exists() else None)
     )
     spec_data: dict[str, Any] | None = None
+    spec_fr_ids: set[str] | None = None
     if spec_yaml_file is not None:
         spec_data = _render_yaml_for_prompt(spec_yaml_file)
+        fr_list = spec_data.get("functional_requirements") if spec_data else None
+        if isinstance(fr_list, list):
+            spec_fr_ids = {fr["id"] for fr in fr_list if isinstance(fr, dict) and "id" in fr}
 
     last_diagnostics: list[DecompositionGateResult] = []
     for attempt in range(max_retries + 1):
@@ -571,7 +600,7 @@ def decompose_from_model(
             ]
             continue
 
-        diagnostics = _validate_decomposition(data, phase_b=True)
+        diagnostics = _validate_decomposition(data, phase_b=True, spec_fr_ids=spec_fr_ids)
         last_diagnostics = diagnostics
         if all(r.passed for r in diagnostics):
             # Build AC lookup from spec data to enrich model's ac_ids with condition text

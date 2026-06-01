@@ -48,6 +48,10 @@ So this BC's original hypothesis (uvicorn startup race / process-group teardown)
 
 **Systemic direction:** RFC-038 reframes `outcome_e2e` as the right *concept* executed by the wrong *oracle* (LLM rather than deterministic AC-execution). The FR-05 leak is exactly what a deterministic AC-derived acceptance suite (assert `POST /links {url:123}` → 422) would not miss. See RFC-038.
 
+## Progress (2026-06-01)
+
+RFC-038 conformance gate implemented (`src/factory/gate/conformance.py`). The gate derives AC-specific tests and executes them against the assembled artifact deterministically. This addresses the core gap: the conformance gate would catch the FR-05 error-path leak (no HTTP 422 endpoint) that outcome_e2e missed. The outcome_e2e gate itself remains unchanged — the conformance gate runs at the integration stage as an additional, deterministic layer. Once the conformance gate is the default gate for web-service workloads, BC-222's symptom is addressed structurally.
+
 ## Why this isn't the previous fix recurring
 
 N/A — first instance of this defect shape (outcome verification of a server-lifecycle workload). Related to BC-209 (the broader "no production-complexity workload validation" gap) and BC-224 (the upstream stub-code root cause). The CLASS-008 association is now doubtful given the reframed root cause.

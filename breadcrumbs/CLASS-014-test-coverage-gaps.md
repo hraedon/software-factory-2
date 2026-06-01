@@ -44,6 +44,7 @@ Add a coverage threshold to CI. Require new code paths to carry at least one int
 | 110  | Missing adversarial/fuzz tests for channel output parsing |
 | 117  | Scheduler pagination has no integration test |
 | 153  | Three test files have conditionally-skipped assertions |
+| 241  | jury_orchestrator.py and idempotency.py lack dedicated test files |
 
 ## Status under RFC-030
 

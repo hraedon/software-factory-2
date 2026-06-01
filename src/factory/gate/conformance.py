@@ -18,6 +18,8 @@ from factory.subprocess import run as run_subprocess
 
 _log = structlog.get_logger()
 
+_FASTAPI_MARKER = "fastapi"
+
 
 def _extract_acs_from_spec(spec_text: str) -> list[dict]:
     """Extract acceptance criteria from spec text (YAML or markdown).
@@ -140,7 +142,8 @@ def _derive_acceptance_tests(
     - If behavior is wrong, assertions fail
     """
     has_fastapi = any(
-        "fastapi" in requirements_text.lower() or "fastapi" in f.lower() for f in assembled_files
+        _FASTAPI_MARKER in requirements_text.lower() or _FASTAPI_MARKER in f.lower()
+        for f in assembled_files
     )
 
     lines = [
@@ -590,7 +593,7 @@ def evaluate_module_boot_probe(
     impl_content = artifact_path.read_text()
     module_name = artifact_path.stem
     synthetic_tree = {f"{module_name}.py": impl_content}
-    if "fastapi" in requirements_text.lower() or "fastapi" in impl_content.lower():
+    if _FASTAPI_MARKER in requirements_text.lower() or _FASTAPI_MARKER in impl_content.lower():
         synthetic_tree["app.py"] = impl_content
 
     import json as _json

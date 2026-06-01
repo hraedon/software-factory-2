@@ -245,6 +245,73 @@ def check_ac_single_concern(spec_name: str, spec_text: str) -> list[LintFinding]
     return findings
 
 
+_CONCRETE_PATTERNS = [
+    re.compile(r"\b\d{3}\b"),
+    re.compile(r"(?:returns?|return|yield|emit|output|produce)\s+\w+", re.IGNORECASE),
+    re.compile(r"(?:raise|throw|raises?|throws?)\s+\w+", re.IGNORECASE),
+    re.compile(r"(?:status\s*code|http\s*\d{3}|response\s+code)", re.IGNORECASE),
+    re.compile(r"\b(?:true|false|none|null)\b", re.IGNORECASE),
+    re.compile(r"[<>=!]=?\s*\d+"),
+    re.compile(r"(?:contains?|matches?|equals?|includes?|excludes?)\s", re.IGNORECASE),
+    re.compile(r"`[^`]+`"),
+    re.compile(r"(?:file|path|stdout|stderr|output)\b", re.IGNORECASE),
+    re.compile(r"(?:list|array|dict|map|set|tuple)\s*(?:of|with)?\s*\[", re.IGNORECASE),
+    re.compile(r"(?:json|yaml|csv|xml|dot)\b", re.IGNORECASE),
+    re.compile(r"(?:error|exception|fault|failure)\s+\w+", re.IGNORECASE),
+]
+
+_VAGUE_PATTERNS = [
+    re.compile(
+        r"\b(?:user[\s-]?friendly|readable|performant"
+        r"|acceptable|appropriate|reasonable)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bshould\s+(?:be\s+)?(?:able\s+to|handle|support|provide)"
+        r"\s+[^,;.]+(?:in\s+a\s+)"
+        r"(?:good|nice|clean|proper|efficient)\b",
+        re.IGNORECASE,
+    ),
+]
+
+
+def check_ac_concreteness(spec_name: str, spec_text: str) -> list[LintFinding]:
+    acs = _extract_acs(spec_text)
+    findings: list[LintFinding] = []
+
+    for ac_id, desc in acs:
+        has_concrete = any(p.search(desc) for p in _CONCRETE_PATTERNS)
+        has_vague = any(p.search(desc) for p in _VAGUE_PATTERNS)
+        if has_vague and not has_concrete:
+            findings.append(
+                LintFinding(
+                    spec_name=spec_name,
+                    level="WARN",
+                    check="ac_concreteness",
+                    message=(
+                        f"{ac_id} uses vague qualifiers without concrete, "
+                        f"observable assertions (e.g., specific values, status "
+                        f"codes, error types, comparisons)"
+                    ),
+                )
+            )
+        elif not has_concrete:
+            findings.append(
+                LintFinding(
+                    spec_name=spec_name,
+                    level="WARN",
+                    check="ac_concreteness",
+                    message=(
+                        f"{ac_id} lacks concrete, observable assertions "
+                        f"(e.g., HTTP status codes, specific return values, "
+                        f"named exception types, numeric comparisons)"
+                    ),
+                )
+            )
+
+    return findings
+
+
 def check_spec_word_count(spec_name: str, spec_text: str) -> LintFinding | None:
     word_count = len(spec_text.split())
     if word_count > SPEC_WORD_COUNT_SOFT_CAP:
@@ -278,6 +345,8 @@ def spec_lint(
     result.findings.extend(check_ac_symbol_references_resolve(spec_name, spec_text, export_map))
 
     result.findings.extend(check_ac_single_concern(spec_name, spec_text))
+
+    result.findings.extend(check_ac_concreteness(spec_name, spec_text))
 
     f = check_spec_word_count(spec_name, spec_text)
     if f:

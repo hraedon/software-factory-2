@@ -59,7 +59,7 @@ The principal of this project is a **systems architect, not a developer**. Archi
 - Spec lint, inner gate telemetry, jury observability, credential infrastructure
 - **1149 passing tests, 0 lint errors, 0 dead code findings** (run `make check` to verify current counts)
 
-**Known issues:** 17 open items (2 high proposed, 1 high in-progress, 10 medium proposed, 1 medium in-progress, 3 low proposed) + 18 RFCs + 7 active defect classes + 2 stabilized. See `breadcrumbs/README.md` (full set, incl. `resolved/`). High-priority open: BC-224 (jury accepts stub code against HTTP ACs) and BC-227 (AC-BOOT-01 vacuity) — both addressed by the RFC-038 conformance gate, now validated end-to-end: GR-058 was ALL PASS with the boot probe executing and enforcing anti-vacuity; the only remaining gate is a GR-055-scale confirmation (BC-232). This session resolved BC-229/230/231.
+**Known issues:** 8 open items (1 high in-progress, 3 medium proposed, 1 medium in-progress, 3 low proposed) + 19 RFCs + 7 active defect classes + 2 stabilized. See `breadcrumbs/README.md` (full set, incl. `resolved/`). High-priority open: BC-224 (jury accepts stub code against HTTP ACs — mitigated by RFC-038 conformance gate, pending confirmation run). Resolved this session: BC-221, BC-220, BC-226, BC-225, BC-223.
 
 **Blocking on:** nothing.
 
@@ -300,6 +300,8 @@ Create `.factory/golden-runs/golden-run-NNN-log.md`. Follow the exact format of 
 **Critical:** If you discover the root cause of a failure was different from your initial assessment (as happened with GR-032 and BC-174), **update the log with the corrected analysis**. Don't leave wrong root causes in the audit trail.
 
 #### Step 6: Commit
+
+Before committing, if a RUNCARD exists for this run, update its `Status:` field to `complete — see golden-run-NNN-log.md` (or `aborted — see ...`).
 
 ```bash
 git add .factory/golden-runs/golden-run-NNN-config.yaml .factory/golden-runs/golden-run-NNN-log.md

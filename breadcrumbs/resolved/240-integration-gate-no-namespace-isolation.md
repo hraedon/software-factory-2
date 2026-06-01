@@ -1,5 +1,5 @@
 ---
-number: "195"
+number: "240"
 title: Integration gate subprocess runs as current user with no namespace isolation
 severity: medium
 status: implemented

@@ -1,5 +1,5 @@
 ---
-number: "194"
+number: "239"
 title: "No heartbeat on long-running model claims — claim theft risk"
 severity: high
 status: implemented

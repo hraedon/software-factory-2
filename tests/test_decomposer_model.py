@@ -250,8 +250,39 @@ class TestValidateDecomposition:
         assert len(implicit) == 1
         assert "link_store" in implicit[0].diagnostic
 
+    def test_hallucinated_fr_ids_rejected(self):
+        data = {
+            "modules": [
+                _valid_module("m1", "FR-01"),
+                _valid_module("m2", "FR-05"),
+            ]
+        }
+        results = _validate_decomposition(data, spec_fr_ids={"FR-01", "FR-02", "FR-03", "FR-04"})
+        hallu = [r for r in results if r.diagnostic_kind == "hallucinated_fr_id"]
+        assert len(hallu) == 1
+        assert "FR-05" in hallu[0].diagnostic
 
-class TestDecomposeFromModel:
+    def test_all_valid_fr_ids_pass(self):
+        data = {
+            "modules": [
+                _valid_module("m1", "FR-01"),
+                _valid_module("m2", "FR-02", dependency_fr_ids=["FR-01"]),
+            ]
+        }
+        results = _validate_decomposition(data, spec_fr_ids={"FR-01", "FR-02"})
+        hallu = [r for r in results if r.diagnostic_kind == "hallucinated_fr_id"]
+        assert len(hallu) == 0
+
+    def test_no_spec_fr_ids_skips_gate(self):
+        data = {
+            "modules": [
+                _valid_module("m1", "FR-99"),
+            ]
+        }
+        results = _validate_decomposition(data, spec_fr_ids=None)
+        hallu = [r for r in results if r.diagnostic_kind == "hallucinated_fr_id"]
+        assert len(hallu) == 0
+
     def test_success(self, tmp_path: Path):
         data = {
             "modules": [

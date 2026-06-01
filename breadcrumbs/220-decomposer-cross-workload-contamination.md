@@ -2,7 +2,7 @@
 number: "220"
 title: "Decomposer produces cross-workload contamination — hallucinated FR-05 with wrong-spec content"
 severity: medium
-status: proposed
+status: implemented
 kind: bug
 author: opencode
 date: "2026-05-28"
@@ -36,3 +36,7 @@ If populate runs against the full decomposer output directory, it creates work i
 ## Workaround
 
 Manually inspect decomposer output before populating. Use only the semantic-named files (Phase B) and discard all `wi_frNN.md` files.
+
+## Fix
+
+Added hallucinated FR ID gate to `_validate_decomposition()` in `decomposer_model.py`: when `spec_fr_ids` is provided (extracted from `spec.yaml`'s `functional_requirements`), any module claiming an FR ID not in the spec is rejected with `hallucinated_fr_id` diagnostic. The `decompose_from_model()` function extracts FR IDs from the spec YAML and passes them to validation. 3 new tests.

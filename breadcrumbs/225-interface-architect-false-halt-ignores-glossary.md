@@ -2,7 +2,7 @@
 number: "225"
 title: "interface_architect halts on FR-local type underspecification without consulting the spec glossary that defines the missing structure"
 severity: low
-status: proposed
+status: implemented
 kind: bug
 author: claude-opus (review session)
 date: "2026-05-29"
@@ -29,6 +29,10 @@ It is also the **inverse half of the BC-224 finding**: the same run shows the pi
 
 - Interface-stage prompt: before declaring an AC/FR underspecified, the architect must check whether the spec's glossary / data / business-rules sections define the referenced entity, and resolve from there.
 - May be partly subsumed by RFC-039: a deliverable-altitude unit (a `stats` vertical slice that owns the hit record) would carry the glossary-defined hit structure in context rather than seeing FR-03 in isolation.
+
+## Fix
+
+Updated `src/factory/prompts/interface_architect.md` structured-failure section: before declaring an AC or FR underspecified, the architect must explicitly (1) search the glossary for referenced entity definitions, (2) check data/business_rules/error_handling sections, and (3) only issue `cannot_proceed` if all sources have been exhausted and a genuine ambiguity remains.
 
 ## Why this isn't the previous fix recurring
 

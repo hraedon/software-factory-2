@@ -99,17 +99,17 @@ Systemic fix implemented via RFC-011 (unified subprocess execution layer). Insta
 
 | # | Title | Severity | Status |
 |---|---|---|---|
-| 226 | spec_lint should reject non-concrete ACs — fuzzy items in acceptance_criteria silently degrade RFC-038 gate coverage | medium | proposed |
-| 225 | interface_architect halts on FR-local type underspecification without consulting the glossary that defines the missing structure | low | proposed |
-| 224 | Jury/review accept stub, non-HTTP code as satisfying HTTP/persistence ACs — quorum buries the one juror that catches it | high | proposed |
-| 223 | Golden-run RUNCARD status field not reconciled after run — audit trail self-contradicts | low | proposed |
+| 226 | spec_lint should reject non-concrete ACs — fuzzy items in acceptance_criteria silently degrade RFC-038 gate coverage | medium | implemented |
+| 225 | interface_architect halts on FR-local type underspecification without consulting the glossary that defines the missing structure | low | implemented |
+| 224 | Jury/review accept stub, non-HTTP code as satisfying HTTP/persistence ACs — quorum buries the one juror that catches it | high | in_progress |
+| 223 | Golden-run RUNCARD status field not reconciled after run — audit trail self-contradicts | low | implemented |
 | 222 | outcome_e2e gate on web-service workloads is unvalidated — GR-047 escalation, unknown root cause | medium | proposed |
-| 221 | populate_work_items.py --spec-yaml mode has 3 bugs: workspace_root fallback, reset destroys files, requirements.txt not copied | high | in_progress |
 | 215 | Scheduler dedup lock is single-process only — no HA support | low | proposed |
 | 211 | No Prometheus metrics endpoint despite spec §7 claiming one | medium | proposed |
 | 210 | No streaming/incremental telemetry — operators have no visibility during long runs | medium | proposed |
-| 220 | Decomposer produces cross-workload contamination — hallucinated FR-05 with wrong-spec content | medium | proposed |
+| 220 | Decomposer produces cross-workload contamination — hallucinated FR-05 with wrong-spec content | medium | implemented |
 | 209 | No real workload validation — 4 non-cert-watch golden runs completed (96-97% lock), remaining gap is non-CLI workloads | medium | in_progress |
+| 241 | jury_orchestrator.py and idempotency.py lack dedicated test files | medium | proposed |
 
 ### RFCs (awaiting upstream phases)
 
@@ -142,6 +142,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | # | Title | Severity | Resolution |
 |---|---|---|---|
 | 219 | spec_lint AC regex rejects AC-{PREFIX}-NN format; populate_work_items hardcodes ac_ids to AC-01 | high | Updated spec_lint regex to `AC-(?:[A-Z]+-)?\d+`, made colon optional; added `_extract_ac_ids_from_fixture()` to populate_work_items.py replacing hardcoded `["AC-01"]`; added AC enrichment and FR→module name mapping in decomposer_model.py; 1107 tests pass; GR-043 validated (97% lock rate) |
+| 221 | populate_work_items.py --spec-yaml mode has 3 bugs: workspace_root fallback, reset destroys decomposed files, requirements.txt not copied | high | Used resolved `workspace_root` variable; decompose to tempdir before reset; derive fixture dir from spec file parent for requirements.txt copy |
 | 217 | Adversarial review: 3 critical bugs + 8 high-severity issues found and fixed | critical | 3 critical (telemetry NameError, inner_gate JSONDecodeError, dead decomposer branch), 8 high (subprocess env leak, venv CalledProcessError args, 6 string-constant-gravity fixes, review_surface wrong key, wrong timeout, jury unbound var, dead telemetry branch), 9 medium fixes; all 1107 tests pass |
 | 216 | Spec review stage — model-mediated architectural review before decomposition | high | `spec_review.py` module + `prompts/spec_review.md` + 28 tests; model-mediated review with confidence-scored findings; Phase B.5 mechanical orphaned-module gate in `decomposer_model.py`; wired into `populate_work_items.py --spec-review`; socratic-spec process.md updated (composition checks blocking, cross-model requirement removed) |
 | 208 | mutation_gate.py _run_pytest duplicates pre_gate and gate pytest logic | high | Unified three-way pytest duplication into single canonical `_run_pytest` in `gate/_subprocess.py` with `gate_name` parameter; mutation_gate delegates via import, pre_gate uses lazy-import wrapper; ~110 lines of duplication eliminated |
@@ -157,13 +158,13 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | 201 | Scheduler swallows database exceptions as 'not locked' | medium | Replaced bare `except Exception: return False` in `_all_dep_specs_locked()` with structured logging of the unexpected error; preserves the `return False` behavior but with visibility |
 | 199 | Unscoped query_work_items() leaks cross-project data in initiative.py and review_surface.py | medium | Added optional `workflow_name`/`workflow_version` kwargs to `query_initiatives()`, `cancel_initiative()`, `requeue_initiative()`; `review_surface.generate_review_report()` now passes scoping filters to `query_work_items()` |
 | 198 | Initiative requeue uses state name as transition name — no valid transition from cannot_proceed | high | Added `requeue` transition from `cannot_proceed` → `new` to all workflow YAMLs; `initiative.py` now uses `TRANSITION_REQUEUE` constant; `cancel_initiative()` validates current state and uses `TRANSITION_ROUTE_TO_CANNOT_PROCEED`; both functions log skip warnings for unexpected states |
-| 194 | No heartbeat on long-running model claims — claim theft risk | high | `HeartbeatSession` context manager wraps claims in runner/gate; daemon thread calls `heartbeat_claim` periodically; `cancel_event` kills subprocess on `CLAIM_LOST`; `subprocess.run` refactored to Popen+poll for cancellation |
+| 239 | No heartbeat on long-running model claims — claim theft risk | high | `HeartbeatSession` context manager wraps claims in runner/gate; daemon thread calls `heartbeat_claim` periodically; `cancel_event` kills subprocess on `CLAIM_LOST`; `subprocess.run` refactored to Popen+poll for cancellation |
 | 197 | Dead code with broken regista API: store_spec_hash and load_spec_hash | low | Removed `store_spec_hash` and `load_spec_hash` (never called from production or tests); removed unused `CUSTOM_FIELD_SPEC_HASH` constant |
 | 203 | gemini_channel.py hardcodes Node v24.15.0 path — not in FactoryConfig | medium | Added `gemini_node_bin: Path | None` to `FactoryConfig`; channel reads from config with hardcoded fallback |
 | 204 | context.py hardcodes page_size=200 with no pagination | low | Parameterized `page_size` in `_gather_other_locked_artifacts` and `derive_integrator_context`; default 200 preserved for integrator's full-scan |
 | 205 | workspace.py and dep_resolution.py accept unvalidated paths — path traversal and process group kill risks | critical | Added `_validate_path_component()` rejecting `/`, `\`, `..` in workspace paths; `_safe_artifact_path()` now rejects absolute paths; `_resolve_ref_artifact()` uses shared validation; `_terminate()` validates pgid==pid before killpg; `_safe_rmtree()` with /tmp prefix guard in agent_golden_run.py; FR-ID regex widened to `FR-(?:[A-Z]+-)?\d+`; removed duplicate yaml import and `__import__("time")`; 14 path-traversal tests |
 | 193 | spec_section and import_feedback rendered unfenced in prompt — heading injection risk from fixture specs | low | Both fields fenced in triple-backtick code blocks in `render_prompt`; `custom_fields_update` added to SubmitPayload known-fields |
-| 195 | Integration gate subprocess namespace isolation — unshare --user --map-root-user --net | medium | `evaluate_integration` runs all subprocesses (import, mypy, pytest) under `unshare --user --map-root-user --net` when available; graceful degradation with structlog warning; PYTHONDONTWRITEBYTECODE set; validated in GR-039 |
+| 240 | Integration gate subprocess namespace isolation — unshare --user --map-root-user --net | medium | `evaluate_integration` runs all subprocesses (import, mypy, pytest) under `unshare --user --map-root-user --net` when available; graceful degradation with structlog warning; PYTHONDONTWRITEBYTECODE set; validated in GR-039 |
 | RFC-011 | Unified subprocess execution layer — typed wrapper eliminating gate/runner subprocess footguns | critical | `factory.subprocess.run` with keyword-only `cmd`/`cwd`/`env`/`timeout_s`; all 29 call sites in `src/factory/` migrated; CLASS-005 + CLASS-008 stabilized; validated in GR-039 |
 | RFC-036 | Eliminate regista private-API imports; split gate.py into a gate/ package | medium | gate.py (1415 lines) split into gate/ package with 9 submodules; gate/__init__.py re-exports all public names for backward compat; runner.py split: inner_gate.py + jury_orchestrator.py; phase defaults extracted to phase_defaults.py; _PHASE2_DISPATCH → _KIND_DISPATCH |
 | RFC-024 | Coherence reviewer — declared role with zero design or implementation | high | Role removed from all dead-configuration sites (constants.py, spec.md, full_pipeline.yaml) per RFC-024 Option A. May be reintroduced in Phase 6 with concrete evidence of a structural-coherence gap. See resolved/RFC-024-coherence-reviewer.md. |
@@ -225,7 +226,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | 153 | Three test files have conditionally-skipped assertions — silently pass without testing | high | Changed `if not result.passed:` guards to `assert not result.passed`; updated test input to use unfixable F821 error |
 | 152 | router.py _classify_diagnostic has unreachable dead code branches | low | Removed lines 72-83 — the enum-iteration loop at lines 51-54 already matches all `DiagnosticKind` values |
 | 151 | Integration success reports wrong gate name | high | Added `GATE_NAME_INTEGRATION` constant; `evaluate_integration()` returns it on success instead of `GATE_NAME_INTEGRATION_IMPORT` |
-| 150 | Channel backoff creates permanent deadlock | critical | Implemented time-based backoff with `channel_backoff_until` dict; after cooldown, one probe item is attempted; counter resets on success |
+| 234 | Channel backoff creates permanent deadlock | critical | Implemented time-based backoff with `channel_backoff_until` dict; after cooldown, one probe item is attempted; counter resets on success |
 | 144 | agent_golden_run.py idle timeout too aggressive — killed working pipeline | medium | Increased `max_idle_cycles` from 3 to 10 (10min idle before declaring done); increased `claim_near_budget` fatal threshold from 3 to 5 |
 | 143 | claim_near_budget releases claim without terminal transition — zombie items cycle forever | high | `claim_near_budget` now transitions claim → cannot_proceed (terminal) instead of just releasing; 4 items properly escalated in GR-027 |
 | 142 | agent_golden_run.py launched processes from /tmp — broke opencode project context | high | Changed `_launch_processes()` to use `cwd=REPO_ROOT`; workspace isolation via config YAML workspace_root, not process cwd |
@@ -285,7 +286,7 @@ RFC breadcrumbs use the `RFC-` prefix to distinguish design proposals that canno
 | 092 | SyntaxError swallowed in gate import checks | high | Replaced `except SyntaxError: pass` with explicit failure GateResults in both test-suite and implementation import gates |
 | 093 | Command injection in pre_gate import smoke check | high | Added `str.isidentifier()` validation in `_run_import_check` before constructing import statement |
 | 094 | Tests write to hardcoded /tmp paths | medium | Replaced hardcoded `/tmp` with `tmp_path` pytest fixture in `test_gate_assertion_count.py` |
-| 150 | Isolate opencode session DB per golden run via XDG_DATA_HOME | medium | `scripts/agent_golden_run.py` sets `XDG_DATA_HOME` per run, cleans up isolated DB; `tests/test_agent_golden_run.py` coverage; docs updated |
+| 238 | Isolate opencode session DB per golden run via XDG_DATA_HOME | medium | `scripts/agent_golden_run.py` sets `XDG_DATA_HOME` per run, cleans up isolated DB; `tests/test_agent_golden_run.py` coverage; docs updated |
 | 095 | No artifact size limits anywhere | high | Added `MAX_ARTIFACT_SIZE_BYTES = 1_000_000` and size checks in runner and subprocess_channel |
 | 086 | Test suite inner gate — pytest --collect-only before outer submission | medium | Added `pre_gate_test_suite()` to `pre_gate.py` running ruff + `pytest --collect-only`; inner gate loop now runs for all three worker roles; gate labels use `GATE_NAME_INNER_*` constants; 7 new tests |
 | 085 | Interface spec inner gate — import smoke check before outer submission | medium | Added `pre_gate_interface_spec()` to `pre_gate.py` running ruff + `python -c "import <module>"` smoke check; prevents locked interface_specs with invalid Python from blocking downstream; 7 new tests |

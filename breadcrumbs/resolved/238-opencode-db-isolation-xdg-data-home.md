@@ -1,5 +1,5 @@
 ---
-number: "150"
+number: "238"
 title: "Isolate opencode session DB per golden run via XDG_DATA_HOME"
 severity: medium
 status: implemented

@@ -1,5 +1,5 @@
 ---
-number: "150"
+number: "234"
 title: "Channel backoff creates permanent deadlock — once max_attempts reached, channel never retried"
 severity: critical
 status: resolved

@@ -53,7 +53,11 @@ If the spec excerpt is genuinely ambiguous — two reasonable engineers would pr
 
 Do NOT also write `artifact.pyi`. The presence of `cannot_proceed.json` is the signal that you chose not to produce a contract. The pipeline will route this to the spec-ambiguity resolver, who will surface it to the principal.
 
-A truly ambiguous spec is rare. Surface-level ambiguity is usually resolvable by reading the AC text more carefully or referring to the glossary. Use `cannot_proceed` only when you have done both and a real contradiction remains.
+A truly ambiguous spec is rare. Surface-level ambiguity is usually resolvable by reading the AC text more carefully or referring to the glossary. **Before declaring an AC or FR underspecified:**
+
+1. Search the provided `glossary` section for any entity names, field lists, or type definitions referenced by the AC or FR text. The glossary often defines structures that are not repeated inline.
+2. Check the spec excerpt's `data`, `business_rules`, or `error_handling` sections for referenced entities.
+3. Only issue `cannot_proceed` if you have checked all of the above and a genuine ambiguity remains that two engineers would resolve differently.
 
 ## Quality bar
 

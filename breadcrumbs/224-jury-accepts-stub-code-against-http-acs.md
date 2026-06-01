@@ -55,3 +55,7 @@ Implemented the substrate boot-AC invariant (per plan `plans/2026-05-30-substrat
 4. Single-dependent substrates are inlined (Option 3 from the plan).
 
 This does NOT resolve BC-224's root cause (jury altitude mismatch) — that requires RFC-038's full conformance gate. But it prevents the substrate-specific cannot_proceed stall and establishes the anti-vacuity guarantee for the boot AC.
+
+## Progress (2026-06-01)
+
+RFC-038 conformance gate implemented and validated end-to-end through GR-058 (ALL PASS). The gate (`src/factory/gate/conformance.py`) derives pytest tests from ACs, runs them against the assembled artifact in a hermetic subprocess, and deterministically rejects stubs (dep-v1-364 invariant). The jury is now non-load-bearing for conformance — the conformance gate is the authority. Remaining work: GR-055-scale confirmation run (BC-232). BC-224's root cause (jury altitude mismatch) is mitigated by making the jury advisory rather than authoritative for conformance; the rubric fix (directions 1-2 above) is lower priority now that the conformance gate exists.

@@ -2,7 +2,7 @@
 number: "223"
 title: "Golden-run RUNCARD status field not reconciled after run — audit trail self-contradicts (GR-047 runcard still says 'not yet run')"
 severity: low
-status: proposed
+status: implemented
 kind: improvement
 author: claude-opus (review session)
 date: "2026-05-29"
